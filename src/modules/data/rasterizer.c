@@ -9,8 +9,19 @@
 #include <string.h>
 #include <math.h>
 
+typedef struct {
+  uint16_t x;
+  uint16_t y;
+  uint16_t w;
+  uint16_t h;
+  uint16_t ox;
+  uint16_t oy;
+  uint16_t advance;
+} Glyph;
+
 struct Rasterizer {
   uint32_t ref;
+  FontType type;
   float size;
   float scale;
   float ascent;
@@ -20,6 +31,8 @@ struct Rasterizer {
   Blob* blob;
   Image* atlas;
   stbtt_fontinfo font;
+  arr_t(Glyph) glyphs;
+  map_t glyphLookup;
 };
 
 static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
@@ -37,6 +50,7 @@ static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
 
   Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
   rasterizer->ref = 1;
+  rasterizer->type = FONT_TTF;
 
   lovrRetain(blob);
   rasterizer->blob = blob;
@@ -56,37 +70,38 @@ static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
   return rasterizer;
 }
 
-static int64_t parseNumber(const char* line, size_t lineLength, map_t* map, const char* key) {
+static int64_t parseNumber(const char* string, size_t length, map_t* map, const char* key) {
   uint64_t value = map_get(map, hash64(key, strlen(key)));
   if (value == MAP_NIL) return 0;
-  const char* string = (const char*) (uintptr_t) value;
-  size_t length = lineLength - (string - line);
-  bool negative = *string == '-';
-  string += negative;
-  length -= negative;
+  const char* s = (const char*) (uintptr_t) value;
+  size_t n = length - (s - string);
+  bool negative = *s == '-';
+  s += negative;
+  n -= negative;
   int64_t number = 0;
-  while (length > 0 && *string != ' ' && *string >= '0' && *string <= '9') {
+  while (n > 0 && *s != ' ' && *s >= '0' && *s <= '9') {
     number *= 10;
-    number += *string++ - '0';
-    length--;
+    number += *s++ - '0';
+    n--;
   }
   return negative ? -number : number;
 }
 
-static const char* parseString(const char* line, size_t lineLength, map_t* map, const char* key, size_t* length) {
+static const char* parseString(const char* string, size_t maxLength, map_t* map, const char* key, size_t* length) {
   uint64_t value = map_get(map, hash64(key, strlen(key)));
   if (value == MAP_NIL) return NULL;
-  const char* string = (const char*) (uintptr_t) value;
-  size_t maxLength = lineLength - (string - line);
-  if (string[0] == '"') {
-    char* quote = memchr(string + 1, '"', maxLength - 1);
+  const char* s = (const char*) (uintptr_t) value;
+  size_t n = maxLength - (s - string);
+  if (*s == '"') {
+    s++, n--;
+    char* quote = memchr(s, '"', n);
     if (!quote) return NULL;
-    *length = quote - (string + 1);
-    return string + 1;
+    *length = quote - s;
+    return s;
   } else {
-    char* space = memchr(string, ' ', maxLength);
-    *length = space ? space - string : maxLength;
-    return string;
+    char* space = memchr(s, ' ', n);
+    *length = space ? space - s : n;
+    return s;
   }
 }
 
@@ -96,8 +111,12 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
   if (!memcmp(blob->data, "info", 4)) {
     Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
     rasterizer->ref = 1;
+    rasterizer->type = FONT_BMF;
     rasterizer->scale = 1.f;
     map_init(&rasterizer->kerning, 0);
+    arr_init(&rasterizer->glyphs);
+    arr_reserve(&rasterizer->glyphs, 36);
+    map_init(&rasterizer->glyphLookup, 36);
 
     map_t map;
     map_init(&map, 8);
@@ -166,13 +185,23 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
         Blob* atlasBlob = lovrBlobCreate(atlasData, atlasSize, "BMFont atlas");
         rasterizer->atlas = lovrImageCreateFromFile(atlasBlob);
       } else if (!memcmp(tag, "char", tagLength)) {
-        //uint32_t codepoint = parseNumber(&map, "id");
+        uint32_t codepoint = parseNumber(string, lineLength, &map, "id");
+        Glyph glyph;
+        glyph.x = parseNumber(string, lineLength, &map, "x");
+        glyph.y = parseNumber(string, lineLength, &map, "y");
+        glyph.w = parseNumber(string, lineLength, &map, "width");
+        glyph.h = parseNumber(string, lineLength, &map, "height");
+        glyph.ox = parseNumber(string, lineLength, &map, "xoffset");
+        glyph.oy = parseNumber(string, lineLength, &map, "yoffset");
+        glyph.advance = parseNumber(string, lineLength, &map, "xadvance");
+        arr_push(&rasterizer->glyphs, glyph);
+        map_set(&rasterizer->glyphLookup, hash64(&codepoint, 4), rasterizer->glyphs.length - 1);
       } else if (!memcmp(tag, "kerning", tagLength)) {
         uint32_t first = parseNumber(string, lineLength, &map, "first");
         uint32_t second = parseNumber(string, lineLength, &map, "second");
-        int32_t kerning = parseNumber(string, lineLength, &map, "amount");
+        int64_t kerning = parseNumber(string, lineLength, &map, "amount");
         uint32_t hash = hash64((uint32_t[]) { first, second }, 2 * sizeof(uint32_t));
-        map_set(&rasterizer->kerning, hash, kerning);
+        map_set(&rasterizer->kerning, hash, (uint64_t) kerning);
       }
 
       // Go to the next line
@@ -205,7 +234,15 @@ void lovrRasterizerDestroy(void* ref) {
   lovrRelease(rasterizer->blob, lovrBlobDestroy);
   lovrRelease(rasterizer->atlas, lovrImageDestroy);
   map_free(&rasterizer->kerning);
+  if (rasterizer->type == FONT_BMF) {
+    arr_free(&rasterizer->glyphs);
+    map_free(&rasterizer->glyphLookup);
+  }
   lovrFree(rasterizer);
+}
+
+FontType lovrRasterizerGetType(Rasterizer* rasterizer) {
+  return rasterizer->type;
 }
 
 float lovrRasterizerGetFontSize(Rasterizer* rasterizer) {
