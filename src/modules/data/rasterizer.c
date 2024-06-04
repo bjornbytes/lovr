@@ -56,27 +56,36 @@ static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
   return rasterizer;
 }
 
-// FIXME we're assuming the string is NULL terminated here, but it isn't, necessarily
-static int parseNumber(map_t* map, const char* key) {
+static int64_t parseNumber(const char* line, size_t lineLength, map_t* map, const char* key) {
   uint64_t value = map_get(map, hash64(key, strlen(key)));
   if (value == MAP_NIL) return 0;
-  return (int) strtol((const char*) (uintptr_t) value, NULL, 10);
+  const char* string = (const char*) (uintptr_t) value;
+  size_t length = lineLength - (string - line);
+  bool negative = *string == '-';
+  string += negative;
+  length -= negative;
+  int64_t number = 0;
+  while (length > 0 && *string != ' ' && *string >= '0' && *string <= '9') {
+    number *= 10;
+    number += *string++ - '0';
+    length--;
+  }
+  return negative ? -number : number;
 }
 
-// FIXME we're assuming the string is NULL terminated here, but it isn't, necessarily
-static const char* parseString(map_t* map, const char* key, size_t* length) {
+static const char* parseString(const char* line, size_t lineLength, map_t* map, const char* key, size_t* length) {
   uint64_t value = map_get(map, hash64(key, strlen(key)));
   if (value == MAP_NIL) return NULL;
   const char* string = (const char*) (uintptr_t) value;
+  size_t maxLength = lineLength - (string - line);
   if (string[0] == '"') {
-    char* quote = strchr(string + 1, '"');
+    char* quote = memchr(string + 1, '"', maxLength - 1);
     if (!quote) return NULL;
     *length = quote - (string + 1);
     return string + 1;
   } else {
-    char* space = strchr(string, ' ');
-    char* newline = strchr(string, '\n');
-    *length = space ? space - string : (newline ? newline - string : strlen(string));
+    char* space = memchr(string, ' ', maxLength);
+    *length = space ? space - string : maxLength;
     return string;
   }
 }
@@ -128,40 +137,42 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
       }
 
       if (!memcmp(tag, "info", tagLength)) {
-        rasterizer->size = parseNumber(&map, "size");
+        rasterizer->size = parseNumber(string, lineLength, &map, "size");
       } else if (!memcmp(tag, "common", tagLength)) {
-        lovrCheck(parseNumber(&map, "pages") == 1, "Currently, BMFont files with multiple images are not supported");
-        lovrCheck(parseNumber(&map, "packed") == 0, "Currently, packed BMFont files are not supported");
-        rasterizer->leading = parseNumber(&map, "lineHeight");
-        rasterizer->ascent = parseNumber(&map, "base");
+        lovrCheck(parseNumber(string, lineLength, &map, "pages") == 1, "Currently, BMFont files with multiple images are not supported");
+        lovrCheck(parseNumber(string, lineLength, &map, "packed") == 0, "Currently, packed BMFont files are not supported");
+        rasterizer->leading = parseNumber(string, lineLength, &map, "lineHeight");
+        rasterizer->ascent = parseNumber(string, lineLength, &map, "base");
         rasterizer->descent = rasterizer->leading - rasterizer->ascent; // Best effort
       } else if (!memcmp(tag, "page", tagLength)) {
         char fullpath[1024];
-        lovrCheck(strlen(blob->name) < sizeof(fullpath), "BMFont filename is too long");
-        memcpy(fullpath, blob->name, strlen(blob->name));
+        size_t nameLength = strlen(blob->name);
+        lovrCheck(nameLength < sizeof(fullpath), "BMFont filename is too long");
+        memcpy(fullpath, blob->name, nameLength + 1);
         char* slash = strrchr(fullpath, '/');
         char* filename = slash ? slash + 1 : fullpath;
         size_t maxLength = sizeof(fullpath) - 1 - (filename - fullpath);
 
-        size_t length;
-        const char* file = parseString(&map, "file", &length);
+        size_t filenameLength;
+        const char* file = parseString(string, lineLength, &map, "file", &filenameLength);
         lovrCheck(file, "BMFont is missing image path");
-        lovrCheck(length <= maxLength, "BMFont filename is too long");
-        memcpy(filename, file, length);
-        filename[length] = '\0';
+        lovrCheck(filenameLength <= maxLength, "BMFont filename is too long");
+        memcpy(filename, file, filenameLength);
+        filename[filenameLength] = '\0';
 
         size_t atlasSize;
         void* atlasData = io(fullpath, &atlasSize);
+        lovrCheck(atlasData, "Failed to read BMFont image from %s", fullpath);
         Blob* atlasBlob = lovrBlobCreate(atlasData, atlasSize, "BMFont atlas");
         rasterizer->atlas = lovrImageCreateFromFile(atlasBlob);
       } else if (!memcmp(tag, "char", tagLength)) {
         //uint32_t codepoint = parseNumber(&map, "id");
       } else if (!memcmp(tag, "kerning", tagLength)) {
-        uint32_t first = parseNumber(&map, "first");
-        uint32_t second = parseNumber(&map, "second");
-        int32_t kerning = parseNumber(&map, "amount");
+        uint32_t first = parseNumber(string, lineLength, &map, "first");
+        uint32_t second = parseNumber(string, lineLength, &map, "second");
+        int32_t kerning = parseNumber(string, lineLength, &map, "amount");
         uint32_t hash = hash64((uint32_t[]) { first, second }, 2 * sizeof(uint32_t));
-        map_set(&rasterizer->kerning, hash, (uint64_t) kerning);
+        map_set(&rasterizer->kerning, hash, kerning);
       }
 
       // Go to the next line
