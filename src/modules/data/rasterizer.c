@@ -155,9 +155,13 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
         Blob* atlasBlob = lovrBlobCreate(atlasData, atlasSize, "BMFont atlas");
         rasterizer->atlas = lovrImageCreateFromFile(atlasBlob);
       } else if (!memcmp(tag, "char", tagLength)) {
-        //uint32_t codepoint = getNumber(&map, "id");
+        //uint32_t codepoint = parseNumber(&map, "id");
       } else if (!memcmp(tag, "kerning", tagLength)) {
-        //
+        uint32_t first = parseNumber(&map, "first");
+        uint32_t second = parseNumber(&map, "second");
+        int32_t kerning = parseNumber(&map, "amount");
+        uint32_t hash = hash64((uint32_t[]) { first, second }, 2 * sizeof(uint32_t));
+        map_set(&rasterizer->kerning, hash, (uint64_t) kerning);
       }
 
       // Go to the next line
@@ -256,7 +260,7 @@ float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t first, uint32_t 
     map_set(&rasterizer->kerning, hash, kerning);
   }
 
-  return kerning * rasterizer->scale;
+  return (int32_t) kerning * rasterizer->scale;
 }
 
 void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]) {
