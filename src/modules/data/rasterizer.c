@@ -35,6 +35,11 @@ struct Rasterizer {
   map_t glyphLookup;
 };
 
+static Glyph* lovrRasterizerGetGlyph(Rasterizer* rasterizer, uint32_t codepoint) {
+  uint64_t index = map_get(&rasterizer->glyphLookup, hash64(&codepoint, 4));
+  return index == MAP_NIL ? NULL : &rasterizer->glyphs.data[index];
+}
+
 static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
   unsigned char* data = blob ? blob->data : etc_VarelaRound_ttf;
 
@@ -250,11 +255,19 @@ float lovrRasterizerGetFontSize(Rasterizer* rasterizer) {
 }
 
 uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer) {
-  return rasterizer->font.numGlyphs;
+  if (rasterizer->type == FONT_TTF) {
+    return rasterizer->font.numGlyphs;
+  } else {
+    return rasterizer->glyphs.length;
+  }
 }
 
 bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t codepoint) {
-  return stbtt_FindGlyphIndex(&rasterizer->font, codepoint) != 0;
+  if (rasterizer->type == FONT_TTF) {
+    return stbtt_FindGlyphIndex(&rasterizer->font, codepoint) != 0;
+  } else {
+    return map_get(&rasterizer->glyphLookup, hash64(&codepoint, 4)) != MAP_NIL;
+  }
 }
 
 bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str, size_t length) {
@@ -271,7 +284,12 @@ bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str, size_t len
 }
 
 bool lovrRasterizerIsGlyphEmpty(Rasterizer* rasterizer, uint32_t codepoint) {
-  return stbtt_IsGlyphEmpty(&rasterizer->font, stbtt_FindGlyphIndex(&rasterizer->font, codepoint));
+  if (rasterizer->type == FONT_TTF) {
+    return stbtt_IsGlyphEmpty(&rasterizer->font, stbtt_FindGlyphIndex(&rasterizer->font, codepoint));
+  } else {
+    Glyph* glyph = lovrRasterizerGetGlyph(rasterizer, codepoint);
+    return !glyph || glyph->w == 0 || glyph->h == 0;
+  }
 }
 
 float lovrRasterizerGetAscent(Rasterizer* rasterizer) {
@@ -287,15 +305,25 @@ float lovrRasterizerGetLeading(Rasterizer* rasterizer) {
 }
 
 float lovrRasterizerGetAdvance(Rasterizer* rasterizer, uint32_t codepoint) {
-  int advance, bearing;
-  stbtt_GetCodepointHMetrics(&rasterizer->font, codepoint, &advance, &bearing);
-  return advance * rasterizer->scale;
+  if (rasterizer->type == FONT_TTF) {
+    int advance, bearing;
+    stbtt_GetCodepointHMetrics(&rasterizer->font, codepoint, &advance, &bearing);
+    return advance * rasterizer->scale;
+  } else {
+    Glyph* glyph = lovrRasterizerGetGlyph(rasterizer, codepoint);
+    return glyph ? (float) glyph->advance : 0.f;
+  }
 }
 
 float lovrRasterizerGetBearing(Rasterizer* rasterizer, uint32_t codepoint) {
-  int advance, bearing;
-  stbtt_GetCodepointHMetrics(&rasterizer->font, codepoint, &advance, &bearing);
-  return bearing * rasterizer->scale;
+  if (rasterizer->type == FONT_TTF) {
+    int advance, bearing;
+    stbtt_GetCodepointHMetrics(&rasterizer->font, codepoint, &advance, &bearing);
+    return bearing * rasterizer->scale;
+  } else {
+    Glyph* glyph = lovrRasterizerGetGlyph(rasterizer, codepoint);
+    return glyph ? (float) glyph->ox : 0.f;
+  }
 }
 
 float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t first, uint32_t second) {
@@ -304,32 +332,59 @@ float lovrRasterizerGetKerning(Rasterizer* rasterizer, uint32_t first, uint32_t 
   uint64_t kerning = map_get(&rasterizer->kerning, hash);
 
   if (kerning == MAP_NIL) {
-    kerning = stbtt_GetCodepointKernAdvance(&rasterizer->font, first, second);
-    map_set(&rasterizer->kerning, hash, kerning);
+    if (rasterizer->type == FONT_TTF) {
+      kerning = stbtt_GetCodepointKernAdvance(&rasterizer->font, first, second);
+      map_set(&rasterizer->kerning, hash, kerning);
+    } else {
+      return 0.f;
+    }
   }
 
   return (int32_t) kerning * rasterizer->scale;
 }
 
 void lovrRasterizerGetBoundingBox(Rasterizer* rasterizer, float box[4]) {
-  int x0, y0, x1, y1;
-  stbtt_GetFontBoundingBox(&rasterizer->font, &x0, &y0, &x1, &y1);
-  box[0] = x0 * rasterizer->scale;
-  box[1] = y0 * rasterizer->scale;
-  box[2] = x1 * rasterizer->scale;
-  box[3] = y1 * rasterizer->scale;
+  if (rasterizer->type == FONT_TTF) {
+    int x0, y0, x1, y1;
+    stbtt_GetFontBoundingBox(&rasterizer->font, &x0, &y0, &x1, &y1);
+    box[0] = x0 * rasterizer->scale;
+    box[1] = y0 * rasterizer->scale;
+    box[2] = x1 * rasterizer->scale;
+    box[3] = y1 * rasterizer->scale;
+  } else {
+    // TODO
+  }
 }
 
 void lovrRasterizerGetGlyphBoundingBox(Rasterizer* rasterizer, uint32_t codepoint, float box[4]) {
-  int x0, y0, x1, y1;
-  stbtt_GetCodepointBox(&rasterizer->font, codepoint, &x0, &y0, &x1, &y1);
-  box[0] = x0 * rasterizer->scale;
-  box[1] = y0 * rasterizer->scale;
-  box[2] = x1 * rasterizer->scale;
-  box[3] = y1 * rasterizer->scale;
+  if (rasterizer->type == FONT_TTF) {
+    int x0, y0, x1, y1;
+    stbtt_GetCodepointBox(&rasterizer->font, codepoint, &x0, &y0, &x1, &y1);
+    box[0] = x0 * rasterizer->scale;
+    box[1] = y0 * rasterizer->scale;
+    box[2] = x1 * rasterizer->scale;
+    box[3] = y1 * rasterizer->scale;
+  } else {
+    Glyph* glyph = lovrRasterizerGetGlyph(rasterizer, codepoint);
+    if (glyph) {
+      box[0] = glyph->ox;
+      box[1] = glyph->oy;
+      box[2] = glyph->ox + glyph->w;
+      box[3] = glyph->oy + glyph->h;
+    } else {
+      box[0] = 0.f;
+      box[1] = 0.f;
+      box[2] = 0.f;
+      box[3] = 0.f;
+    }
+  }
 }
 
 bool lovrRasterizerGetCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context) {
+  if (rasterizer->type == FONT_BMF) {
+    return false;
+  }
+
   uint32_t id = stbtt_FindGlyphIndex(&rasterizer->font, codepoint);
 
   if (stbtt_IsGlyphEmpty(&rasterizer->font, id)) {
