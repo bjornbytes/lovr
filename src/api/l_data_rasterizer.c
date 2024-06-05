@@ -186,7 +186,7 @@ static int l_lovrRasterizerGetCurves(lua_State* L) {
 static int l_lovrRasterizerNewImage(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
   uint32_t codepoint = luax_checkcodepoint(L, 2);
-  double spread = luaL_optnumber(L, 3, 4.);
+  double spread = lovrRasterizerGetType(rasterizer) == RASTERIZER_TTF ? luaL_optnumber(L, 3, 4.) : 0.;
   uint32_t padding = (uint32_t) ceil(spread / 2.);
   float box[4];
   lovrRasterizerGetGlyphBoundingBox(rasterizer, codepoint, box);

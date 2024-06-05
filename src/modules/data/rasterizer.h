@@ -8,9 +8,9 @@ struct Blob;
 struct Image;
 
 typedef enum {
-  FONT_TTF,
-  FONT_BMF
-} FontType;
+  RASTERIZER_TTF,
+  RASTERIZER_BMF
+} RasterizerType;
 
 typedef void* RasterizerIO(const char* filename, size_t* bytesRead);
 
@@ -18,7 +18,7 @@ typedef struct Rasterizer Rasterizer;
 
 Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size, RasterizerIO* io);
 void lovrRasterizerDestroy(void* ref);
-FontType lovrRasterizerGetType(Rasterizer* rasterizer);
+RasterizerType lovrRasterizerGetType(Rasterizer* rasterizer);
 float lovrRasterizerGetFontSize(Rasterizer* rasterizer);
 uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
 bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t codepoint);
