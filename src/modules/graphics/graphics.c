@@ -160,7 +160,6 @@ struct Material {
 };
 
 typedef struct {
-  uint32_t codepoint;
   float advance;
   uint16_t x, y;
   uint16_t uv[4];
@@ -3583,7 +3582,6 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   map_set(&font->glyphLookup, hash, font->glyphs.length);
   Glyph* glyph = &font->glyphs.data[font->glyphs.length++];
 
-  glyph->codepoint = codepoint;
   glyph->advance = lovrRasterizerGetAdvance(font->info.rasterizer, codepoint);
 
   if (lovrRasterizerIsGlyphEmpty(font->info.rasterizer, codepoint)) {
@@ -3695,7 +3693,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
 
   size_t stack = tempPush(&state.allocator);
   float* pixels = tempAlloc(&state.allocator, pixelWidth * pixelHeight * 4 * sizeof(float));
-  lovrRasterizerGetPixels(font->info.rasterizer, glyph->codepoint, pixels, pixelWidth, pixelHeight, font->info.spread);
+  lovrRasterizerGetPixels(font->info.rasterizer, codepoint, pixels, pixelWidth, pixelHeight, font->info.spread);
   BufferView view = getBuffer(GPU_BUFFER_UPLOAD, pixelWidth * pixelHeight * 4 * sizeof(uint8_t), 64);
   float* src = pixels;
   uint8_t* dst = view.pointer;
