@@ -1,4 +1,4 @@
-local vec2, vec3, vec4 = ...
+local vec2, vec3, vec4, quat = ...
 
 local EQ_THRESHOLD = 1e-10
 
@@ -578,4 +578,244 @@ function vec4.angle(v, x, y, z, w)
     elseif cos > 1 then cos = 1 end
     return math.acos(cos)
   end
+end
+
+----------------
+-- quat
+----------------
+
+quat.__index = quat
+
+local function isquat(t)
+  return type(t) == 'table' and getmetatable(t) == quat
+end
+
+setmetatable(quat, {
+  __call = function(t, x, y, z, w, raw)
+    return quat.set(setmetatable({}, quat), x, y, z, w, raw)
+  end
+})
+
+function quat.__tostring(q)
+  return ('(%f, %f, %f, %f)'):format(q[1], q[2], q[3], q[4])
+end
+
+function quat.__mul(q, x)
+  if isquat(q) then
+    if isvec3(x) then
+      local v = x
+      local cx, cy, cz = q[2] * v[3] - q[3] * v[2], q[3] * v[1] - q[1] * v[3], q[1] * v[2] - q[2] * v[1]
+      local q_q = q[1] * q[1] + q[2] * q[2] + q[3] * q[3]
+      local q_v = q[1] * v[1] + q[2] * v[2] + q[3] * v[3]
+      return vec3(
+        v[1] * (q[3] * q[3] - q_q) + q[1] * 2 * q_v + cx * 2 * q[3],
+        v[2] * (q[3] * q[3] - q_q) + q[2] * 2 * q_v + cy * 2 * q[3],
+        v[3] * (q[3] * q[3] - q_q) + q[3] * 2 * q_v + cz * 2 * q[3]
+      )
+    elseif isquat(x) then
+      return setmetatable({
+        q[1] * x[4] + q[4] * x[1] + q[2] * x[3] - q[3] * x[2],
+        q[2] * x[4] + q[4] * x[2] + q[3] * x[1] - q[1] * x[3],
+        q[3] * x[4] + q[4] * x[3] + q[1] * x[2] - q[2] * x[1],
+        q[4] * x[4] - q[1] * x[1] - q[2] * x[2] - q[3] * x[3]
+      }, quat)
+    end
+  end
+end
+
+function quat.__unm(q)
+  return quat(-q[1], -q[2], -q[3], q[4])
+end
+
+function quat.__len(q)
+  return q:length()
+end
+
+function quat.type()
+  return 'Quat'
+end
+
+function quat.equals(q, r)
+  return math.abs(q[1] * r[1] + q[2] * r[2] + q[3] * r[3] + q[4] * r[4]) >= 1 - 1e-5
+end
+
+function quat.unpack(q, raw)
+  if raw then
+    return q[1], q[2], q[3], q[4]
+  else
+    local length = q:length()
+    local x, y, z, w = q[1], q[2], q[3], q[4]
+    if length > 0 then x, y, z, w = x / length, y / length, z / length, w / length end
+
+    local s = math.sqrt(1 - w * w)
+    s = s < .0001 and 1 or 1 / s
+
+    return 2 * math.acos(w), x * s, y * s, z * s
+  end
+end
+
+local function quat_fromAngleAxis(angle, ax, ay, az)
+  local s, c = math.sin(angle * .5), math.cos(angle * .5)
+
+  local length = math.sqrt(ax * ax + ay * ay + az * az)
+  if length > 0 then s = s / length end
+
+  return ax * s, ay * s, az * s, c
+end
+
+local function quat_between(u, v)
+  local dot = u:dot(v)
+  if dot > .99999 then
+    return 0, 0, 0, 1
+  elseif dot < -.99999 then
+    local axis = vec3(1, 0, 0):cross(u)
+    if #axis < .00001 then axis = vec3(0, 1, 0):cross(u) end
+    return quat_fromAngleAxis(math.pi, axis:unpack())
+  else
+    local x, y, z = u[2] * v[3] - u[3] * v[2], u[3] * v[1] - u[1] * v[3], u[1] * v[2] - u[2] * v[1]
+    local w = 1 + dot
+    local length = (x * x + y * y + z * z + w * w) ^ .5
+    if length == 0 then
+      return x, y, z, w
+    else
+      return x / length, y / length, z / length, w / length
+    end
+  end
+end
+
+function quat.set(q, x, y, z, w, raw)
+  if x == nil then
+    q[1], q[2], q[3], q[4] = 0, 0, 0, 1
+  elseif type(x) == 'number' then
+    if raw then
+      q[1], q[2], q[3], q[4] = x, y, z, w
+    else
+      q[1], q[2], q[3], q[4] = quat_fromAngleAxis(x, y, z, w)
+    end
+  elseif isquat(x) then
+    q[1], q[2], q[3], q[4] = x[1], x[2], x[3], x[4]
+  elseif isvec3(x) then
+    if isvec3(y) then
+      q[1], q[2], q[3], q[4] = quat_between(x, y)
+    else
+      q[1], q[2], q[3], q[4] = quat_between(vec3.forward, x)
+    end
+  elseif type(x) == 'userdata' and x.type and x:type() == 'Mat4' then
+    q[1], q[2], q[3], q[4] = quat_fromAngleAxis(x:getOrientation())
+  end
+
+  return q
+end
+
+function quat.mul(q, x)
+  if isvec3(x) then
+    local v = x
+    local cx, cy, cz = q[2] * v[3] - q[3] * v[2], q[3] * v[1] - q[1] * v[3], q[1] * v[2] - q[2] * v[1]
+    local q_q = q[1] * q[1] + q[2] * q[2] + q[3] * q[3]
+    local q_v = q[1] * v[1] + q[2] * v[2] + q[3] * v[3]
+    return vec3(
+      v[1] * (q[3] * q[3] - q_q) + q[1] * 2 * q_v + cx * 2 * q[3],
+      v[2] * (q[3] * q[3] - q_q) + q[2] * 2 * q_v + cy * 2 * q[3],
+      v[3] * (q[3] * q[3] - q_q) + q[3] * 2 * q_v + cz * 2 * q[3]
+    )
+  elseif isquat(x) then
+    local qx = q[1] * x[4] + q[4] * x[1] + q[2] * x[3] - q[3] * x[2]
+    local qy = q[2] * x[4] + q[4] * x[2] + q[3] * x[1] - q[1] * x[3]
+    local qz = q[3] * x[4] + q[4] * x[3] + q[1] * x[2] - q[2] * x[1]
+    local qw = q[4] * x[4] - q[1] * x[1] - q[2] * x[2] - q[3] * x[3]
+    q[1], q[2], q[3], q[4] = qx, qy, qz, qw
+    return q
+  else
+    error('Expected Vec3 or Quat for Quat:mul')
+  end
+end
+
+function quat.length(q)
+  return math.sqrt(q[1] * q[1] + q[2] * q[2] + q[3] * q[3] + q[4] * q[4])
+end
+
+function quat.normalize(q)
+  local length = q:length()
+  if length > 0 then
+    q[1], q[2], q[3], q[4] = q[1] / length, q[2] / length, q[3] / length, q[4] / length
+  end
+  return q
+end
+
+function quat.direction(q)
+  local x = -2 * q[1] * q[3] - 2 * q[4] * q[2]
+  local y = -2 * q[2] * q[3] + 2 * q[4] * q[1]
+  local z = -1 + 2 * q[1] * q[1] + 2 * q[2] * q[2]
+  return x, y, z
+end
+
+function quat.conjugate(q)
+  q[1] = -q[1]
+  q[2] = -q[2]
+  q[3] = -q[3]
+  return q
+end
+
+function quat.slerp(q, r, t)
+  assert(isquat(r), 'Expected Quat for Quat:slerp')
+  local dot = q[1] * r[1] + q[2] * r[2] + q[3] * r[3] + q[4] * r[4]
+
+  if math.abs(dot) >= 1 then
+    return q
+  end
+
+  local x, y, z, w = q[1], q[2], q[3], q[4]
+
+  if dot < 0 then
+    x, y, z, w, dot = -x, -y, -z, -w, -dot
+  end
+
+  local halfTheta = math.acos(dot)
+  local sinHalfTheta = math.sqrt(1 - dot * dot)
+
+  if math.abs(sinHalfTheta) < .001 then
+    q[1] = x * .5 + r[1] * .5
+    q[2] = y * .5 + r[2] * .5
+    q[3] = z * .5 + r[3] * .5
+    q[4] = w * .5 + r[4] * .5
+    return q
+  end
+
+  local a = math.sin((1 - t) * halfTheta) / sinHalfTheta
+  local b = math.sin(t * halfTheta) / sinHalfTheta
+
+  q[1] = x * a + r[1] * b
+  q[2] = y * a + r[2] * b
+  q[3] = z * a + r[3] * b
+  q[4] = w * a + r[4] * b
+  return q
+end
+
+function quat.getEuler(q)
+  local unit = q[1] * q[1] + q[2] * q[2] + q[3] * q[3] + q[4] * q[4]
+  local test = q[1] * q[4] - q[2] * q[3]
+
+  if test > (.5 - 1e-7) * unit then
+    return math.pi / 2, 2 * math.atan2(q[2], q[1]), 0
+  elseif test < -(.5 - eps) * unit then
+    return -math.pi / 2, -2 * math.atan2(q[2], q[1]), 0
+  else
+    return math.asin(2 * test),
+      math.atan2(2 * q[4] * q[2] + 2 * q[3] * q[1], 1 - 2 * (q[1] * q[1] + q[2] * q[2])),
+      math.atan2(2 * q[4] * q[3] + 2 * q[1] * q[2], 1 - 2 * (q[3] * q[3] + q[1] * q[1]))
+  end
+end
+
+function quat.setEuler(q, x, y, z)
+  local cx = math.cos(x * .5)
+  local sx = math.sin(x * .5)
+  local cy = math.cos(y * .5)
+  local sy = math.sin(y * .5)
+  local cz = math.cos(z * .5)
+  local sz = math.sin(z * .5)
+  q[1] = cy * sx * cz + sy * cx * sz
+  q[2] = sy * cx * cz - cy * sx * sz
+  q[3] = cy * cx * sz - sy * sx * cz
+  q[4] = cy * cx * cz + sy * sx * sz
+  return q
 end

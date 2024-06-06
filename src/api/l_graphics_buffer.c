@@ -44,7 +44,6 @@ static const uint32_t typeComponents[] = {
 };
 
 static const uint32_t vectorComponents[] = {
-  [V_QUAT] = 4,
   [V_MAT4] = 16
 };
 

@@ -10,22 +10,17 @@ int l_lovrRandomGeneratorRandom(lua_State* L);
 int l_lovrRandomGeneratorRandomNormal(lua_State* L);
 int l_lovrRandomGeneratorGetSeed(lua_State* L);
 int l_lovrRandomGeneratorSetSeed(lua_State* L);
-int l_lovrQuatSet(lua_State* L);
 int l_lovrMat4Set(lua_State* L);
-int l_lovrQuat__metaindex(lua_State* L);
 int l_lovrMat4__metaindex(lua_State* L);
-static int l_lovrMathQuat(lua_State* L);
 static int l_lovrMathMat4(lua_State* L);
 extern const luaL_Reg lovrCurve[];
 extern const luaL_Reg lovrRandomGenerator[];
-extern const luaL_Reg lovrQuat[];
 extern const luaL_Reg lovrMat4[];
 
 static thread_local Pool* pool;
 static thread_local int metaref[MAX_VECTOR_TYPES];
 
 static struct { const char* name; lua_CFunction constructor, indexer; const luaL_Reg* api; } lovrVectorInfo[] = {
-  [V_QUAT] = { "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat },
   [V_MAT4] = { "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4 }
 };
 
@@ -200,22 +195,10 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
   }
 }
 
-static int l_lovrMathNewQuat(lua_State* L) {
-  luax_newvector(L, V_QUAT, 4);
-  lua_insert(L, 1);
-  return l_lovrQuatSet(L);
-}
-
 static int l_lovrMathNewMat4(lua_State* L) {
   luax_newvector(L, V_MAT4, 16);
   lua_insert(L, 1);
   return l_lovrMat4Set(L);
-}
-
-static int l_lovrMathQuat(lua_State* L) {
-  luax_newtempvector(L, V_QUAT);
-  lua_replace(L, 1);
-  return l_lovrQuatSet(L);
 }
 
 static int l_lovrMathMat4(lua_State* L) {
@@ -239,7 +222,6 @@ static const luaL_Reg lovrMath[] = {
   { "setRandomSeed", l_lovrMathSetRandomSeed },
   { "gammaToLinear", l_lovrMathGammaToLinear },
   { "linearToGamma", l_lovrMathLinearToGamma },
-  { "newQuat", l_lovrMathNewQuat },
   { "newMat4", l_lovrMathNewMat4 },
   { "drain", l_lovrMathDrain },
   { NULL, NULL }
@@ -300,7 +282,7 @@ int luaopen_lovr_math(lua_State* L) {
   luax_registertype(L, Curve);
   luax_registertype(L, RandomGenerator);
 
-  for (size_t i = V_QUAT; i < MAX_VECTOR_TYPES; i++) {
+  for (size_t i = V_MAT4; i < MAX_VECTOR_TYPES; i++) {
     lua_newtable(L);
 
     lua_newtable(L);
@@ -349,7 +331,8 @@ int luaopen_lovr_math(lua_State* L) {
     luaL_newmetatable(L, "vec2");
     luaL_newmetatable(L, "vec3");
     luaL_newmetatable(L, "vec4");
-    lua_call(L, 3, 0);
+    luaL_newmetatable(L, "quat");
+    lua_call(L, 4, 0);
 
     luaL_newmetatable(L, "vec2");
     lua_setfield(L, -2, "vec2");
@@ -365,6 +348,11 @@ int luaopen_lovr_math(lua_State* L) {
     lua_setfield(L, -2, "vec4");
     luaL_newmetatable(L, "vec4");
     lua_setfield(L, -2, "newVec4");
+
+    luaL_newmetatable(L, "quat");
+    lua_setfield(L, -2, "quat");
+    luaL_newmetatable(L, "quat");
+    lua_setfield(L, -2, "newQuat");
   } else {
     lovrThrow("%s", lua_tostring(L, -1));
     lua_pop(L, 1);
@@ -377,7 +365,7 @@ int luaopen_lovr_math(lua_State* L) {
     if (lua_istable(L, -1)) {
       lua_getfield(L, -1, "globals");
       if (lua_toboolean(L, -1)) {
-        for (size_t i = V_QUAT; i < MAX_VECTOR_TYPES; i++) {
+        for (size_t i = V_MAT4; i < MAX_VECTOR_TYPES; i++) {
           lua_getfield(L, -4, lovrVectorInfo[i].name);
           lua_setglobal(L, lovrVectorInfo[i].name);
 
@@ -405,6 +393,11 @@ int luaopen_lovr_math(lua_State* L) {
         lua_pushvalue(L, -1);
         lua_setglobal(L, "vec4");
         lua_setglobal(L, "Vec4");
+
+        lua_getfield(L, -4, "quat");
+        lua_pushvalue(L, -1);
+        lua_setglobal(L, "quat");
+        lua_setglobal(L, "Quat");
       }
       lua_pop(L, 1);
     }
