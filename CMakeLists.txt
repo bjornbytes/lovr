@@ -882,7 +882,11 @@ elseif(ANDROID)
   endif()
 elseif(UNIX)
   target_sources(lovr PRIVATE src/core/os_linux.c)
-  target_link_libraries(lovr xcb xcb-xinput xcb-xkb xkbcommon xkbcommon-x11)
+  if(LOVR_USE_GLFW)
+    target_link_libraries(lovr X11 xcb X11-xcb)
+  else()
+    target_link_libraries(lovr xcb xcb-xinput xcb-xkb xkbcommon xkbcommon-x11)
+  endif()
   set_target_properties(lovr PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     BUILD_WITH_INSTALL_RPATH TRUE

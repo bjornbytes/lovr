@@ -5,6 +5,10 @@
 #include <time.h>
 #include <pwd.h>
 #include <sys/mman.h>
+
+#ifdef LOVR_USE_GLFW
+#include "os_glfw.h"
+#else
 #include <linux/input.h>
 #include <xcb/xcb.h>
 #include <xcb/xkb.h>
@@ -12,8 +16,6 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 #include <xkbcommon/xkbcommon-compose.h>
-
-#define NS_PER_SEC 1000000000ULL
 
 static struct {
   xcb_connection_t* connection;
@@ -45,12 +47,16 @@ static struct {
   int16_t grabX;
   int16_t grabY;
 } state;
+#endif
 
 bool os_init(void) {
   return true;
 }
 
 void os_destroy(void) {
+#ifdef LOVR_USE_GLFW
+  glfwTerminate();
+#else
   free(state.deleteWindow);
   if (state.hiddenCursor) xcb_free_cursor(state.connection, state.hiddenCursor);
   xkb_compose_state_unref(state.compose);
@@ -60,6 +66,7 @@ void os_destroy(void) {
   xkb_context_unref(state.xkb);
   xcb_disconnect(state.connection);
   memset(&state, 0, sizeof(state));
+#endif
 }
 
 const char* os_get_name(void) {
@@ -77,14 +84,14 @@ void os_open_console(void) {
 double os_get_time(void) {
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
-  return (double) t.tv_sec + (t.tv_nsec / (double) NS_PER_SEC);
+  return (double) t.tv_sec + (t.tv_nsec / (double) 1e9);
 }
 
 void os_sleep(double seconds) {
   seconds += .5e-9;
   struct timespec t;
   t.tv_sec = seconds;
-  t.tv_nsec = (seconds - t.tv_sec) * NS_PER_SEC;
+  t.tv_nsec = (seconds - t.tv_sec) * 1e9;
   while (nanosleep(&t, &t));
 }
 
@@ -92,6 +99,7 @@ void os_request_permission(os_permission permission) {
   //
 }
 
+#ifndef LOVR_USE_GLFW
 const char* os_get_clipboard_text(void) {
   return NULL; // TODO
 }
@@ -99,6 +107,7 @@ const char* os_get_clipboard_text(void) {
 void os_set_clipboard_text(const char* text) {
   // TODO
 }
+#endif
 
 void* os_vm_init(size_t size) {
   return mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -124,6 +133,11 @@ void os_thread_detach(void) {
   //
 }
 
+void os_on_permission(fn_permission* callback) {
+  //
+}
+
+#ifndef LOVR_USE_GLFW
 static os_key convertKey(uint8_t keycode) {
   switch (keycode - 8) {
     case KEY_ESC: return OS_KEY_ESCAPE;
@@ -383,10 +397,6 @@ void os_on_mousewheel_move(fn_mousewheel_move* callback) {
   state.onWheelMove = callback;
 }
 
-void os_on_permission(fn_permission* callback) {
-  //
-}
-
 bool os_window_open(const os_window_config* config) {
   state.connection = xcb_connect(NULL, NULL);
 
@@ -531,6 +541,64 @@ void os_window_message_box(const char* message) {
   //
 }
 
+void os_get_mouse_position(double* x, double* y) {
+  *x = state.mouseX;
+  *y = state.mouseY;
+}
+
+void os_set_mouse_mode(os_mouse_mode mode) {
+  if (!state.connection || state.mouseMode == mode) return;
+  state.mouseMode = mode;
+
+  struct {
+    xcb_input_event_mask_t info;
+    xcb_input_xi_event_mask_t mask;
+  } rawInput;
+
+  rawInput.info.deviceid = XCB_INPUT_DEVICE_ALL_MASTER;
+  rawInput.info.mask_len = 1;
+  rawInput.mask = mode == MOUSE_MODE_GRABBED ? XCB_INPUT_XI_EVENT_MASK_RAW_MOTION : 0;
+  xcb_input_xi_select_events(state.connection, state.screen->root, 1, &rawInput.info);
+
+  if (mode == MOUSE_MODE_GRABBED) {
+    if (!state.hiddenCursor) {
+      state.hiddenCursor = xcb_generate_id(state.connection);
+      xcb_pixmap_t pixmap = xcb_generate_id(state.connection);
+      xcb_create_pixmap(state.connection, 1, pixmap, state.window, 1, 1);
+      xcb_create_cursor(state.connection, state.hiddenCursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 0, 0);
+      xcb_free_pixmap(state.connection, pixmap);
+    }
+
+    uint32_t events = XCB_EVENT_MASK_BUTTON_RELEASE;
+    xcb_grab_pointer(state.connection, 0, state.window, events, 1, 1, state.window, state.hiddenCursor, XCB_CURRENT_TIME);
+    state.grabX = state.mouseX;
+    state.grabY = state.mouseY;
+  } else {
+    xcb_change_window_attributes(state.connection, state.window, XCB_CW_CURSOR, &(uint32_t) { XCB_CURSOR_NONE });
+    xcb_warp_pointer(state.connection, XCB_NONE, state.window, 0, 0, 0, 0, state.grabX, state.grabY);
+    xcb_ungrab_pointer(state.connection, XCB_CURRENT_TIME);
+    state.mouseX = state.grabX;
+    state.mouseY = state.grabY;
+  }
+}
+
+bool os_is_mouse_down(os_mouse_button button) {
+  return state.mouseDown[button];
+}
+
+bool os_is_key_down(os_key key) {
+  return state.keyDown[key];
+}
+
+uintptr_t os_get_xcb_connection(void) {
+  return (uintptr_t) state.connection;
+}
+
+uintptr_t os_get_xcb_window(void) {
+  return (uintptr_t) state.window;
+}
+#endif
+
 size_t os_get_home_directory(char* buffer, size_t size) {
   const char* path = getenv("HOME");
 
@@ -594,61 +662,4 @@ size_t os_get_executable_path(char* buffer, size_t size) {
 size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
   *root = NULL;
   return os_get_executable_path(buffer, size);
-}
-
-void os_get_mouse_position(double* x, double* y) {
-  *x = state.mouseX;
-  *y = state.mouseY;
-}
-
-void os_set_mouse_mode(os_mouse_mode mode) {
-  if (!state.connection || state.mouseMode == mode) return;
-  state.mouseMode = mode;
-
-  struct {
-    xcb_input_event_mask_t info;
-    xcb_input_xi_event_mask_t mask;
-  } rawInput;
-
-  rawInput.info.deviceid = XCB_INPUT_DEVICE_ALL_MASTER;
-  rawInput.info.mask_len = 1;
-  rawInput.mask = mode == MOUSE_MODE_GRABBED ? XCB_INPUT_XI_EVENT_MASK_RAW_MOTION : 0;
-  xcb_input_xi_select_events(state.connection, state.screen->root, 1, &rawInput.info);
-
-  if (mode == MOUSE_MODE_GRABBED) {
-    if (!state.hiddenCursor) {
-      state.hiddenCursor = xcb_generate_id(state.connection);
-      xcb_pixmap_t pixmap = xcb_generate_id(state.connection);
-      xcb_create_pixmap(state.connection, 1, pixmap, state.window, 1, 1);
-      xcb_create_cursor(state.connection, state.hiddenCursor, pixmap, pixmap, 0, 0, 0, 0, 0, 0, 0, 0);
-      xcb_free_pixmap(state.connection, pixmap);
-    }
-
-    uint32_t events = XCB_EVENT_MASK_BUTTON_RELEASE;
-    xcb_grab_pointer(state.connection, 0, state.window, events, 1, 1, state.window, state.hiddenCursor, XCB_CURRENT_TIME);
-    state.grabX = state.mouseX;
-    state.grabY = state.mouseY;
-  } else {
-    xcb_change_window_attributes(state.connection, state.window, XCB_CW_CURSOR, &(uint32_t) { XCB_CURSOR_NONE });
-    xcb_warp_pointer(state.connection, XCB_NONE, state.window, 0, 0, 0, 0, state.grabX, state.grabY);
-    xcb_ungrab_pointer(state.connection, XCB_CURRENT_TIME);
-    state.mouseX = state.grabX;
-    state.mouseY = state.grabY;
-  }
-}
-
-bool os_is_mouse_down(os_mouse_button button) {
-  return state.mouseDown[button];
-}
-
-bool os_is_key_down(os_key key) {
-  return state.keyDown[key];
-}
-
-uintptr_t os_get_xcb_connection(void) {
-  return (uintptr_t) state.connection;
-}
-
-uintptr_t os_get_xcb_window(void) {
-  return (uintptr_t) state.window;
 }

@@ -142,7 +142,11 @@ if target == 'linux' then
   cflags += '-D_DEFAULT_SOURCE'
   lflags += '-lm -lpthread -ldl'
   lflags += '-Wl,-rpath,\\$ORIGIN'
-  lflags += '-lxcb -lxcb-xinput -lxcb-xkb -lxkbcommon -lxkbcommon-x11'
+  if config.glfw then
+    lflags += '-lX11 -lxcb -lX11-xcb'
+  else
+    lflags += '-lxcb -lxcb-xinput -lxcb-xkb -lxkbcommon -lxkbcommon-x11'
+  end
 end
 
 if target == 'wasm' then
@@ -227,7 +231,7 @@ else
   tup.rule('.obj/lua/*.o', '^ LD %o^ $(cc) $(flags) -o %o %f $(lua_lflags)', lib('lua'))
 end
 
-if config.glfw and (target == 'win32' or target == 'macos') then
+if config.glfw and (target == 'win32' or target == 'macos' or target == 'linux') then
   cflags += '-Ideps/glfw/include'
   cflags += '-DLOVR_USE_GLFW'
   lflags += '-lglfw'
