@@ -36,8 +36,7 @@ jobs:
       - name: Update Packages
         run: sudo apt update
       - name: Install Packages
-        run: >
-          sudo apt install -y xorg-dev libxcb-glx0-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb-xkb-dev libfuse2 libcurl4-openssl-dev libssl-dev
+        run: sudo apt install -y xorg-dev libx11-xcb-dev libxcb-glx0-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb-xkb-dev libfuse2 libcurl4-openssl-dev libssl-dev
       - name: Checkout
         uses: actions/checkout@v3
         with:
