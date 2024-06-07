@@ -1209,8 +1209,8 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     float shift = lua_tonumber(L, -1);
     info.data.uvShift[0] = shift;
     info.data.uvShift[1] = shift;
-  } else {
-    luaL_checktype(L, -1, LUA_TTABLE);
+  } else if (!lua_isnil(L, -1)) {
+    lovrCheck(lua_istable(L, -1), "Expected number or table for uvShift");
     lua_rawgeti(L, -1, 1);
     lua_rawgeti(L, -2, 2);
     info.data.uvShift[0] = luax_optfloat(L, -2, 0.f);
@@ -1228,7 +1228,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     info.data.uvScale[0] = scale;
     info.data.uvScale[1] = scale;
   } else {
-    luaL_checktype(L, -1, LUA_TTABLE);
+    lovrCheck(lua_istable(L, -1), "Expected number or table for uvScale");
     lua_rawgeti(L, -1, 1);
     lua_rawgeti(L, -2, 2);
     info.data.uvScale[0] = luax_optfloat(L, -2, 1.f);
