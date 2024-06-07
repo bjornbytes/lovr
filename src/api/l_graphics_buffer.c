@@ -1,6 +1,7 @@
 #include "api.h"
 #include "graphics/graphics.h"
 #include "data/blob.h"
+#include "math/math.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
@@ -96,9 +97,12 @@ static void luax_fielderror(lua_State* L, int index, const DataField* field, boo
   } else if (field->fieldCount > 0) {
     kind = "struct";
     expected = "table";
+  } else if (field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4) {
+    kind = "matrix";
+    expected = "number, table, or Mat4";
   } else if (typeComponents[field->type] > 1) {
     kind = "vector";
-    expected = "number, table, or vector";
+    expected = "number or table";
   } else {
     kind = "scalar";
     expected = "number";
@@ -156,7 +160,16 @@ static void luax_checkfieldn(lua_State* L, int index, const DataField* field, vo
 }
 
 static void luax_checkfieldv(lua_State* L, int index, const DataField* field, void* data) {
-  lovrThrow("TODO");
+  DataPointer p = { .raw = data };
+  Mat4* matrix = luax_totype(L, index, Mat4);
+  luax_fieldcheck(L, matrix && field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4, index, field, false);
+  float* m = lovrMat4GetPointer(matrix);
+  switch (field->type) {
+    case TYPE_MAT2: for (int i = 0; i < 2; i++) memcpy(p.f32 + 2 * i, m + 4 * i, 2 * sizeof(float)); break;
+    case TYPE_MAT3: for (int i = 0; i < 3; i++) memcpy(p.f32 + 4 * i, m + 4 * i, 3 * sizeof(float)); break;
+    case TYPE_MAT4: memcpy(data, m, 16 * sizeof(float)); break;
+    default: lovrUnreachable();
+  }
 }
 
 static void luax_checkfieldt(lua_State* L, int index, const DataField* field, void* data) {
@@ -235,7 +248,7 @@ static void luax_checkarray(lua_State* L, int index, int start, uint32_t count, 
         luax_checkfieldn(L, -n, array, data);
         lua_pop(L, n);
       }
-    } else if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
+    } else if (type == LUA_TUSERDATA) {
       for (uint32_t i = 0; i < count; i++, data += array->stride) {
         lua_rawgeti(L, index, start + i);
         luax_checkfieldv(L, -1, array, data);
@@ -264,7 +277,7 @@ void luax_checkbufferdata(lua_State* L, int index, const DataField* field, char*
     luax_checkstruct(L, index, field, data);
   } else if (typeComponents[field->type] == 1) {
     luax_checkfieldn(L, index, field, data);
-  } else if (type == LUA_TUSERDATA || type == LUA_TLIGHTUSERDATA) {
+  } else if (type == LUA_TUSERDATA) {
     luax_checkfieldv(L, index, field, data);
   } else if (type == LUA_TTABLE) {
     luax_checkfieldt(L, index, field, data);
