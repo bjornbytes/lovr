@@ -143,6 +143,7 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
 static const luaL_Reg lovrMath[] = {
   { "newCurve", l_lovrMathNewCurve },
   { "newMat4", l_lovrMathNewMat4 },
+  { "mat4", l_lovrMathNewMat4 },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "noise", l_lovrMathNoise },
   { "random", l_lovrMathRandom },
