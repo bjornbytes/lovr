@@ -37,9 +37,7 @@ typedef enum {
   TYPE_STRING,
   TYPE_MINISTRING,
   TYPE_POINTER,
-  TYPE_OBJECT,
-  TYPE_VECTOR,
-  TYPE_MATRIX
+  TYPE_OBJECT
 } VariantType;
 
 typedef union {

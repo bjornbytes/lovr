@@ -1,5 +1,9 @@
 local vec2, vec3, vec4, quat = ...
 
+local function ismat4(m)
+  return type(m) == 'table' and m.type and m:type() == 'Mat4'
+end
+
 local EQ_THRESHOLD = 1e-10
 
 ----------------
@@ -305,7 +309,7 @@ function vec3.set(v, x, y, z)
   elseif x == nil or type(x) == 'number' then
     x = x or 0
     v[1], v[2], v[3] = x, y or x, z or x
-  elseif type(x) == 'userdata' and x.type and x:type() == 'Mat4' then
+  elseif ismat4(x) then
     v[1], v[2], v[3] = x:getPosition()
   end
   return v
@@ -700,7 +704,7 @@ function quat.set(q, x, y, z, w, raw)
     else
       q[1], q[2], q[3], q[4] = quat_between(vec3.forward, x)
     end
-  elseif type(x) == 'userdata' and x.type and x:type() == 'Mat4' then
+  elseif ismat4(x) then
     q[1], q[2], q[3], q[4] = quat_fromAngleAxis(x:getOrientation())
   end
 

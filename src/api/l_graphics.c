@@ -4,6 +4,7 @@
 #include "data/image.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
+#include "math/math.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
@@ -736,7 +737,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
             info.size = (uint32_t) blob->size;
             format->length = info.size / format->stride;
             break;
-          } else if (luax_tovector(L, 2, NULL)) {
+          } else if (luax_totype(L, 2, Mat4)) {
             format->length = 0;
             hasData = true;
             break;

@@ -538,7 +538,7 @@ if(LOVR_ENABLE_MATH)
     src/api/l_math.c
     src/api/l_math_curve.c
     src/api/l_math_randomGenerator.c
-    src/api/l_math_vectors.c
+    src/api/l_math_mat4.c
     src/lib/noise/simplexnoise1234.c
   )
 else()

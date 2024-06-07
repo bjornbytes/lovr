@@ -43,10 +43,6 @@ static const uint32_t typeComponents[] = {
   [TYPE_INDEX32] = 1
 };
 
-static const uint32_t vectorComponents[] = {
-  [V_MAT4] = 16
-};
-
 typedef union {
   void* raw;
   int8_t* i8;
@@ -160,47 +156,7 @@ static void luax_checkfieldn(lua_State* L, int index, const DataField* field, vo
 }
 
 static void luax_checkfieldv(lua_State* L, int index, const DataField* field, void* data) {
-  DataPointer p = { .raw = data };
-  VectorType vectorType;
-  float* v = luax_tovector(L, index, &vectorType);
-  uint32_t n = typeComponents[field->type];
-  luax_fieldcheck(L, v && n > 1, index, field, false);
-  if (field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4) {
-    lovrCheck(vectorType == V_MAT4, "Tried to send a non-matrix to a matrix type");
-  } else {
-    lovrCheck(vectorComponents[vectorType] == n, "Expected %d vector components, got %d", n, vectorComponents[vectorType]);
-  }
-  switch (field->type) {
-    case TYPE_I8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) v[i]; break;
-    case TYPE_U8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) v[i]; break;
-    case TYPE_SN8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) CLAMP(v[i], -1.f, 1.f) * INT8_MAX; break;
-    case TYPE_UN8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) CLAMP(v[i], 0.f, 1.f) * UINT8_MAX; break;
-    case TYPE_SN10x3: for (int i = 0; i < 3; i++) p.u32[0] |= (((uint32_t) (int32_t) (CLAMP(v[i], -1.f, 1.f) * 511.f)) & 0x3ff) << (10 * i); break;
-    case TYPE_UN10x3: for (int i = 0; i < 3; i++) p.u32[0] |= (((uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f)) & 0x3ff) << (10 * i); break;
-    case TYPE_I16x2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) v[i]; break;
-    case TYPE_I16x4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) v[i]; break;
-    case TYPE_U16x2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) v[i]; break;
-    case TYPE_U16x4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) v[i]; break;
-    case TYPE_SN16x2: for (int i = 0; i < 2; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
-    case TYPE_SN16x4: for (int i = 0; i < 4; i++) p.i16[i] = (int16_t) CLAMP(v[i], -1.f, 1.f) * INT16_MAX; break;
-    case TYPE_UN16x2: for (int i = 0; i < 2; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
-    case TYPE_UN16x4: for (int i = 0; i < 4; i++) p.u16[i] = (uint16_t) CLAMP(v[i], 0.f, 1.f) * UINT16_MAX; break;
-    case TYPE_I32x2: for (int i = 0; i < 2; i++) p.i32[i] = (int32_t) v[i]; break;
-    case TYPE_I32x3: for (int i = 0; i < 3; i++) p.i32[i] = (int32_t) v[i]; break;
-    case TYPE_I32x4: for (int i = 0; i < 4; i++) p.i32[i] = (int32_t) v[i]; break;
-    case TYPE_U32x2: for (int i = 0; i < 2; i++) p.u32[i] = (uint32_t) v[i]; break;
-    case TYPE_U32x3: for (int i = 0; i < 3; i++) p.u32[i] = (uint32_t) v[i]; break;
-    case TYPE_U32x4: for (int i = 0; i < 4; i++) p.u32[i] = (uint32_t) v[i]; break;
-    case TYPE_F16x2: for (int i = 0; i < 2; i++) p.u16[i] = float32to16(v[i]); break;
-    case TYPE_F16x4: for (int i = 0; i < 4; i++) p.u16[i] = float32to16(v[i]); break;
-    case TYPE_F32x2: memcpy(data, v, 2 * sizeof(float)); break;
-    case TYPE_F32x3: memcpy(data, v, 3 * sizeof(float)); break;
-    case TYPE_F32x4: memcpy(data, v, 4 * sizeof(float)); break;
-    case TYPE_MAT2: for (int i = 0; i < 2; i++) memcpy(p.f32 + 2 * i, v + 4 * i, 2 * sizeof(float)); break;
-    case TYPE_MAT3: for (int i = 0; i < 3; i++) memcpy(p.f32 + 4 * i, v + 4 * i, 3 * sizeof(float)); break;
-    case TYPE_MAT4: memcpy(data, v, 16 * sizeof(float)); break;
-    default: lovrUnreachable();
-  }
+  lovrThrow("TODO");
 }
 
 static void luax_checkfieldt(lua_State* L, int index, const DataField* field, void* data) {

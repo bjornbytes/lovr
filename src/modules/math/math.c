@@ -16,12 +16,9 @@ struct Curve {
   arr_t(float) points;
 };
 
-struct Pool {
+struct Mat4 {
   uint32_t ref;
-  float* data;
-  uint32_t count;
-  uint32_t cursor;
-  uint32_t generation;
+  float m[16];
 };
 
 struct RandomGenerator {
@@ -215,63 +212,83 @@ void lovrCurveRemovePoint(Curve* curve, size_t index) {
   arr_splice(&curve->points, index * 4, 4);
 }
 
-// Pool
+// Mat4
 
-static const size_t vectorComponents[] = {
-  [V_MAT4] = 16
-};
-
-Pool* lovrPoolCreate(void) {
-  Pool* pool = lovrCalloc(sizeof(Pool));
-  pool->ref = 1;
-  pool->data = os_vm_init((1 << 24) * sizeof(float));
-  lovrPoolGrow(pool, 1 << 12);
-  return pool;
+Mat4* lovrMat4Create(void) {
+  Mat4* matrix = lovrCalloc(sizeof(Mat4));
+  matrix->ref = 1;
+  mat4_identity(matrix->m);
+  return matrix;
 }
 
-void lovrPoolDestroy(void* ref) {
-  Pool* pool = ref;
-  os_vm_free(pool->data, (1 << 24) * sizeof(float));
-  lovrFree(pool);
+void lovrMat4Destroy(void* ref) {
+  Mat4* matrix = ref;
+  lovrFree(matrix);
 }
 
-void lovrPoolGrow(Pool* pool, size_t count) {
-  lovrAssert(count <= (1 << 24), "Temporary vector space exhausted.  Try using lovr.math.drain to drain the vector pool periodically.");
-  pool->count = (uint32_t) count; // Assert guarantees safe
-  bool result = os_vm_commit(pool->data, count * sizeof(float));
-  lovrAssert(result, "Out of memory");
+Mat4* lovrMat4Clone(Mat4* matrix) {
+  Mat4* clone = lovrCalloc(sizeof(Mat4));
+  clone->ref = 1;
+  mat4_init(clone->m, matrix->m);
+  return clone;
 }
 
-Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
-  lovrCheck(pool, "The math module must be initialized to create vectors");
+float* lovrMat4GetPointer(Mat4* matrix) {
+  return matrix->m;
+}
 
-  size_t count = vectorComponents[type];
-
-  if (pool->cursor + count > pool->count) {
-    lovrPoolGrow(pool, pool->count * 2);
-  }
-
-  Vector v = {
-    .handle = {
-      .type = type,
-      .generation = pool->generation,
-      .index = pool->cursor
+bool lovrMat4Equals(Mat4* matrix, Mat4* other) {
+  for (int i = 0; i < 16; i += 4) {
+    float dx = matrix->m[i + 0] - other->m[i + 0];
+    float dy = matrix->m[i + 1] - other->m[i + 1];
+    float dz = matrix->m[i + 2] - other->m[i + 2];
+    float dw = matrix->m[i + 3] - other->m[i + 3];
+    float distance2 = dx * dx + dy * dy + dz * dz + dw * dw;
+    if (distance2 > 1e-10f) {
+      return false;
     }
-  };
-
-  *data = pool->data + pool->cursor;
-  pool->cursor += (uint32_t) count; // Cast safe because vectorComponents members are known
-  return v;
+  }
+  return true;
 }
 
-float* lovrPoolResolve(Pool* pool, Vector vector) {
-  lovrCheck(vector.handle.generation == pool->generation, "Attempt to use a temporary vector from a previous frame");
-  return pool->data + vector.handle.index;
+void lovrMat4GetPosition(Mat4* matrix, float* position) {
+  mat4_getPosition(matrix->m, position);
 }
 
-void lovrPoolDrain(Pool* pool) {
-  pool->cursor = 0;
-  pool->generation = (pool->generation + 1) & 0xf;
+void lovrMat4GetOrientation(Mat4* matrix, float* orientation) {
+  mat4_getOrientation(matrix->m, orientation);
+}
+
+void lovrMat4GetAngleAxis(Mat4* matrix, float* angle, float* ax, float* ay, float* az) {
+  mat4_getAngleAxis(matrix->m, angle, ax, ay, az);
+}
+
+void lovrMat4GetScale(Mat4* matrix, float* scale) {
+  mat4_getScale(matrix->m, scale);
+}
+
+void lovrMat4Identity(Mat4* matrix) {
+  mat4_identity(matrix->m);
+}
+
+void lovrMat4Invert(Mat4* matrix) {
+  mat4_invert(matrix->m);
+}
+
+void lovrMat4Transpose(Mat4* matrix) {
+  mat4_transpose(matrix->m);
+}
+
+void lovrMat4Translate(Mat4* matrix, float* translation) {
+  mat4_translate(matrix->m, translation[0], translation[1], translation[2]);
+}
+
+void lovrMat4Rotate(Mat4* matrix, float* rotation) {
+  mat4_rotateQuat(matrix->m, rotation);
+}
+
+void lovrMat4Scale(Mat4* matrix, float* scale) {
+  mat4_scale(matrix->m, scale[0], scale[1], scale[2]);
 }
 
 // RandomGenerator (compatible with LÖVE's)

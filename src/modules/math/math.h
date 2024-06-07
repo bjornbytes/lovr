@@ -5,7 +5,7 @@
 #pragma once
 
 typedef struct Curve Curve;
-typedef struct Pool Pool;
+typedef struct Mat4 Mat4;
 typedef struct RandomGenerator RandomGenerator;
 
 bool lovrMathInit(void);
@@ -31,30 +31,23 @@ void lovrCurveSetPoint(Curve* curve, size_t index, float* point);
 void lovrCurveAddPoint(Curve* curve, float* point, size_t index);
 void lovrCurveRemovePoint(Curve* curve, size_t index);
 
-// Pool
+// Mat4
 
-typedef enum {
-  V_NONE,
-  V_MAT4,
-  MAX_VECTOR_TYPES
-} VectorType;
-
-typedef union {
-  void* pointer;
-  struct {
-    unsigned type : 4;
-    unsigned generation : 4;
-    unsigned index : 24;
-    unsigned padding : 32;
-  } handle;
-} Vector;
-
-Pool* lovrPoolCreate(void);
-void lovrPoolDestroy(void* ref);
-void lovrPoolGrow(Pool* pool, size_t count);
-Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data);
-float* lovrPoolResolve(Pool* pool, Vector vector);
-void lovrPoolDrain(Pool* pool);
+Mat4* lovrMat4Create(void);
+void lovrMat4Destroy(void* ref);
+Mat4* lovrMat4Clone(Mat4* matrix);
+float* lovrMat4GetPointer(Mat4* matrix);
+bool lovrMat4Equals(Mat4* matrix, Mat4* other);
+void lovrMat4GetPosition(Mat4* matrix, float* position);
+void lovrMat4GetOrientation(Mat4* matrix, float* orientation);
+void lovrMat4GetAngleAxis(Mat4* matrix, float* angle, float* ax, float* ay, float* az);
+void lovrMat4GetScale(Mat4* matrix, float* scale);
+void lovrMat4Identity(Mat4* matrix);
+void lovrMat4Invert(Mat4* matrix);
+void lovrMat4Transpose(Mat4* matrix);
+void lovrMat4Translate(Mat4* matrix, float* translation);
+void lovrMat4Rotate(Mat4* matrix, float* rotation);
+void lovrMat4Scale(Mat4* matrix, float* scale);
 
 // RandomGenerator
 
