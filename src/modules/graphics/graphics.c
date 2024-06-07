@@ -3091,12 +3091,6 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
       if (buffer && resource->bufferFields) {
         spv_field* field = &resource->bufferFields[0];
-
-        // Struct containing single item gets unwrapped
-        if (field->fieldCount == 1) {
-          field = &field->fields[0];
-        }
-
         shader->resources[index].fieldCount = field->totalFieldCount + 1;
         shader->resources[index].format = shader->fields + ((s == 1 ? spv[0].fieldCount : 0) + (field - spv[s].fields));
       }

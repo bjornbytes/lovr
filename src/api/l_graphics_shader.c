@@ -99,14 +99,29 @@ static int l_lovrShaderGetBufferFormat(lua_State* L) {
     return 1;
   }
 
-  luax_pushbufferformat(L, format->fields, format->fieldCount);
-  lua_pushinteger(L, format->stride);
-  lua_setfield(L, -2, "stride");
+  // If the buffer just has a single array in it, unwrap it
+  if (format->fieldCount == 1 && format->fields->length > 0) {
+    const DataField* array = format->fields;
 
-  if (format->length == 0 || format->length == ~0u) {
-    lua_pushnil(L);
+    if (array->fields) { // Array of structs
+      luax_pushbufferformat(L, array->fields, array->fieldCount);
+    } else {
+      lua_createtable(L, 1, 1);
+      luax_pushenum(L, DataType, array->type);
+      lua_rawseti(L, -2, 1);
+    }
+
+    lua_pushinteger(L, array->stride);
+    lua_setfield(L, -2, "stride");
+
+    if (array->length == ~0u) {
+      lua_pushnil(L);
+    } else {
+      lua_pushinteger(L, array->length);
+    }
   } else {
-    lua_pushinteger(L, format->length);
+    luax_pushbufferformat(L, format->fields, format->fieldCount);
+    lua_pushnil(L);
   }
 
   return 2;
