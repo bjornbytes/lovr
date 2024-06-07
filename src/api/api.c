@@ -699,7 +699,8 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
     case LUA_TNONE:
       mat4_identity(m);
       return index + 1;
-    case LUA_TNUMBER: {
+    case LUA_TNUMBER:
+    case LUA_TTABLE: {
       float S[3], R[4];
       mat4_identity(m);
       index = luax_readvec3(L, index, m + 12, "table, number, or Mat4");
