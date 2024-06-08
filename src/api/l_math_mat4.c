@@ -164,6 +164,8 @@ static int l_lovrMat4Mul(lua_State* L) {
     lua_rawseti(L, -2, 3);
     lua_pushnumber(L, v[3]);
     lua_rawseti(L, -2, 4);
+    luaL_newmetatable(L, "vec4");
+    lua_setmetatable(L, -2);
   } else {
     return luax_typeerror(L, 2, "mat4, vec3, vec4, or number");
   }
@@ -330,6 +332,8 @@ static int l_lovrMat4__mul(lua_State* L) {
     lua_rawseti(L, -2, 3);
     lua_pushnumber(L, v[3]);
     lua_rawseti(L, -2, 4);
+    luaL_newmetatable(L, "vec4");
+    lua_setmetatable(L, -2);
     return 1;
   } else if (lua_type(L, 2) == LUA_TTABLE && luax_len(L, 2) == 3) {
     float v[3];
