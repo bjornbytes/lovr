@@ -33,17 +33,18 @@ vec2.__index = function(v, key)
   if val then
     return val
   elseif key == 'x' then
-    return v[1]
+    return rawget(v, 1)
   elseif key == 'y' then
-    return v[2]
+    return rawget(v, 2)
   end
 end
 
 vec2.__newindex = function(v, key, val)
+  assert(type(val) == 'number', 'Vector fields must be numbers')
   if key == 'x' then
-    v[1] = val
+    rawset(v, 1, val)
   elseif key == 'y' then
-    v[2] = val
+    rawset(v, 2, val)
   end
 end
 
@@ -221,21 +222,22 @@ vec3.__index = function(v, key)
   if val then
     return val
   elseif key == 'x' then
-    return v[1]
+    return rawget(v, 1)
   elseif key == 'y' then
-    return v[2]
+    return rawget(v, 2)
   elseif key == 'z' then
-    return v[3]
+    return rawget(v, 3)
   end
 end
 
 vec3.__newindex = function(v, key, val)
+  assert(type(val) == 'number', 'Vector fields must be numbers')
   if key == 'x' then
-    v[1] = val
+    rawset(v, 1, val)
   elseif key == 'y' then
-    v[2] = val
+    rawset(v, 2, val)
   elseif key == 'z' then
-    v[3] = val
+    rawset(v, 3, val)
   end
 end
 
@@ -419,25 +421,26 @@ vec4.__index = function(v, key)
   if val then
     return val
   elseif key == 'x' then
-    return v[1]
+    return rawget(v, 1)
   elseif key == 'y' then
-    return v[2]
+    return rawget(v, 2)
   elseif key == 'z' then
-    return v[3]
+    return rawget(v, 3)
   elseif key == 'w' then
-    return v[4]
+    return rawget(v, 4)
   end
 end
 
 vec4.__newindex = function(v, key, val)
+  assert(type(val) == 'number', 'Vector fields must be numbers')
   if key == 'x' then
-    v[1] = val
+    rawset(v, 1, val)
   elseif key == 'y' then
-    v[2] = val
+    rawset(v, 2, val)
   elseif key == 'z' then
-    v[3] = val
+    rawset(v, 3, val)
   elseif key == 'w' then
-    v[4] = val
+    rawset(v, 4, val)
   end
 end
 
