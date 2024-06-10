@@ -3,8 +3,6 @@
 #include "core/maf.h"
 #include "util.h"
 
-// mat4
-
 static int l_lovrMat4Equals(lua_State* L) {
   Mat4* matrix = luax_checktype(L, 1, Mat4);
   Mat4* other = luax_checktype(L, 2, Mat4);
