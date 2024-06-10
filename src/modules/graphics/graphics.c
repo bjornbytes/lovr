@@ -3056,9 +3056,9 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       lovrCheck(resource->type != SPV_INPUT_ATTACHMENT, "Shader variable '%s' is a%s, which is not supported%s", resource->name, "n input attachment", "");
       lovrCheck(resource->arraySize == 0, "Arrays of resources in shaders are not currently supported");
 
-      // Move resources into set #2 and give them auto-incremented binding numbers starting at zero
-      // Compute shaders don't need remapping since everything's in set #0 and there are no builtins
-      if (!info->isDefault && info->type == SHADER_GRAPHICS && *set == 0 && *binding > LAST_BUILTIN_BINDING) {
+      // Move resources into user set and give them auto-incremented binding numbers
+      // Default shaders refer to resources with explicit binding numbers, so leave those alone
+      if (!info->isDefault) {
         *set = resourceSet;
         *binding = index;
       }
@@ -3068,10 +3068,10 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       bool sampler = resource->type == SPV_SAMPLER;
       bool storage = resource->type == SPV_STORAGE_BUFFER || resource->type == SPV_STORAGE_TEXTURE;
 
-      shader->bufferMask |= (buffer << index);
-      shader->textureMask |= (texture << index);
-      shader->samplerMask |= (sampler << index);
-      shader->storageMask |= (storage << index);
+      shader->bufferMask |= (buffer << *binding);
+      shader->textureMask |= (texture << *binding);
+      shader->samplerMask |= (sampler << *binding);
+      shader->storageMask |= (storage << *binding);
 
       gpu_cache cache;
 
