@@ -593,6 +593,54 @@ end
 
 quat.__index = quat
 
+local function quat_fromAngleAxis(angle, ax, ay, az)
+  local s, c = math.sin(angle * .5), math.cos(angle * .5)
+
+  local length = math.sqrt(ax * ax + ay * ay + az * az)
+  if length > 0 then s = s / length end
+
+  return ax * s, ay * s, az * s, c
+end
+
+local function quat_between(u, v)
+  local dot = u:dot(v)
+  if dot > .99999 then
+    return 0, 0, 0, 1
+  elseif dot < -.99999 then
+    local axis = vec3(1, 0, 0):cross(u)
+    if #axis < .00001 then axis = vec3(0, 1, 0):cross(u) end
+    return quat_fromAngleAxis(math.pi, axis:unpack())
+  else
+    local x, y, z = u[2] * v[3] - u[3] * v[2], u[3] * v[1] - u[1] * v[3], u[1] * v[2] - u[2] * v[1]
+    local w = 1 + dot
+    local length = (x * x + y * y + z * z + w * w) ^ .5
+    if length == 0 then
+      return x, y, z, w
+    else
+      return x / length, y / length, z / length, w / length
+    end
+  end
+end
+
+local function quat_mulVec3(q, v)
+  local cx, cy, cz = q[2] * v[3] - q[3] * v[2], q[3] * v[1] - q[1] * v[3], q[1] * v[2] - q[2] * v[1]
+  local q_q = q[1] * q[1] + q[2] * q[2] + q[3] * q[3]
+  local q_v = q[1] * v[1] + q[2] * v[2] + q[3] * v[3]
+  return vec3(
+    v[1] * (q[3] * q[3] - q_q) + q[1] * 2 * q_v + cx * 2 * q[3],
+    v[2] * (q[3] * q[3] - q_q) + q[2] * 2 * q_v + cy * 2 * q[3],
+    v[3] * (q[3] * q[3] - q_q) + q[3] * 2 * q_v + cz * 2 * q[3]
+  )
+end
+
+local function quat_mulQuat(q, r)
+  return
+    q[1] * r[4] + q[4] * r[1] + q[2] * r[3] - q[3] * r[2],
+    q[2] * r[4] + q[4] * r[2] + q[3] * r[1] - q[1] * r[3],
+    q[3] * r[4] + q[4] * r[3] + q[1] * r[2] - q[2] * r[1],
+    q[4] * r[4] - q[1] * r[1] - q[2] * r[2] - q[3] * r[3]
+end
+
 local function isquat(t)
   return type(t) == 'table' and getmetatable(t) == quat
 end
@@ -610,22 +658,9 @@ end
 function quat.__mul(q, x)
   if isquat(q) then
     if isvec3(x) then
-      local v = x
-      local cx, cy, cz = q[2] * v[3] - q[3] * v[2], q[3] * v[1] - q[1] * v[3], q[1] * v[2] - q[2] * v[1]
-      local q_q = q[1] * q[1] + q[2] * q[2] + q[3] * q[3]
-      local q_v = q[1] * v[1] + q[2] * v[2] + q[3] * v[3]
-      return vec3(
-        v[1] * (q[3] * q[3] - q_q) + q[1] * 2 * q_v + cx * 2 * q[3],
-        v[2] * (q[3] * q[3] - q_q) + q[2] * 2 * q_v + cy * 2 * q[3],
-        v[3] * (q[3] * q[3] - q_q) + q[3] * 2 * q_v + cz * 2 * q[3]
-      )
+      return quat_mulVec3(q, x)
     elseif isquat(x) then
-      return setmetatable({
-        q[1] * x[4] + q[4] * x[1] + q[2] * x[3] - q[3] * x[2],
-        q[2] * x[4] + q[4] * x[2] + q[3] * x[1] - q[1] * x[3],
-        q[3] * x[4] + q[4] * x[3] + q[1] * x[2] - q[2] * x[1],
-        q[4] * x[4] - q[1] * x[1] - q[2] * x[2] - q[3] * x[3]
-      }, quat)
+      return setmetatable({ quat_mulQuat(q, x) }, quat)
     end
   end
 end
@@ -661,35 +696,6 @@ function quat.unpack(q, raw)
   end
 end
 
-local function quat_fromAngleAxis(angle, ax, ay, az)
-  local s, c = math.sin(angle * .5), math.cos(angle * .5)
-
-  local length = math.sqrt(ax * ax + ay * ay + az * az)
-  if length > 0 then s = s / length end
-
-  return ax * s, ay * s, az * s, c
-end
-
-local function quat_between(u, v)
-  local dot = u:dot(v)
-  if dot > .99999 then
-    return 0, 0, 0, 1
-  elseif dot < -.99999 then
-    local axis = vec3(1, 0, 0):cross(u)
-    if #axis < .00001 then axis = vec3(0, 1, 0):cross(u) end
-    return quat_fromAngleAxis(math.pi, axis:unpack())
-  else
-    local x, y, z = u[2] * v[3] - u[3] * v[2], u[3] * v[1] - u[1] * v[3], u[1] * v[2] - u[2] * v[1]
-    local w = 1 + dot
-    local length = (x * x + y * y + z * z + w * w) ^ .5
-    if length == 0 then
-      return x, y, z, w
-    else
-      return x / length, y / length, z / length, w / length
-    end
-  end
-end
-
 function quat.set(q, x, y, z, w, raw)
   if x == nil then
     q[1], q[2], q[3], q[4] = 0, 0, 0, 1
@@ -716,21 +722,9 @@ end
 
 function quat.mul(q, x)
   if isvec3(x) then
-    local v = x
-    local cx, cy, cz = q[2] * v[3] - q[3] * v[2], q[3] * v[1] - q[1] * v[3], q[1] * v[2] - q[2] * v[1]
-    local q_q = q[1] * q[1] + q[2] * q[2] + q[3] * q[3]
-    local q_v = q[1] * v[1] + q[2] * v[2] + q[3] * v[3]
-    return vec3(
-      v[1] * (q[3] * q[3] - q_q) + q[1] * 2 * q_v + cx * 2 * q[3],
-      v[2] * (q[3] * q[3] - q_q) + q[2] * 2 * q_v + cy * 2 * q[3],
-      v[3] * (q[3] * q[3] - q_q) + q[3] * 2 * q_v + cz * 2 * q[3]
-    )
+    return quat_mulVec3(q, x)
   elseif isquat(x) then
-    local qx = q[1] * x[4] + q[4] * x[1] + q[2] * x[3] - q[3] * x[2]
-    local qy = q[2] * x[4] + q[4] * x[2] + q[3] * x[1] - q[1] * x[3]
-    local qz = q[3] * x[4] + q[4] * x[3] + q[1] * x[2] - q[2] * x[1]
-    local qw = q[4] * x[4] - q[1] * x[1] - q[2] * x[2] - q[3] * x[3]
-    q[1], q[2], q[3], q[4] = qx, qy, qz, qw
+    q[1], q[2], q[3], q[4] = quat_mulQuat(q, x)
     return q
   else
     error('Expected Vec3 or Quat for Quat:mul')
