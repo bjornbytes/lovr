@@ -71,7 +71,7 @@ static void queryCallback(void* userdata, Collider* collider) {
   lua_State* L = userdata;
   lua_pushvalue(L, -1);
   luax_pushtype(L, Collider, collider);
-  lua_call(L, 2, 0);
+  lua_call(L, 1, 0);
 }
 
 static void queryNoCallback(void* userdata, Collider* collider) {
