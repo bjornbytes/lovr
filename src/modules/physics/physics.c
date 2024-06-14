@@ -243,7 +243,11 @@ static void onContactAdded(void* userdata, const JPH_Body* body1, const JPH_Body
     Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
     mtx_lock(&world->lock);
     thread.locked = true;
-    world->callbacks.enter(world->callbacks.userdata, world, a, b);
+    world->contact.colliderA = a;
+    world->contact.colliderB = b;
+    world->contact.manifold = manifold;
+    world->contact.settings = settings;
+    world->callbacks.enter(world->callbacks.userdata, world, a, b, &world->contact);
     thread.locked = false;
     mtx_unlock(&world->lock);
   }

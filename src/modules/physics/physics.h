@@ -34,7 +34,7 @@ void lovrPhysicsDestroy(void);
 
 typedef struct {
   bool (*filter)(void* userdata, World* world, Collider* a, Collider* b);
-  void (*enter)(void* userdata, World* world, Collider* a, Collider* b);
+  void (*enter)(void* userdata, World* world, Collider* a, Collider* b, Contact* contact);
   void (*exit)(void* userdata, World* world, Collider* a, Collider* b);
   void (*contact)(void* userdata, World* world, Collider* a, Collider* b, Contact* contact);
   void* userdata;
