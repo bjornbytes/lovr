@@ -6,6 +6,7 @@
 #include <joltc.h>
 
 struct Contact {
+  uint32_t ref;
   Collider* colliderA;
   Collider* colliderB;
   const JPH_ContactManifold* manifold;
