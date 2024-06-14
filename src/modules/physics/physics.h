@@ -183,6 +183,7 @@ void lovrColliderGetAABB(Collider* collider, float aabb[6]);
 // Contact
 
 void lovrContactDestroy(void* ref);
+bool lovrContactIsValid(Contact* contact);
 Collider* lovrContactGetColliderA(Contact* contact);
 Collider* lovrContactGetColliderB(Contact* contact);
 Shape* lovrContactGetShapeA(Contact* contact);

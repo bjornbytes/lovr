@@ -2,8 +2,14 @@
 #include "physics/physics.h"
 #include "util.h"
 
+static Contact* luax_checkcontact(lua_State* L, int index) {
+  Contact* contact = luax_checktype(L, index, Contact);
+  lovrCheck(lovrContactIsValid(contact), "Attempt to use a Contact outside of a World callback!");
+  return contact;
+}
+
 static int l_lovrContactGetColliders(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   Collider* a = lovrContactGetColliderA(contact);
   Collider* b = lovrContactGetColliderB(contact);
   luax_pushtype(L, Collider, a);
@@ -12,7 +18,7 @@ static int l_lovrContactGetColliders(lua_State* L) {
 }
 
 static int l_lovrContactGetShapes(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   Shape* a = lovrContactGetShapeA(contact);
   Shape* b = lovrContactGetShapeB(contact);
   luax_pushshape(L, a);
@@ -21,7 +27,7 @@ static int l_lovrContactGetShapes(lua_State* L) {
 }
 
 static int l_lovrContactGetNormal(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   float normal[3];
   lovrContactGetNormal(contact, normal);
   lua_pushnumber(L, normal[0]);
@@ -31,14 +37,14 @@ static int l_lovrContactGetNormal(lua_State* L) {
 }
 
 static int l_lovrContactGetOverlap(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   float overlap = lovrContactGetOverlap(contact);
   lua_pushnumber(L, overlap);
   return 1;
 }
 
 static int l_lovrContactGetPoints(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   uint32_t count = lovrContactGetPointCount(contact);
   lua_checkstack(L, count * 3);
   float point[3];
@@ -52,48 +58,48 @@ static int l_lovrContactGetPoints(lua_State* L) {
 }
 
 static int l_lovrContactGetFriction(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   float friction = lovrContactGetFriction(contact);
   lua_pushnumber(L, friction);
   return 1;
 }
 
 static int l_lovrContactSetFriction(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   float friction = luax_checkfloat(L, 2);
   lovrContactSetFriction(contact, friction);
   return 0;
 }
 
 static int l_lovrContactGetRestitution(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   float restitution = lovrContactGetRestitution(contact);
   lua_pushnumber(L, restitution);
   return 1;
 }
 
 static int l_lovrContactSetRestitution(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   float restitution = luax_checkfloat(L, 2);
   lovrContactSetRestitution(contact, restitution);
   return 0;
 }
 
 static int l_lovrContactIsEnabled(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   bool enabled = lovrContactIsEnabled(contact);
   lua_pushboolean(L, enabled);
   return 1;
 }
 
 static int l_lovrContactSetEnabled(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   lovrContactSetEnabled(contact, lua_toboolean(L, 2));
   return 0;
 }
 
 static int l_lovrContactGetSurfaceVelocity(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   float velocity[3];
   lovrContactGetSurfaceVelocity(contact, velocity);
   lua_pushnumber(L, velocity[0]);
@@ -103,7 +109,7 @@ static int l_lovrContactGetSurfaceVelocity(lua_State* L) {
 }
 
 static int l_lovrContactSetSurfaceVelocity(lua_State* L) {
-  Contact* contact = luax_checktype(L, 1, Contact);
+  Contact* contact = luax_checkcontact(L, 1);
   float velocity[3];
   luax_readvec3(L, 2, velocity, NULL);
   lovrContactSetSurfaceVelocity(contact, velocity);
