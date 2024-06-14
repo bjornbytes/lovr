@@ -1,0 +1,5 @@
+group('timer', function()
+  test('getTime', function()
+    expect(lovr.timer.getTime()).to.be.a('number')
+  end)
+end)

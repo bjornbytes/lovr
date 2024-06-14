@@ -45,6 +45,8 @@ jobs:
         run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
       - name: Build
         run: cmake --build build
+      - name: Test
+        run: ./build/bin/lovr test
       - name: AppImage
         run: >
           curl -sOL https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage &&
