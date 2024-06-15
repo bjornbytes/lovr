@@ -322,10 +322,49 @@ group('graphics', function()
       expect({ pass:getDimensions() }).to.equal({ 0, 0 })
     end)
 
-    test('depth-only canvas', function()
-      t = lovr.graphics.newTexture(100, 100, { format = 'd32f' })
-      p = lovr.graphics.newPass({ depth = t })
-      lovr.graphics.submit(p)
+    test(':setCanvas', function()
+      -- depth only
+      texture = lovr.graphics.newTexture(100, 100, { format = 'd32f' })
+      pass = lovr.graphics.newPass({ depth = texture })
+      lovr.graphics.submit(pass)
+    end)
+
+    test(':send', function()
+      -- First draw has uniforms, second draw does not, and first draw is culled
+      shader1 = lovr.graphics.newShader('unlit', [[
+        Constants { vec4 color; };
+        vec4 lovrmain() { return color; }
+      ]])
+
+      shader2 = lovr.graphics.newShader('unlit', [[
+        vec4 lovrmain() { return vec4(1.); }
+      ]])
+
+      texture = lovr.graphics.newTexture(1, 1)
+      pass = lovr.graphics.newPass(texture)
+      pass:setViewCull(true)
+      pass:setShader(shader1)
+      pass:sphere(0, 0, 10)
+      pass:setShader(shader2)
+      pass:sphere(0, 0, -10)
+      lovr.graphics.submit(pass)
+
+      -- First dispatch has uniforms, second dispatch does not
+      shader1 = lovr.graphics.newShader([[
+        Constants { vec4 color; };
+        void lovrmain() { }
+      ]])
+
+      shader2 = lovr.graphics.newShader([[
+        void lovrmain() { }
+      ]])
+
+      pass = lovr.graphics.newPass()
+      pass:setShader(shader1)
+      pass:compute()
+      pass:setShader(shader2)
+      pass:compute()
+      lovr.graphics.submit(pass)
     end)
   end)
 end)
