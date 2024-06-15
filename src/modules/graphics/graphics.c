@@ -5360,6 +5360,9 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
     canvas->resolve = samples > 1;
   } else {
     memset(canvas, 0, sizeof(Canvas));
+    pass->gpu = NULL;
+    lovrPassReset(pass);
+    return;
   }
 
   for (uint32_t i = 0; i < COUNTOF(canvas->color) && textures[i]; i++, canvas->count++) {
