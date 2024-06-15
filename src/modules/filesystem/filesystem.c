@@ -412,20 +412,31 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
     return false;
   }
 
-  // Append /LOVR, mkdir
+  // Append /LOVR
   state.savePath[cursor++] = SLASH;
   memcpy(state.savePath + cursor, "LOVR", strlen("LOVR"));
   cursor += strlen("LOVR");
-  state.savePath[cursor] = '\0';
-  fs_mkdir(state.savePath);
 
-  // Append /<identity>, mkdir
+  // Append /<identity>
   state.savePath[cursor++] = SLASH;
   memcpy(state.savePath + cursor, identity, length);
   cursor += length;
   state.savePath[cursor] = '\0';
   state.savePathLength = cursor;
-  fs_mkdir(state.savePath);
+
+  // mkdir -p
+  FileInfo info;
+  if (!fs_stat(state.savePath, &info)) {
+    for (char* slash = strchr(state.savePath, SLASH); slash; slash = strchr(slash + 1, SLASH)) {
+      *slash = '\0';
+      fs_mkdir(state.savePath);
+      *slash = SLASH;
+    }
+
+    if (!fs_mkdir(state.savePath)) {
+      return false;
+    }
+  }
 
   // Set the identity string
   memcpy(state.identity, identity, length + 1);
