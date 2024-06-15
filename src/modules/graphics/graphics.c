@@ -1067,7 +1067,7 @@ static void recordComputePass(Pass* pass, gpu_stream* stream) {
       gpu_bind_bundles(stream, compute->shader->gpu, &bundle, 0, 1, NULL, 0);
     }
 
-    if (compute->uniformBuffer != uniformBuffer || compute->uniformOffset != uniformOffset) {
+    if (compute->uniformBuffer && (compute->uniformBuffer != uniformBuffer || compute->uniformOffset != uniformOffset)) {
       if (compute->uniformBuffer != uniformBuffer) {
         uniformBundle = getBundle(LAYOUT_UNIFORMS, &(gpu_binding) {
           .number = 0,
@@ -1426,7 +1426,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       bundle = draw->bundle;
     }
 
-    if (draw->uniformBuffer != uniformBuffer || draw->uniformOffset != uniformOffset) {
+    if (draw->uniformBuffer && (draw->uniformBuffer != uniformBuffer || draw->uniformOffset != uniformOffset)) {
       if (draw->uniformBuffer != uniformBuffer) {
         uniformBundle = getBundle(LAYOUT_UNIFORMS, &(gpu_binding) {
           .number = 0,
@@ -6096,11 +6096,24 @@ static gpu_bundle_info* lovrPassResolveBindings(Pass* pass, Shader* shader, gpu_
   return bundle;
 }
 
-static void lovrPassResolveUniforms(Pass* pass, Shader* shader, gpu_buffer** buffer, uint32_t* offset) {
-  BufferView view = lovrPassGetBuffer(pass, shader->uniformSize, state.limits.uniformBufferAlign);
-  memcpy(view.pointer, pass->uniforms, shader->uniformSize);
-  *buffer = view.buffer;
-  *offset = view.offset;
+static void lovrPassResolveUniforms(Pass* pass, Shader* shader, gpu_buffer** buffer, uint32_t* offset, void* previous) {
+  if (shader->uniformCount == 0) {
+    *buffer = NULL;
+    *offset = 0;
+  } else if (pass->flags & DIRTY_UNIFORMS) {
+    pass->flags &= ~DIRTY_UNIFORMS;
+    BufferView view = lovrPassGetBuffer(pass, shader->uniformSize, state.limits.uniformBufferAlign);
+    memcpy(view.pointer, pass->uniforms, shader->uniformSize);
+    *buffer = view.buffer;
+    *offset = view.offset;
+  } else if (previous) {
+    bool graphics = shader->info.type == SHADER_GRAPHICS;
+    *buffer = graphics ? ((Draw*) previous)->uniformBuffer : ((Compute*) previous)->uniformBuffer;
+    *offset = graphics ? ((Draw*) previous)->uniformOffset : ((Compute*) previous)->uniformOffset;
+  } else {
+    *buffer = NULL;
+    *offset = 0;
+  }
 }
 
 void lovrPassDraw(Pass* pass, DrawInfo* info) {
@@ -6137,14 +6150,7 @@ void lovrPassDraw(Pass* pass, DrawInfo* info) {
   lovrPassResolvePipeline(pass, info, draw, previous);
   lovrPassResolveVertices(pass, info, draw);
   draw->bundleInfo = lovrPassResolveBindings(pass, draw->shader, previous ? previous->bundleInfo : NULL);
-
-  if (draw->shader->uniformCount > 0 && pass->flags & DIRTY_UNIFORMS) {
-    lovrPassResolveUniforms(pass, draw->shader, &draw->uniformBuffer, &draw->uniformOffset);
-    pass->flags &= ~DIRTY_UNIFORMS;
-  } else {
-    draw->uniformBuffer = previous ? previous->uniformBuffer : NULL;
-    draw->uniformOffset = previous ? previous->uniformOffset : 0;
-  }
+  lovrPassResolveUniforms(pass, draw->shader, &draw->uniformBuffer, &draw->uniformOffset, previous);
 
   if (pass->pipeline->viewCull && info->bounds) {
     memcpy(draw->bounds, info->bounds, sizeof(draw->bounds));
@@ -7221,14 +7227,7 @@ void lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
   lovrPassResolvePipeline(pass, &info, draw, previous);
   lovrPassResolveVertices(pass, &info, draw);
   draw->bundleInfo = lovrPassResolveBindings(pass, shader, previous ? previous->bundleInfo : NULL);
-
-  if (shader->uniformCount > 0 && pass->flags & DIRTY_UNIFORMS) {
-    lovrPassResolveUniforms(pass, shader, &draw->uniformBuffer, &draw->uniformOffset);
-    pass->flags &= ~DIRTY_UNIFORMS;
-  } else {
-    draw->uniformBuffer = previous ? previous->uniformBuffer : NULL;
-    draw->uniformOffset = previous ? previous->uniformOffset : 0;
-  }
+  lovrPassResolveUniforms(pass, draw->shader, &draw->uniformBuffer, &draw->uniformOffset, previous);
 
   mat4_init(draw->transform, pass->transform);
   memcpy(draw->color, pass->pipeline->color, 4 * sizeof(float));
@@ -7283,14 +7282,7 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
   lovrRetain(shader);
 
   compute->bundleInfo = lovrPassResolveBindings(pass, shader, previous ? previous->bundleInfo : NULL);
-
-  if (shader->uniformCount > 0 && pass->flags & DIRTY_UNIFORMS) {
-    lovrPassResolveUniforms(pass, shader, &compute->uniformBuffer, &compute->uniformOffset);
-    pass->flags &= ~DIRTY_UNIFORMS;
-  } else {
-    compute->uniformBuffer = previous ? previous->uniformBuffer : NULL;
-    compute->uniformOffset = previous ? previous->uniformOffset : 0;
-  }
+  lovrPassResolveUniforms(pass, shader, &compute->uniformBuffer, &compute->uniformOffset, previous);
 
   if (indirect) {
     compute->flags |= COMPUTE_INDIRECT;
