@@ -701,11 +701,14 @@ static uint32_t luax_getvertexcount(lua_State* L, int index) {
     case LUA_TNUMBER:
       return (lua_gettop(L) - index + 1) / 3;
     case LUA_TTABLE:
-      lua_rawgeti(L, index, 1);
-      int innerType = lua_type(L, -1);
-      lovrCheck(innerType == LUA_TNUMBER, "Expected table of numbers");
-      lua_pop(L, 1);
-      return luax_len(L, index) / 3;
+      if (lua_gettop(L) > index) {
+        return lua_gettop(L) - index + 1;
+      } else {
+        lua_rawgeti(L, index, 1);
+        bool nested = lua_istable(L, -1);
+        lua_pop(L, 1);
+        return nested ? luax_len(L, index) : luax_len(L, index) / 3;
+      }
     default:
       return luax_typeerror(L, index, "number or table");
   }
@@ -723,10 +726,38 @@ static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t
       }
       break;
     case LUA_TTABLE:
-      for (uint32_t i = 0; i < 3 * count; i++) {
-        lua_rawgeti(L, index, i + 1);
-        *vertices++ = luax_tofloat(L, -1);
+      if (lua_gettop(L) > index) {
+        for (uint32_t i = 0; i < count; i++) {
+          lua_rawgeti(L, index + i, 1);
+          lua_rawgeti(L, index + i, 2);
+          lua_rawgeti(L, index + i, 3);
+          *vertices++ = luax_tofloat(L, -3);
+          *vertices++ = luax_tofloat(L, -2);
+          *vertices++ = luax_tofloat(L, -1);
+          lua_pop(L, 3);
+        }
+      } else {
+        lua_rawgeti(L, index, 1);
+        bool nested = lua_istable(L, -1);
         lua_pop(L, 1);
+        if (nested) {
+          for (uint32_t i = 0; i < count; i++) {
+            lua_rawgeti(L, index, i + 1);
+            lua_rawgeti(L, -1, 1);
+            lua_rawgeti(L, -2, 2);
+            lua_rawgeti(L, -3, 3);
+            *vertices++ = luax_tofloat(L, -3);
+            *vertices++ = luax_tofloat(L, -2);
+            *vertices++ = luax_tofloat(L, -1);
+            lua_pop(L, 4);
+          }
+        } else {
+          for (uint32_t i = 0; i < 3 * count; i++) {
+            lua_rawgeti(L, index, i + 1);
+            *vertices++ = luax_tofloat(L, -1);
+            lua_pop(L, 1);
+          }
+        }
       }
       break;
   }
