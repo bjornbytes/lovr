@@ -1050,6 +1050,7 @@ static void recordComputePass(Pass* pass, gpu_stream* stream) {
   gpu_bundle* uniformBundle = NULL;
   gpu_buffer* uniformBuffer = NULL;
   uint32_t uniformOffset = 0;
+  uint32_t uniformSize = 0;
 
   gpu_compute_begin(stream);
 
@@ -1068,7 +1069,8 @@ static void recordComputePass(Pass* pass, gpu_stream* stream) {
     }
 
     if (compute->uniformBuffer && (compute->uniformBuffer != uniformBuffer || compute->uniformOffset != uniformOffset)) {
-      if (compute->uniformBuffer != uniformBuffer) {
+      if (compute->uniformBuffer != uniformBuffer || compute->shader->uniformSize != uniformSize) {
+        uniformSize = compute->shader->uniformSize;
         uniformBundle = getBundle(LAYOUT_UNIFORMS, &(gpu_binding) {
           .number = 0,
           .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC,
@@ -1392,6 +1394,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   gpu_buffer* indexBuffer = NULL;
   gpu_buffer* uniformBuffer = NULL;
   uint32_t uniformOffset = 0;
+  uint32_t uniformSize = 0;
   gpu_bundle* uniformBundle = NULL;
 
   gpu_bind_vertex_buffers(stream, &state.defaultBuffer->gpu, &state.defaultBuffer->base, 1, 1);
@@ -1427,7 +1430,8 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
     }
 
     if (draw->uniformBuffer && (draw->uniformBuffer != uniformBuffer || draw->uniformOffset != uniformOffset)) {
-      if (draw->uniformBuffer != uniformBuffer) {
+      if (draw->uniformBuffer != uniformBuffer || draw->shader->uniformSize != uniformSize) {
+        uniformSize = draw->shader->uniformSize;
         uniformBundle = getBundle(LAYOUT_UNIFORMS, &(gpu_binding) {
           .number = 0,
           .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC,

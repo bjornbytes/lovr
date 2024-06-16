@@ -365,6 +365,33 @@ group('graphics', function()
       pass:setShader(shader2)
       pass:compute()
       lovr.graphics.submit(pass)
+
+      -- Test that second draw with bigger uniform buffer is able to use its trailing uniforms
+      shader1 = lovr.graphics.newShader('fill', [[
+        uniform vec4 color1;
+        vec4 lovrmain() { return color1; }
+      ]])
+
+      shader2 = lovr.graphics.newShader('fill', [[
+        uniform vec4 color1;
+        uniform vec4 color2;
+        vec4 lovrmain() { return color2; }
+      ]])
+
+      texture = lovr.graphics.newTexture(1, 1, { usage = { 'render', 'transfer' } })
+      pass = lovr.graphics.newPass(texture)
+
+      pass:setShader(shader1)
+      pass:send('color1', vec4(1, 0, 0, 1))
+      pass:fill()
+
+      pass:setShader(shader2)
+      pass:send('color2', vec4(0, 0, 1, 1))
+      pass:fill()
+
+      lovr.graphics.submit(pass)
+      image = texture:getPixels()
+      expect({ image:getPixel(0, 0) }).to.equal({ 0, 0, 1, 1 })
     end)
   end)
 end)
