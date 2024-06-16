@@ -5756,6 +5756,7 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
               void* dst = (char*) uniforms + uniform->offset;
               size_t size = uniform->stride * MAX(uniform->length, 1);
               memcpy(dst, src, size);
+              break;
             }
           }
         }
