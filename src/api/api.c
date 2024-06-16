@@ -702,12 +702,11 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
       return index + 1;
     case LUA_TNUMBER:
     case LUA_TTABLE: {
-      float S[3], R[4];
-      mat4_identity(m);
-      index = luax_readvec3(L, index, m + 12, "table, number, or Mat4");
+      float T[3], R[4], S[3];
+      index = luax_readvec3(L, index, T, "table, number, or Mat4");
       index = luax_readscale(L, index, S, scaleComponents, NULL);
       index = luax_readquat(L, index, R, NULL);
-      mat4_rotateQuat(m, R);
+      mat4_fromPose(m, T, R);
       mat4_scale(m, S[0], S[1], S[2]);
       return index;
     }
