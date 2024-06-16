@@ -754,7 +754,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   if (blob) {
     memcpy(data, blob->data, info.size);
   } else if (hasData) {
-    luax_checkbufferdata(L, 2, format, data);
+    luax_checkbufferdata(L, 2, format, data, true);
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -1430,7 +1430,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   if (blob) {
     memcpy(vertices, blob->data, blob->size);
   } else if (hasData) {
-    luax_checkbufferdata(L, index, lovrMeshGetVertexFormat(mesh), vertices);
+    luax_checkbufferdata(L, index, lovrMeshGetVertexFormat(mesh), vertices, true);
   }
 
   luax_pushtype(L, Mesh, mesh);

@@ -168,7 +168,7 @@ bool luax_writefile(const char* filename, const void* data, size_t size);
 struct DataField;
 struct Material;
 struct ColoredString;
-void luax_checkbufferdata(lua_State* L, int index, const struct DataField* format, char* data);
+void luax_checkbufferdata(lua_State* L, int index, const struct DataField* format, char* data, bool single);
 int luax_pushbufferdata(lua_State* L, const struct DataField* format, uint32_t count, char* data);
 void luax_pushbufferformat(lua_State* L, const struct DataField* fields, uint32_t count);
 int luax_gettablestride(lua_State* L, int type);

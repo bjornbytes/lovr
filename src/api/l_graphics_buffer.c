@@ -56,12 +56,13 @@ typedef union {
 } DataPointer;
 
 #ifndef LOVR_UNCHECKED
-#define luax_fieldcheck(L, cond, index, field, arr) if (!(cond)) luax_fielderror(L, index, field, arr)
+#define luax_fieldcheck(L, cond, index, field, arr, single) if (!(cond)) luax_fielderror(L, index, field, arr, single)
 #else
-#define luax_fieldcheck(L, cond, index, field, arr) ((void) 0)
+#define luax_fieldcheck(L, cond, index, field, arr, single) ((void) 0)
 #endif
 
-static void luax_fielderror(lua_State* L, int index, const DataField* field, bool arr) {
+// "single" says whether a vector can be given as numbers or whether it must be a single table/udata
+static void luax_fielderror(lua_State* L, int index, const DataField* field, bool arr, bool single) {
   if (index < 0) index += lua_gettop(L) + 1;
 
   if (!field->parent) {
@@ -99,10 +100,10 @@ static void luax_fielderror(lua_State* L, int index, const DataField* field, boo
     expected = "table";
   } else if (field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4) {
     kind = "matrix";
-    expected = "number, table, or Mat4";
+    expected = single ? "table or Mat4" : "number, table, or Mat4";
   } else if (typeComponents[field->type] > 1) {
     kind = "vector";
-    expected = "number or table";
+    expected = single ? "table" : "number or table";
   } else {
     kind = "scalar";
     expected = "number";
@@ -116,7 +117,6 @@ static void luax_fielderror(lua_State* L, int index, const DataField* field, boo
 static void luax_checkfieldn(lua_State* L, int index, const DataField* field, void* data) {
   DataPointer p = { .raw = data };
   for (uint32_t i = 0; i < typeComponents[field->type]; i++) {
-    luax_fieldcheck(L, lua_type(L, index + i) == LUA_TNUMBER, index + i, field, false);
     double x = lua_tonumber(L, index + i);
     switch (field->type) {
       case TYPE_I8x4: p.i8[i] = (int8_t) x; break;
@@ -159,10 +159,10 @@ static void luax_checkfieldn(lua_State* L, int index, const DataField* field, vo
   }
 }
 
-static void luax_checkfieldv(lua_State* L, int index, const DataField* field, void* data) {
+static void luax_checkfieldv(lua_State* L, int index, const DataField* field, void* data, bool single) {
   DataPointer p = { .raw = data };
   Mat4* matrix = luax_totype(L, index, Mat4);
-  luax_fieldcheck(L, matrix && field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4, index, field, false);
+  luax_fieldcheck(L, matrix && field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4, index, field, false, single);
   float* m = lovrMat4GetPointer(matrix);
   switch (field->type) {
     case TYPE_MAT2: for (int i = 0; i < 2; i++) memcpy(p.f32 + 2 * i, m + 4 * i, 2 * sizeof(float)); break;
@@ -173,7 +173,6 @@ static void luax_checkfieldv(lua_State* L, int index, const DataField* field, vo
 }
 
 static void luax_checkfieldt(lua_State* L, int index, const DataField* field, void* data) {
-  luax_fieldcheck(L, lua_istable(L, index), index, field, false);
   if (index < 0) index += lua_gettop(L) + 1;
   int n = typeComponents[field->type];
   for (int i = 1; i <= n; i++) {
@@ -184,7 +183,7 @@ static void luax_checkfieldt(lua_State* L, int index, const DataField* field, vo
 }
 
 static void luax_checkstruct(lua_State* L, int index, const DataField* structure, char* data) {
-  luax_fieldcheck(L, lua_istable(L, index), index, structure, false);
+  luax_fieldcheck(L, lua_istable(L, index), index, structure, false, true);
   if (index < 0) index += lua_gettop(L) + 1;
   uint32_t length = luax_len(L, index);
   uint32_t f = 0;
@@ -200,7 +199,7 @@ static void luax_checkstruct(lua_State* L, int index, const DataField* structure
       lua_pop(L, n);
       i += n;
     } else {
-      luax_checkbufferdata(L, -1, field, data + field->offset);
+      luax_checkbufferdata(L, -1, field, data + field->offset, false);
       lua_pop(L, 1);
       i++;
     }
@@ -214,7 +213,7 @@ static void luax_checkstruct(lua_State* L, int index, const DataField* structure
     if (lua_isnil(L, -1)) {
       memset(data + field->offset, 0, MAX(field->length, 1) * field->stride);
     } else {
-      luax_checkbufferdata(L, -1, field, data + field->offset);
+      luax_checkbufferdata(L, -1, field, data + field->offset, true);
     }
 
     lua_pop(L, 1);
@@ -222,7 +221,7 @@ static void luax_checkstruct(lua_State* L, int index, const DataField* structure
 }
 
 static void luax_checkarray(lua_State* L, int index, int start, uint32_t count, const DataField* array, char* data) {
-  luax_fieldcheck(L, lua_istable(L, index), index, array, true);
+  luax_fieldcheck(L, lua_istable(L, index), index, array, true, true);
   uint32_t length = luax_len(L, index);
   count = MIN(count, (length - start + 1));
 
@@ -251,7 +250,7 @@ static void luax_checkarray(lua_State* L, int index, int start, uint32_t count, 
     } else if (type == LUA_TUSERDATA) {
       for (uint32_t i = 0; i < count; i++, data += array->stride) {
         lua_rawgeti(L, index, start + i);
-        luax_checkfieldv(L, -1, array, data);
+        luax_checkfieldv(L, -1, array, data, true);
         lua_pop(L, 1);
       }
     } else if (type == LUA_TTABLE) {
@@ -262,13 +261,13 @@ static void luax_checkarray(lua_State* L, int index, int start, uint32_t count, 
       }
     } else {
       lua_rawgeti(L, index, start);
-      luax_fieldcheck(L, type == LUA_TNIL, -1, array, false);
+      luax_fieldcheck(L, type == LUA_TNIL, -1, array, false, false);
       lua_pop(L, 1);
     }
   }
 }
 
-void luax_checkbufferdata(lua_State* L, int index, const DataField* field, char* data) {
+void luax_checkbufferdata(lua_State* L, int index, const DataField* field, char* data, bool single) {
   int type = lua_type(L, index);
 
   if (field->length > 0) {
@@ -276,13 +275,14 @@ void luax_checkbufferdata(lua_State* L, int index, const DataField* field, char*
   } else if (field->fieldCount > 0) {
     luax_checkstruct(L, index, field, data);
   } else if (typeComponents[field->type] == 1) {
+    luax_fieldcheck(L, lua_type(L, index) == LUA_TNUMBER, index, field, false, true);
     luax_checkfieldn(L, index, field, data);
   } else if (type == LUA_TUSERDATA) {
-    luax_checkfieldv(L, index, field, data);
+    luax_checkfieldv(L, index, field, data, single);
   } else if (type == LUA_TTABLE) {
     luax_checkfieldt(L, index, field, data);
   } else {
-    luax_fielderror(L, index, field, false);
+    luax_fielderror(L, index, field, false, single);
   }
 }
 
@@ -516,7 +516,7 @@ static int l_lovrBufferSetData(lua_State* L) {
 
   if (format) {
     if (format->length > 0) {
-      luax_fieldcheck(L, lua_istable(L, 2), 2, format, -1);
+      luax_fieldcheck(L, lua_istable(L, 2), 2, format, -1, true);
       uint32_t length = luax_len(L, 2);
       uint32_t dstIndex = luax_optu32(L, 3, 1) - 1;
       uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
@@ -532,7 +532,7 @@ static int l_lovrBufferSetData(lua_State* L) {
       luax_checkarray(L, 2, srcIndex + 1, count, format, data);
     } else {
       luaL_checkany(L, 2);
-      luax_checkbufferdata(L, 2, format, lovrBufferSetData(buffer, 0, format->stride));
+      luax_checkbufferdata(L, 2, format, lovrBufferSetData(buffer, 0, format->stride), true);
     }
 
     return 0;
