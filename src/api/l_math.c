@@ -170,6 +170,9 @@ int luaopen_lovr_math(lua_State* L) {
   lovrMathInit();
   luax_atexit(L, lovrMathDestroy);
 
+  const char* names[] = { "vec2", "vec3", "vec4", "quat", "mat4" };
+  const char* capitals[] = { "newVec2", "newVec3", "newVec4", "newQuat", "newMat4" };
+
   // Lua vectors
   if (!luaL_loadbuffer(L, (const char*) src_api_l_math_lua, src_api_l_math_lua_len, "@math.lua")) {
     luaL_newmetatable(L, "vec2");
@@ -178,25 +181,12 @@ int luaopen_lovr_math(lua_State* L) {
     luaL_newmetatable(L, "quat");
     lua_call(L, 4, 0);
 
-    luaL_newmetatable(L, "vec2");
-    lua_setfield(L, -2, "vec2");
-    luaL_newmetatable(L, "vec2");
-    lua_setfield(L, -2, "newVec2");
-
-    luaL_newmetatable(L, "vec3");
-    lua_setfield(L, -2, "vec3");
-    luaL_newmetatable(L, "vec3");
-    lua_setfield(L, -2, "newVec3");
-
-    luaL_newmetatable(L, "vec4");
-    lua_setfield(L, -2, "vec4");
-    luaL_newmetatable(L, "vec4");
-    lua_setfield(L, -2, "newVec4");
-
-    luaL_newmetatable(L, "quat");
-    lua_setfield(L, -2, "quat");
-    luaL_newmetatable(L, "quat");
-    lua_setfield(L, -2, "newQuat");
+    for (size_t i = 0; i < COUNTOF(names) - 1; i++) {
+      luaL_newmetatable(L, names[i]);
+      lua_pushvalue(L, -1);
+      lua_setfield(L, -3, names[i]); // lovr.math.vec3 = metatable
+      lua_setfield(L, -2, capitals[i]); // lovr.math.newVec3 = metatable
+    }
   } else {
     lovrThrow("%s", lua_tostring(L, -1));
     lua_pop(L, 1);
@@ -209,30 +199,12 @@ int luaopen_lovr_math(lua_State* L) {
     if (lua_istable(L, -1)) {
       lua_getfield(L, -1, "globals");
       if (lua_toboolean(L, -1)) {
-        lua_getfield(L, -4, "vec2");
-        lua_pushvalue(L, -1);
-        lua_setglobal(L, "vec2");
-        lua_setglobal(L, "Vec2");
-
-        lua_getfield(L, -4, "vec3");
-        lua_pushvalue(L, -1);
-        lua_setglobal(L, "vec3");
-        lua_setglobal(L, "Vec3");
-
-        lua_getfield(L, -4, "vec4");
-        lua_pushvalue(L, -1);
-        lua_setglobal(L, "vec4");
-        lua_setglobal(L, "Vec4");
-
-        lua_getfield(L, -4, "quat");
-        lua_pushvalue(L, -1);
-        lua_setglobal(L, "quat");
-        lua_setglobal(L, "Quat");
-
-        lua_getfield(L, -4, "newMat4");
-        lua_pushvalue(L, -1);
-        lua_setglobal(L, "mat4");
-        lua_setglobal(L, "Mat4");
+        for (size_t i = 0; i < COUNTOF(names); i++) {
+          lua_getfield(L, -4, names[i]);
+          lua_pushvalue(L, -1);
+          lua_setglobal(L, names[i]);
+          lua_setglobal(L, capitals[i] + 3); // Skip 'new'
+        }
       }
       lua_pop(L, 1);
     }
