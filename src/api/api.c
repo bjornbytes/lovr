@@ -642,7 +642,7 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
     case LUA_TNIL:
     case LUA_TNONE:
       v[0] = v[1] = v[2] = 1.f;
-      return index + components;
+      return index + 1;
     case LUA_TNUMBER:
       if (components == 1) {
         v[0] = v[1] = v[2] = luax_tofloat(L, index);
