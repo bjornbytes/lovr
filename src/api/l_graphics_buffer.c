@@ -1,7 +1,6 @@
 #include "api.h"
 #include "graphics/graphics.h"
 #include "data/blob.h"
-#include "math/math.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>

@@ -4,7 +4,6 @@
 #include "data/image.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
-#include "math/math.h"
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>

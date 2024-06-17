@@ -491,7 +491,7 @@ void luax_readcolor(lua_State* L, int index, float color[4]) {
   }
 }
 
-// Like readcolor, but only consumes 1 argument (nil, hex, table, vec3), useful for table keys
+// Like readcolor, but only consumes 1 argument (nil, hex, table), useful for table keys
 void luax_optcolor(lua_State* L, int index, float color[4]) {
   switch (lua_type(L, index)) {
     case LUA_TNONE:

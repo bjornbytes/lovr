@@ -1,7 +1,6 @@
 #include "api.h"
 #include "graphics/graphics.h"
 #include "data/modelData.h"
-#include "math/math.h"
 #include "core/maf.h"
 #include "util.h"
 

@@ -16,11 +16,6 @@ struct Curve {
   arr_t(float) points;
 };
 
-struct Mat4 {
-  uint32_t ref;
-  float m[16];
-};
-
 struct RandomGenerator {
   uint32_t ref;
   Seed seed;
