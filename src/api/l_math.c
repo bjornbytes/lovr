@@ -45,10 +45,8 @@ static int l_lovrMathNewCurve(lua_State* L) {
 
 extern int l_lovrMat4Set(lua_State* L);
 static int l_lovrMathNewMat4(lua_State* L) {
-  Mat4* matrix = lovrMat4Create();
-  luax_pushtype(L, Mat4, matrix);
+  luax_newmat4(L);
   lua_insert(L, 1);
-  lovrRelease(matrix, lovrMat4Destroy);
   return l_lovrMat4Set(L);
 }
 
@@ -163,8 +161,13 @@ int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrMath);
   luax_registertype(L, Curve);
-  luax_registertype(L, Mat4);
   luax_registertype(L, RandomGenerator);
+
+  luaL_newmetatable(L, "Mat4");
+  lua_pushvalue(L, -1);
+  lua_setfield(L, -2, "__index");
+  luax_register(L, lovrMat4);
+  lua_pop(L, 1);
 
   // Module
   lovrMathInit();
@@ -175,21 +178,21 @@ int luaopen_lovr_math(lua_State* L) {
 
   // Lua vectors
   if (!luaL_loadbuffer(L, (const char*) src_api_l_math_lua, src_api_l_math_lua_len, "@math.lua")) {
-    luaL_newmetatable(L, "vec2");
-    luaL_newmetatable(L, "vec3");
-    luaL_newmetatable(L, "vec4");
-    luaL_newmetatable(L, "quat");
+    luaL_newmetatable(L, "Vec2");
+    luaL_newmetatable(L, "Vec3");
+    luaL_newmetatable(L, "Vec4");
+    luaL_newmetatable(L, "Quat");
     lua_call(L, 4, 0);
-
-    for (size_t i = 0; i < COUNTOF(names) - 1; i++) {
-      luaL_newmetatable(L, names[i]);
-      lua_pushvalue(L, -1);
-      lua_setfield(L, -3, names[i]); // lovr.math.vec3 = metatable
-      lua_setfield(L, -2, capitals[i]); // lovr.math.newVec3 = metatable
-    }
   } else {
     lovrThrow("%s", lua_tostring(L, -1));
     lua_pop(L, 1);
+  }
+
+  for (size_t i = 0; i < COUNTOF(names) - 1; i++) {
+    luaL_newmetatable(L, capitals[i] + 3);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -3, names[i]); // lovr.math.vec3 = metatable
+    lua_setfield(L, -2, capitals[i]); // lovr.math.newVec3 = metatable
   }
 
   // Globals

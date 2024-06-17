@@ -66,6 +66,13 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
     }
 
     case LUA_TUSERDATA:
+      if (luax_ismat4(L, index)) {
+        variant->type = TYPE_MATRIX;
+        variant->value.matrix.data = lovrMalloc(64);
+        memcpy(variant->value.matrix.data, lua_touserdata(L, index), 64);
+        break;
+      }
+
       variant->type = TYPE_OBJECT;
       Proxy* proxy = lua_touserdata(L, index);
       lua_getmetatable(L, index);
@@ -106,6 +113,7 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_MINISTRING: lua_pushlstring(L, variant->value.ministring.data, variant->value.ministring.length); return 1;
     case TYPE_POINTER: lua_pushlightuserdata(L, variant->value.pointer); return 1;
     case TYPE_OBJECT: _luax_pushtype(L, variant->value.object.type, hash64(variant->value.object.type, strlen(variant->value.object.type)), variant->value.object.pointer); return 1;
+    case TYPE_MATRIX: memcpy(luax_newmat4(L), variant->value.matrix.data, 64); return 1;
     default: return 0;
   }
 }

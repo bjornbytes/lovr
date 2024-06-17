@@ -5,7 +5,6 @@
 #pragma once
 
 typedef struct Curve Curve;
-typedef struct Mat4 Mat4;
 typedef struct RandomGenerator RandomGenerator;
 
 bool lovrMathInit(void);
@@ -30,24 +29,6 @@ void lovrCurveGetPoint(Curve* curve, size_t index, float* point);
 void lovrCurveSetPoint(Curve* curve, size_t index, float* point);
 void lovrCurveAddPoint(Curve* curve, float* point, size_t index);
 void lovrCurveRemovePoint(Curve* curve, size_t index);
-
-// Mat4
-
-Mat4* lovrMat4Create(void);
-void lovrMat4Destroy(void* ref);
-Mat4* lovrMat4Clone(Mat4* matrix);
-float* lovrMat4GetPointer(Mat4* matrix);
-bool lovrMat4Equals(Mat4* matrix, Mat4* other);
-void lovrMat4GetPosition(Mat4* matrix, float* position);
-void lovrMat4GetOrientation(Mat4* matrix, float* orientation);
-void lovrMat4GetAngleAxis(Mat4* matrix, float* angle, float* ax, float* ay, float* az);
-void lovrMat4GetScale(Mat4* matrix, float* scale);
-void lovrMat4Identity(Mat4* matrix);
-void lovrMat4Invert(Mat4* matrix);
-void lovrMat4Transpose(Mat4* matrix);
-void lovrMat4Translate(Mat4* matrix, float* translation);
-void lovrMat4Rotate(Mat4* matrix, float* rotation);
-void lovrMat4Scale(Mat4* matrix, float* scale);
 
 // RandomGenerator
 

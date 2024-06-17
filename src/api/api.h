@@ -137,6 +137,9 @@ int luax_pushvec3(lua_State* L, float* v);
 int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
 int luax_readscale(lua_State* L, int index, float* v, int components, const char* expected);
 int luax_readquat(lua_State* L, int index, float* q, const char* expected);
+float* luax_newmat4(lua_State* L);
+bool luax_ismat4(lua_State* L, int index);
+float* luax_checkmat4(lua_State* L, int index);
 int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);
 
 // Module helpers

@@ -737,12 +737,12 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
             info.size = (uint32_t) blob->size;
             format->length = info.size / format->stride;
             break;
-          } else if (luax_totype(L, 2, Mat4)) {
+          } else if (luax_ismat4(L, 2)) {
             format->length = 0;
             hasData = true;
             break;
           }
-          return luax_typeerror(L, 2, "nil, number, vector, table, or Blob");
+          return luax_typeerror(L, 2, "nil, number, table, Mat4, or Blob");
       }
     }
   }

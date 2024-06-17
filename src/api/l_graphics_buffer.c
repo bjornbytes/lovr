@@ -159,11 +159,10 @@ static void luax_checkfieldn(lua_State* L, int index, const DataField* field, vo
   }
 }
 
-static void luax_checkfieldv(lua_State* L, int index, const DataField* field, void* data, bool single) {
+static void luax_checkfieldm(lua_State* L, int index, const DataField* field, void* data, bool single) {
   DataPointer p = { .raw = data };
-  Mat4* matrix = luax_totype(L, index, Mat4);
-  luax_fieldcheck(L, matrix && field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4, index, field, false, single);
-  float* m = lovrMat4GetPointer(matrix);
+  luax_fieldcheck(L, luax_ismat4(L, index) && field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4, index, field, false, single);
+  float* m = lua_touserdata(L, index);
   switch (field->type) {
     case TYPE_MAT2: for (int i = 0; i < 2; i++) memcpy(p.f32 + 2 * i, m + 4 * i, 2 * sizeof(float)); break;
     case TYPE_MAT3: for (int i = 0; i < 3; i++) memcpy(p.f32 + 4 * i, m + 4 * i, 3 * sizeof(float)); break;
@@ -250,7 +249,7 @@ static void luax_checkarray(lua_State* L, int index, int start, uint32_t count, 
     } else if (type == LUA_TUSERDATA) {
       for (uint32_t i = 0; i < count; i++, data += array->stride) {
         lua_rawgeti(L, index, start + i);
-        luax_checkfieldv(L, -1, array, data, true);
+        luax_checkfieldm(L, -1, array, data, true);
         lua_pop(L, 1);
       }
     } else if (type == LUA_TTABLE) {
@@ -278,7 +277,7 @@ void luax_checkbufferdata(lua_State* L, int index, const DataField* field, char*
     luax_fieldcheck(L, lua_type(L, index) == LUA_TNUMBER, index, field, false, true);
     luax_checkfieldn(L, index, field, data);
   } else if (type == LUA_TUSERDATA) {
-    luax_checkfieldv(L, index, field, data, single);
+    luax_checkfieldm(L, index, field, data, single);
   } else if (type == LUA_TTABLE) {
     luax_checkfieldt(L, index, field, data);
   } else {

@@ -17,6 +17,7 @@ void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
     case TYPE_STRING: lovrFree(variant->value.string.pointer); return;
     case TYPE_OBJECT: lovrRelease(variant->value.object.pointer, variant->value.object.destructor); return;
+    case TYPE_MATRIX: lovrFree(variant->value.matrix.data); return;
     default: return;
   }
 }

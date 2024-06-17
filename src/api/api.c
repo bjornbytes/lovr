@@ -611,7 +611,7 @@ int luax_pushvec3(lua_State* L, float* v) {
   lua_rawseti(L, -2, 2);
   lua_pushnumber(L, v[2]);
   lua_rawseti(L, -2, 3);
-  luaL_newmetatable(L, "vec3");
+  luaL_newmetatable(L, "Vec3");
   return lua_setmetatable(L, -2);
 }
 
@@ -694,6 +694,26 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
   }
 }
 
+float* luax_newmat4(lua_State* L) {
+  float* p = lua_newuserdata(L, 4 * 4 * sizeof(float));
+  luaL_newmetatable(L, "Mat4");
+  lua_setmetatable(L, -2);
+  return p;
+}
+
+bool luax_ismat4(lua_State* L, int index) {
+  return lua_type(L, index) == LUA_TUSERDATA && luax_len(L, index) == 64;
+}
+
+float* luax_checkmat4(lua_State* L, int index) {
+  if (luax_ismat4(L, index)) {
+    return lua_touserdata(L, index);
+  } else {
+    luax_typeerror(L, index, "Mat4");
+    return NULL;
+  }
+}
+
 int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
   switch (lua_type(L, index)) {
     case LUA_TNIL:
@@ -710,10 +730,11 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
       mat4_scale(m, S[0], S[1], S[2]);
       return index;
     }
-    default: {
-      Mat4* matrix = luax_checktype(L, index, Mat4);
-      mat4_init(m, lovrMat4GetPointer(matrix));
-      return index + 1;
-    }
+    default:
+      if (luax_ismat4(L, index)) {
+        mat4_init(m, lua_touserdata(L, index));
+        return index + 1;
+      }
+      return luax_typeerror(L, index, "table, number, or Mat4");
   }
 }

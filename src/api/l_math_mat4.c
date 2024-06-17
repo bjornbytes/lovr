@@ -4,26 +4,35 @@
 #include "util.h"
 
 static int l_lovrMat4Equals(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
-  Mat4* other = luax_checktype(L, 2, Mat4);
-  bool equal = lovrMat4Equals(matrix, other);
-  lua_pushboolean(L, equal);
+  mat4 m = luax_checkmat4(L, 1);
+  mat4 n = luax_checkmat4(L, 2);
+  for (int i = 0; i < 16; i += 4) {
+    float dx = m[i + 0] - n[i + 0];
+    float dy = m[i + 1] - n[i + 1];
+    float dz = m[i + 2] - n[i + 2];
+    float dw = m[i + 3] - n[i + 3];
+    float distance2 = dx * dx + dy * dy + dz * dz + dw * dw;
+    if (distance2 > 1e-10f) {
+      lua_pushboolean(L, false);
+      return 1;
+    }
+  }
+  lua_pushboolean(L, true);
   return 1;
 }
 
 static int l_lovrMat4Unpack(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
+  mat4 m = luax_checkmat4(L, 1);
   if (lua_toboolean(L, 2)) {
-    float* m = lovrMat4GetPointer(matrix);
     for (int i = 0; i < 16; i++) {
       lua_pushnumber(L, m[i]);
     }
     return 16;
   } else {
     float position[3], scale[3], angle, ax, ay, az;
-    lovrMat4GetPosition(matrix, position);
-    lovrMat4GetScale(matrix, scale);
-    lovrMat4GetAngleAxis(matrix, &angle, &ax, &ay, &az);
+    mat4_getPosition(m, position);
+    mat4_getScale(m, scale);
+    mat4_getAngleAxis(m, &angle, &ax, &ay, &az);
     lua_pushnumber(L, position[0]);
     lua_pushnumber(L, position[1]);
     lua_pushnumber(L, position[2]);
@@ -39,9 +48,9 @@ static int l_lovrMat4Unpack(lua_State* L) {
 }
 
 static int l_lovrMat4GetPosition(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
+  mat4 m = luax_checkmat4(L, 1);
   float position[3];
-  lovrMat4GetPosition(matrix, position);
+  mat4_getPosition(m, position);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
   lua_pushnumber(L, position[2]);
@@ -49,9 +58,9 @@ static int l_lovrMat4GetPosition(lua_State* L) {
 }
 
 static int l_lovrMat4GetOrientation(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
+  mat4 m = luax_checkmat4(L, 1);
   float angle, ax, ay, az;
-  lovrMat4GetAngleAxis(matrix, &angle, &ax, &ay, &az);
+  mat4_getAngleAxis(m, &angle, &ax, &ay, &az);
   lua_pushnumber(L, angle);
   lua_pushnumber(L, ax);
   lua_pushnumber(L, ay);
@@ -60,9 +69,9 @@ static int l_lovrMat4GetOrientation(lua_State* L) {
 }
 
 static int l_lovrMat4GetScale(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
+  mat4 m = luax_checkmat4(L, 1);
   float scale[3];
-  lovrMat4GetScale(matrix, scale);
+  mat4_getScale(m, scale);
   lua_pushnumber(L, scale[0]);
   lua_pushnumber(L, scale[1]);
   lua_pushnumber(L, scale[2]);
@@ -70,10 +79,10 @@ static int l_lovrMat4GetScale(lua_State* L) {
 }
 
 static int l_lovrMat4GetPose(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
+  mat4 m = luax_checkmat4(L, 1);
   float position[3], angle, ax, ay, az;
-  lovrMat4GetPosition(matrix, position);
-  lovrMat4GetAngleAxis(matrix, &angle, &ax, &ay, &az);
+  mat4_getPosition(m, position);
+  mat4_getAngleAxis(m, &angle, &ax, &ay, &az);
   lua_pushnumber(L, position[0]);
   lua_pushnumber(L, position[1]);
   lua_pushnumber(L, position[2]);
@@ -85,7 +94,7 @@ static int l_lovrMat4GetPose(lua_State* L) {
 }
 
 int l_lovrMat4Set(lua_State* L) {
-  mat4 m = lovrMat4GetPointer(luax_checktype(L, 1, Mat4));
+  mat4 m = luax_checkmat4(L, 1);
   int top = lua_gettop(L);
   int type = lua_type(L, 2);
   if (type == LUA_TNONE || type == LUA_TNIL || (top == 2 && type == LUA_TNUMBER)) {
@@ -97,9 +106,8 @@ int l_lovrMat4Set(lua_State* L) {
       *m++ = luax_checkfloat(L, i);
     }
   } else {
-    Mat4* other = luax_totype(L, 2, Mat4);
-    if (other) {
-      mat4_init(m, lovrMat4GetPointer(other));
+    if (luax_ismat4(L, 2)) {
+      mat4_init(m, lua_touserdata(L, 2));
     } else {
       int index = 2;
       mat4_identity(m);
@@ -131,10 +139,9 @@ int l_lovrMat4Set(lua_State* L) {
 }
 
 static int l_lovrMat4Mul(lua_State* L) {
-  mat4 m = lovrMat4GetPointer(luax_checktype(L, 1, Mat4));
-  Mat4* other = luax_totype(L, 2, Mat4);
-  if (other) {
-    mat4_mul(m, lovrMat4GetPointer(other));
+  mat4 m = luax_checkmat4(L, 1);
+  if (luax_ismat4(L, 2)) {
+    mat4_mul(m, lua_touserdata(L, 2));
     lua_settop(L, 1);
   } else if (lua_isnumber(L, 2) || (lua_istable(L, 2) && luax_len(L, 2) == 3)) {
     float v[3];
@@ -162,7 +169,7 @@ static int l_lovrMat4Mul(lua_State* L) {
     lua_rawseti(L, -2, 3);
     lua_pushnumber(L, v[3]);
     lua_rawseti(L, -2, 4);
-    luaL_newmetatable(L, "vec4");
+    luaL_newmetatable(L, "Vec4");
     lua_setmetatable(L, -2);
   } else {
     return luax_typeerror(L, 2, "mat4, vec3, vec4, or number");
@@ -171,55 +178,55 @@ static int l_lovrMat4Mul(lua_State* L) {
 }
 
 static int l_lovrMat4Identity(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
-  lovrMat4Identity(matrix);
+  mat4 m = luax_checkmat4(L, 1);
+  mat4_identity(m);
   lua_settop(L, 1);
   return 1;
 }
 
 static int l_lovrMat4Invert(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
-  lovrMat4Invert(matrix);
+  mat4 m = luax_checkmat4(L, 1);
+  mat4_invert(m);
   lua_settop(L, 1);
   return 1;
 }
 
 static int l_lovrMat4Transpose(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
-  lovrMat4Transpose(matrix);
+  mat4 m = luax_checkmat4(L, 1);
+  mat4_transpose(m);
   lua_settop(L, 1);
   return 1;
 }
 
 static int l_lovrMat4Translate(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
+  mat4 m = luax_checkmat4(L, 1);
   float translation[3];
   luax_readvec3(L, 2, translation, NULL);
-  lovrMat4Translate(matrix, translation);
+  mat4_translate(m, translation[0], translation[1], translation[2]);
   lua_settop(L, 1);
   return 1;
 }
 
 static int l_lovrMat4Rotate(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
+  mat4 m = luax_checkmat4(L, 1);
   float rotation[4];
   luax_readquat(L, 2, rotation, NULL);
-  lovrMat4Rotate(matrix, rotation);
+  mat4_rotateQuat(m, rotation);
   lua_settop(L, 1);
   return 1;
 }
 
 static int l_lovrMat4Scale(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
+  mat4 m = luax_checkmat4(L, 1);
   float scale[3];
   luax_readscale(L, 2, scale, 3, NULL);
-  lovrMat4Scale(matrix, scale);
+  mat4_scale(m, scale[0], scale[1], scale[2]);
   lua_settop(L, 1);
   return 1;
 }
 
 static int l_lovrMat4Orthographic(lua_State* L) {
-  mat4 m = lovrMat4GetPointer(luax_checktype(L, 1, Mat4));
+  mat4 m = luax_checkmat4(L, 1);
   if (lua_gettop(L) <= 5) {
     float width = luax_checkfloat(L, 2);
     float height = luax_checkfloat(L, 3);
@@ -240,7 +247,7 @@ static int l_lovrMat4Orthographic(lua_State* L) {
 }
 
 static int l_lovrMat4Perspective(lua_State* L) {
-  mat4 m = lovrMat4GetPointer(luax_checktype(L, 1, Mat4));
+  mat4 m = luax_checkmat4(L, 1);
   float fovy = luax_checkfloat(L, 2);
   float aspect = luax_checkfloat(L, 3);
   float n = luax_checkfloat(L, 4);
@@ -251,7 +258,7 @@ static int l_lovrMat4Perspective(lua_State* L) {
 }
 
 static int l_lovrMat4Fov(lua_State* L) {
-  mat4 m = lovrMat4GetPointer(luax_checktype(L, 1, Mat4));
+  mat4 m = luax_checkmat4(L, 1);
   float left = luax_checkfloat(L, 2);
   float right = luax_checkfloat(L, 3);
   float up = luax_checkfloat(L, 4);
@@ -264,7 +271,7 @@ static int l_lovrMat4Fov(lua_State* L) {
 }
 
 static int l_lovrMat4LookAt(lua_State* L) {
-  mat4 m = lovrMat4GetPointer(luax_checktype(L, 1, Mat4));
+  mat4 m = luax_checkmat4(L, 1);
   float from[3], to[3], up[3];
   int index = 2;
   index = luax_readvec3(L, index, from, NULL);
@@ -280,7 +287,7 @@ static int l_lovrMat4LookAt(lua_State* L) {
 }
 
 static int l_lovrMat4Target(lua_State* L) {
-  mat4 m = lovrMat4GetPointer(luax_checktype(L, 1, Mat4));
+  mat4 m = luax_checkmat4(L, 1);
   float from[3], to[3], up[3];
   int index = 2;
   index = luax_readvec3(L, index, from, NULL);
@@ -296,7 +303,7 @@ static int l_lovrMat4Target(lua_State* L) {
 }
 
 static int l_lovrMat4Reflect(lua_State* L) {
-  mat4 m = lovrMat4GetPointer(luax_checktype(L, 1, Mat4));
+  mat4 m = luax_checkmat4(L, 1);
   float position[3], normal[3];
   int index = 2;
   index = luax_readvec3(L, index, position, NULL);
@@ -307,8 +314,7 @@ static int l_lovrMat4Reflect(lua_State* L) {
 }
 
 static int l_lovrMat4__mul(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
-  float* m = lovrMat4GetPointer(matrix);
+  mat4 m = luax_checkmat4(L, 1);
   if (lua_type(L, 2) == LUA_TTABLE && luax_len(L, 2) == 4) {
     float v[4];
     lua_rawgeti(L, 2, 1);
@@ -330,7 +336,7 @@ static int l_lovrMat4__mul(lua_State* L) {
     lua_rawseti(L, -2, 3);
     lua_pushnumber(L, v[3]);
     lua_rawseti(L, -2, 4);
-    luaL_newmetatable(L, "vec4");
+    luaL_newmetatable(L, "Vec4");
     lua_setmetatable(L, -2);
     return 1;
   } else if (lua_type(L, 2) == LUA_TTABLE && luax_len(L, 2) == 3) {
@@ -340,17 +346,14 @@ static int l_lovrMat4__mul(lua_State* L) {
     luax_pushvec3(L, v);
     return 1;
   }
-  Mat4* other = luax_checktype(L, 2, Mat4);
-  Mat4* result = lovrMat4Clone(matrix);
-  mat4_mul(lovrMat4GetPointer(result), lovrMat4GetPointer(other));
-  luax_pushtype(L, Mat4, result);
-  lovrRelease(result, lovrMat4Destroy);
+  mat4 n = luax_checkmat4(L, 2);
+  mat4 result = luax_newmat4(L);
+  mat4_mul(mat4_init(result, m), n);
   return 1;
 }
 
 static int l_lovrMat4__tostring(lua_State* L) {
-  Mat4* matrix = luax_checktype(L, 1, Mat4);
-  float* m = lovrMat4GetPointer(matrix);
+  mat4 m = luax_checkmat4(L, 1);
   const char* format = "(%f, %f, %f, %f,\n %f, %f, %f, %f,\n %f, %f, %f, %f,\n %f, %f, %f, %f)";
   lua_pushfstring(L, format,
     m[0], m[4], m[8], m[12],
