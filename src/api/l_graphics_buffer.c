@@ -515,30 +515,6 @@ static int l_lovrBufferSetData(lua_State* L) {
   const BufferInfo* info = lovrBufferGetInfo(buffer);
   const DataField* format = info->format;
 
-  if (format) {
-    if (format->length > 0) {
-      luax_fieldcheck(L, lua_istable(L, 2), 2, format, -1);
-      uint32_t length = luax_len(L, 2);
-      uint32_t dstIndex = luax_optu32(L, 3, 1) - 1;
-      uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
-
-      lua_rawgeti(L, 2, srcIndex + 1);
-      uint32_t tstride = format->fieldCount == 0 && lua_type(L, -1) == LUA_TNUMBER ? typeComponents[format->type] : 1;
-      lua_pop(L, 1);
-
-      uint32_t limit = MIN(format->length - dstIndex, (length - srcIndex) / tstride);
-      uint32_t count = luax_optu32(L, 5, limit);
-
-      char* data = lovrBufferSetData(buffer, dstIndex * format->stride, count * format->stride);
-      luax_checkarray(L, 2, srcIndex + 1, count, format, data);
-    } else {
-      luaL_checkany(L, 2);
-      luax_checkbufferdata(L, 2, format, lovrBufferSetData(buffer, 0, format->stride));
-    }
-
-    return 0;
-  }
-
   Blob* blob = luax_totype(L, 2, Blob);
 
   if (blob) {
@@ -566,6 +542,30 @@ static int l_lovrBufferSetData(lua_State* L) {
     uint32_t limit = MIN(dstInfo->size - dstOffset, srcInfo->size - srcOffset);
     uint32_t extent = luax_optu32(L, 5, limit);
     lovrBufferCopy(src, dst, srcOffset, dstOffset, extent);
+    return 0;
+  }
+
+  if (format) {
+    if (format->length > 0) {
+      luax_fieldcheck(L, lua_istable(L, 2), 2, format, -1);
+      uint32_t length = luax_len(L, 2);
+      uint32_t dstIndex = luax_optu32(L, 3, 1) - 1;
+      uint32_t srcIndex = luax_optu32(L, 4, 1) - 1;
+
+      lua_rawgeti(L, 2, srcIndex + 1);
+      uint32_t tstride = format->fieldCount == 0 && lua_type(L, -1) == LUA_TNUMBER ? typeComponents[format->type] : 1;
+      lua_pop(L, 1);
+
+      uint32_t limit = MIN(format->length - dstIndex, (length - srcIndex) / tstride);
+      uint32_t count = luax_optu32(L, 5, limit);
+
+      char* data = lovrBufferSetData(buffer, dstIndex * format->stride, count * format->stride);
+      luax_checkarray(L, 2, srcIndex + 1, count, format, data);
+    } else {
+      luaL_checkany(L, 2);
+      luax_checkbufferdata(L, 2, format, lovrBufferSetData(buffer, 0, format->stride));
+    }
+
     return 0;
   }
 

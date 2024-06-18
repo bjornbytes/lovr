@@ -194,6 +194,12 @@ group('graphics', function()
       expect(buffer:getData()).to.equal({ 1, 8, -2 })
     end)
 
+    test(':setData with Blob', function()
+      buffer = lovr.graphics.newBuffer('int')
+      blob = lovr.data.newBlob(4)
+      buffer:setData(blob)
+    end)
+
     test(':clear', function()
       buffer = lovr.graphics.newBuffer('int', { 1, 2, 3 })
       buffer:clear()
