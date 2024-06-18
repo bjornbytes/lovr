@@ -7,7 +7,7 @@ typedef struct Blob {
   uint32_t ref;
   void* data;
   size_t size;
-  const char* name;
+  char* name;
 } Blob;
 
 Blob* lovrBlobCreate(void* data, size_t size, const char* name);

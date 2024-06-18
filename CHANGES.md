@@ -96,6 +96,7 @@ dev
 - Fix issue where `Collider`/`Shape`/`Joint` userdata wouldn't get garbage collected.
 - Fix OBJ triangulation for faces with more than 4 vertices.
 - Fix possible crash when using vectors in multiple threads.
+- Fix possible crash with `Blob:getName`.
 
 ### Deprecate
 
