@@ -1852,6 +1852,7 @@ static void lovrShapeReplace(Shape* shape, JPH_Shape* new) {
 }
 
 BoxShape* lovrBoxShapeCreate(float dimensions[3]) {
+  lovrCheck(dimensions[0] > 0.f && dimensions[1] > 0.f && dimensions[2] > 0.f, "BoxShape dimensions must be positive");
   BoxShape* shape = lovrCalloc(sizeof(BoxShape));
   shape->ref = 1;
   shape->type = SHAPE_BOX;
