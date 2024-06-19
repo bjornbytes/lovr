@@ -31,11 +31,11 @@ struct World {
   float defaultLinearDamping;
   float defaultAngularDamping;
   bool defaultIsSleepingAllowed;
-  int collisionSteps;
+  uint32_t maxSteps;
   float time;
   float timestep;
   float inverseDelta;
-  uint32_t tickLimit;
+  float interpolation;
   uint32_t tagCount;
   uint32_t staticTagMask;
   uint32_t tagLookup[MAX_TAGS];
@@ -290,7 +290,6 @@ World* lovrWorldCreate(WorldInfo* info) {
   World* world = lovrCalloc(sizeof(World));
 
   world->ref = 1;
-  world->collisionSteps = 1;
   world->defaultLinearDamping = .05f;
   world->defaultAngularDamping = .05f;
   world->defaultIsSleepingAllowed = info->allowSleep;
@@ -357,7 +356,7 @@ World* lovrWorldCreate(WorldInfo* info) {
     world->bodyInterfaceNoLock;
 
   world->timestep = info->timestep;
-  world->tickLimit = info->tickLimit;
+  world->maxSteps = info->maxSteps;
 
   if (world->timestep > 0.f) {
     world->activeColliders = lovrMalloc(info->maxColliders * sizeof(Collider*));
@@ -474,13 +473,13 @@ void lovrWorldUpdate(World* world, float dt) {
 
   world->time += dt;
 
-  uint32_t tick = 0;
-  uint32_t lastTick = world->tickLimit - 1;
+  uint32_t step = 0;
+  uint32_t lastStep = world->maxSteps - 1;
 
-  while (world->time >= world->timestep && tick <= lastTick) {
+  while (world->time >= world->timestep && step <= lastStep) {
     world->time -= world->timestep;
 
-    if (world->time < world->timestep || tick == lastTick) {
+    if (world->time < world->timestep || step == lastStep) {
       for (uint32_t i = 0; i < world->activeColliderCount; i++) {
         Collider* collider = world->activeColliders[i];
 
@@ -492,11 +491,13 @@ void lovrWorldUpdate(World* world, float dt) {
         JPH_Body_GetRotation(collider->body, &orientation);
         quat_fromJolt(collider->lastOrientation, &orientation);
       }
+
+      world->interpolation = 1.f - fmodf(world->time, world->timestep) / world->timestep;
     }
 
     JPH_PhysicsSystem_Step(world->system, world->timestep, 1);
     world->inverseDelta = 1.f / world->timestep;
-    tick++;
+    step++;
   }
 }
 
@@ -728,8 +729,8 @@ void lovrWorldSetCallbacks(World* world, WorldCallbacks* callbacks) {
 }
 
 // Deprecated
-int lovrWorldGetStepCount(World* world) { return world->collisionSteps; }
-void lovrWorldSetStepCount(World* world, int iterations) { world->collisionSteps = iterations;}
+int lovrWorldGetStepCount(World* world) { return 1; }
+void lovrWorldSetStepCount(World* world, int iterations) {}
 float lovrWorldGetResponseTime(World* world) { return 0.f; }
 void lovrWorldSetResponseTime(World* world, float responseTime) {}
 float lovrWorldGetTightness(World* world) { return 0.f; }
@@ -1451,7 +1452,7 @@ void lovrColliderGetPosition(Collider* collider, float position[3]) {
   JPH_BodyInterface_GetPosition(getBodyInterface(collider, READ), collider->id, &p);
   vec3_fromJolt(position, &p);
   if (collider->world->timestep > 0.f && collider->activeIndex != ~0u) {
-    vec3_lerp(position, collider->lastPosition, 1.f - collider->world->time / collider->world->timestep);
+    vec3_lerp(position, collider->lastPosition, collider->world->interpolation);
   }
 }
 
@@ -1465,7 +1466,7 @@ void lovrColliderGetOrientation(Collider* collider, float orientation[4]) {
   JPH_BodyInterface_GetRotation(getBodyInterface(collider, READ), collider->id, &q);
   quat_fromJolt(orientation, &q);
   if (collider->world->timestep > 0.f && collider->activeIndex != ~0u) {
-    quat_slerp(orientation, collider->lastOrientation, 1.f - collider->world->time / collider->world->timestep);
+    quat_slerp(orientation, collider->lastOrientation, collider->world->interpolation);
   }
 }
 
@@ -1493,9 +1494,8 @@ void lovrColliderGetPose(Collider* collider, float position[3], float orientatio
   vec3_fromJolt(position, &p);
   quat_fromJolt(orientation, &q);
   if (collider->world->timestep > 0.f && collider->activeIndex != ~0u) {
-    float t = 1.f - collider->world->time / collider->world->timestep;
-    vec3_lerp(position, collider->lastPosition, t);
-    quat_slerp(orientation, collider->lastOrientation, t);
+    vec3_lerp(position, collider->lastPosition, collider->world->interpolation);
+    quat_slerp(orientation, collider->lastOrientation, collider->world->interpolation);
   }
 }
 

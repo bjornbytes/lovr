@@ -42,7 +42,7 @@ typedef struct {
 
 typedef struct {
   float timestep;
-  uint32_t tickLimit;
+  uint32_t maxSteps;
   uint32_t maxColliders;
   bool deterministic;
   bool threadSafe;
