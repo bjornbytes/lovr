@@ -341,7 +341,6 @@ World* lovrWorldCreate(WorldInfo* info) {
 
   JPH_PhysicsSettings settings;
   JPH_PhysicsSystem_GetPhysicsSettings(world->system, &settings);
-  settings.deterministicSimulation = info->deterministic;
   settings.allowSleeping = info->allowSleep;
   settings.baumgarte = CLAMP(info->stabilization, 0.f, 1.f);
   settings.penetrationSlop = MAX(info->maxPenetration, 0.f);

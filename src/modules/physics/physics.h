@@ -44,7 +44,6 @@ typedef struct {
   float timestep;
   uint32_t maxSteps;
   uint32_t maxColliders;
-  bool deterministic;
   bool threadSafe;
   bool allowSleep;
   float stabilization;

@@ -35,7 +35,6 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     .timestep = 1.f / 60.f,
     .maxSteps = 0,
     .maxColliders = 16384,
-    .deterministic = true,
     .threadSafe = true,
     .allowSleep = true,
     .stabilization = .2f,
@@ -56,10 +55,6 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
 
     lua_getfield(L, 1, "maxColliders");
     if (!lua_isnil(L, -1)) info.maxColliders = luax_checku32(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 1, "deterministic");
-    if (!lua_isnil(L, -1)) info.deterministic = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "threadSafe");
