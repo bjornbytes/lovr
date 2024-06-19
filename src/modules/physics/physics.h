@@ -41,7 +41,7 @@ typedef struct {
 } WorldCallbacks;
 
 typedef struct {
-  uint32_t tickRate;
+  float timestep;
   uint32_t tickLimit;
   uint32_t maxColliders;
   bool deterministic;

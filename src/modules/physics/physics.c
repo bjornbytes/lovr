@@ -33,7 +33,7 @@ struct World {
   bool defaultIsSleepingAllowed;
   int collisionSteps;
   float time;
-  float tickRate;
+  float timestep;
   float inverseDelta;
   uint32_t tickLimit;
   uint32_t tagCount;
@@ -356,10 +356,10 @@ World* lovrWorldCreate(WorldInfo* info) {
     JPH_PhysicsSystem_GetBodyInterface(world->system) :
     world->bodyInterfaceNoLock;
 
-  world->tickRate = info->tickRate == 0 ? 0.f : 1.f / info->tickRate;
+  world->timestep = info->timestep;
   world->tickLimit = info->tickLimit;
 
-  if (world->tickRate > 0.f) {
+  if (world->timestep > 0.f) {
     world->activeColliders = lovrMalloc(info->maxColliders * sizeof(Collider*));
     world->activationListener = JPH_BodyActivationListener_Create();
 
@@ -466,7 +466,7 @@ void lovrWorldSetGravity(World* world, float gravity[3]) {
 }
 
 void lovrWorldUpdate(World* world, float dt) {
-  if (world->tickRate == 0.f) {
+  if (world->timestep == 0.f) {
     JPH_PhysicsSystem_Step(world->system, dt, 1);
     world->inverseDelta = 1.f / dt;
     return;
@@ -477,10 +477,10 @@ void lovrWorldUpdate(World* world, float dt) {
   uint32_t tick = 0;
   uint32_t lastTick = world->tickLimit - 1;
 
-  while (world->time >= world->tickRate && tick <= lastTick) {
-    world->time -= world->tickRate;
+  while (world->time >= world->timestep && tick <= lastTick) {
+    world->time -= world->timestep;
 
-    if (world->time < world->tickRate || tick == lastTick) {
+    if (world->time < world->timestep || tick == lastTick) {
       for (uint32_t i = 0; i < world->activeColliderCount; i++) {
         Collider* collider = world->activeColliders[i];
 
@@ -494,8 +494,8 @@ void lovrWorldUpdate(World* world, float dt) {
       }
     }
 
-    JPH_PhysicsSystem_Step(world->system, world->tickRate, 1);
-    world->inverseDelta = 1.f / world->tickRate;
+    JPH_PhysicsSystem_Step(world->system, world->timestep, 1);
+    world->inverseDelta = 1.f / world->timestep;
     tick++;
   }
 }
@@ -1450,8 +1450,8 @@ void lovrColliderGetPosition(Collider* collider, float position[3]) {
   JPH_RVec3 p;
   JPH_BodyInterface_GetPosition(getBodyInterface(collider, READ), collider->id, &p);
   vec3_fromJolt(position, &p);
-  if (collider->world->tickRate > 0.f && collider->activeIndex != ~0u) {
-    vec3_lerp(position, collider->lastPosition, 1.f - collider->world->time / collider->world->tickRate);
+  if (collider->world->timestep > 0.f && collider->activeIndex != ~0u) {
+    vec3_lerp(position, collider->lastPosition, 1.f - collider->world->time / collider->world->timestep);
   }
 }
 
@@ -1464,8 +1464,8 @@ void lovrColliderGetOrientation(Collider* collider, float orientation[4]) {
   JPH_Quat q;
   JPH_BodyInterface_GetRotation(getBodyInterface(collider, READ), collider->id, &q);
   quat_fromJolt(orientation, &q);
-  if (collider->world->tickRate > 0.f && collider->activeIndex != ~0u) {
-    quat_slerp(orientation, collider->lastOrientation, 1.f - collider->world->time / collider->world->tickRate);
+  if (collider->world->timestep > 0.f && collider->activeIndex != ~0u) {
+    quat_slerp(orientation, collider->lastOrientation, 1.f - collider->world->time / collider->world->timestep);
   }
 }
 
@@ -1492,8 +1492,8 @@ void lovrColliderGetPose(Collider* collider, float position[3], float orientatio
   JPH_BodyInterface_GetPositionAndRotation(getBodyInterface(collider, READ), collider->id, &p, &q);
   vec3_fromJolt(position, &p);
   quat_fromJolt(orientation, &q);
-  if (collider->world->tickRate > 0.f && collider->activeIndex != ~0u) {
-    float t = 1.f - collider->world->time / collider->world->tickRate;
+  if (collider->world->timestep > 0.f && collider->activeIndex != ~0u) {
+    float t = 1.f - collider->world->time / collider->world->timestep;
     vec3_lerp(position, collider->lastPosition, t);
     quat_slerp(orientation, collider->lastOrientation, t);
   }
