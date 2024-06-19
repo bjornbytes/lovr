@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.lovr.app" android:installLocation="auto" android:versionCode="1">
-  <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="26"/>
+  <uses-sdk android:minSdkVersion="32" android:targetSdkVersion="32"/>
   <uses-feature android:name="android.hardware.vulkan.version" android:version="0x00401000" android:required="true"/>
   <uses-feature android:name="android.hardware.vr.headtracking" android:required="false"/>
   <!-- Oculus -->
@@ -28,7 +28,7 @@
     <meta-data android:name="com.samsung.android.vr.application.mode" android:value="vr_only"/>
     <meta-data android:name="com.oculus.supportedDevices" android:value="quest|quest2"/>
     <meta-data android:name="com.oculus.handtracking.version" android:value="V2.0"/>
-    <activity android:name="Activity" android:launchMode="singleTask" android:screenOrientation="landscape" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:excludeFromRecents="true">
+    <activity android:name="Activity" android:launchMode="singleTask" android:screenOrientation="landscape" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:excludeFromRecents="true" android:exported="true">
       <meta-data android:name="android.app.lib_name" android:value="lovr"/>
       <meta-data android:name="com.oculus.vr.focusaware" android:value="true"/>
       <intent-filter>
