@@ -651,7 +651,7 @@ static bool openxr_init(HeadsetConfig* config) {
       .applicationInfo.engineVersion = (LOVR_VERSION_MAJOR << 24) + (LOVR_VERSION_MINOR << 16) + LOVR_VERSION_PATCH,
       .applicationInfo.applicationName = "LÖVR",
       .applicationInfo.applicationVersion = 0,
-      .applicationInfo.apiVersion = XR_CURRENT_API_VERSION,
+      .applicationInfo.apiVersion = XR_API_VERSION_1_0,
       .enabledExtensionCount = enabledExtensionCount,
       .enabledExtensionNames = enabledExtensionNames
     };
