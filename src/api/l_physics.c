@@ -40,7 +40,7 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     .allowSleep = true,
     .stabilization = .2f,
     .maxPenetration = .01f,
-    .minBounceVelocity = 1.f,
+    .restitutionThreshold = 1.f,
     .velocitySteps = 10,
     .positionSteps = 2
   };
@@ -78,8 +78,8 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     if (!lua_isnil(L, -1)) info.maxPenetration = luax_checkfloat(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 1, "minBounceVelocity");
-    if (!lua_isnil(L, -1)) info.minBounceVelocity = luax_checkfloat(L, -1);
+    lua_getfield(L, 1, "restitutionThreshold");
+    if (!lua_isnil(L, -1)) info.restitutionThreshold = luax_checkfloat(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "velocitySteps");

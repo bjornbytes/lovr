@@ -49,7 +49,7 @@ typedef struct {
   bool allowSleep;
   float stabilization;
   float maxPenetration;
-  float minBounceVelocity;
+  float restitutionThreshold;
   uint32_t velocitySteps;
   uint32_t positionSteps;
   const char* tags[MAX_TAGS];
