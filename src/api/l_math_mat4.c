@@ -2,6 +2,11 @@
 #include "core/maf.h"
 #include "util.h"
 
+static int l_lovrMat4Type(lua_State* L) {
+  lua_pushliteral(L, "Mat4");
+  return 1;
+}
+
 static int l_lovrMat4Equals(lua_State* L) {
   mat4 m = luax_checkmat4(L, 1);
   mat4 n = luax_checkmat4(L, 2);
@@ -363,6 +368,7 @@ static int l_lovrMat4__tostring(lua_State* L) {
 }
 
 const luaL_Reg lovrMat4[] = {
+  { "type", l_lovrMat4Type },
   { "equals", l_lovrMat4Equals },
   { "unpack", l_lovrMat4Unpack },
   { "getPosition", l_lovrMat4GetPosition },

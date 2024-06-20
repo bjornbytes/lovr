@@ -1,18 +1,16 @@
-local vec2, vec3, vec4, quat = ...
+local vec2, vec3, vec4, quat, mat4 = ...
 
-local function ismat4(m)
-  return type(m) == 'table' and m.type and m:type() == 'Mat4'
-end
+local function isvec2(t) return type(t) == 'table' and getmetatable(t) == vec2 end
+local function isvec3(t) return type(t) == 'table' and getmetatable(t) == vec3 end
+local function isvec4(t) return type(t) == 'table' and getmetatable(t) == vec4 end
+local function isquat(t) return type(t) == 'table' and getmetatable(t) == quat end
+local function ismat4(m) return type(m) == 'userdata' and getmetatable(t) == mat4 end
 
 local EQ_THRESHOLD = 1e-10
 
 ----------------
 -- vec2
 ----------------
-
-local function isvec2(t)
-  return type(t) == 'table' and getmetatable(t) == vec2
-end
 
 setmetatable(vec2, {
   __call = function(t, x, y)
@@ -58,6 +56,7 @@ function vec2.__add(v, x)
   elseif type(v) == 'number' then
     return vec2(v + x[1], v + x[2])
   else
+    assert(isvec2(v) and isvec2(x), 'expected vector or number operands for vector addition')
     return vec2(v[1] + x[1], v[2] + x[2])
   end
 end
@@ -68,6 +67,7 @@ function vec2.__sub(v, x)
   elseif type(v) == 'number' then
     return vec2(v - x[1], v - x[2])
   else
+    assert(isvec2(v) and isvec2(x), 'expected vector or number operands for vector subtraction')
     return vec2(v[1] - x[1], v[2] - x[2])
   end
 end
@@ -78,6 +78,7 @@ function vec2.__mul(v, x)
   elseif type(v) == 'number' then
     return vec2(v * x[1], v * x[2])
   else
+    assert(isvec2(v) and isvec2(x), 'expected vector or number operands for vector multiplication')
     return vec2(v[1] * x[1], v[2] * x[2])
   end
 end
@@ -88,6 +89,7 @@ function vec2.__div(v, x)
   elseif type(v) == 'number' then
     return vec2(v / x[1], v / x[2])
   else
+    assert(isvec2(v) and isvec2(x), 'expected vector or number operands for vector division')
     return vec2(v[1] / x[1], v[2] / x[2])
   end
 end
@@ -193,17 +195,15 @@ end
 -- vec3
 ----------------
 
-local function isvec3(t)
-  return type(t) == 'table' and getmetatable(t) == vec3
-end
-
 setmetatable(vec3, {
   __call = function(t, x, y, z)
     if isvec3(x) then
       return setmetatable({ x[1], x[2], x[3] }, vec3)
-    else
+    elseif not x or type(x) == 'number' then
       x = x or 0
       return setmetatable({ x, y or x, z or x }, vec3)
+    else
+      return setmetatable({ 0, 0, 0 }, vec3):set(x, y, z)
     end
   end
 })
@@ -251,6 +251,7 @@ function vec3.__add(v, x)
   elseif type(v) == 'number' then
     return vec3(v + x[1], v + x[2], v + x[3])
   else
+    assert(isvec3(v) and isvec3(x), 'expected vector or number operands for vector addition')
     return vec3(v[1] + x[1], v[2] + x[2], v[3] + x[3])
   end
 end
@@ -261,6 +262,7 @@ function vec3.__sub(v, x)
   elseif type(v) == 'number' then
     return vec3(v - x[1], v - x[2], v - x[3])
   else
+    assert(isvec3(v) and isvec3(x), 'expected vector or number operands for vector subtraction')
     return vec3(v[1] - x[1], v[2] - x[2], v[3] - x[3])
   end
 end
@@ -271,6 +273,7 @@ function vec3.__mul(v, x)
   elseif type(v) == 'number' then
     return vec3(v * x[1], v * x[2], v * x[3])
   else
+    assert(isvec3(v) and isvec3(x), 'expected vector or number operands for vector multiplication')
     return vec3(v[1] * x[1], v[2] * x[2], v[3] * x[3])
   end
 end
@@ -281,6 +284,7 @@ function vec3.__div(v, x)
   elseif type(v) == 'number' then
     return vec3(v / x[1], v / x[2], v / x[3])
   else
+    assert(isvec3(v) and isvec3(x), 'expected vector or number operands for vector division')
     return vec3(v[1] / x[1], v[2] / x[2], v[3] / x[3])
   end
 end
@@ -311,6 +315,8 @@ function vec3.set(v, x, y, z)
   elseif x == nil or type(x) == 'number' then
     x = x or 0
     v[1], v[2], v[3] = x, y or x, z or x
+  elseif isquat(x) then
+    v[1], v[2], v[3] = x:direction()
   elseif ismat4(x) then
     v[1], v[2], v[3] = x:getPosition()
   end
@@ -398,10 +404,6 @@ end
 -- vec4
 ----------------
 
-local function isvec4(t)
-  return type(t) == 'table' and getmetatable(t) == vec4
-end
-
 setmetatable(vec4, {
   __call = function(t, x, y, z, w)
     if isvec4(x) then
@@ -454,6 +456,7 @@ function vec4.__add(v, x)
   elseif type(v) == 'number' then
     return vec4(v + x[1], v + x[2], v + x[3], v + x[4])
   else
+    assert(isvec4(v) and isvec4(x), 'expected vector or number operands for vector addition')
     return vec4(v[1] + x[1], v[2] + x[2], v[3] + x[3], v[4] + x[4])
   end
 end
@@ -464,6 +467,7 @@ function vec4.__sub(v, x)
   elseif type(v) == 'number' then
     return vec4(v - x[1], v - x[2], v - x[3], v - x[4])
   else
+    assert(isvec4(v) and isvec4(x), 'expected vector or number operands for vector subtraction')
     return vec4(v[1] - x[1], v[2] - x[2], v[3] - x[3], v[4] - x[4])
   end
 end
@@ -474,6 +478,7 @@ function vec4.__mul(v, x)
   elseif type(v) == 'number' then
     return vec4(v * x[1], v * x[2], v * x[3], v * x[4])
   else
+    assert(isvec4(v) and isvec4(x), 'expected vector or number operands for vector multiplication')
     return vec4(v[1] * x[1], v[2] * x[2], v[3] * x[3], v[4] * x[4])
   end
 end
@@ -484,6 +489,7 @@ function vec4.__div(v, x)
   elseif type(v) == 'number' then
     return vec4(v / x[1], v / x[2], v / x[3], v / x[4])
   else
+    assert(isvec4(v) and isvec4(x), 'expected vector or number operands for vector division')
     return vec4(v[1] / x[1], v[2] / x[2], v[3] / x[3], v[4] / x[4])
   end
 end
@@ -639,10 +645,6 @@ local function quat_mulQuat(q, r)
     q[2] * r[4] + q[4] * r[2] + q[3] * r[1] - q[1] * r[3],
     q[3] * r[4] + q[4] * r[3] + q[1] * r[2] - q[2] * r[1],
     q[4] * r[4] - q[1] * r[1] - q[2] * r[2] - q[3] * r[3]
-end
-
-local function isquat(t)
-  return type(t) == 'table' and getmetatable(t) == quat
 end
 
 setmetatable(quat, {

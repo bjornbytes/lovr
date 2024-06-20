@@ -1,6 +1,5 @@
 #include "math.h"
 #include "core/maf.h"
-#include "core/os.h"
 #include "util.h"
 #include "lib/noise/simplexnoise1234.h"
 #include <math.h>

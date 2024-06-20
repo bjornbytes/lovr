@@ -182,7 +182,8 @@ int luaopen_lovr_math(lua_State* L) {
     luaL_newmetatable(L, "Vec3");
     luaL_newmetatable(L, "Vec4");
     luaL_newmetatable(L, "Quat");
-    lua_call(L, 4, 0);
+    luaL_newmetatable(L, "Mat4");
+    lua_call(L, 5, 0);
   } else {
     lovrThrow("%s", lua_tostring(L, -1));
     lua_pop(L, 1);

@@ -633,7 +633,7 @@ int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected) {
         lua_pop(L, 1);
       }
       return index + 1;
-    default: return luax_typeerror(L, index, "table or number");
+    default: return luax_typeerror(L, index, "number or table");
   }
 }
 
@@ -665,7 +665,7 @@ int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* 
         lua_pop(L, 1);
       }
       return index + 1;
-    default: return luax_typeerror(L, index, "table or number");
+    default: return luax_typeerror(L, index, "number or table");
   }
 }
 
@@ -690,7 +690,7 @@ int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
         lua_pop(L, 1);
       }
       return index + 1;
-    default: return luax_typeerror(L, index, "table or number");
+    default: return luax_typeerror(L, index, "number or table");
   }
 }
 
@@ -723,7 +723,7 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
     case LUA_TNUMBER:
     case LUA_TTABLE: {
       float T[3], R[4], S[3];
-      index = luax_readvec3(L, index, T, "table, number, or Mat4");
+      index = luax_readvec3(L, index, T, "number, table, or Mat4");
       index = luax_readscale(L, index, S, scaleComponents, NULL);
       index = luax_readquat(L, index, R, NULL);
       mat4_fromPose(m, T, R);
@@ -735,6 +735,6 @@ int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
         mat4_init(m, lua_touserdata(L, index));
         return index + 1;
       }
-      return luax_typeerror(L, index, "table, number, or Mat4");
+      return luax_typeerror(L, index, "number, table, or Mat4");
   }
 }
