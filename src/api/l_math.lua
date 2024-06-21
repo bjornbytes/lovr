@@ -34,15 +34,18 @@ vec2.__index = function(v, key)
     return rawget(v, 1)
   elseif key == 'y' then
     return rawget(v, 2)
+  else
+    return rawget(v, key)
   end
 end
 
 vec2.__newindex = function(v, key, val)
-  assert(type(val) == 'number', 'Vector fields must be numbers')
   if key == 'x' then
     rawset(v, 1, val)
   elseif key == 'y' then
     rawset(v, 2, val)
+  else
+    rawset(v, key, val)
   end
 end
 
@@ -227,17 +230,20 @@ vec3.__index = function(v, key)
     return rawget(v, 2)
   elseif key == 'z' then
     return rawget(v, 3)
+  else
+    return rawget(v, key)
   end
 end
 
 vec3.__newindex = function(v, key, val)
-  assert(type(val) == 'number', 'Vector fields must be numbers')
   if key == 'x' then
     rawset(v, 1, val)
   elseif key == 'y' then
     rawset(v, 2, val)
   elseif key == 'z' then
     rawset(v, 3, val)
+  else
+    rawset(v, key, val)
   end
 end
 
@@ -438,11 +444,12 @@ vec4.__index = function(v, key)
     return rawget(v, 3)
   elseif key == 'w' then
     return rawget(v, 4)
+  else
+    return rawget(v, key)
   end
 end
 
 vec4.__newindex = function(v, key, val)
-  assert(type(val) == 'number', 'Vector fields must be numbers')
   if key == 'x' then
     rawset(v, 1, val)
   elseif key == 'y' then
@@ -451,6 +458,8 @@ vec4.__newindex = function(v, key, val)
     rawset(v, 3, val)
   elseif key == 'w' then
     rawset(v, 4, val)
+  else
+    rawset(v, key, val)
   end
 end
 
