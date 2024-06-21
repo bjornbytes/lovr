@@ -400,6 +400,14 @@ function vec3.angle(v, x, y, z)
   end
 end
 
+function vec3.transform(v, m)
+  return v:set(m * v)
+end
+
+function vec3.rotate(v, q)
+  return v:set(q * v)
+end
+
 ----------------
 -- vec4
 ----------------
@@ -591,6 +599,10 @@ function vec4.angle(v, x, y, z, w)
     elseif cos > 1 then cos = 1 end
     return math.acos(cos)
   end
+end
+
+function vec4.transform(v, m)
+  return v:set(m * v)
 end
 
 ----------------
