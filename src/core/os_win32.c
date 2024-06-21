@@ -506,7 +506,7 @@ bool os_window_open(const os_window_config* config) {
   DWORD style = WS_VISIBLE;
   uint32_t width, height;
 
-  if (config->fullscreen) {
+  if (config->width == 0 && config->height == 0) {
     style |= WS_POPUP;
     width = GetSystemMetrics(SM_CXSCREEN);
     height = GetSystemMetrics(SM_CYSCREEN);
