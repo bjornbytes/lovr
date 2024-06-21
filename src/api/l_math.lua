@@ -749,7 +749,7 @@ function quat.direction(q)
   local x = -2 * q[1] * q[3] - 2 * q[4] * q[2]
   local y = -2 * q[2] * q[3] + 2 * q[4] * q[1]
   local z = -1 + 2 * q[1] * q[1] + 2 * q[2] * q[2]
-  return x, y, z
+  return vec3(x, y, z)
 end
 
 function quat.conjugate(q)
