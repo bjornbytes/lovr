@@ -6,6 +6,8 @@ local function isvec4(t) return type(t) == 'table' and getmetatable(t) == vec4 e
 local function isquat(t) return type(t) == 'table' and getmetatable(t) == quat end
 local function ismat4(m) return type(m) == 'userdata' and getmetatable(t) == mat4 end
 
+local swizzles = { x = 1, y = 2, z = 3, w = 4 }
+
 local EQ_THRESHOLD = 1e-10
 
 ----------------
@@ -34,6 +36,12 @@ vec2.__index = function(v, key)
     return rawget(v, 1)
   elseif key == 'y' then
     return rawget(v, 2)
+  elseif type(key) == 'string' and #key == 2 and key:match('^[xy]+$') then
+    return vec2(v[swizzles[key:sub(1, 1)]], v[swizzles[key:sub(2, 2)]])
+  elseif type(key) == 'string' and #key == 3 and key:match('^[xy]+$') then
+    return vec3(v[swizzles[key:sub(1, 1)]], v[swizzles[key:sub(2, 2)]], v[swizzles[key:sub(3, 3)]])
+  elseif type(key) == 'string' and #key == 4 and key:match('^[xy]+$') then
+    return vec4(v[swizzles[key:sub(1, 1)]], v[swizzles[key:sub(2, 2)]], v[swizzles[key:sub(3, 3)]], v[swizzles[key:sub(4, 4)]])
   else
     return rawget(v, key)
   end
@@ -44,6 +52,9 @@ vec2.__newindex = function(v, key, val)
     rawset(v, 1, val)
   elseif key == 'y' then
     rawset(v, 2, val)
+  elseif type(key) == 'string' and #key == 2 and key:match('^[xy]+$') then
+    rawset(v, swizzles[key:sub(1, 1)], val[1])
+    rawset(v, swizzles[key:sub(2, 2)], val[2])
   else
     rawset(v, key, val)
   end
@@ -230,6 +241,12 @@ vec3.__index = function(v, key)
     return rawget(v, 2)
   elseif key == 'z' then
     return rawget(v, 3)
+  elseif type(key) == 'string' and #key == 2 and key:match('^[xyz]+$') then
+    return vec2(v[swizzles[key:sub(1, 1)]], v[swizzles[key:sub(2, 2)]])
+  elseif type(key) == 'string' and #key == 3 and key:match('^[xyz]+$') then
+    return vec3(v[swizzles[key:sub(1, 1)]], v[swizzles[key:sub(2, 2)]], v[swizzles[key:sub(3, 3)]])
+  elseif type(key) == 'string' and #key == 4 and key:match('^[xyz]+$') then
+    return vec4(v[swizzles[key:sub(1, 1)]], v[swizzles[key:sub(2, 2)]], v[swizzles[key:sub(3, 3)]], v[swizzles[key:sub(4, 4)]])
   else
     return rawget(v, key)
   end
@@ -242,6 +259,13 @@ vec3.__newindex = function(v, key, val)
     rawset(v, 2, val)
   elseif key == 'z' then
     rawset(v, 3, val)
+  elseif type(key) == 'string' and #key == 2 and key:match('^[xyz]+$') then
+    rawset(v, swizzles[key:sub(1, 1)], val[1])
+    rawset(v, swizzles[key:sub(2, 2)], val[2])
+  elseif type(key) == 'string' and #key == 3 and key:match('^[xyz]+$') then
+    rawset(v, swizzles[key:sub(1, 1)], val[1])
+    rawset(v, swizzles[key:sub(2, 2)], val[2])
+    rawset(v, swizzles[key:sub(3, 3)], val[3])
   else
     rawset(v, key, val)
   end
@@ -444,6 +468,12 @@ vec4.__index = function(v, key)
     return rawget(v, 3)
   elseif key == 'w' then
     return rawget(v, 4)
+  elseif type(key) == 'string' and #key == 2 and key:match('^[xyzw]+$') then
+    return vec2(v[swizzles[key:sub(1, 1)]], v[swizzles[key:sub(2, 2)]])
+  elseif type(key) == 'string' and #key == 3 and key:match('^[xyzw]+$') then
+    return vec3(v[swizzles[key:sub(1, 1)]], v[swizzles[key:sub(2, 2)]], v[swizzles[key:sub(3, 3)]])
+  elseif type(key) == 'string' and #key == 4 and key:match('^[xyzw]+$') then
+    return vec4(v[swizzles[key:sub(1, 1)]], v[swizzles[key:sub(2, 2)]], v[swizzles[key:sub(3, 3)]], v[swizzles[key:sub(4, 4)]])
   else
     return rawget(v, key)
   end
@@ -458,6 +488,18 @@ vec4.__newindex = function(v, key, val)
     rawset(v, 3, val)
   elseif key == 'w' then
     rawset(v, 4, val)
+  elseif type(key) == 'string' and #key == 2 and key:match('^[xyzw]+$') then
+    rawset(v, swizzles[key:sub(1, 1)], val[1])
+    rawset(v, swizzles[key:sub(2, 2)], val[2])
+  elseif type(key) == 'string' and #key == 3 and key:match('^[xyzw]+$') then
+    rawset(v, swizzles[key:sub(1, 1)], val[1])
+    rawset(v, swizzles[key:sub(2, 2)], val[2])
+    rawset(v, swizzles[key:sub(3, 3)], val[3])
+  elseif type(key) == 'string' and #key == 4 and key:match('^[xyzw]+$') then
+    rawset(v, swizzles[key:sub(1, 1)], val[1])
+    rawset(v, swizzles[key:sub(2, 2)], val[2])
+    rawset(v, swizzles[key:sub(3, 3)], val[3])
+    rawset(v, swizzles[key:sub(4, 4)], val[4])
   else
     rawset(v, key, val)
   end
