@@ -1,4 +1,4 @@
-if lovr.filesystem.getRealDirectory('main.lua') ~= lovr.filesystem.getExecutablePath() then
+if lovr.filesystem.getRealDirectory('main.lua') ~= lovr.filesystem.getBundlePath() then
   return -- Only run this conf file if bundled with the executable
 end
 
