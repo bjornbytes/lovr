@@ -180,6 +180,41 @@ group('graphics', function()
       expect(buffer:getLength()).to.be(3)
     end)
 
+    test('format: runtime-sized array', function()
+      shader = lovr.graphics.newShader('buffer Buffer { uint count; int data[]; }; void lovrmain(){}\n')
+      format, length = shader:getBufferFormat('Buffer')
+      expect(length).to.equal(nil)
+      expect(#format).to.equal(2)
+      expect(format[1]).to.equal({ name = 'count', type = 'u32', offset = 0 })
+      expect(format[2]).to.equal({ name = 'data', type = 'i32', offset = 4, length = -1, stride = 4 })
+      buffer = lovr.graphics.newBuffer(shader:getBufferFormat('Buffer'), { count = 3, data = { 4, 5, 6 } })
+      expect(buffer:getSize()).to.equal(16)
+      expect(buffer:getLength()).to.equal(0)
+      expect(buffer:getFormat()[2].length).to.equal(3)
+      expect(buffer:getData()).to.equal({ count = 3, data = { 4, 5, 6 } })
+    end)
+
+    test('format: manual runtime-sized array', function()
+      buffer = lovr.graphics.newBuffer({ { name = 'a', length = -1, type = 'vec3' }, layout = 'std140' })
+      expect(buffer:getLength()).to.equal(0)
+      expect(buffer:getStride()).to.equal(16)
+      expect(buffer:getSize()).to.equal(16)
+      expect(buffer:getFormat()).to.equal({ { name = 'a', length = 1, type = 'f32x3', offset = 0, stride = 16 } })
+
+      buffer = lovr.graphics.newBuffer({
+        { name = 'a', length = -1, type = 'vec3' }, layout = 'std140' },
+        { a = { { 1, 2, 3 }, { 4, 5, 6 } }
+      })
+      expect(buffer:getStride()).to.equal(32)
+
+      expect(function()
+        lovr.graphics.newBuffer({
+          { name = 'a', length = -1, type = 'f32' },
+          { name = 'b', length = -1, type = 'f32' }
+        })
+      end).to.fail()
+    end)
+
     test(':setData offset', function()
       buffer = lovr.graphics.newBuffer('int', { 1, 2, 3 })
       expect(buffer:getSize()).to.be(12)
@@ -252,6 +287,7 @@ group('graphics', function()
         buffer Buffer4 { float x[4], y[4]; } d;
         buffer Buffer5 { S s; } e;
         buffer Buffer6 { S s[2]; } f;
+        buffer Buffer7 { float x; S s[]; } g;
 
         void lovrmain() {}
       ]])
@@ -293,6 +329,16 @@ group('graphics', function()
         stride = 8
       })
       expect(length).to.be(2)
+
+      local format, length = shader:getBufferFormat('Buffer7')
+      expect(format).to.equal({
+        { name = 'x', offset = 0, type = 'f32' },
+        { name = 's', offset = 4, stride = 8, length = -1, type = {
+          { name = 'x', offset = 0, type = 'f32' },
+          { name = 'y', offset = 4, type = 'f32' },
+        }}
+      })
+      expect(length).to.be(nil)
     end)
   end)
 

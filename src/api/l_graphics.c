@@ -599,7 +599,17 @@ static uint32_t luax_checkbufferformat(lua_State* L, int index, DataField* field
 
     lua_getfield(L, -1, "length");
     if (lua_isnil(L, -1)) lua_pop(L, 1), lua_rawgeti(L, -1, 3);
-    field->length = luax_optu32(L, -1, 0);
+    if (!lua_isnil(L, -1)) {
+      lovrCheck(lua_type(L, -1) == LUA_TNUMBER, "Field lengths must be numbers");
+      double number = lua_tonumber(L, -1);
+      if (number < 0.) {
+        // If it's a dynamic array, it must be the last field at the top level
+        lovrCheck(*count == length + 1 && i == length - 1, "Dynamic arrays must be the last field, and can not be nested");
+        field->length = ~0u;
+      } else {
+        field->length = (uint32_t) number;
+      }
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "offset");
@@ -673,33 +683,66 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   // Length/size
   if (info.format) {
     lovrGraphicsAlignFields(format, layout);
-    switch (lua_type(L, 2)) {
-      case LUA_TNIL: case LUA_TNONE: format->length = 0; break;
-      case LUA_TNUMBER: format->length = luax_checku32(L, 2); break;
-      case LUA_TTABLE:
-        lua_rawgeti(L, 2, 1);
-        if (lua_type(L, -1) == LUA_TNUMBER) {
-          lovrCheck(format->fieldCount <= 1, "Struct data must be provided as a table of tables");
-          DataType type = format->fieldCount == 0 ? format->type : format->fields[0].type;
-          format->length = luax_len(L, -2) / luax_gettablestride(L, type);
-        } else {
-          format->length = luax_len(L, -2);
-        }
-        lua_pop(L, 1);
-        hasData = true;
-        break;
-      default:
-        if ((blob = luax_totype(L, 2, Blob)) != NULL) {
-          lovrCheck(blob->size < UINT32_MAX, "Blob is too big to create a Buffer (max size is 1GB)");
-          info.size = (uint32_t) blob->size;
-          format->length = info.size / format->stride;
+
+    // Dynamic arrays
+    if (format->fieldCount > 0 && format->fields[format->fieldCount - 1].length == ~0u) {
+      DataField* array = &format->fields[format->fieldCount - 1];
+
+      switch (lua_type(L, 2)) {
+        case LUA_TNIL: case LUA_TNONE: array->length = 1; break;
+        case LUA_TNUMBER: array->length = luax_checku32(L, 2); break;
+        case LUA_TTABLE:
+          lua_getfield(L, 2, array->name);
+          array->length = luax_len(L, -1);
+          hasData = true;
+          lua_pop(L, 1);
           break;
-        } else if (luax_tovector(L, 2, NULL)) {
-          format->length = 0;
+        default:
+          if ((blob = luax_totype(L, 2, Blob)) != NULL) {
+            if (blob->size < array->offset) {
+              array->length = 1;
+            } else {
+              array->length = (uint32_t) ((blob->size - array->offset) / array->stride);
+            }
+
+            hasData = true;
+          } else {
+            return luax_typeerror(L, 2, "nil, number, table, or Blob");
+          }
+          break;
+      }
+
+      format->length = 0;
+      format->stride = array->offset + array->stride * array->length;
+    } else {
+      switch (lua_type(L, 2)) {
+        case LUA_TNIL: case LUA_TNONE: format->length = 0; break;
+        case LUA_TNUMBER: format->length = luax_checku32(L, 2); break;
+        case LUA_TTABLE:
+          lua_rawgeti(L, 2, 1);
+          if (lua_type(L, -1) == LUA_TNUMBER) {
+            lovrCheck(format->fieldCount <= 1, "Struct data must be provided as a table of tables");
+            DataType type = format->fieldCount == 0 ? format->type : format->fields[0].type;
+            format->length = luax_len(L, -2) / luax_gettablestride(L, type);
+          } else {
+            format->length = luax_len(L, -2);
+          }
+          lua_pop(L, 1);
           hasData = true;
           break;
-        }
-        return luax_typeerror(L, 2, "nil, number, vector, table, or Blob");
+        default:
+          if ((blob = luax_totype(L, 2, Blob)) != NULL) {
+            lovrCheck(blob->size < UINT32_MAX, "Blob is too big to create a Buffer (max size is 1GB)");
+            info.size = (uint32_t) blob->size;
+            format->length = info.size / format->stride;
+            break;
+          } else if (luax_tovector(L, 2, NULL)) {
+            format->length = 0;
+            hasData = true;
+            break;
+          }
+          return luax_typeerror(L, 2, "nil, number, vector, table, or Blob");
+      }
     }
   }
 

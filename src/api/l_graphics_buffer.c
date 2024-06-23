@@ -460,7 +460,11 @@ void luax_pushbufferformat(lua_State* L, const DataField* fields, uint32_t count
     lua_pushinteger(L, field->offset);
     lua_setfield(L, -2, "offset");
     if (field->length > 0) {
-      lua_pushinteger(L, field->length);
+      if (field->length == ~0u) {
+        lua_pushinteger(L, -1);
+      } else {
+        lua_pushinteger(L, field->length);
+      }
       lua_setfield(L, -2, "length");
       lua_pushinteger(L, field->stride);
       lua_setfield(L, -2, "stride");
