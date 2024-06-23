@@ -728,6 +728,7 @@ elseif(APPLE)
     MACOSX_RPATH TRUE
     BUILD_WITH_INSTALL_RPATH TRUE
     INSTALL_RPATH "@executable_path"
+    ENABLE_EXPORTS ON
   )
   if(LOVR_BUILD_BUNDLE)
     set(EXE_DIR ${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/MacOS)
@@ -770,6 +771,7 @@ elseif(APPLE)
   endforeach()
 elseif(EMSCRIPTEN)
   target_sources(lovr PRIVATE src/core/os_wasm.c)
+  set_target_properties(lovr PROPERTIES ENABLE_EXPORTS ON)
   configure_file(etc/lovr.ico favicon.ico COPYONLY)
 elseif(ANDROID)
   set(ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/etc/AndroidManifest.xml" CACHE STRING "The AndroidManifest.xml file to use")
@@ -896,6 +898,7 @@ elseif(UNIX)
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     BUILD_WITH_INSTALL_RPATH TRUE
     INSTALL_RPATH "\$ORIGIN"
+    ENABLE_EXPORTS ON
   )
   function(move_lib)
     if(TARGET ${ARGV0})
