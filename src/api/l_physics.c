@@ -1,5 +1,6 @@
 #include "api.h"
 #include "physics/physics.h"
+#include "core/maf.h"
 #include "util.h"
 #include <string.h>
 
@@ -234,8 +235,20 @@ static int l_lovrPhysicsNewConeJoint(lua_State* L) {
   Collider* a = luax_totype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
   float anchor[3], axis[3];
-  int index = luax_readvec3(L, 3, anchor, NULL);
-  luax_readvec3(L, index, axis, NULL);
+  if (lua_isnoneornil(L, 3)) {
+    if (a) {
+      lovrColliderGetRawPosition(a, anchor);
+      lovrColliderGetRawPosition(b, axis);
+      vec3_sub(axis, anchor);
+      vec3_normalize(axis);
+    } else {
+      lovrColliderGetRawPosition(b, anchor);
+      vec3_set(axis, 0.f, 0.f, -1.f);
+    }
+  } else {
+    int index = luax_readvec3(L, 3, anchor, NULL);
+    luax_readvec3(L, index, axis, NULL);
+  }
   ConeJoint* joint = lovrConeJointCreate(a, b, anchor, axis);
   luax_pushtype(L, ConeJoint, joint);
   lovrRelease(joint, lovrJointDestroy);

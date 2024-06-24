@@ -2290,6 +2290,9 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
 
 ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
   lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
+  lovrCheck(vec3_length(axis) > 0.f, "Cone axis can not be zero");
+  vec3_normalize(axis);
+
   JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   ConeJoint* joint = lovrCalloc(sizeof(ConeJoint));
@@ -2301,6 +2304,7 @@ ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float 
   JPH_ConeConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
   JPH_ConeConstraintSettings_SetTwistAxis1(settings, vec3_toJolt(axis));
   JPH_ConeConstraintSettings_SetTwistAxis2(settings, vec3_toJolt(axis));
+  JPH_ConeConstraintSettings_SetHalfConeAngle(settings, (float) M_PI / 4.f);
   joint->constraint = (JPH_Constraint*) JPH_ConeConstraintSettings_CreateConstraint(settings, parent, b->body);
   JPH_PhysicsSystem_AddConstraint(b->world->system, joint->constraint);
   lovrJointInit(joint, a, b);
