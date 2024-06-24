@@ -234,21 +234,24 @@ static int l_lovrPhysicsNewBallJoint(lua_State* L) {
 static int l_lovrPhysicsNewConeJoint(lua_State* L) {
   Collider* a = luax_totype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float anchor[3], axis[3];
-  if (lua_isnoneornil(L, 3)) {
-    if (a) {
-      lovrColliderGetRawPosition(a, anchor);
-      lovrColliderGetRawPosition(b, axis);
-      vec3_sub(axis, anchor);
-      vec3_normalize(axis);
-    } else {
-      lovrColliderGetRawPosition(b, anchor);
-      vec3_set(axis, 0.f, 0.f, -1.f);
-    }
+
+  int index = 3;
+  float anchor[3];
+  if (lua_isnoneornil(L, index)) {
+    lovrColliderGetRawPosition(a ? a : b, anchor);
   } else {
-    int index = luax_readvec3(L, 3, anchor, NULL);
+    index = luax_readvec3(L, index, anchor, NULL);
+  }
+
+  float axis[3];
+  if (lua_isnoneornil(L, index)) {
+    lovrColliderGetRawPosition(b, axis);
+    vec3_sub(axis, anchor);
+    vec3_normalize(axis);
+  } else {
     luax_readvec3(L, index, axis, NULL);
   }
+
   ConeJoint* joint = lovrConeJointCreate(a, b, anchor, axis);
   luax_pushtype(L, ConeJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
@@ -275,20 +278,24 @@ static int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
 static int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   Collider* a = luax_totype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float anchor[3], axis[3];
-  if (lua_isnoneornil(L, 3)) {
+
+  int index = 3;
+  float anchor[3];
+  if (lua_isnoneornil(L, index)) {
     lovrColliderGetRawPosition(a ? a : b, anchor);
-    if (a) {
-      lovrColliderGetRawPosition(b, axis);
-      vec3_sub(axis, anchor);
-      vec3_normalize(axis);
-    } else {
-      vec3_set(axis, 0.f, 0.f, -1.f);
-    }
   } else {
-    int index = luax_readvec3(L, 3, anchor, NULL);
+    index = luax_readvec3(L, index, anchor, NULL);
+  }
+
+  float axis[3];
+  if (lua_isnoneornil(L, index)) {
+    lovrColliderGetRawPosition(b, axis);
+    vec3_sub(axis, anchor);
+    vec3_normalize(axis);
+  } else {
     luax_readvec3(L, index, axis, NULL);
   }
+
   HingeJoint* joint = lovrHingeJointCreate(a, b, anchor, axis);
   luax_pushtype(L, HingeJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
