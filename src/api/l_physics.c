@@ -209,9 +209,7 @@ static int l_lovrPhysicsNewTerrainShape(lua_State* L) {
 static int l_lovrPhysicsNewWeldJoint(lua_State* L) {
   Collider* a = luax_totype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
-  float anchor[3];
-  luax_readvec3(L, 3, anchor, NULL);
-  WeldJoint* joint = lovrWeldJointCreate(a, b, anchor);
+  WeldJoint* joint = lovrWeldJointCreate(a, b);
   luax_pushtype(L, WeldJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;

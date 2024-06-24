@@ -301,7 +301,7 @@ void lovrJointSetEnabled(Joint* joint, bool enable);
 float lovrJointGetForce(Joint* joint);
 float lovrJointGetTorque(Joint* joint);
 
-WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]);
+WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b);
 
 BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]);
 

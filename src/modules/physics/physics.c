@@ -2242,7 +2242,7 @@ float lovrJointGetTorque(Joint* joint) {
 
 // WeldJoint
 
-WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
+WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b) {
   lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
   JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
@@ -2251,8 +2251,7 @@ WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b, float anchor[3]) {
   joint->type = JOINT_WELD;
 
   JPH_FixedConstraintSettings* settings = JPH_FixedConstraintSettings_Create();
-  JPH_FixedConstraintSettings_SetPoint1(settings, vec3_toJolt(anchor));
-  JPH_FixedConstraintSettings_SetPoint2(settings, vec3_toJolt(anchor));
+  JPH_FixedConstraintSettings_SetAutoDetectPoint(settings, true);
   joint->constraint = (JPH_Constraint*) JPH_FixedConstraintSettings_CreateConstraint(settings, parent, b->body);
   JPH_ConstraintSettings_Destroy((JPH_ConstraintSettings*) settings);
   JPH_PhysicsSystem_AddConstraint(b->world->system, joint->constraint);
