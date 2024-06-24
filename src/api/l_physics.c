@@ -259,8 +259,13 @@ static int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
   Collider* a = luax_totype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
   float anchor1[3], anchor2[3];
-  int index = luax_readvec3(L, 3, anchor1, NULL);
-  luax_readvec3(L, index, anchor2, NULL);
+  if (lua_isnoneornil(L, 3)) {
+    lovrColliderGetRawPosition(a ? a : b, anchor1);
+    lovrColliderGetRawPosition(b, anchor2);
+  } else {
+    int index = luax_readvec3(L, 3, anchor1, NULL);
+    luax_readvec3(L, index, anchor2, NULL);
+  }
   DistanceJoint* joint = lovrDistanceJointCreate(a, b, anchor1, anchor2);
   luax_pushtype(L, DistanceJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
