@@ -2290,10 +2290,10 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
 
 ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
   lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
+  JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
+
   lovrCheck(vec3_length(axis) > 0.f, "Cone axis can not be zero");
   vec3_normalize(axis);
-
-  JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   ConeJoint* joint = lovrCalloc(sizeof(ConeJoint));
   joint->ref = 1;
@@ -2391,6 +2391,9 @@ void lovrDistanceJointSetSpring(DistanceJoint* joint, float frequency, float dam
 HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], float axis[3]) {
   lovrCheck(!a || a->world == b->world, "Joint bodies must exist in same World");
   JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
+
+  lovrCheck(vec3_length(axis) > 0.f, "Hinge axis can not be zero");
+  vec3_normalize(axis);
 
   HingeJoint* joint = lovrCalloc(sizeof(HingeJoint));
   joint->ref = 1;

@@ -276,8 +276,19 @@ static int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   Collider* a = luax_totype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
   float anchor[3], axis[3];
-  int index = luax_readvec3(L, 3, anchor, NULL);
-  luax_readvec3(L, index, axis, NULL);
+  if (lua_isnoneornil(L, 3)) {
+    lovrColliderGetRawPosition(a ? a : b, anchor);
+    if (a) {
+      lovrColliderGetRawPosition(b, axis);
+      vec3_sub(axis, anchor);
+      vec3_normalize(axis);
+    } else {
+      vec3_set(axis, 0.f, 0.f, -1.f);
+    }
+  } else {
+    int index = luax_readvec3(L, 3, anchor, NULL);
+    luax_readvec3(L, index, axis, NULL);
+  }
   HingeJoint* joint = lovrHingeJointCreate(a, b, anchor, axis);
   luax_pushtype(L, HingeJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
