@@ -2103,17 +2103,17 @@ void lovrJointDestruct(Joint* joint) {
   World* world = b->world;
   JointNode* node;
 
-  node = &joint->a;
-  if (node->next) lovrJointGetNode(node->next, a)->prev = node->prev;
-  if (node->prev) lovrJointGetNode(node->prev, a)->next = node->next;
-  else a->joints = node->next;
-
-  if (b) {
-    node = &joint->b;
-    if (node->next) lovrJointGetNode(node->next, b)->prev = node->prev;
-    if (node->prev) lovrJointGetNode(node->prev, b)->next = node->next;
-    else b->joints = node->next;
+  if (a) {
+    node = &joint->a;
+    if (node->next) lovrJointGetNode(node->next, a)->prev = node->prev;
+    if (node->prev) lovrJointGetNode(node->prev, a)->next = node->next;
+    else a->joints = node->next;
   }
+
+  node = &joint->b;
+  if (node->next) lovrJointGetNode(node->next, b)->prev = node->prev;
+  if (node->prev) lovrJointGetNode(node->prev, b)->next = node->next;
+  else b->joints = node->next;
 
   node = &joint->world;
   if (node->next) node->next->world.prev = node->prev;
