@@ -219,7 +219,11 @@ static int l_lovrPhysicsNewBallJoint(lua_State* L) {
   Collider* a = luax_totype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
   float anchor[3];
-  luax_readvec3(L, 3, anchor, NULL);
+  if (lua_isnoneornil(L, 3)) {
+    lovrColliderGetRawPosition(a ? a : b, anchor);
+  } else {
+    luax_readvec3(L, 3, anchor, NULL);
+  }
   BallJoint* joint = lovrBallJointCreate(a, b, anchor);
   luax_pushtype(L, BallJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
