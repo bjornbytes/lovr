@@ -2202,6 +2202,9 @@ float lovrJointGetForce(Joint* joint) {
     case JOINT_BALL:
       JPH_PointConstraint_GetTotalLambdaPosition((JPH_PointConstraint*) joint->constraint, &v);
       return vec3_length(vec3_fromJolt(force, &v)) * world->inverseDelta;
+    case JOINT_CONE:
+      JPH_ConeConstraint_GetTotalLambdaPosition((JPH_ConeConstraint*) joint->constraint, &v);
+      return vec3_length(vec3_fromJolt(force, &v)) * world->inverseDelta;
     case JOINT_DISTANCE:
       return JPH_DistanceConstraint_GetTotalLambdaPosition((JPH_DistanceConstraint*) joint->constraint);
     case JOINT_HINGE:
@@ -2210,7 +2213,7 @@ float lovrJointGetForce(Joint* joint) {
     case JOINT_SLIDER:
       JPH_SliderConstraint_GetTotalLambdaPosition((JPH_SliderConstraint*) joint->constraint, &x, &y);
       return sqrtf((x * x) + (y * y)) * world->inverseDelta;
-    default: return 0.f;
+    default: lovrUnreachable();
   }
 }
 
@@ -2228,6 +2231,8 @@ float lovrJointGetTorque(Joint* joint) {
       return vec3_length(vec3_fromJolt(torque, &v)) * world->inverseDelta;
     case JOINT_BALL:
       return 0.f;
+    case JOINT_CONE:
+      return JPH_ConeConstraint_GetTotalLambdaRotation((JPH_ConeConstraint*) joint->constraint);
     case JOINT_DISTANCE:
       return 0.f;
     case JOINT_HINGE:
@@ -2236,7 +2241,7 @@ float lovrJointGetTorque(Joint* joint) {
     case JOINT_SLIDER:
       JPH_SliderConstraint_GetTotalLambdaRotation((JPH_SliderConstraint*) joint->constraint, &v);
       return vec3_length(vec3_fromJolt(torque, &v)) * world->inverseDelta;
-    default: return 0.f;
+    default: lovrUnreachable();
   }
 }
 
