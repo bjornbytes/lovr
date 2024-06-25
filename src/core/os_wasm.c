@@ -42,7 +42,7 @@ static EM_BOOL onFocusChanged(int type, const EmscriptenFocusEvent* data, void* 
 
 static EM_BOOL onResize(int type, const EmscriptenUiEvent* data, void* userdata) {
   int newWidth, newHeight;
-  emscripten_webgl_get_drawing_buffer_size(state.context, &newWidth, &newHeight);
+  emscripten_get_canvas_element_size(CANVAS, &newWidth, &newHeight);
 
   if (state.width != (uint32_t) newWidth || state.height != (uint32_t) newHeight) {
     state.width = newWidth;
@@ -306,7 +306,7 @@ bool os_window_open(const os_window_config* flags) {
 }
 
 bool os_window_is_open(void) {
-  return state.context > 0;
+  return true;
 }
 
 void os_window_get_size(uint32_t* width, uint32_t* height) {
@@ -315,10 +315,7 @@ void os_window_get_size(uint32_t* width, uint32_t* height) {
 }
 
 float os_window_get_pixel_density(void) {
-  int w, h, fw, fh;
-  emscripten_get_canvas_element_size(CANVAS, &w, &h);
-  emscripten_webgl_get_drawing_buffer_size(state.context, &fw, &fh);
-  return (w == 0 || h == 0) ? 0.f : (float) fw / w;
+  return 1.f; // TODO
 }
 
 void os_on_quit(fn_quit* callback) {

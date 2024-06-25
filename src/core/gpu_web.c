@@ -25,6 +25,12 @@ struct gpu_shader {
   WGPUPipelineLayout pipelineLayout;
 };
 
+struct gpu_pass {
+  uint32_t colorAttachmentCount;
+  WGPUTextureFormat colorFormat[4];
+  WGPUTextureFormat depthFormat;
+};
+
 struct gpu_pipeline {
   WGPURenderPipeline render;
   WGPUComputePipeline compute;
@@ -159,6 +165,11 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
     [GPU_FILTER_LINEAR] = WGPUFilterMode_Linear
   };
 
+  static const WGPUMipmapFilterMode mipFilters[] = {
+    [GPU_FILTER_NEAREST] = WGPUMipmapFilterMode_Nearest,
+    [GPU_FILTER_LINEAR] = WGPUMipmapFilterMode_Linear
+  };
+
   static const WGPUAddressMode wraps[] = {
     [GPU_WRAP_CLAMP] = WGPUAddressMode_ClampToEdge,
     [GPU_WRAP_REPEAT] = WGPUAddressMode_Repeat,
@@ -181,7 +192,7 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
     .addressModeW = wraps[info->wrap[2]],
     .magFilter = filters[info->mag],
     .minFilter = filters[info->min],
-    .mipmapFilter = filters[info->mip],
+    .mipmapFilter = mipFilters[info->mip],
     .lodMinClamp = info->lodClamp[0],
     .lodMaxClamp = info->lodClamp[1],
     .compare = compares[info->compare],
@@ -258,7 +269,7 @@ void gpu_layout_destroy(gpu_layout* layout) {
 // Shader
 
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
-  for (uint32_t i = 0; i < COUNTOF(info->stages) && info->stages[i].code; i++) {
+  for (uint32_t i = 0; i < info->stageCount; i++) {
     WGPUShaderModuleSPIRVDescriptor spirv = {
       .chain.sType = WGPUSType_ShaderModuleSPIRVDescriptor,
       .codeSize = info->stages[i].length,
@@ -431,7 +442,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   };
 
   WGPUDepthStencilState depth = {
-    .format = convertFormat(info->depth.format, false),
+    .format = info->pass->depthFormat,
     .depthWriteEnabled = info->depth.write,
     .depthCompare = compares[info->depth.test],
     .stencilFront = stencil,
@@ -450,21 +461,21 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   WGPUBlendState blends[4];
   WGPUColorTargetState targets[4];
-  for (uint32_t i = 0; i < info->attachmentCount; i++) {
+  for (uint32_t i = 0; i < info->pass->colorAttachmentCount; i++) {
     targets[i] = (WGPUColorTargetState) {
-      .format = convertFormat(info->color[i].format, info->color[i].srgb),
-      .blend = info->color[i].blend.enabled ? &blends[i] : NULL,
-      .writeMask = info->color[i].mask
+      .format = info->pass->colorFormat[i],
+      .blend = info->blend[i].enabled ? &blends[i] : NULL,
+      .writeMask = info->colorMask[i]
     };
 
-    if (info->color[i].blend.enabled) {
+    if (info->blend[i].enabled) {
       blends[i] = (WGPUBlendState) {
-        .color.operation = blendOps[info->color[i].blend.color.op],
-        .color.srcFactor = blendFactors[info->color[i].blend.color.src],
-        .color.dstFactor = blendFactors[info->color[i].blend.color.dst],
-        .alpha.operation = blendOps[info->color[i].blend.alpha.op],
-        .alpha.srcFactor = blendFactors[info->color[i].blend.alpha.src],
-        .alpha.dstFactor = blendFactors[info->color[i].blend.alpha.dst]
+        .color.operation = blendOps[info->blend[i].color.op],
+        .color.srcFactor = blendFactors[info->blend[i].color.src],
+        .color.dstFactor = blendFactors[info->blend[i].color.dst],
+        .alpha.operation = blendOps[info->blend[i].alpha.op],
+        .alpha.srcFactor = blendFactors[info->blend[i].alpha.src],
+        .alpha.dstFactor = blendFactors[info->blend[i].alpha.dst]
       };
     }
   }
@@ -472,7 +483,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   WGPUFragmentState fragment = {
     .module = info->shader->handles[1],
     .entryPoint = "main",
-    .targetCount = info->attachmentCount,
+    .targetCount = info->pass->colorAttachmentCount,
     .targets = targets
   };
 
@@ -481,7 +492,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .layout = info->shader->pipelineLayout,
     .vertex = vertex,
     .primitive = primitive,
-    .depthStencil = info->depth.format ? &depth : NULL,
+    .depthStencil = info->pass->depthFormat ? &depth : NULL,
     .multisample = multisample,
     .fragment = &fragment
   };
@@ -640,7 +651,7 @@ void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, 
   // TODO
 }
 
-void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size) {
+void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size, uint32_t value) {
   wgpuCommandEncoderClearBuffer(stream->commands, buffer->handle, offset, size);
 }
 

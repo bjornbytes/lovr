@@ -2,11 +2,18 @@
 
 extern bool webxr_init(HeadsetConfig* config);
 extern void webxr_start(void);
+extern void webxr_stop(void);
 extern void webxr_destroy(void);
 extern bool webxr_getDriverName(char* name, size_t length);
 extern bool webxr_getName(char* name, size_t length);
 extern bool webxr_isSeated(void);
 extern void webxr_getDisplayDimensions(uint32_t* width, uint32_t* height);
+extern float webxr_getRefreshRate(void);
+extern bool webxr_setRefreshRate(float refreshRate);
+extern const float* webxr_getRefreshRates(uint32_t* count);
+PassthroughMode webxr_getPassthrough(void);
+extern bool webxr_setPassthrough(PassthroughMode mode);
+extern bool webxr_isPassthroughSupported(PassthroughMode mode);
 extern double webxr_getDisplayTime(void);
 extern double webxr_getDeltaTime(void);
 extern uint32_t webxr_getViewCount(void);
@@ -26,10 +33,11 @@ extern bool webxr_vibrate(Device device, float strength, float duration, float f
 extern void webxr_stopVibration(Device device);
 extern struct ModelData* webxr_newModelData(Device device, bool animated);
 extern bool webxr_animate(struct Model* model);
-extern void webxr_renderTo(void (*callback)(void*), void* userdata);
+extern struct Texture* webxr_getTexture(void);
+extern struct Pass* webxr_getPass(void);
+extern void webxr_submit(void);
+extern bool webxr_isVisible(void);
 extern bool webxr_isFocused(void);
-extern bool webxr_isPassthroughEnabled(void);
-extern bool webxr_setPassthroughEnabled(bool enable);
 extern double webxr_update(void);
 
 static bool webxrAttached = false;
@@ -59,12 +67,20 @@ HeadsetInterface lovrHeadsetWebXRDriver = {
   .driverType = DRIVER_WEBXR,
   .init = webxr_init,
   .start = webxr_start,
+  .stop = webxr_stop,
   .destroy = webxr_destroy,
   .getDriverName = webxr_getDriverName,
   .getName = webxr_getName,
   .isSeated = webxr_isSeated,
-  .getDisplayTime = webxr_getDisplayTime,
   .getDisplayDimensions = webxr_getDisplayDimensions,
+  .getRefreshRate = webxr_getRefreshRate,
+  .setRefreshRate = webxr_setRefreshRate,
+  .getRefreshRates = webxr_getRefreshRates,
+  .getPassthrough = webxr_getPassthrough,
+  .setPassthrough = webxr_setPassthrough,
+  .isPassthroughSupported = webxr_isPassthroughSupported,
+  .getDisplayTime = webxr_getDisplayTime,
+  .getDeltaTime = webxr_getDeltaTime,
   .getViewCount = webxr_getViewCount,
   .getViewPose = webxr_getViewPose,
   .getViewAngles = webxr_getViewAngles,
@@ -82,6 +98,10 @@ HeadsetInterface lovrHeadsetWebXRDriver = {
   .stopVibration = webxr_stopVibration,
   .newModelData = webxr_newModelData,
   .animate = webxr_animate,
+  .getTexture = webxr_getTexture,
+  .getPass = webxr_getPass,
+  .submit = webxr_submit,
+  .isVisible = webxr_isVisible,
   .isFocused = webxr_isFocused,
   .update = webxr_update
 };

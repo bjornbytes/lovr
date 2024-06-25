@@ -3,7 +3,6 @@
 #include "core/fs.h"
 #include "core/os.h"
 #include "util.h"
-#include "lib/dmon/dmon.h"
 #include "lib/miniz/miniz_tinfl.h"
 #include <stdatomic.h>
 #include <string.h>
@@ -54,7 +53,7 @@ struct Archive {
   bool (*close)(Archive* archive, Handle* handle);
   bool (*read)(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count);
   bool (*seek)(Archive* archive, Handle* handle, uint64_t offset);
-  bool (*fsize)(Archive* archive, Handle* handle, size_t* size);
+  bool (*fsize)(Archive* archive, Handle* handle, uint64_t* size);
   bool (*stat)(Archive* archive, const char* path, FileInfo* info, bool needTime);
   void (*list)(Archive* archive, const char* path, fs_list_cb callback, void* context);
   char* path;
@@ -77,7 +76,6 @@ struct File {
 
 static struct {
   uint32_t ref;
-  dmon_watch_id watcher;
   Archive* archives;
   size_t savePathLength;
   char savePath[1024];
@@ -194,6 +192,12 @@ const char* lovrFilesystemGetSource(void) {
   return state.source[0] ? state.source : NULL;
 }
 
+#ifdef __EMSCRIPTEN__
+void lovrFilesystemWatch(void) {}
+void lovrFilesystemUnwatch(void) {}
+#else
+#include "lib/dmon/dmon.h"
+
 static void onFileEvent(dmon_watch_id id, dmon_action action, const char* dir, const char* path, const char* oldpath, void* ctx) {
   static const FileAction map[] = {
     [DMON_ACTION_CREATE] = FILE_CREATE,
@@ -212,6 +216,8 @@ static void onFileEvent(dmon_watch_id id, dmon_action action, const char* dir, c
   });
 }
 
+static dmon_watch_id watcher;
+
 void lovrFilesystemWatch(void) {
 #ifdef ANDROID
   const char* path = state.savePath;
@@ -219,18 +225,19 @@ void lovrFilesystemWatch(void) {
   const char* path = state.source;
 #endif
   FileInfo info;
-  if (!state.watcher.id && fs_stat(path, &info) && info.type == FILE_DIRECTORY) {
+  if (!watcher.id && fs_stat(path, &info) && info.type == FILE_DIRECTORY) {
     dmon_init();
-    state.watcher = dmon_watch(path, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
+    watcher = dmon_watch(path, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
   }
 }
 
 void lovrFilesystemUnwatch(void) {
-  if (state.watcher.id) {
+  if (watcher.id) {
     dmon_deinit();
-    state.watcher.id = 0;
+    watcher.id = 0;
   }
 }
+#endif
 
 bool lovrFilesystemIsFused(void) {
   char path[LOVR_PATH_MAX];

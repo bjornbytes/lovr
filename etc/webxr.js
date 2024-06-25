@@ -168,6 +168,10 @@ var webxr = {
     // Session is handled asynchronously
   },
 
+  webxr_stop: function() {
+    //
+  },
+
   webxr_destroy: function() {
     if (state.session) {
       state.session.end();
@@ -176,19 +180,44 @@ var webxr = {
 
   webxr_getDriverName: function(name, size) {
     return false;
-  }
+  },
 
   webxr_getName: function(name, size) {
     return false;
   },
 
   webxr_isSeated: function() {
-    // TODO
+    return false; // TODO
   },
 
   webxr_getDisplayDimensions: function(width, height) {
     HEAPU32[width >> 2] = state.layer.framebufferWidth;
     HEAPU32[height >> 2] = state.layer.framebufferHeight;
+  },
+
+  webxr_getRefreshRate: function() {
+    return state.session.frameRate || 0.0;
+  },
+
+  webxr_setRefreshRate: function() {
+    return false; // TODO
+  },
+
+  webxr_getRefreshRates: function(count) {
+    HEAPU32[count >> 2] = 0;
+    return 0; /* NULL */ // TODO
+  },
+
+  webxr_getPassthrough: function() {
+    return 0; /* PASSTHROUGH_OPAQUE */
+  },
+
+  webxr_setPassthrough: function(mode) {
+    return mode == 0;
+  },
+
+  webxr_isPassthroughSupported: function(mode) {
+    return mode == 0;
   },
 
   webxr_getDisplayTime: function() {
@@ -197,10 +226,6 @@ var webxr = {
 
   webxr_getDeltaTime: function() {
     return (state.displayTime - state.lastDisplayTime) / 1000.0;
-  },
-
-  webxr_getDisplayFrequency: function() {
-    return 0.0;
   },
 
   webxr_getViewCount: function() {
@@ -380,7 +405,7 @@ var webxr = {
   },
 
   webxr_stopVibration: function(device) {
-    return;
+    return; // TODO
   },
 
   webxr_newModelData: function(device, animated) {
@@ -391,40 +416,24 @@ var webxr = {
     return false;
   },
 
-  webxr_renderTo: function(callback, userdata) {
-    var matrix = Module.stackAlloc(16 * 4);
-    if (state.viewer) {
-      var views = state.viewer.views;
-      HEAPF32.set(views[0].transform.inverse.matrix, matrix >> 2);
-      Module._lovrGraphicsSetViewMatrix(0, matrix);
-      HEAPF32.set(views[1].transform.inverse.matrix, matrix >> 2);
-      Module._lovrGraphicsSetViewMatrix(1, matrix);
-      HEAPF32.set(views[0].projectionMatrix, matrix >> 2);
-      Module._lovrGraphicsSetProjection(0, matrix);
-      HEAPF32.set(views[1].projectionMatrix, matrix >> 2);
-      Module._lovrGraphicsSetProjection(1, matrix);
-    } else {
-      HEAPF32.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], matrix >> 2);
-      Module._lovrGraphicsSetViewMatrix(0, matrix);
-      Module._lovrGraphicsSetViewMatrix(1, matrix);
-      // TODO projection?
-    }
-    Module.stackRestore(matrix);
-    Module._lovrGraphicsSetBackbuffer(state.canvas, true, true);
-    {{{ makeDynCall('vi', 'callback') }}} (userdata);
-    Module._lovrGraphicsSetBackbuffer(0, false, false);
+  webxr_getTexture: function() {
+    return 0; /* NULL */
+  },
+
+  webxr_getPass: function() {
+    return 0; /* NULL */
+  },
+
+  webxr_submit: function() {
+    //
+  },
+
+  webxr_isVisible: function() {
+    return state.session.visibilityState != 'hidden';
   },
 
   webxr_isFocused: function() {
-    return true;
-  },
-
-  webxr_isPassthroughEnabled: function() {
-    return false;
-  },
-
-  webxr_setPassthroughEnabled: function() {
-    return false;
+    return state.session.visibilityState == 'visible';
   },
 
   webxr_update: function() {
