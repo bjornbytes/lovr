@@ -2551,7 +2551,7 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
 void lovrSliderJointGetAxis(SliderJoint* joint, float axis[3]) {
   JPH_Vec3 resultAxis;
   JPH_SliderConstraintSettings* settings = (JPH_SliderConstraintSettings*) JPH_Constraint_GetConstraintSettings((JPH_Constraint*) joint->constraint);
-  JPH_SliderConstraintSettings_GetSliderAxis(settings, &resultAxis);
+  JPH_SliderConstraintSettings_GetSliderAxis1(settings, &resultAxis);
   JPH_Body* body1 = JPH_TwoBodyConstraint_GetBody1((JPH_TwoBodyConstraint*) joint->constraint);
   JPH_RMatrix4x4 centerOfMassTransform;
   JPH_Body_GetCenterOfMassTransform(body1, &centerOfMassTransform);
