@@ -10,6 +10,7 @@
 #include <math.h>
 
 typedef struct {
+  uint32_t codepoint;
   uint16_t x;
   uint16_t y;
   uint16_t w;
@@ -196,8 +197,8 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
         memcpy(filename, file, fileLength);
         filename[fileLength] = '\0';
       } else if (!memcmp(tag, "char", tagLength)) {
-        uint32_t codepoint = parseNumber(string, lineLength, &map, "id");
         Glyph glyph;
+        glyph.codepoint = parseNumber(string, lineLength, &map, "id");
         glyph.x = parseNumber(string, lineLength, &map, "x");
         glyph.y = parseNumber(string, lineLength, &map, "y");
         glyph.w = parseNumber(string, lineLength, &map, "width");
@@ -206,7 +207,7 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
         glyph.oy = parseNumber(string, lineLength, &map, "yoffset");
         glyph.advance = parseNumber(string, lineLength, &map, "xadvance");
         arr_push(&rasterizer->glyphs, glyph);
-        map_set(&rasterizer->glyphLookup, hash64(&codepoint, 4), rasterizer->glyphs.length - 1);
+        map_set(&rasterizer->glyphLookup, hash64(&glyph.codepoint, 4), rasterizer->glyphs.length - 1);
       } else if (!memcmp(tag, "kerning", tagLength)) {
         uint32_t first = parseNumber(string, lineLength, &map, "first");
         uint32_t second = parseNumber(string, lineLength, &map, "second");
@@ -584,4 +585,21 @@ bool lovrRasterizerGetPixels(Rasterizer* rasterizer, uint32_t codepoint, float* 
   msShapeDestroy(shape);
 
   return true;
+}
+
+Image* lovrRasterizerGetAtlas(Rasterizer* rasterizer) {
+  return rasterizer->atlas;
+}
+
+uint32_t lovrRasterizerGetAtlasGlyph(Rasterizer* rasterizer, uint32_t index, uint16_t* x, uint16_t* y) {
+  if (rasterizer->type == RASTERIZER_TTF || index >= rasterizer->glyphs.length) {
+    return 0;
+  }
+
+  Glyph* glyph = &rasterizer->glyphs.data[index];
+
+  *x = glyph->x;
+  *y = glyph->y;
+
+  return glyph->codepoint;
 }

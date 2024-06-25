@@ -3524,16 +3524,62 @@ Font* lovrFontCreate(const FontInfo* info) {
   font->lineSpacing = 1.f;
   font->padding = lovrRasterizerGetType(info->rasterizer) == RASTERIZER_TTF ? (uint32_t) ceil(info->spread / 2.) : 0;
 
-  // Initial atlas size must be big enough to hold any of the glyphs
-  float box[4];
-  font->atlasWidth = 1;
-  font->atlasHeight = 1;
-  lovrRasterizerGetBoundingBox(info->rasterizer, box);
-  uint32_t maxWidth = (uint32_t) ceilf(box[2] - box[0]) + 2 * font->padding;
-  uint32_t maxHeight = (uint32_t) ceilf(box[3] - box[1]) + 2 * font->padding;
-  while (font->atlasWidth < 2 * maxWidth || font->atlasHeight < 2 * maxHeight) {
-    font->atlasWidth <<= 1;
-    font->atlasHeight <<= 1;
+  Image* image = lovrRasterizerGetAtlas(info->rasterizer);
+
+  if (image) {
+    font->atlasWidth = lovrImageGetWidth(image, 0);
+    font->atlasHeight = lovrImageGetHeight(image, 0);
+
+    font->atlas = lovrTextureCreate(&(TextureInfo) {
+      .type = TEXTURE_2D,
+      .format = lovrImageGetFormat(image),
+      .width = font->atlasWidth,
+      .height = font->atlasHeight,
+      .layers = 1,
+      .mipmaps = 1,
+      .usage = TEXTURE_SAMPLE,
+      .srgb = true,
+      .imageCount = 1,
+      .images = &image,
+      .label = "Font Atlas"
+    });
+
+    font->material = lovrMaterialCreate(&(MaterialInfo) {
+      .data.color = { 1.f, 1.f, 1.f, 1.f },
+      .data.uvScale = { 1.f, 1.f },
+      .texture = font->atlas
+    });
+
+    uint32_t glyphCount = lovrRasterizerGetGlyphCount(info->rasterizer);
+
+    for (uint32_t i = 0; i < glyphCount; i++) {
+      arr_expand(&font->glyphs, 1);
+      Glyph* glyph = &font->glyphs.data[font->glyphs.length++];
+      uint32_t codepoint = lovrRasterizerGetAtlasGlyph(info->rasterizer, i, &glyph->x, &glyph->y);
+      map_set(&font->glyphLookup, hash64(&codepoint, 4), font->glyphs.length - 1);
+
+      lovrRasterizerGetGlyphBoundingBox(info->rasterizer, codepoint, glyph->box);
+
+      float width = glyph->box[2] - glyph->box[0];
+      float height = glyph->box[3] - glyph->box[1];
+      glyph->uv[0] = (uint16_t) ((float) glyph->x / font->atlasWidth * 65535.f + .5f);
+      glyph->uv[1] = (uint16_t) ((float) glyph->y / font->atlasHeight * 65535.f + .5f);
+      glyph->uv[2] = (uint16_t) ((float) (glyph->x + width) / font->atlasWidth * 65535.f + .5f);
+      glyph->uv[3] = (uint16_t) ((float) (glyph->y + height) / font->atlasHeight * 65535.f + .5f);
+      glyph->advance = lovrRasterizerGetAdvance(font->info.rasterizer, codepoint);
+    }
+  } else {
+    // Initial atlas size must be big enough to hold any of the glyphs
+    float box[4];
+    font->atlasWidth = 1;
+    font->atlasHeight = 1;
+    lovrRasterizerGetBoundingBox(info->rasterizer, box);
+    uint32_t maxWidth = (uint32_t) ceilf(box[2] - box[0]) + 2 * font->padding;
+    uint32_t maxHeight = (uint32_t) ceilf(box[3] - box[1]) + 2 * font->padding;
+    while (font->atlasWidth < 2 * maxWidth || font->atlasHeight < 2 * maxHeight) {
+      font->atlasWidth <<= 1;
+      font->atlasHeight <<= 1;
+    }
   }
 
   return font;
