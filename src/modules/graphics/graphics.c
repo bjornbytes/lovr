@@ -1392,6 +1392,7 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   gpu_buffer* vertexBuffer = NULL;
   uint32_t vertexBufferOffset = 0;
   gpu_buffer* indexBuffer = NULL;
+  gpu_index_type indexType = 0;
   gpu_buffer* uniformBuffer = NULL;
   uint32_t uniformOffset = 0;
   uint32_t uniformSize = 0;
@@ -1451,10 +1452,13 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       vertexBufferOffset = draw->vertexBufferOffset;
     }
 
-    if (draw->indexBuffer && draw->indexBuffer != indexBuffer) {
-      gpu_index_type indexType = (draw->flags & DRAW_INDEX32) ? GPU_INDEX_U32 : GPU_INDEX_U16;
-      gpu_bind_index_buffer(stream, draw->indexBuffer, 0, indexType);
-      indexBuffer = draw->indexBuffer;
+    if (draw->indexBuffer) {
+      gpu_index_type type = (draw->flags & DRAW_INDEX32) ? GPU_INDEX_U32 : GPU_INDEX_U16;
+      if (draw->indexBuffer != indexBuffer || type != indexType) {
+        gpu_bind_index_buffer(stream, draw->indexBuffer, 0, type);
+        indexBuffer = draw->indexBuffer;
+        indexType = type;
+      }
     }
 
     uint32_t DrawID = i & 0xff;
