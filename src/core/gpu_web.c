@@ -26,14 +26,16 @@ struct gpu_shader {
 };
 
 struct gpu_pass {
-  uint32_t colorAttachmentCount;
-  WGPUTextureFormat colorFormat[4];
-  WGPUTextureFormat depthFormat;
+  gpu_pass_info info;
 };
 
 struct gpu_pipeline {
   WGPURenderPipeline render;
   WGPUComputePipeline compute;
+};
+
+struct gpu_tally {
+  WGPUQuerySet handle;
 };
 
 struct gpu_stream {
@@ -49,17 +51,26 @@ size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
 size_t gpu_sizeof_layout(void) { return sizeof(gpu_layout); }
 size_t gpu_sizeof_shader(void) { return sizeof(gpu_shader); }
+size_t gpu_sizeof_pass(void) { return sizeof(gpu_pass); }
 size_t gpu_sizeof_pipeline(void) { return sizeof(gpu_pipeline); }
+size_t gpu_sizeof_tally(void) { return sizeof(gpu_tally); }
 
 // State
 
 static struct {
   WGPUDevice device;
+  WGPUQueue queue;
+  gpu_stream streams[64];
+  uint32_t streamCount;
+  uint32_t tick;
+  uint32_t lastTickFinished;
 } state;
 
 // Helpers
 
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
+#define MIN(a, b) (a < b ? a : b)
+#define MAX(a, b) (a > b ? a : b)
 
 static WGPUTextureFormat convertFormat(gpu_texture_format format, bool srgb);
 
@@ -302,6 +313,17 @@ void gpu_shader_destroy(gpu_shader* shader) {
 
 // Bundle
 
+// Pass
+
+bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
+  pass->info = *info;
+  return true;
+}
+
+void gpu_pass_destroy(gpu_pass* pass) {
+  //
+}
+
 // Pipeline
 
 bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info) {
@@ -442,7 +464,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   };
 
   WGPUDepthStencilState depth = {
-    .format = info->pass->depthFormat,
+    .format = convertFormat(info->pass->info.depth.format, false),
     .depthWriteEnabled = info->depth.write,
     .depthCompare = compares[info->depth.test],
     .stencilFront = stencil,
@@ -461,9 +483,9 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 
   WGPUBlendState blends[4];
   WGPUColorTargetState targets[4];
-  for (uint32_t i = 0; i < info->pass->colorAttachmentCount; i++) {
+  for (uint32_t i = 0; i < info->pass->info.colorCount; i++) {
     targets[i] = (WGPUColorTargetState) {
-      .format = info->pass->colorFormat[i],
+      .format = convertFormat(info->pass->info.color[i].format, info->pass->info.color[i].srgb),
       .blend = info->blend[i].enabled ? &blends[i] : NULL,
       .writeMask = info->colorMask[i]
     };
@@ -483,7 +505,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   WGPUFragmentState fragment = {
     .module = info->shader->handles[1],
     .entryPoint = "main",
-    .targetCount = info->pass->colorAttachmentCount,
+    .targetCount = info->pass->info.colorCount,
     .targets = targets
   };
 
@@ -492,7 +514,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .layout = info->shader->pipelineLayout,
     .vertex = vertex,
     .primitive = primitive,
-    .depthStencil = info->pass->depthFormat ? &depth : NULL,
+    .depthStencil = info->pass->info.depth.format ? &depth : NULL,
     .multisample = multisample,
     .fragment = &fragment
   };
@@ -511,7 +533,38 @@ void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
 
 // Tally
 
+bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
+  static const WGPUQueryType types[] = {
+    [GPU_TALLY_TIME] = WGPUQueryType_Timestamp,
+    [GPU_TALLY_PIXEL] = WGPUQueryType_Occlusion
+  };
+
+  return tally->handle = wgpuDeviceCreateQuerySet(state.device, &(WGPUQuerySetDescriptor) {
+    .type = types[info->type],
+    .count = info->count
+  });
+}
+
+void gpu_tally_destroy(gpu_tally* tally) {
+  wgpuQuerySetRelease(tally->handle);
+}
+
 // Stream
+
+gpu_stream* gpu_stream_begin(const char* label) {
+  if (state.streamCount >= COUNTOF(state.streams)) return NULL;
+  gpu_stream* stream = &state.streams[state.streamCount++];
+
+  stream->commands = wgpuDeviceCreateCommandEncoder(state.device, &(WGPUCommandEncoderDescriptor) {
+    .label = label
+  });
+
+  return stream;
+}
+
+void gpu_stream_end(gpu_stream* stream) {
+  //
+}
 
 void gpu_compute_begin(gpu_stream* stream) {
   stream->compute = wgpuCommandEncoderBeginComputePass(stream->commands, NULL);
@@ -648,7 +701,7 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
 }
 
 void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count) {
-  // TODO
+  wgpuCommandEncoderResolveQuerySet(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset);
 }
 
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size, uint32_t value) {
@@ -671,16 +724,65 @@ void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
   //
 }
 
+void gpu_tally_mark(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
+  wgpuCommandEncoderWriteTimestamp(stream->commands, tally->handle, index);
+}
+
+void gpu_xr_acquire(gpu_stream* stream, gpu_texture* texture) {
+  //
+}
+
+void gpu_xr_release(gpu_stream* stream, gpu_texture* texture) {
+  //
+}
+
 // Entry
 
 bool gpu_init(gpu_config* config) {
   state.device = emscripten_webgpu_get_device();
+  state.queue = wgpuDeviceGetQueue(state.device);
   return !!state.device;
 }
 
 void gpu_destroy(void) {
   if (state.device) wgpuDeviceDestroy(state.device);
   memset(&state, 0, sizeof(state));
+}
+
+uint32_t gpu_begin(void) {
+  return state.tick++;
+}
+
+void onSubmittedWorkDone(WGPUQueueWorkDoneStatus status, void* userdata) {
+  state.lastTickFinished = (uint32_t) (uintptr_t) userdata;
+}
+
+void gpu_submit(gpu_stream** streams, uint32_t count) {
+  WGPUCommandBuffer commandBuffers[64];
+  count = MIN(count, COUNTOF(commandBuffers));
+
+  for (uint32_t i = 0; i < count; i++) {
+    commandBuffers[i] = wgpuCommandEncoderFinish(streams[i]->commands, NULL);
+  }
+
+  wgpuQueueSubmit(state.queue, count, commandBuffers);
+  wgpuQueueOnSubmittedWorkDone(state.queue, onSubmittedWorkDone, (void*) (uintptr_t) state.tick);
+
+  for (uint32_t i = 0; i < state.streamCount; i++) {
+    wgpuCommandEncoderRelease(state.streams[i].commands);
+  }
+}
+
+bool gpu_is_complete(uint32_t tick) {
+  return state.lastTickFinished >= tick;
+}
+
+bool gpu_wait_tick(uint32_t tick) {
+  return true; // TODO Unsupported
+}
+
+void gpu_wait_idle(void) {
+  // TODO Unsupported
 }
 
 // Helpers
