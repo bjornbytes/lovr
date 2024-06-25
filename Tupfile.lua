@@ -387,7 +387,7 @@ for spatializer, enabled in pairs(config.spatializers) do
 end
 
 if config.utf8 then
-  src += 'src/lib/lua/lutf8lib.c'
+  src += 'src/lib/luax/lutf8lib.c'
 else
   cflags += '-DLOVR_DISABLE_UTF8'
 end

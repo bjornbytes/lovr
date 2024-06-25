@@ -593,7 +593,7 @@ else()
 endif()
 
 if(LOVR_ENABLE_UTF8)
-  target_sources(lovr PRIVATE src/lib/lua/lutf8lib.c)
+  target_sources(lovr PRIVATE src/lib/luax/lutf8lib.c)
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_UTF8)
 endif()
