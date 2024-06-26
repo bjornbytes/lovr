@@ -618,6 +618,7 @@ void lovrPassSendData(Pass* pass, const char* name, size_t length, void** data, 
 
 void lovrPassPoints(Pass* pass, uint32_t count, float** vertices);
 void lovrPassLine(Pass* pass, uint32_t count, float** vertices);
+void lovrPassPolygon(Pass* pass, uint32_t count, float** vertices);
 void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols, uint32_t rows);
 void lovrPassRoundrect(Pass* pass, float* transform, float radius, uint32_t segments);
 void lovrPassBox(Pass* pass, float* transform, DrawStyle style);

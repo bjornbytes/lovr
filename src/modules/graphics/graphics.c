@@ -6231,6 +6231,27 @@ void lovrPassLine(Pass* pass, uint32_t count, float** points) {
   }
 }
 
+void lovrPassPolygon(Pass* pass, uint32_t count, float** vertices) {
+  lovrCheck(count >= 3, "Need at least 3 points to make a polygon");
+
+  uint16_t* indices;
+
+  lovrPassDraw(pass, &(DrawInfo) {
+    .mode = DRAW_TRIANGLES,
+    .vertex.format = VERTEX_POINT,
+    .vertex.pointer = (void**) vertices,
+    .vertex.count = count,
+    .index.pointer = (void**) &indices,
+    .index.count = 3 * count - 2
+  });
+
+  for (uint32_t i = 3; i <= count; i++) {
+    *indices++ = 0;
+    *indices++ = i - 2;
+    *indices++ = i - 1;
+  }
+}
+
 void lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols, uint32_t rows) {
   uint32_t key[] = { SHAPE_PLANE, style, cols, rows };
   ShapeVertex* vertices;

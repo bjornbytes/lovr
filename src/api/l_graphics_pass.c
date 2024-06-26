@@ -771,6 +771,15 @@ static int l_lovrPassLine(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassPolygon(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float* vertices;
+  uint32_t count = luax_getvertexcount(L, 2);
+  lovrPassPolygon(pass, count, &vertices);
+  luax_readvertices(L, 2, vertices, count);
+  return 0;
+}
+
 static int l_lovrPassPlane(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
@@ -1106,6 +1115,7 @@ const luaL_Reg lovrPass[] = {
 
   { "points", l_lovrPassPoints },
   { "line", l_lovrPassLine },
+  { "polygon", l_lovrPassPolygon },
   { "plane", l_lovrPassPlane },
   { "roundrect", l_lovrPassRoundrect },
   { "cube", l_lovrPassCube },
