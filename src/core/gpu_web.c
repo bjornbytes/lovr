@@ -741,6 +741,20 @@ void gpu_xr_release(gpu_stream* stream, gpu_texture* texture) {
 bool gpu_init(gpu_config* config) {
   state.device = emscripten_webgpu_get_device();
   state.queue = wgpuDeviceGetQueue(state.device);
+
+  if (config->features) {
+    config->features->textureBC = wgpuDeviceHasFeature(state.device, WGPUFeatureName_TextureCompressionBC);
+    config->features->textureASTC = wgpuDeviceHasFeature(state.device, WGPUFeatureName_TextureCompressionASTC);
+    config->features->wireframe = false;
+    config->features->depthClamp = wgpuDeviceHasFeature(state.device, WGPUFeatureName_DepthClipControl);
+    config->features->depthResolve = false;
+    config->features->indirectDrawFirstInstance = wgpuDeviceHasFeature(state.device, WGPUFeatureName_IndirectFirstInstance);
+    config->features->shaderDebug = false;
+    config->features->float64 = false;
+    config->features->int64 = false;
+    config->features->int16 = false;
+  }
+
   return !!state.device;
 }
 
