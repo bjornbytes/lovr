@@ -460,8 +460,8 @@ bool os_window_open(const os_window_config* config) {
   uint8_t depth = XCB_COPY_FROM_PARENT;
   state.window = xcb_generate_id(state.connection);
   xcb_window_t parent = state.screen->root;
-  uint16_t w = config->fullscreen ? state.screen->width_in_pixels : config->width;
-  uint16_t h = config->fullscreen ? state.screen->height_in_pixels : config->height;
+  uint16_t w = config->width == 0 ? state.screen->width_in_pixels : config->width;
+  uint16_t h = config->height == 0 ? state.screen->height_in_pixels : config->height;
   uint16_t border = 0;
   xcb_window_class_t class = XCB_WINDOW_CLASS_INPUT_OUTPUT;
   xcb_visualid_t visual = state.screen->root_visual;
