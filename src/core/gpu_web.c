@@ -755,6 +755,48 @@ bool gpu_init(gpu_config* config) {
     config->features->int16 = false;
   }
 
+  if (config->limits) {
+    WGPUSupportedLimits supported;
+    wgpuDeviceGetLimits(state.device, &supported);
+    config->limits->textureSize2D = supported.limits.maxTextureDimension2D;
+    config->limits->textureSize3D = supported.limits.maxTextureDimension3D;
+    config->limits->textureSizeCube = supported.limits.maxTextureDimension2D;
+    config->limits->textureLayers = supported.limits.maxTextureArrayLayers;
+    config->limits->renderSize[0] = supported.limits.maxTextureDimension2D;
+    config->limits->renderSize[1] = supported.limits.maxTextureDimension2D;
+    config->limits->renderSize[2] = 1;
+    config->limits->uniformBuffersPerStage = supported.limits.maxUniformBuffersPerShaderStage;
+    config->limits->storageBuffersPerStage = supported.limits.maxStorageBuffersPerShaderStage;
+    config->limits->sampledTexturesPerStage = supported.limits.maxSampledTexturesPerShaderStage;
+    config->limits->storageTexturesPerStage = supported.limits.maxStorageTexturesPerShaderStage;
+    config->limits->samplersPerStage = supported.limits.maxSamplersPerShaderStage;
+    config->limits->uniformBufferRange = supported.limits.maxUniformBufferBindingSize;
+    config->limits->storageBufferRange = supported.limits.maxStorageBufferBindingSize;
+    config->limits->uniformBufferAlign = supported.limits.minUniformBufferOffsetAlignment;
+    config->limits->storageBufferAlign = supported.limits.minStorageBufferOffsetAlignment;
+    config->limits->vertexAttributes = supported.limits.maxVertexAttributes;
+    config->limits->vertexBuffers = supported.limits.maxVertexBuffers;
+    config->limits->vertexBufferStride = supported.limits.maxVertexBufferArrayStride;
+    config->limits->vertexShaderOutputs = supported.limits.maxInterStageShaderComponents;
+    config->limits->clipDistances = 0; // TODO
+    config->limits->cullDistances = 0;
+    config->limits->clipAndCullDistances = 0; // TODO
+    config->limits->workgroupCount[0] = supported.limits.maxComputeWorkgroupsPerDimension;
+    config->limits->workgroupCount[1] = supported.limits.maxComputeWorkgroupsPerDimension;
+    config->limits->workgroupCount[2] = supported.limits.maxComputeWorkgroupsPerDimension;
+    config->limits->workgroupSize[0] = supported.limits.maxComputeWorkgroupSizeX;
+    config->limits->workgroupSize[1] = supported.limits.maxComputeWorkgroupSizeY;
+    config->limits->workgroupSize[2] = supported.limits.maxComputeWorkgroupSizeZ;
+    config->limits->totalWorkgroupSize = supported.limits.maxComputeInvocationsPerWorkgroup;
+    config->limits->computeSharedMemory = supported.limits.maxComputeWorkgroupStorageSize;
+    config->limits->pushConstantSize = 0;
+    config->limits->indirectDrawCount = 1;
+    config->limits->instances = ~0u;
+    config->limits->timestampPeriod = 1.f;
+    config->limits->anisotropy = 16.f;
+    config->limits->pointSize = 1.f;
+  }
+
   return !!state.device;
 }
 
