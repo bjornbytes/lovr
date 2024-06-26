@@ -47,7 +47,7 @@ jobs:
       - name: Init
         run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
       - name: Build
-        run: cmake --build build
+        run: cmake --build build -j
       - name: Test
         run: ./build/bin/lovr test
       - name: AppImage
@@ -99,7 +99,7 @@ jobs:
           -D ANDROID_KEYSTORE=key.keystore
           -D ANDROID_KEYSTORE_PASS=pass:hunter2
       - name: Build
-        run: cmake --build build
+        run: cmake --build build -j
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
@@ -127,7 +127,7 @@ jobs:
       - name: Init
         run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
       - name: Build
-        run: cmake --build build
+        run: cmake --build build -j
       - name: Test
         run: ./build/lovr.app/Contents/MacOS/lovr test
       - name: Package
