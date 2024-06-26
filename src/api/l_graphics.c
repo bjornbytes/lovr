@@ -514,7 +514,6 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
 
   lua_pushinteger(L, limits.totalWorkgroupSize), lua_setfield(L, -2, "totalWorkgroupSize");
   lua_pushinteger(L, limits.computeSharedMemory), lua_setfield(L, -2, "computeSharedMemory");
-  lua_pushinteger(L, limits.shaderConstantSize), lua_setfield(L, -2, "shaderConstantSize");
   lua_pushinteger(L, limits.indirectDrawCount), lua_setfield(L, -2, "indirectDrawCount");
   lua_pushinteger(L, limits.instances), lua_setfield(L, -2, "instances");
 

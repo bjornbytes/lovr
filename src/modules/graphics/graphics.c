@@ -988,7 +988,6 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   memcpy(limits->workgroupSize, state.limits.workgroupSize, 3 * sizeof(uint32_t));
   limits->totalWorkgroupSize = state.limits.totalWorkgroupSize;
   limits->computeSharedMemory = state.limits.computeSharedMemory;
-  limits->shaderConstantSize = state.limits.pushConstantSize;
   limits->indirectDrawCount = state.limits.indirectDrawCount;
   limits->instances = state.limits.instances;
   limits->anisotropy = state.limits.anisotropy;
