@@ -42,16 +42,8 @@ jobs:
         run: sudo apt install -y xorg-dev libx11-xcb-dev libxcb-glx0-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb-xkb-dev libfuse2 libcurl4-openssl-dev libssl-dev
       - name: Checkout
         uses: actions/checkout@v3
-      - name: List Submodules
-        run: git submodule > .submodules
-      - name: Cache Submodules
-        uses: actions/cache@v3
         with:
-          path: deps
-          key: deps-${{ hashFiles('.submodules') }}
-          restore-keys: deps-
-      - name: Fetch Submodules
-        run: git submodule update --init --force --depth=1 --recursive
+          submodules: 'recursive'
       - name: Init
         run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
       - name: Build
