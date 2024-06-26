@@ -254,6 +254,23 @@ void os_set_clipboard_text(const char* text) {
   //
 }
 
+void* os_vm_init(size_t size) {
+  return malloc(size);
+}
+
+bool os_vm_free(void* p, size_t size) {
+  free(p);
+  return true;
+}
+
+bool os_vm_commit(void* p, size_t size) {
+  return true;
+}
+
+bool os_vm_release(void* p, size_t size) {
+  return true;
+}
+
 void os_thread_attach(void) {
   //
 }

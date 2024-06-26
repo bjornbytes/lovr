@@ -25,6 +25,14 @@ struct gpu_shader {
   WGPUPipelineLayout pipelineLayout;
 };
 
+struct gpu_bundle_pool {
+  void* unused;
+};
+
+struct gpu_bundle {
+  WGPUBindGroup handle;
+};
+
 struct gpu_pass {
   gpu_pass_info info;
 };
@@ -51,6 +59,8 @@ size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
 size_t gpu_sizeof_layout(void) { return sizeof(gpu_layout); }
 size_t gpu_sizeof_shader(void) { return sizeof(gpu_shader); }
+size_t gpu_sizeof_bundle_pool(void) { return sizeof(gpu_bundle_pool); }
+size_t gpu_sizeof_bundle(void) { return sizeof(gpu_bundle); }
 size_t gpu_sizeof_pass(void) { return sizeof(gpu_pass); }
 size_t gpu_sizeof_pipeline(void) { return sizeof(gpu_pipeline); }
 size_t gpu_sizeof_tally(void) { return sizeof(gpu_tally); }
@@ -166,6 +176,24 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
 void gpu_texture_destroy(gpu_texture* texture) {
   wgpuTextureViewRelease(texture->view);
   wgpuTextureDestroy(texture->handle);
+}
+
+// Surface
+
+bool gpu_surface_init(gpu_surface_info* info) {
+  return false; // TODO
+}
+
+void gpu_surface_resize(uint32_t width, uint32_t height) {
+  // TODO
+}
+
+gpu_texture* gpu_surface_acquire(void) {
+  return NULL; // TODO
+}
+
+void gpu_surface_present(void) {
+  // TODO
 }
 
 // Sampler
@@ -311,7 +339,60 @@ void gpu_shader_destroy(gpu_shader* shader) {
   wgpuPipelineLayoutRelease(shader->pipelineLayout);
 }
 
-// Bundle
+// Bundles
+
+bool gpu_bundle_pool_init(gpu_bundle_pool* pool, gpu_bundle_pool_info* info) {
+  pool->unused = NULL;
+  return true;
+}
+
+void gpu_bundle_pool_destroy(gpu_bundle_pool* pool) {
+  //
+}
+
+void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t count) {
+  WGPUBindGroupEntry entries[32];
+
+  for (uint32_t i = 0; i < count; i++) {
+    gpu_bundle_info* info = &infos[i];
+    WGPUBindGroupEntry* entry = entries;
+    gpu_binding* binding = info->bindings;
+
+    // TODO: error if binding array is given
+    // TODO: error if binding count is bigger than 32
+
+    for (uint32_t j = 0; j < info->count; j++, entry++, binding++) {
+      memset(entry, 0, sizeof(*entry));
+      entry->binding = binding->number;
+
+      switch (binding->type) {
+        case GPU_SLOT_UNIFORM_BUFFER:
+        case GPU_SLOT_STORAGE_BUFFER:
+        case GPU_SLOT_UNIFORM_BUFFER_DYNAMIC:
+        case GPU_SLOT_STORAGE_BUFFER_DYNAMIC:
+          entry->buffer = binding->buffer.object->handle;
+          entry->offset = binding->buffer.offset;
+          entry->size = binding->buffer.extent;
+          break;
+        case GPU_SLOT_SAMPLED_TEXTURE:
+        case GPU_SLOT_STORAGE_TEXTURE:
+          entry->textureView = binding->texture->view;
+          break;
+        case GPU_SLOT_SAMPLER:
+          entry->sampler = binding->sampler->handle;
+          break;
+      }
+    }
+
+    WGPUBindGroupDescriptor descriptor = {
+      .layout = info->layout->handle,
+      .entryCount = info->count,
+      .entries = entries
+    };
+
+    bundles[i]->handle = wgpuDeviceCreateBindGroup(state.device, &descriptor);
+  }
+}
 
 // Pass
 
@@ -523,12 +604,24 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 }
 
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info) {
-  return false; // TODO
+  WGPUComputePipelineDescriptor pipelineInfo = {
+    .layout = info->shader->pipelineLayout,
+    .compute = {
+      .module = info->shader->handles[0],
+      .entryPoint = "main"
+    }
+  };
+
+  return pipeline->compute = wgpuDeviceCreateComputePipeline(state.device, &pipelineInfo);
 }
 
 void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
   if (pipeline->render) wgpuRenderPipelineRelease(pipeline->render);
   if (pipeline->compute) wgpuComputePipelineRelease(pipeline->compute);
+}
+
+void gpu_pipeline_get_cache(void* data, size_t* size) {
+  *size = 0;
 }
 
 // Tally
@@ -566,12 +659,66 @@ void gpu_stream_end(gpu_stream* stream) {
   //
 }
 
+void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
+  static const WGPULoadOp loadOps[] = {
+    [GPU_LOAD_OP_CLEAR] = WGPULoadOp_Clear,
+    [GPU_LOAD_OP_DISCARD] = WGPULoadOp_Clear,
+    [GPU_LOAD_OP_KEEP] = WGPULoadOp_Load
+  };
+
+  static const WGPUStoreOp storeOps[] = {
+    [GPU_SAVE_OP_KEEP] = WGPUStoreOp_Store,
+    [GPU_LOAD_OP_DISCARD] = WGPUStoreOp_Discard
+  };
+
+  WGPURenderPassColorAttachment colorAttachments[COUNTOF(canvas->color)];
+
+  for (uint32_t i = 0; i < canvas->pass->info.colorCount; i++) {
+    colorAttachments[i] = (WGPURenderPassColorAttachment) {
+      .view = canvas->color[i].texture->view,
+      .resolveTarget = canvas->color[i].resolve->view,
+      .loadOp = loadOps[canvas->pass->info.color[i].load],
+      .storeOp = storeOps[canvas->pass->info.color[i].save],
+      .clearValue.r = canvas->color[i].clear[0],
+      .clearValue.g = canvas->color[i].clear[1],
+      .clearValue.b = canvas->color[i].clear[2],
+      .clearValue.a = canvas->color[i].clear[3]
+    };
+  }
+
+  WGPURenderPassDepthStencilAttachment depth = {
+    .view = canvas->depth.texture->view,
+    .depthLoadOp = loadOps[canvas->pass->info.depth.load],
+    .depthStoreOp = storeOps[canvas->pass->info.depth.save],
+    .depthClearValue = canvas->depth.clear,
+    .depthReadOnly = false,
+    .stencilLoadOp = loadOps[canvas->pass->info.depth.stencilLoad],
+    .stencilStoreOp = storeOps[canvas->pass->info.depth.stencilSave],
+    .stencilClearValue = 0,
+    .stencilReadOnly = false
+  };
+
+  WGPURenderPassDescriptor info = {
+    .colorAttachmentCount = canvas->pass->info.colorCount,
+    .colorAttachments = colorAttachments,
+    .depthStencilAttachment = canvas->depth.texture ? &depth : NULL
+  };
+
+  stream->render = wgpuCommandEncoderBeginRenderPass(stream->commands, &info);
+}
+
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas) {
+  wgpuRenderPassEncoderEnd(stream->render);
+  stream->render = NULL;
+}
+
 void gpu_compute_begin(gpu_stream* stream) {
   stream->compute = wgpuCommandEncoderBeginComputePass(stream->commands, NULL);
 }
 
 void gpu_compute_end(gpu_stream* stream) {
   wgpuComputePassEncoderEnd(stream->compute);
+  stream->compute = NULL;
 }
 
 void gpu_set_viewport(gpu_stream* stream, float view[4], float depth[2]) {
@@ -591,6 +738,18 @@ void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_
     wgpuComputePassEncoderSetPipeline(stream->compute, pipeline->compute);
   } else {
     wgpuRenderPassEncoderSetPipeline(stream->render, pipeline->render);
+  }
+}
+
+void gpu_bind_bundles(gpu_stream* stream, gpu_shader* shader, gpu_bundle** bundles, uint32_t first, uint32_t count, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount) {
+  if (stream->compute) {
+    for (uint32_t i = 0; i < count; i++) {
+      wgpuComputePassEncoderSetBindGroup(stream->compute, first + i, bundles[i]->handle, 0, NULL); // TODO dynamic offsets buh
+    }
+  } else {
+    for (uint32_t i = 0; i < count; i++) {
+      wgpuRenderPassEncoderSetBindGroup(stream->render, first + i, bundles[i]->handle, 0, NULL); // TODO dynamic offsets buh
+    }
   }
 }
 
@@ -709,7 +868,7 @@ void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, u
 }
 
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
-  // TODO Unsupported
+  // TODO Unsupported, probably need compute shader
 }
 
 void gpu_clear_tally(gpu_stream* stream, gpu_tally* tally, uint32_t index, uint32_t count) {
@@ -722,6 +881,14 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
 
 void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
   //
+}
+
+void gpu_tally_begin(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
+  wgpuRenderPassEncoderBeginOcclusionQuery(stream->render, index);
+}
+
+void gpu_tally_finish(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
+  wgpuRenderPassEncoderEndOcclusionQuery(stream->render);
 }
 
 void gpu_tally_mark(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
@@ -809,7 +976,7 @@ uint32_t gpu_begin(void) {
   return state.tick++;
 }
 
-void onSubmittedWorkDone(WGPUQueueWorkDoneStatus status, void* userdata) {
+static void onSubmittedWorkDone(WGPUQueueWorkDoneStatus status, void* userdata) {
   state.lastTickFinished = (uint32_t) (uintptr_t) userdata;
 }
 
