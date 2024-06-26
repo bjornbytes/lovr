@@ -42,7 +42,7 @@ static Glyph* lovrRasterizerGetGlyph(Rasterizer* rasterizer, uint32_t codepoint)
 }
 
 static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
-  unsigned char* data = blob ? blob->data : etc_VarelaRound_ttf;
+  const unsigned char* data = blob ? blob->data : etc_VarelaRound_ttf;
 
   int offset = stbtt_GetFontOffsetForIndex(data, 0);
   if (offset == -1) {
