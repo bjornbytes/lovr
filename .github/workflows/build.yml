@@ -99,7 +99,7 @@ jobs:
           -D ANDROID_KEYSTORE=key.keystore
           -D ANDROID_KEYSTORE_PASS=pass:hunter2
       - name: Build
-        run: cmake --build build -j
+        run: cmake --build build
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
