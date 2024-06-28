@@ -87,9 +87,8 @@ static WGPUTextureFormat convertFormat(gpu_texture_format format, bool srgb);
 // Buffer
 
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
-  buffer->handle = wgpuDeviceCreateBuffer(state.device, &(WGPUBufferDescriptor) {
-    .label = info->label,
-    .usage =
+  static const WGPUBufferUsage usages[] = {
+    [GPU_BUFFER_STATIC] =
       WGPUBufferUsage_Vertex |
       WGPUBufferUsage_Index |
       WGPUBufferUsage_Uniform |
@@ -98,9 +97,31 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
       WGPUBufferUsage_CopySrc |
       WGPUBufferUsage_CopyDst |
       WGPUBufferUsage_QueryResolve,
+    [GPU_BUFFER_STREAM] =
+      WGPUBufferUsage_Vertex |
+      WGPUBufferUsage_Index |
+      WGPUBufferUsage_Uniform |
+      WGPUBufferUsage_CopySrc |
+      WGPUBufferUsage_MapWrite,
+    [GPU_BUFFER_UPLOAD] =
+      WGPUBufferUsage_CopySrc |
+      WGPUBufferUsage_MapWrite,
+    [GPU_BUFFER_DOWNLOAD] =
+      WGPUBufferUsage_CopyDst |
+      WGPUBufferUsage_Storage |
+      WGPUBufferUsage_MapRead,
+  };
+
+  buffer->handle = wgpuDeviceCreateBuffer(state.device, &(WGPUBufferDescriptor) {
+    .label = info->label,
+    .usage = usages[info->type],
     .size = info->size,
     .mappedAtCreation = !!info->pointer
   });
+
+  if (info->pointer) {
+    *info->pointer = wgpuBufferGetMappedRange(buffer->handle, 0, info->size);
+  }
 
   return !!buffer->handle;
 }
