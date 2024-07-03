@@ -105,6 +105,49 @@ jobs:
         with:
           name: lovr.apk
           path: build/lovr.apk
+  magicleap:
+    name: Magicleap
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Update Packages
+        run: sudo apt update
+      - name: Install Packages
+        run: sudo apt install -y glslang-tools
+      - name: Install Android 29
+        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-29"
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - name: Init
+        run: >
+          mkdir build &&
+          cd build &&
+          keytool
+          -genkey
+          -dname 'cn=Unknown, ou=Unknown, o=Unknown, l=Unknown, st=Unknown, c=Unknown'
+          -keystore key.keystore
+          -keypass hunter2
+          -storepass hunter2
+          -alias key
+          -keyalg RSA
+          -keysize 2048
+          -validity 10000 &&
+          cmake ..
+          -D CMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake
+          -D ANDROID_SDK=$ANDROID_HOME
+          -D ANDROID_ABI=x86-64
+          -D ANDROID_NATIVE_API_LEVEL=29
+          -D ANDROID_BUILD_TOOLS_VERSION=34.0.0
+          -D ANDROID_KEYSTORE=key.keystore
+          -D ANDROID_KEYSTORE_PASS=pass:hunter2
+      - name: Build
+        run: cmake --build build
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: lovr.apk
+          path: build/lovr.apk
 
   macos:
     name: macOS
