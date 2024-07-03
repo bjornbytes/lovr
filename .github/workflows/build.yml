@@ -136,7 +136,7 @@ jobs:
           cmake ..
           -D CMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake
           -D ANDROID_SDK=$ANDROID_HOME
-          -D ANDROID_ABI=x86-64
+          -D ANDROID_ABI=x86_64
           -D ANDROID_NATIVE_API_LEVEL=29
           -D ANDROID_BUILD_TOOLS_VERSION=34.0.0
           -D ANDROID_KEYSTORE=key.keystore
