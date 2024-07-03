@@ -446,4 +446,22 @@ group('graphics', function()
       expect({ image:getPixel(0, 0) }).to.equal({ 0, 0, 1, 1 })
     end)
   end)
+
+  group('Shader', function()
+    test(':hasVariable', function()
+      shader = lovr.graphics.newShader([[
+        uniform vec3 position;
+        vec4 lovrmain() { return vec4(position, 1.); }
+      ]], [[
+        buffer Params { vec4 color; };
+        uniform texture2D image;
+        vec4 lovrmain() { return color; }
+      ]])
+
+      expect(shader:hasVariable('position')).to.equal(true)
+      expect(shader:hasVariable('unknown')).to.equal(false)
+      expect(shader:hasVariable('Params')).to.equal(true)
+      expect(shader:hasVariable('image')).to.equal(true)
+    end)
+  end)
 end)

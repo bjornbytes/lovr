@@ -333,6 +333,7 @@ void lovrShaderDestroy(void* ref);
 const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderHasStage(Shader* shader, ShaderStage stage);
 bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location);
+bool lovrShaderHasVariable(Shader* shader, const char* name);
 void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]);
 const DataField* lovrShaderGetBufferFormat(Shader* shader, const char* name, uint32_t* fieldCount);
 

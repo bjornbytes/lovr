@@ -3341,6 +3341,24 @@ bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location)
   return false;
 }
 
+bool lovrShaderHasVariable(Shader* shader, const char* name) {
+  uint32_t hash = (uint32_t) hash64(name, strlen(name));
+
+  for (uint32_t i = 0; i < shader->uniformCount; i++) {
+    if (shader->uniforms[i].hash == hash) {
+      return true;
+    }
+  }
+
+  for (uint32_t i = 0; i < shader->resourceCount; i++) {
+    if (shader->resources[i].hash == hash) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]) {
   memcpy(size, shader->workgroupSize, 3 * sizeof(uint32_t));
 }
