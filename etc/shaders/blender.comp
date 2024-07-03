@@ -10,7 +10,7 @@ layout(push_constant) uniform PushConstants {
   uint vertexCount;
   uint blendShapeCount;
   uint baseBlendVertex;
-  bool first;
+  bool inplace;
 };
 
 struct ModelVertex {
@@ -37,7 +37,7 @@ void lovrmain() {
   uint vertexIndex = baseVertex + GlobalThreadID.x;
   uint blendVertexIndex = baseBlendVertex + GlobalThreadID.x;
 
-  ModelVertex vertex = first ? rawVertices[vertexIndex] : vertices[vertexIndex];
+  ModelVertex vertex = inplace ? vertices[vertexIndex] : rawVertices[vertexIndex];
 
   vec4 normal = unpackSnorm10x3(vertex.normal);
   vec4 tangent = unpackSnorm10x3(vertex.tangent);

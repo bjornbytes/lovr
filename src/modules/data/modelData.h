@@ -148,6 +148,7 @@ typedef struct {
   uint32_t* joints;
   uint32_t jointCount;
   uint32_t vertexCount;
+  uint32_t blendedVertexCount;
   float* inverseBindMatrices;
 } ModelSkin;
 

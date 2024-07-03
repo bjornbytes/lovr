@@ -8,6 +8,7 @@ layout(local_size_x = 32, local_size_x_id = 0) in;
 layout(push_constant) uniform PushConstants {
   uint baseVertex;
   uint vertexCount;
+  bool inplace;
 };
 
 struct ModelVertex {
@@ -23,8 +24,8 @@ struct SkinVertex {
   uint weights;
 };
 
-layout(set = 0, binding = 0) buffer readonly VertexIn { ModelVertex vertexIn[]; };
-layout(set = 0, binding = 1) buffer writeonly VertexOut { ModelVertex vertexOut[]; };
+layout(set = 0, binding = 0) buffer restrict readonly VertexIn { ModelVertex vertexIn[]; };
+layout(set = 0, binding = 1) buffer restrict VertexOut { ModelVertex vertexOut[]; };
 layout(set = 0, binding = 2) buffer restrict readonly VertexWeights { SkinVertex skin[]; };
 layout(set = 0, binding = 3) uniform JointTransforms { mat4 joints[256]; };
 
@@ -48,12 +49,15 @@ void lovrmain() {
   matrix += joints[i2] * weights[2];
   matrix += joints[i3] * weights[3];
 
-  vec4 position = vec4(vertexIn[vertexIndex].x, vertexIn[vertexIndex].y, vertexIn[vertexIndex].z, 1.);
-  vec3 skinned = (matrix * position).xyz;
-  vertexOut[vertexIndex].x = skinned.x;
-  vertexOut[vertexIndex].y = skinned.y;
-  vertexOut[vertexIndex].z = skinned.z;
+  ModelVertex vertex = inplace ? vertexOut[vertexIndex] : vertexIn[vertexIndex];
+  vec4 position = vec4(vertex.x, vertex.y, vertex.z, 1.);
+  vec3 normal = normalize(unpackSnorm10x3(vertex.normal).xyz);
 
-  vec3 normal = mat3(matrix) * normalize(unpackSnorm10x3(vertexIn[vertexIndex].normal).xyz);
-  vertexOut[vertexIndex].normal = packSnorm10x3(vec4(normal, 0.));
+  vec3 skinnedPosition = (matrix * position).xyz;
+  vec3 skinnedNormal = mat3(matrix) * normal;
+
+  vertexOut[vertexIndex].x = skinnedPosition.x;
+  vertexOut[vertexIndex].y = skinnedPosition.y;
+  vertexOut[vertexIndex].z = skinnedPosition.z;
+  vertexOut[vertexIndex].normal = packSnorm10x3(vec4(skinnedNormal, 0.));
 }

@@ -138,12 +138,14 @@ void lovrModelDataFinalize(ModelData* model) {
   model->indexType = U16;
   for (uint32_t i = 0; i < model->primitiveCount; i++) {
     ModelPrimitive* primitive = &model->primitives[i];
-
     uint32_t vertexCount = primitive->attributes[ATTR_POSITION]->count;
+
     if (primitive->skin != ~0u) {
       model->skins[primitive->skin].vertexCount += vertexCount;
+      model->skins[primitive->skin].blendedVertexCount += primitive->blendShapeCount > 0 ? vertexCount : 0;
       model->skinnedVertexCount += vertexCount;
     }
+
     model->blendShapeVertexCount += vertexCount * primitive->blendShapeCount;
     model->dynamicVertexCount += primitive->skin != ~0u || !!primitive->blendShapes ? vertexCount : 0;
     model->vertexCount += vertexCount;

@@ -4467,20 +4467,27 @@ Model* lovrModelCreate(const ModelInfo* info) {
     }, (void**) &indexData);
   }
 
-  // Primitives are sorted to simplify animation:
-  // - Skinned primitives come first, ordered by skin
-  // - Primitives with blend shapes are next
-  // - Then "non-dynamic" primitives follow
-  // Within each section primitives are still sorted by their index.
+  // Primitives are sorted to ensure animated/blended vertices are close together:
+  // - Skinned primitives come first
+  //   - Within a skin, the primitives with blend shapes come first
+  //   - Followed by the primitives without blend shapes
+  // - Primitives with blend shapes (but no skinning) are next
+  // - Then the remaining "non-dynamic" primitives follow
+  // Within each section, primitives are still sorted by their index
+  // All of a node's primitives will remain together, since skin/blend shapes are per-node
 
   size_t stack = tempPush(&state.allocator);
   uint64_t* primitiveOrder = tempAlloc(&state.allocator, data->primitiveCount * sizeof(uint64_t));
   uint32_t* baseVertex = tempAlloc(&state.allocator, data->primitiveCount * sizeof(uint32_t));
 
+  // The sort key only has 31 bits for the skin
+  lovrCheck(data->skinCount < (1u << 31), "Too many skins!");
+
   for (uint32_t i = 0; i < data->primitiveCount; i++) {
-    uint32_t hi = data->primitives[i].skin;
-    if (hi == ~0u && !!data->primitives[i].blendShapes) hi--;
-    primitiveOrder[i] = ((uint64_t) hi << 32) | i;
+    primitiveOrder[i] = 0;
+    primitiveOrder[i] |= (uint64_t) data->primitives[i].skin << 33;
+    primitiveOrder[i] |= (uint64_t) (data->primitives[i].blendShapeCount == 0) << 32;
+    primitiveOrder[i] |= i;
   }
 
   qsort(primitiveOrder, data->primitiveCount, sizeof(uint64_t), u64cmp);
@@ -4942,6 +4949,8 @@ static void lovrModelAnimateVertices(Model* model) {
     model->transformsDirty = false;
   }
 
+  gpu_compute_begin(state.stream);
+
   if (blend) {
     Shader* shader = lovrGraphicsGetDefaultShader(SHADER_BLENDER);
     uint32_t vertexCount = data->dynamicVertexCount;
@@ -4955,7 +4964,6 @@ static void lovrModelAnimateVertices(Model* model) {
       { 3, GPU_SLOT_UNIFORM_BUFFER, .buffer = { NULL, 0, chunkSize * sizeof(float) } }
     };
 
-    gpu_compute_begin(state.stream);
     gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
 
     for (uint32_t i = 0; i < model->blendGroupCount; i++) {
@@ -4963,14 +4971,14 @@ static void lovrModelAnimateVertices(Model* model) {
 
       for (uint32_t j = 0; j < group->count; j += chunkSize) {
         uint32_t count = MIN(group->count - j, chunkSize);
-        bool first = j == 0;
+        bool inplace = j > 0;
 
         BufferView view = getBuffer(GPU_BUFFER_STREAM, chunkSize * sizeof(float), state.limits.uniformBufferAlign);
         memcpy(view.pointer, model->blendShapeWeights + group->index + j, count * sizeof(float));
         bindings[3].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
 
         gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
-        uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor, first };
+        uint32_t constants[] = { group->vertexIndex, group->vertexCount, count, blendBufferCursor, inplace };
         uint32_t subgroupSize = state.device.subgroupSize;
 
         gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
@@ -4991,29 +4999,24 @@ static void lovrModelAnimateVertices(Model* model) {
     }
 
     model->blendShapesDirty = false;
-  }
 
-  if (skin) {
-    if (blend) {
+    if (skin) {
       gpu_sync(state.stream, &(gpu_barrier) {
         .prev = GPU_PHASE_SHADER_COMPUTE,
         .next = GPU_PHASE_SHADER_COMPUTE,
         .flush = GPU_CACHE_STORAGE_WRITE,
         .clear = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE
       }, 1);
-    } else {
-      gpu_compute_begin(state.stream);
     }
+  }
 
+  if (skin) {
     Shader* shader = lovrGraphicsGetDefaultShader(SHADER_ANIMATOR);
-    Buffer* sourceBuffer = blend ? model->vertexBuffer : model->rawVertexBuffer;
-
-    uint32_t count = data->skinnedVertexCount;
 
     gpu_binding bindings[] = {
-      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { sourceBuffer->gpu, sourceBuffer->base, count * sizeof(ModelVertex) } },
-      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, model->vertexBuffer->base, count * sizeof(ModelVertex) } },
-      { 2, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->skinBuffer->gpu, model->skinBuffer->base, count * 8 } },
+      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->rawVertexBuffer->gpu, model->rawVertexBuffer->base, data->skinnedVertexCount * sizeof(ModelVertex) } },
+      { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->vertexBuffer->gpu, model->vertexBuffer->base, data->skinnedVertexCount * sizeof(ModelVertex) } },
+      { 2, GPU_SLOT_STORAGE_BUFFER, .buffer = { model->skinBuffer->gpu, model->skinBuffer->base, data->skinnedVertexCount * 8 } },
       { 3, GPU_SLOT_UNIFORM_BUFFER, .buffer = { NULL, 0, 0 } } // Filled in for each skin
     };
 
@@ -5038,16 +5041,22 @@ static void lovrModelAnimateVertices(Model* model) {
       gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
       gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
 
-      uint32_t subgroupSize = state.device.subgroupSize;
-      uint32_t maxVerticesPerDispatch = state.limits.workgroupCount[0] * subgroupSize;
-      uint32_t verticesRemaining = skin->vertexCount;
+      // Animate in 2 passes: first animate vertices with blend shapes, then animate the rest
+      // We do this because the source buffer is different for blended vs. unblended vertices:
+      // - Unblended vertices should animate the original vertices from rawVertexBuffer
+      // - Blended vertices should animate the post-blended vertices in-place
+      for (uint32_t j = 0; j < 2; j++) {
+        uint32_t subgroupSize = state.device.subgroupSize;
+        uint32_t maxVerticesPerDispatch = state.limits.workgroupCount[0] * subgroupSize;
+        uint32_t verticesRemaining = j == 0 ? skin->blendedVertexCount : (skin->vertexCount - skin->blendedVertexCount);
 
-      while (verticesRemaining > 0) {
-        uint32_t vertexCount = MIN(verticesRemaining, maxVerticesPerDispatch);
-        gpu_push_constants(state.stream, shader->gpu, (uint32_t[2]) { baseVertex, vertexCount }, 8);
-        gpu_compute(state.stream, (vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
-        verticesRemaining -= vertexCount;
-        baseVertex += vertexCount;
+        while (verticesRemaining > 0) {
+          uint32_t vertexCount = MIN(verticesRemaining, maxVerticesPerDispatch);
+          gpu_push_constants(state.stream, shader->gpu, (uint32_t[3]) { baseVertex, vertexCount, j == 0 }, 12);
+          gpu_compute(state.stream, (vertexCount + subgroupSize - 1) / subgroupSize, 1, 1);
+          verticesRemaining -= vertexCount;
+          baseVertex += vertexCount;
+        }
       }
     }
   }
