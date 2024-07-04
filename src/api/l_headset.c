@@ -702,6 +702,16 @@ static int l_lovrHeadsetGetHands(lua_State* L) {
   return 1;
 }
 
+static int l_lovrHeadsetGetHandles(lua_State* L) {
+  if (lovrHeadsetInterface->driverType == DRIVER_OPENXR) {
+    lua_pushlightuserdata(L, (void*) lovrHeadsetInterface->getOpenXRInstanceHandle());
+    lua_pushlightuserdata(L, (void*) lovrHeadsetInterface->getOpenXRSessionHandle());
+    return 2;
+  } else {
+    return 0;
+  }
+}
+
 static const luaL_Reg lovrHeadset[] = {
   { "start", l_lovrHeadsetStart },
   { "getDriver", l_lovrHeadsetGetDriver },
@@ -754,6 +764,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getTime", l_lovrHeadsetGetTime },
   { "getDeltaTime", l_lovrHeadsetGetDeltaTime },
   { "getHands", l_lovrHeadsetGetHands },
+  { "getHandles", l_lovrHeadsetGetHandles },
   { NULL, NULL }
 };
 

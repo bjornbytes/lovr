@@ -541,6 +541,14 @@ static uint32_t openxr_createVulkanDevice(void* instance, void* deviceCreateInfo
   return result;
 }
 
+static uintptr_t openxr_getOpenXRInstanceHandle(void) {
+  return (uintptr_t) state.instance;
+}
+
+static uintptr_t openxr_getOpenXRSessionHandle(void) {
+  return (uintptr_t) state.session;
+}
+
 static void openxr_destroy();
 static void openxr_setClipDistance(float clipNear, float clipFar);
 
@@ -2859,6 +2867,8 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getVulkanPhysicalDevice = openxr_getVulkanPhysicalDevice,
   .createVulkanInstance = openxr_createVulkanInstance,
   .createVulkanDevice = openxr_createVulkanDevice,
+  .getOpenXRInstanceHandle = openxr_getOpenXRInstanceHandle,
+  .getOpenXRSessionHandle = openxr_getOpenXRSessionHandle,
   .init = openxr_init,
   .start = openxr_start,
   .stop = openxr_stop,

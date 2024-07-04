@@ -61,6 +61,7 @@ dev
 - Add support for creating a `MeshShape` from a `ModelData`.
 - Add `Texture:getLabel` and `Shader:getLabel`.
 - Add `Shader:hasVariable`.
+- Add `lovr.headset.getHandles`.
 
 ### Change
 

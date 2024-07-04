@@ -148,6 +148,8 @@ typedef struct HeadsetInterface {
   void (*getVulkanPhysicalDevice)(void* instance, uintptr_t physicalDevice);
   uint32_t (*createVulkanInstance)(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr);
   uint32_t (*createVulkanDevice)(void* instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr);
+  uintptr_t (*getOpenXRInstanceHandle)(void);
+  uintptr_t (*getOpenXRSessionHandle)(void);
   bool (*init)(HeadsetConfig* config);
   void (*start)(void);
   void (*stop)(void);
