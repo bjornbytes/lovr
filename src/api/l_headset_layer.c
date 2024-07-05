@@ -151,6 +151,7 @@ static int l_lovrLayerSetSharpen(lua_State* L) {
 static int l_lovrLayerGetTexture(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
   struct Texture* texture = lovrHeadsetInterface->getLayerTexture(layer);
+  luax_assert(L, texture);
   luax_pushtype(L, Texture, texture);
   return 1;
 }
@@ -158,6 +159,7 @@ static int l_lovrLayerGetTexture(lua_State* L) {
 static int l_lovrLayerGetPass(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
   struct Pass* pass = lovrHeadsetInterface->getLayerPass(layer);
+  luax_assert(L, pass);
   luax_pushtype(L, Pass, pass);
   return 1;
 }

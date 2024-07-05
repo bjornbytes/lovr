@@ -142,10 +142,11 @@ void lovrCurveDestroy(void* ref) {
   lovrFree(curve);
 }
 
-void lovrCurveEvaluate(Curve* curve, float t, vec4 p) {
+bool lovrCurveEvaluate(Curve* curve, float t, vec4 p) {
   lovrCheck(curve->points.length >= 8, "Need at least 2 points to evaluate a Curve");
   lovrCheck(t >= 0.f && t <= 1.f, "Curve evaluation interval must be within [0, 1]");
   evaluate(curve->points.data, curve->points.length / 4, t, p);
+  return true;
 }
 
 void lovrCurveGetTangent(Curve* curve, float t, vec4 p) {
@@ -241,20 +242,26 @@ void lovrPoolDestroy(void* ref) {
   lovrFree(pool);
 }
 
-void lovrPoolGrow(Pool* pool, size_t count) {
+bool lovrPoolGrow(Pool* pool, size_t count) {
   lovrAssert(count <= (1 << 24), "Temporary vector space exhausted.  Try using lovr.math.drain to drain the vector pool periodically.");
   pool->count = (uint32_t) count; // Assert guarantees safe
   bool result = os_vm_commit(pool->data, count * sizeof(float));
   lovrAssert(result, "Out of memory");
+  return true;
 }
 
 Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
-  lovrCheck(pool, "The math module must be initialized to create vectors");
+  if (!pool) {
+    lovrSetError("The math module must be initialized to create vectors");
+    return (Vector) { 0 };
+  }
 
   size_t count = vectorComponents[type];
 
   if (pool->cursor + count > pool->count) {
-    lovrPoolGrow(pool, pool->count * 2);
+    if (!lovrPoolGrow(pool, pool->count * 2)) {
+      return (Vector) { 0 };
+    }
   }
 
   Vector v = {

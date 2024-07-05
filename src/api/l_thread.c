@@ -51,7 +51,6 @@ static char* threadRunner(Thread* thread, Blob* body, Variant* arguments, uint32
 }
 
 static int l_lovrThreadNewThread(lua_State* L) {
-  uint32_t defer = lovrDeferPush();
   Blob* blob = luax_totype(L, 1, Blob);
   if (!blob) {
     size_t length;
@@ -62,15 +61,16 @@ static int l_lovrThreadNewThread(lua_State* L) {
       blob = lovrBlobCreate(data, length, "thread code");
     } else {
       void* code = luax_readfile(str, &length);
-      lovrAssert(code, "Could not read thread code from file '%s'", str);
+      if (!code) luaL_error(L, "Could not read thread code from file '%s'", str);
       blob = lovrBlobCreate(code, length, str);
     }
-    lovrDeferRelease(blob, lovrBlobDestroy);
+  } else {
+    lovrRetain(blob);
   }
   Thread* thread = lovrThreadCreate(threadRunner, blob);
   luax_pushtype(L, Thread, thread);
   lovrRelease(thread, lovrThreadDestroy);
-  lovrDeferPop(defer);
+  lovrRelease(blob, lovrBlobDestroy);
   return 1;
 }
 

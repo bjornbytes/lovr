@@ -25,13 +25,13 @@ uint32_t luax_checkblendshape(lua_State* L, int index, Model* model) {
       const char* name = lua_tolstring(L, index, &length);
       ModelData* data = lovrModelGetInfo(model)->data;
       uint64_t blendShapeIndex = map_get(data->blendShapeMap, hash64(name, length));
-      lovrCheck(blendShapeIndex != MAP_NIL, "ModelData has no blend shape named '%s'", name);
+      luax_check(L, blendShapeIndex != MAP_NIL, "ModelData has no blend shape named '%s'", name);
       return (uint32_t) blendShapeIndex;
     }
     case LUA_TNUMBER: {
       uint32_t blendShape = luax_checku32(L, index) - 1;
       ModelData* data = lovrModelGetInfo(model)->data;
-      lovrCheck(blendShape < data->blendShapeCount, "Invalid blend shape index '%d'", blendShape + 1);
+      luax_check(L, blendShape < data->blendShapeCount, "Invalid blend shape index '%d'", blendShape + 1);
       return blendShape;
     }
     default: return luax_typeerror(L, index, "number or string"), ~0u;
@@ -246,7 +246,7 @@ static int l_lovrModelAnimate(lua_State* L) {
   uint32_t animation = luax_checkanimationindex(L, 2, lovrModelGetInfo(model)->data);
   float time = luax_checkfloat(L, 3);
   float alpha = luax_optfloat(L, 4, 1.f);
-  lovrModelAnimate(model, animation, time, alpha);
+  luax_assert(L, lovrModelAnimate(model, animation, time, alpha));
   return 0;
 }
 
@@ -342,6 +342,7 @@ static int l_lovrModelGetMesh(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t index = luax_checku32(L, 2) - 1;
   Mesh* mesh = lovrModelGetMesh(model, index);
+  luax_assert(L, mesh);
   luax_pushtype(L, Mesh, mesh);
   return 1;
 }
@@ -354,6 +355,7 @@ static int l_lovrModelGetTexture(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t index = luax_checku32(L, 2) - 1;
   Texture* texture = lovrModelGetTexture(model, index);
+  luax_assert(L, texture);
   luax_pushtype(L, Texture, texture);
   return 1;
 }
@@ -370,6 +372,7 @@ static int l_lovrModelGetMaterial(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t index = luax_checkmaterialindex(L, 2, lovrModelGetInfo(model)->data);
   Material* material = lovrModelGetMaterial(model, index);
+  luax_assert(L, material);
   luax_pushtype(L, Material, material);
   return 1;
 }

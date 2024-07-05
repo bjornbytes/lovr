@@ -120,9 +120,10 @@ void lovrSystemRequestPermission(Permission permission) {
   os_request_permission((os_permission) permission);
 }
 
-void lovrSystemOpenWindow(os_window_config* window) {
+bool lovrSystemOpenWindow(os_window_config* window) {
   lovrAssert(os_window_open(window), "Could not open window");
   os_on_quit(onQuit);
+  return true;
 }
 
 bool lovrSystemIsWindowOpen(void) {

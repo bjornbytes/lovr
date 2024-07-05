@@ -43,7 +43,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
-#define XR(f, s) xrthrow(f, s)
+#define XR(f, s) do { XrResult r = f; if (XR_FAILED(r)) { xrthrow(r, s); return 0; } } while(0)
+#define XRG(f, s, j) do { XrResult r = f; if (XR_FAILED(r)) { xrthrow(r, s); goto j; } } while(0)
 #define XR_INIT(f, s) if (!xrwarn(f, s)) return openxr_destroy(), false;
 #define SESSION_ACTIVE(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
 #define MAX_IMAGES 4
@@ -256,15 +257,13 @@ static bool xrwarn(XrResult result, const char* message) {
   return false;
 }
 
-static bool xrthrow(XrResult result, const char* message) {
-  if (XR_SUCCEEDED(result)) return true;
-  char errorCode[XR_MAX_RESULT_STRING_SIZE];
-  if (state.instance && XR_SUCCEEDED(xrResultToString(state.instance, result, errorCode))) {
-    lovrThrow("OpenXR Error: %s (%s)", message, errorCode);
+static void xrthrow(XrResult result, const char* symbol) {
+  char name[XR_MAX_RESULT_STRING_SIZE];
+  if (state.instance && XR_SUCCEEDED(xrResultToString(state.instance, result, name))) {
+    lovrSetError("OpenXR Error: %s returned %s", symbol, name);
   } else {
-    lovrThrow("OpenXR Error: %s (%d)", message, result);
+    lovrSetError("OpenXR Error: %s returned %d", symbol, result);
   }
-  return false;
 }
 
 static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, const char* extension) {
@@ -281,17 +280,21 @@ static XrTime getCurrentXrTime(void) {
 #ifdef _WIN32
   LARGE_INTEGER t;
   QueryPerformanceCounter(&t);
-  XR(xrConvertWin32PerformanceCounterToTimeKHR(state.instance, &t, &time), "Failed to get time");
+  XR(xrConvertWin32PerformanceCounterToTimeKHR(state.instance, &t, &time), "xrConvertWin32PerformanceCounterToTimeKHR");
 #else
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
-  XR(xrConvertTimespecTimeToTimeKHR(state.instance, &t, &time), "Failed to get time");
+  XR(xrConvertTimespecTimeToTimeKHR(state.instance, &t, &time), "xrConvertTimespecTimeToTimeKHR");
 #endif
   return time;
 }
 
 static bool openxr_getDriverName(char* name, size_t length);
-static void createReferenceSpace(XrTime time) {
+static bool createReferenceSpace(XrTime time) {
+  if (time <= 0) {
+    return false;
+  }
+
   XrReferenceSpaceCreateInfo info = {
     .type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO,
     .poseInReferenceSpace = { { 0.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 0.f } }
@@ -300,7 +303,7 @@ static void createReferenceSpace(XrTime time) {
   // Reference space doesn't need to be recreated for seated experiences (those always use local
   // space), or when local-floor is supported.  Otherwise, vertical offset must be re-measured.
   if (state.referenceSpace && (state.features.localFloor || state.config.seated)) {
-    return;
+    return true;
   }
 
   if (state.features.localFloor) {
@@ -310,11 +313,11 @@ static void createReferenceSpace(XrTime time) {
   } else if (state.spaces[DEVICE_FLOOR]) {
     XrSpace local;
     info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-    XR(xrCreateReferenceSpace(state.session, &info, &local), "Failed to create local space");
+    XR(xrCreateReferenceSpace(state.session, &info, &local), "xrCreateReferenceSpace");
 
     XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
-    XR(xrLocateSpace(state.spaces[DEVICE_FLOOR], local, time, &location), "Failed to locate space");
-    XR(xrDestroySpace(local), "Failed to destroy local space");
+    XR(xrLocateSpace(state.spaces[DEVICE_FLOOR], local, time, &location), "xrLocateSpace");
+    xrDestroySpace(local);
 
     if (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
       info.poseInReferenceSpace.position.y = location.pose.position.y;
@@ -327,10 +330,11 @@ static void createReferenceSpace(XrTime time) {
   }
 
   if (state.referenceSpace) {
-    XR(xrDestroySpace(state.referenceSpace), "Failed to destroy reference space");
+    xrDestroySpace(state.referenceSpace);
   }
 
-  XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace), "Failed to create reference space");
+  XR(xrCreateReferenceSpace(state.session, &info, &state.referenceSpace), "xrCreateReferenceSpace");
+  return true;
 }
 
 static XrAction getPoseActionForDevice(Device device) {
@@ -421,7 +425,8 @@ static XrControllerModelKeyMSFT getControllerModelKey(Device device) {
   return *modelKey;
 }
 
-static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, bool stereo, bool depth) {
+static void swapchain_destroy(Swapchain* swapchain);
+static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, bool stereo, bool depth) {
   XrSwapchainCreateInfo info = {
     .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
     .width = width,
@@ -446,7 +451,7 @@ static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
     info.format = VK_FORMAT_R8G8B8A8_SRGB;
   }
 
-  XR(xrCreateSwapchain(state.session, &info, &swapchain->handle), "Failed to create swapchain");
+  XR(xrCreateSwapchain(state.session, &info, &swapchain->handle), "xrCreateSwapchain");
 
 #ifdef LOVR_VK
   XrSwapchainImageVulkanKHR images[MAX_IMAGES];
@@ -458,9 +463,10 @@ static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
 #error "Unsupported graphics backend"
 #endif
 
-  XR(xrEnumerateSwapchainImages(swapchain->handle, MAX_IMAGES, &swapchain->textureCount, (XrSwapchainImageBaseHeader*) images), "Failed to query swapchain images");
+  uint32_t textureCount = 0;
+  XR(xrEnumerateSwapchainImages(swapchain->handle, MAX_IMAGES, &textureCount, (XrSwapchainImageBaseHeader*) images), "xrEnumerateSwapchainImages");
 
-  for (uint32_t i = 0; i < swapchain->textureCount; i++) {
+  for (uint32_t i = 0; i < textureCount; i++, swapchain->textureCount++) {
     swapchain->textures[i] = lovrTextureCreate(&(TextureInfo) {
       .type = stereo ? TEXTURE_ARRAY : TEXTURE_2D,
       .format = depth ? state.depthFormat : FORMAT_RGBA8,
@@ -474,7 +480,14 @@ static void swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
       .label = "OpenXR Swapchain",
       .xr = true
     });
+
+    if (!swapchain->textures[i]) {
+      swapchain_destroy(swapchain);
+      return false;
+    }
   }
+
+  return true;
 }
 
 static void swapchain_destroy(Swapchain* swapchain) {
@@ -489,19 +502,28 @@ static void swapchain_destroy(Swapchain* swapchain) {
 static Texture* swapchain_acquire(Swapchain* swapchain) {
   if (!swapchain->acquired) {
     XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
-    XR(xrAcquireSwapchainImage(swapchain->handle, NULL, &swapchain->textureIndex), "Failed to acquire swapchain image");
-    XR(xrWaitSwapchainImage(swapchain->handle, &waitInfo), "Failed to wait on swapchain image");
-    swapchain->acquired = true;
+    XR(xrAcquireSwapchainImage(swapchain->handle, NULL, &swapchain->textureIndex), "xrAcquireSwapchainImage");
+
+    for (;;) {
+      XrResult result = xrWaitSwapchainImage(swapchain->handle, &waitInfo);
+      if (XR_FAILED(result)) {
+        lovrLog(LOG_WARN, "XR", "OpenXR failed to wait on swapchain image (%d)", result);
+      } else {
+        swapchain->acquired = true;
+        break;
+      }
+    }
   }
 
   return swapchain->textures[swapchain->textureIndex];
 }
 
-static void swapchain_release(Swapchain* swapchain) {
+static bool swapchain_release(Swapchain* swapchain) {
   if (swapchain->handle && swapchain->acquired) {
-    XR(xrReleaseSwapchainImage(swapchain->handle, NULL), "Failed to release swapchain image");
+    XR(xrReleaseSwapchainImage(swapchain->handle, NULL), "xrReleaseSwapchainImage");
     swapchain->acquired = false;
   }
+  return true;
 }
 
 static void openxr_getVulkanPhysicalDevice(void* instance, uintptr_t physicalDevice) {
@@ -511,7 +533,12 @@ static void openxr_getVulkanPhysicalDevice(void* instance, uintptr_t physicalDev
     .vulkanInstance = (VkInstance) instance
   };
 
-  XR(xrGetVulkanGraphicsDevice2KHR(state.instance, &info, (VkPhysicalDevice*) physicalDevice), "Failed to get Vulkan graphics device");
+  XrResult result = xrGetVulkanGraphicsDevice2KHR(state.instance, &info, (VkPhysicalDevice*) physicalDevice);
+
+  if (XR_FAILED(result)) {
+    lovrLog(LOG_ERROR, "XR", "OpenXR failed to get Vulkan device (%d)", result);
+    *((VkPhysicalDevice*) physicalDevice) = 0;
+  }
 }
 
 static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr) {
@@ -523,8 +550,13 @@ static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allo
     .vulkanAllocator = allocator
   };
 
-  VkResult result;
-  XR(xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &result), "Failed to create Vulkan instance");
+  VkResult result = xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &result);
+
+  if (XR_FAILED(result)) {
+    lovrLog(LOG_ERROR, "XR", "OpenXR failed to create Vulkan instance (%d)", result);
+    return VK_ERROR_INITIALIZATION_FAILED;
+  }
+
   return result;
 }
 
@@ -539,7 +571,7 @@ static uint32_t openxr_createVulkanDevice(void* instance, void* deviceCreateInfo
   };
 
   VkResult result;
-  XR(xrCreateVulkanDeviceKHR(state.instance, &info, (VkDevice*) device, &result), "Failed to create Vulkan device");
+  XR(xrCreateVulkanDeviceKHR(state.instance, &info, (VkDevice*) device, &result), "xrCreateVulkanDeviceKHR");
   return result;
 }
 
@@ -1281,7 +1313,8 @@ static bool openxr_init(HeadsetConfig* config) {
   return true;
 }
 
-static void openxr_start(void) {
+static void openxr_stop(void);
+static bool openxr_start(void) {
 #ifdef LOVR_DISABLE_GRAPHICS
   bool hasGraphics = false;
 #else
@@ -1308,9 +1341,9 @@ static void openxr_start(void) {
       PFN_xrGetVulkanGraphicsRequirements2KHR xrGetVulkanGraphicsRequirements2KHR;
       XR_LOAD(xrGetVulkanGraphicsRequirements2KHR);
 
-      XR(xrGetVulkanGraphicsRequirements2KHR(state.instance, state.system, &requirements), "Failed to query Vulkan graphics requirements");
+      XR(xrGetVulkanGraphicsRequirements2KHR(state.instance, state.system, &requirements), "xrGetVulkanGraphicsRequirements2KHR");
       if (XR_VERSION_MAJOR(requirements.minApiVersionSupported) > 1 || XR_VERSION_MINOR(requirements.minApiVersionSupported) > 1) {
-        lovrThrow("OpenXR Vulkan version not supported");
+        return lovrSetError("OpenXR Vulkan version not supported");
       }
 
       graphicsBinding.instance = (VkInstance) gpu_vk_get_instance();
@@ -1341,8 +1374,8 @@ static void openxr_start(void) {
       .actionSets = &state.actionSet
     };
 
-    XR(xrCreateSession(state.instance, &info, &state.session), "Failed to create session");
-    XR(xrAttachSessionActionSets(state.session, &attachInfo), "Failed to attach action sets");
+    XR(xrCreateSession(state.instance, &info, &state.session), "xrCreateSession");
+    XRG(xrAttachSessionActionSets(state.session, &attachInfo), "xrAttachSessionActionSets", stop);
   }
 
   { // Spaaace
@@ -1353,7 +1386,7 @@ static void openxr_start(void) {
 
     // Head
     referenceSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
-    XR(xrCreateReferenceSpace(state.session, &referenceSpaceInfo, &state.spaces[DEVICE_HEAD]), "Failed to create head space");
+    XRG(xrCreateReferenceSpace(state.session, &referenceSpaceInfo, &state.spaces[DEVICE_HEAD]), "xrCreateReferenceSpace", stop);
 
     // Floor (may not be supported, which is okay)
     referenceSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
@@ -1361,7 +1394,9 @@ static void openxr_start(void) {
       state.spaces[DEVICE_FLOOR] = XR_NULL_HANDLE;
     }
 
-    createReferenceSpace(getCurrentXrTime());
+    if (!createReferenceSpace(getCurrentXrTime())) {
+      goto stop;
+    }
 
     // Action spaces
     XrActionSpaceCreateInfo actionSpaceInfo = {
@@ -1377,7 +1412,7 @@ static void openxr_start(void) {
         continue;
       }
 
-      XR(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]), "Failed to create action space");
+      XRG(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]), "xrCreateActionSpace", stop);
     }
   }
 
@@ -1390,6 +1425,10 @@ static void openxr_start(void) {
     }
 
     state.pass = lovrPassCreate("Headset");
+
+    if (!state.pass) {
+      goto stop;
+    }
 
 #ifdef LOVR_VK
     int64_t nativeColorFormat = VK_FORMAT_R8G8B8A8_SRGB;
@@ -1406,7 +1445,7 @@ static void openxr_start(void) {
 
     int64_t formats[128];
     uint32_t formatCount;
-    XR(xrEnumerateSwapchainFormats(state.session, COUNTOF(formats), &formatCount, formats), "Failed to query swapchain formats");
+    XRG(xrEnumerateSwapchainFormats(state.session, COUNTOF(formats), &formatCount, formats), "xrEnumerateSwapchainFormats", stop);
 
     bool supportsColor = false;
     bool supportsDepth = false;
@@ -1419,13 +1458,17 @@ static void openxr_start(void) {
       }
     }
 
-    lovrAssert(supportsColor, "This VR runtime does not support sRGB rgba8 textures");
-    swapchain_init(&state.swapchains[COLOR], state.width, state.height, true, false);
+    lovrAssertGoto(stop, supportsColor, "This VR runtime does not support sRGB rgba8 textures");
+    if (!swapchain_init(&state.swapchains[COLOR], state.width, state.height, true, false)) {
+      goto stop;
+    }
 
     GraphicsFeatures features;
     lovrGraphicsGetFeatures(&features);
     if (state.features.depth && supportsDepth && features.depthResolve) {
-      swapchain_init(&state.swapchains[DEPTH], state.width, state.height, true, true);
+      if (!swapchain_init(&state.swapchains[DEPTH], state.width, state.height, true, true)) {
+        goto stop;
+      }
     } else {
       state.features.depth = false;
     }
@@ -1478,23 +1521,31 @@ static void openxr_start(void) {
         .trackedKeyboardId = keyboard.trackedKeyboardId
       };
 
-      xrCreateKeyboardSpaceFB(state.session, &spaceInfo, &state.spaces[DEVICE_KEYBOARD]);
+      XRG(xrCreateKeyboardSpaceFB(state.session, &spaceInfo, &state.spaces[DEVICE_KEYBOARD]), "xrCreateKeyboardSpaceFB", stop);
     } else {
       state.features.keyboardTracking = false;
     }
   }
 
   if (state.features.refreshRate) {
-    XR(xrEnumerateDisplayRefreshRatesFB(state.session, 0, &state.refreshRateCount, NULL), "Failed to query refresh rates");
+    XRG(xrEnumerateDisplayRefreshRatesFB(state.session, 0, &state.refreshRateCount, NULL), "xrEnumerateDisplayRefreshRatesFB", stop);
     state.refreshRates = lovrMalloc(state.refreshRateCount * sizeof(float));
-    XR(xrEnumerateDisplayRefreshRatesFB(state.session, state.refreshRateCount, &state.refreshRateCount, state.refreshRates), "Failed to query refresh rates");
+    XRG(xrEnumerateDisplayRefreshRatesFB(state.session, state.refreshRateCount, &state.refreshRateCount, state.refreshRates), "xrEnumerateDisplayRefreshRatesFB", stop);
   }
+
+  return true;
+
+stop:
+  openxr_stop();
+  return false;
 }
 
 static void openxr_stop(void) {
   if (!state.session) {
     return;
   }
+
+  lovrFree(state.refreshRates);
 
   for (uint32_t i = 0; i < state.layerCount; i++) {
     lovrRelease(state.layers[i], lovrLayerDestroy);
@@ -1555,18 +1606,16 @@ static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
 }
 
 static float openxr_getRefreshRate(void) {
-  if (!state.features.refreshRate) return 0.f;
   float refreshRate;
-  XR(xrGetDisplayRefreshRateFB(state.session, &refreshRate), "Failed to query refresh rate");
-  return refreshRate;
+  if (state.features.refreshRate && XR_SUCCEEDED(xrGetDisplayRefreshRateFB(state.session, &refreshRate))) {
+    return refreshRate;
+  }
+  return 0.f;
 }
 
 static bool openxr_setRefreshRate(float refreshRate) {
   if (!state.features.refreshRate) return false;
-  XrResult result = xrRequestDisplayRefreshRateFB(state.session, refreshRate);
-  if (result == XR_ERROR_DISPLAY_REFRESH_RATE_UNSUPPORTED_FB) return false;
-  XR(result, "Failed to set refresh rate");
-  return true;
+  return XR_SUCCEEDED(xrRequestDisplayRefreshRateFB(state.session, refreshRate));
 }
 
 static const float* openxr_getRefreshRates(uint32_t* count) {
@@ -1712,7 +1761,10 @@ static XrViewStateFlags getViews(XrView views[2], uint32_t* count) {
   }
 
   XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
-  XR(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, count, views), "Failed to locate views");
+  if (XR_FAILED(xrLocateViews(state.session, &viewLocateInfo, &viewState, 2, count, views))) {
+    return 0;
+  }
+
   return viewState.viewStateFlags;
 }
 
@@ -1803,7 +1855,9 @@ static bool openxr_getPose(Device device, float* position, float* orientation) {
       .subactionPath = state.actionFilters[device]
     };
 
-    XR(xrGetActionStatePose(state.session, &info, &poseState), "Failed to get pose");
+    if (XR_FAILED(xrGetActionStatePose(state.session, &info, &poseState))) {
+      return false;
+    }
   }
 
   // If there's no space to locate, or the pose action isn't active, fall back to alternative
@@ -1920,7 +1974,10 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
   }
 
   XrActionStateBoolean actionState = { .type = XR_TYPE_ACTION_STATE_BOOLEAN };
-  XR(xrGetActionStateBoolean(state.session, &info, &actionState), "Failed to read button input");
+  if (XR_FAILED(xrGetActionStateBoolean(state.session, &info, &actionState))) {
+    return false;
+  }
+
   *value = actionState.currentState;
   *changed = actionState.changedSinceLastSync;
   return actionState.isActive;
@@ -1943,7 +2000,10 @@ static bool getFloatAction(uint32_t action, XrPath filter, float* value) {
   };
 
   XrActionStateFloat actionState = { .type = XR_TYPE_ACTION_STATE_FLOAT };
-  XR(xrGetActionStateFloat(state.session, &info, &actionState), "Failed to read axis input");
+  if (XR_FAILED(xrGetActionStateFloat(state.session, &info, &actionState))) {
+    return false;
+  }
+
   *value = actionState.currentState;
   return actionState.isActive;
 }
@@ -2056,8 +2116,7 @@ static bool openxr_vibrate(Device device, float power, float duration, float fre
     .amplitude = power
   };
 
-  XR(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration), "Failed to apply haptic feedback");
-  return true;
+  return XR_SUCCEEDED(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration));
 }
 
 static void openxr_stopVibration(Device device) {
@@ -2067,11 +2126,9 @@ static void openxr_stopVibration(Device device) {
     .subactionPath = getInputActionFilter(device)
   };
 
-  if (info.subactionPath == XR_NULL_PATH) {
-    return;
+  if (info.subactionPath != XR_NULL_PATH) {
+    xrStopHapticFeedback(state.session, &info);
   }
-
-  XR(xrStopHapticFeedback(state.session, &info), "Failed to stop haptic feedback");
 }
 
 static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated) {
@@ -2121,7 +2178,7 @@ static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated)
   mesh.vertexBlendWeights = (XrVector4f*) (meshData + offset), offset += sizes[7];
   mesh.indices = (int16_t*) (meshData + offset), offset += sizes[8];
   float* inverseBindMatrices = (float*) (meshData + offset); offset += sizes[9];
-  lovrAssert(offset == totalSize, "Unreachable!");
+  if (offset != totalSize) lovrUnreachable();
 
   // Populate the data
   result = xrGetHandMeshFB(tracker, &mesh);
@@ -2292,24 +2349,25 @@ static ModelData* openxr_newModelDataMSFT(XrControllerModelKeyMSFT modelKey, boo
     return NULL;
   }
 
-  Blob* blob = lovrBlobCreate(modelData, size, "Controller Model Data");
-  ModelData* model = lovrModelDataCreate(blob, NULL);
-  lovrRelease(blob, lovrBlobDestroy);
-
   XrControllerModelNodePropertiesMSFT nodeProperties[16];
   for (uint32_t i = 0; i < COUNTOF(nodeProperties); i++) {
     nodeProperties[i].type = XR_TYPE_CONTROLLER_MODEL_NODE_PROPERTIES_MSFT;
     nodeProperties[i].next = 0;
   }
+
   XrControllerModelPropertiesMSFT properties = {
     .type = XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT,
     .nodeCapacityInput = COUNTOF(nodeProperties),
-    .nodeProperties = nodeProperties,
+    .nodeProperties = nodeProperties
   };
 
   if (XR_FAILED(xrGetControllerModelPropertiesMSFT(state.session, modelKey, &properties))) {
     return false;
   }
+
+  Blob* blob = lovrBlobCreate(modelData, size, "Controller Model Data");
+  ModelData* model = lovrModelDataCreate(blob, NULL);
+  lovrRelease(blob, lovrBlobDestroy);
 
   lovrFree(model->metadata);
   model->metadataType = META_CONTROLLER_MSFT;
@@ -2435,7 +2493,7 @@ static bool openxr_animateMSFT(Model* model, const ModelInfo* info) {
   XrControllerModelStateMSFT modelState = {
     .type = XR_TYPE_CONTROLLER_MODEL_STATE_MSFT,
     .nodeCapacityInput = COUNTOF(nodeStates),
-    .nodeStates = nodeStates,
+    .nodeStates = nodeStates
   };
 
   if (XR_FAILED(xrGetControllerModelStateMSFT(state.session, metadata->modelKey, &modelState))) {
@@ -2467,8 +2525,10 @@ static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
   layer->ref = 1;
   layer->width = width;
   layer->height = height;
-  swapchain_init(&layer->swapchain, width, height, false, false);
-  swapchain_acquire(&layer->swapchain); // Avoid submission of un-acquired swapchain
+  if (!swapchain_init(&layer->swapchain, width, height, false, false)) {
+    lovrLayerDestroy(layer);
+    return NULL;
+  }
   layer->info.type = XR_TYPE_COMPOSITION_LAYER_QUAD;
   layer->info.layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
   layer->info.layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
@@ -2491,7 +2551,18 @@ static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
     layer->settings.next = layer->info.next;
     layer->info.next = &layer->settings;
   }
-  layer->pass = lovrPassCreate(NULL);
+
+  if ((layer->pass = lovrPassCreate(NULL)) == NULL) {
+    lovrLayerDestroy(layer);
+    return NULL;
+  }
+
+  // Avoid submission of un-acquired swapchain
+  if (!swapchain_acquire(&layer->swapchain)) {
+    lovrLayerDestroy(layer);
+    return NULL;
+  }
+
   return layer;
 }
 
@@ -2507,7 +2578,7 @@ static Layer** openxr_getLayers(uint32_t* count) {
   return state.layers;
 }
 
-static void openxr_setLayers(Layer** layers, uint32_t count) {
+static bool openxr_setLayers(Layer** layers, uint32_t count) {
   lovrCheck(count <= MAX_LAYERS, "Too many layers");
 
   for (uint32_t i = 0; i < state.layerCount; i++) {
@@ -2519,6 +2590,8 @@ static void openxr_setLayers(Layer** layers, uint32_t count) {
     lovrRetain(layers[i]);
     state.layers[i] = layers[i];
   }
+
+  return true;
 }
 
 static void openxr_getLayerPose(Layer* layer, float position[3], float orientation[4]) {
@@ -2592,8 +2665,13 @@ static Texture* openxr_getLayerTexture(Layer* layer) {
 }
 
 static Pass* openxr_getLayerPass(Layer* layer) {
-  Texture* textures[4] = { openxr_getLayerTexture(layer) };
-  lovrPassSetCanvas(layer->pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1);
+  Texture* texture = openxr_getLayerTexture(layer);
+  if (!texture) return NULL;
+
+  Texture* textures[4] = { texture };
+  if (!lovrPassSetCanvas(layer->pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1)) {
+    return NULL;
+  }
 
   float background[4][4];
   LoadAction loads[4] = { LOAD_CLEAR };
@@ -2610,55 +2688,64 @@ static Pass* openxr_getLayerPass(Layer* layer) {
   return layer->pass;
 }
 
-static Texture* openxr_getTexture(void) {
+static bool openxr_getTexture(Texture** texture) {
   if (!SESSION_ACTIVE(state.sessionState)) {
-    return NULL;
+    *texture = NULL;
+    return true;
   }
 
   if (!state.began) {
     XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-    XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
+    XR(xrBeginFrame(state.session, &beginfo), "xrBeginFrame");
     state.began = true;
   }
 
   if (!state.frameState.shouldRender) {
-    return NULL;
+    *texture = NULL;
+    return true;
   }
 
-  return swapchain_acquire(&state.swapchains[COLOR]);
+  *texture = swapchain_acquire(&state.swapchains[COLOR]);
+  return *texture != NULL;
 }
 
-static Texture* openxr_getDepthTexture(void) {
+static bool openxr_getDepthTexture(Texture** texture) {
   if (!SESSION_ACTIVE(state.sessionState) || !state.features.depth) {
-    return NULL;
+    *texture = NULL;
+    return true;
   }
 
   if (!state.began) {
     XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-    XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
+    XR(xrBeginFrame(state.session, &beginfo), "xrBeginFrame");
     state.began = true;
   }
 
   if (!state.frameState.shouldRender) {
-    return NULL;
+    *texture = NULL;
+    return true;
   }
 
-  return swapchain_acquire(&state.swapchains[DEPTH]);
+  *texture = swapchain_acquire(&state.swapchains[DEPTH]);
+  return *texture != NULL;
 }
 
-static Pass* openxr_getPass(void) {
+static bool openxr_getPass(Pass** pass) {
   if (state.began) {
-    return state.frameState.shouldRender ? state.pass : NULL;
+    *pass = state.frameState.shouldRender ? state.pass : NULL;
+    return true;
   }
 
-  Texture* textures[4] = { openxr_getTexture() };
-  Texture* depth = openxr_getDepthTexture();
+  Texture* textures[4] = { 0 };
+  Texture* depth = NULL;
 
-  if (!textures[0]) {
-    return NULL;
+  if (!openxr_getTexture(&textures[0]) || !openxr_getDepthTexture(&depth)) {
+    return false;
   }
 
-  lovrPassSetCanvas(state.pass, textures, depth, state.depthFormat, state.config.antialias ? 4 : 1);
+  if (!lovrPassSetCanvas(state.pass, textures, depth, state.depthFormat, state.config.antialias ? 4 : 1)) {
+    return false;
+  }
 
   float background[4][4];
   LoadAction loads[4] = { LOAD_CLEAR };
@@ -2696,18 +2783,19 @@ static Pass* openxr_getPass(void) {
     }
   }
 
-  return state.pass;
+  *pass = state.pass;
+  return true;
 }
 
-static void openxr_submit(void) {
+static bool openxr_submit(void) {
   if (!SESSION_ACTIVE(state.sessionState)) {
     state.waited = false;
-    return;
+    return true;
   }
 
   if (!state.began) {
     XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-    XR(xrBeginFrame(state.session, &beginfo), "Failed to begin headset rendering");
+    XR(xrBeginFrame(state.session, &beginfo), "xrBeginFrame");
     state.began = true;
   }
 
@@ -2768,9 +2856,10 @@ static void openxr_submit(void) {
     }
   }
 
-  XR(xrEndFrame(state.session, &info), "Failed to submit layers");
+  XR(xrEndFrame(state.session, &info), "xrEndFrame");
   state.began = false;
   state.waited = false;
+  return true;
 }
 
 static bool openxr_isVisible(void) {
@@ -2785,8 +2874,11 @@ static bool openxr_isMounted(void) {
   return state.features.presence ? state.mounted : true;
 }
 
-static double openxr_update(void) {
-  if (state.waited) return openxr_getDeltaTime();
+static bool openxr_update(double* dt) {
+  if (state.waited) {
+    *dt = openxr_getDeltaTime();
+    return true;
+  }
 
   XrEventDataBuffer e; // Not using designated initializers here to avoid an implicit 4k zero
   e.type = XR_TYPE_EVENT_DATA_BUFFER;
@@ -2802,11 +2894,11 @@ static double openxr_update(void) {
             XR(xrBeginSession(state.session, &(XrSessionBeginInfo) {
               .type = XR_TYPE_SESSION_BEGIN_INFO,
               .primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO
-            }), "Failed to begin session");
+            }), "xrBeginSession");
             break;
 
           case XR_SESSION_STATE_STOPPING:
-            XR(xrEndSession(state.session), "Failed to end session");
+            XR(xrEndSession(state.session), "xrEndSession");
             state.mounted = false;
             break;
 
@@ -2836,7 +2928,9 @@ static double openxr_update(void) {
       case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING: {
         XrEventDataReferenceSpaceChangePending* event = (XrEventDataReferenceSpaceChangePending*) &e;
         if (event->referenceSpaceType == XR_REFERENCE_SPACE_TYPE_LOCAL) {
-          createReferenceSpace(event->changeTime);
+          if (!createReferenceSpace(event->changeTime)) {
+            return false;
+          }
           lovrEventPush((Event) { .type = EVENT_RECENTER });
         }
         break;
@@ -2854,7 +2948,7 @@ static double openxr_update(void) {
 
   if (SESSION_ACTIVE(state.sessionState)) {
     state.lastDisplayTime = state.frameState.predictedDisplayTime;
-    XR(xrWaitFrame(state.session, NULL, &state.frameState), "Failed to wait for next frame");
+    XR(xrWaitFrame(state.session, NULL, &state.frameState), "xrWaitFrame");
     state.waited = true;
 
     if (state.epoch == 0) {
@@ -2872,7 +2966,7 @@ static double openxr_update(void) {
       .activeActionSets = activeSets
     };
 
-    XR(xrSyncActions(state.session, &syncInfo), "Failed to sync actions");
+    XR(xrSyncActions(state.session, &syncInfo), "xrSyncActions");
   }
 
   // Throttle when session is idle (but not too much, a desktop window might be rendering stuff)
@@ -2880,7 +2974,8 @@ static double openxr_update(void) {
     os_sleep(.001);
   }
 
-  return openxr_getDeltaTime();
+  *dt = openxr_getDeltaTime();
+  return true;
 }
 
 HeadsetInterface lovrHeadsetOpenXRDriver = {

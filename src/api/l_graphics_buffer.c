@@ -170,9 +170,9 @@ static void luax_checkfieldv(lua_State* L, int index, const DataField* field, vo
   uint32_t n = typeComponents[field->type];
   luax_fieldcheck(L, v && n > 1, index, field, false);
   if (field->type >= TYPE_MAT2 && field->type <= TYPE_MAT4) {
-    lovrCheck(vectorType == V_MAT4, "Tried to send a non-matrix to a matrix type");
+    luax_check(L, vectorType == V_MAT4, "Tried to send a non-matrix to a matrix type");
   } else {
-    lovrCheck(vectorComponents[vectorType] == n, "Expected %d vector components, got %d", n, vectorComponents[vectorType]);
+    luax_check(L, vectorComponents[vectorType] == n, "Expected %d vector components, got %d", n, vectorComponents[vectorType]);
   }
   switch (field->type) {
     case TYPE_I8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) v[i]; break;
@@ -501,15 +501,17 @@ static int l_lovrBufferNewReadback(lua_State* L) {
 static int l_lovrBufferGetData(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const DataField* format = lovrBufferGetInfo(buffer)->format;
-  lovrCheck(format, "Buffer:getData requires the Buffer to have a format");
+  luax_check(L, format, "Buffer:getData requires the Buffer to have a format");
   if (format->length > 0) {
     uint32_t index = luax_optu32(L, 2, 1) - 1;
-    lovrCheck(index < format->length, "Buffer:getData index exceeds the Buffer's length");
+    luax_check(L, index < format->length, "Buffer:getData index exceeds the Buffer's length");
     uint32_t count = luax_optu32(L, 3, format->length - index);
     void* data = lovrBufferGetData(buffer, index * format->stride, count * format->stride);
+    luax_assert(L, data);
     return luax_pushbufferdata(L, format, count, data);
   } else {
     void* data = lovrBufferGetData(buffer, 0, format->stride);
+    luax_assert(L, data);
     return luax_pushbufferdata(L, format, 0, data);
   }
 }
@@ -524,13 +526,14 @@ static int l_lovrBufferSetData(lua_State* L) {
   if (blob) {
     uint32_t dstOffset = luax_optu32(L, 3, 0);
     uint32_t srcOffset = luax_optu32(L, 4, 0);
-    lovrCheck(dstOffset < info->size, "Buffer offset is bigger than the size of the Buffer");
-    lovrCheck(srcOffset < blob->size, "Blob offset is bigger than the size of the Blob");
+    luax_check(L, dstOffset < info->size, "Buffer offset is bigger than the size of the Buffer");
+    luax_check(L, srcOffset < blob->size, "Blob offset is bigger than the size of the Blob");
     uint32_t limit = (uint32_t) MIN(info->size - dstOffset, blob->size - srcOffset);
     uint32_t extent = luax_optu32(L, 5, limit);
-    lovrCheck(extent <= info->size - dstOffset, "Buffer copy range exceeds the size of the target Buffer");
-    lovrCheck(extent <= blob->size - srcOffset, "Buffer copy range exceeds the size of the source Blob");
+    luax_check(L, extent <= info->size - dstOffset, "Buffer copy range exceeds the size of the target Buffer");
+    luax_check(L, extent <= blob->size - srcOffset, "Buffer copy range exceeds the size of the source Blob");
     void* data = lovrBufferSetData(buffer, dstOffset, extent);
+    luax_assert(L, data);
     memcpy(data, (char*) blob->data + srcOffset, extent);
     return 0;
   }
@@ -545,7 +548,7 @@ static int l_lovrBufferSetData(lua_State* L) {
     const BufferInfo* srcInfo = lovrBufferGetInfo(src);
     uint32_t limit = MIN(dstInfo->size - dstOffset, srcInfo->size - srcOffset);
     uint32_t extent = luax_optu32(L, 5, limit);
-    lovrBufferCopy(src, dst, srcOffset, dstOffset, extent);
+    luax_assert(L, lovrBufferCopy(src, dst, srcOffset, dstOffset, extent));
     return 0;
   }
 
@@ -564,10 +567,13 @@ static int l_lovrBufferSetData(lua_State* L) {
       uint32_t count = luax_optu32(L, 5, limit);
 
       char* data = lovrBufferSetData(buffer, dstIndex * format->stride, count * format->stride);
+      luax_assert(L, data);
       luax_checkarray(L, 2, srcIndex + 1, (int) count, format, data);
     } else {
       luaL_checkany(L, 2);
-      luax_checkbufferdata(L, 2, format, lovrBufferSetData(buffer, 0, format->stride));
+      char* data = lovrBufferSetData(buffer, 0, format->stride);
+      luax_assert(L, data);
+      luax_checkbufferdata(L, 2, format, data);
     }
 
     return 0;
@@ -581,6 +587,7 @@ static int l_lovrBufferMapData(lua_State* L) {
   uint32_t offset = luax_optu32(L, 2, 0);
   uint32_t extent = luax_optu32(L, 3, ~0u);
   void* pointer = lovrBufferSetData(buffer, offset, extent);
+  luax_assert(L, pointer);
   lua_pushlightuserdata(L, pointer);
   return 1;
 }
@@ -590,7 +597,7 @@ static int l_lovrBufferClear(lua_State* L) {
   uint32_t offset = luax_optu32(L, 2, 0);
   uint32_t extent = luax_optu32(L, 3, ~0u);
   uint32_t value = (uint32_t) luaL_optinteger(L, 4, 0);
-  lovrBufferClear(buffer, offset, extent, value);
+  luax_assert(L, lovrBufferClear(buffer, offset, extent, value));
   return 0;
 }
 

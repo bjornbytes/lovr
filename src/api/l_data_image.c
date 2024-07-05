@@ -103,7 +103,7 @@ static int l_lovrImageGetPixel(lua_State* L) {
   uint32_t x = luax_checku32(L, 2);
   uint32_t y = luax_checku32(L, 3);
   float pixel[4];
-  lovrImageGetPixel(image, x, y, pixel);
+  luax_assert(L, lovrImageGetPixel(image, x, y, pixel));
   lua_pushnumber(L, pixel[0]);
   lua_pushnumber(L, pixel[1]);
   lua_pushnumber(L, pixel[2]);
@@ -121,7 +121,7 @@ static int l_lovrImageSetPixel(lua_State* L) {
     luax_optfloat(L, 6, 1.f),
     luax_optfloat(L, 7, 1.f)
   };
-  lovrImageSetPixel(image, x, y, pixel);
+  luax_assert(L, lovrImageSetPixel(image, x, y, pixel));
   return 0;
 }
 
@@ -150,7 +150,7 @@ static int l_lovrImageMapPixel(lua_State* L) {
   uint32_t w = luax_optu32(L, 5, lovrImageGetWidth(image, 0));
   uint32_t h = luax_optu32(L, 6, lovrImageGetHeight(image, 0));
   lua_settop(L, 2);
-  lovrImageMapPixel(image, x, y, w, h, mapPixel, L);
+  luax_assert(L, lovrImageMapPixel(image, x, y, w, h, mapPixel, L));
   return 0;
 }
 
@@ -164,13 +164,14 @@ static int l_lovrImagePaste(lua_State* L) {
   srcOffset[1] = luax_optu32(L, 6, 0);
   extent[0] = luax_optu32(L, 7, lovrImageGetWidth(src, 0));
   extent[1] = luax_optu32(L, 8, lovrImageGetHeight(src, 0));
-  lovrImageCopy(src, dst, srcOffset, dstOffset, extent);
+  luax_assert(L, lovrImageCopy(src, dst, srcOffset, dstOffset, extent));
   return 0;
 }
 
 static int l_lovrImageEncode(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
   Blob* blob = lovrImageEncode(image);
+  luax_assert(L, blob);
   luax_pushtype(L, Blob, blob);
   return 1;
 }

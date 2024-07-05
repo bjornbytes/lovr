@@ -179,7 +179,7 @@ typedef struct {
 
 bool gpu_surface_init(gpu_surface_info* info);
 bool gpu_surface_resize(uint32_t width, uint32_t height);
-gpu_texture* gpu_surface_acquire(void);
+bool gpu_surface_acquire(gpu_texture** texture);
 bool gpu_surface_present(void);
 
 // Sampler

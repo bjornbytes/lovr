@@ -281,7 +281,7 @@ static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
 }
 
 bool lovrPhysicsInit(void (*freeUserData)(void* object, uintptr_t userdata)) {
-  if (state.initialized) return false;
+  if (state.initialized) return true;
   JPH_Init(32 * 1024 * 1024);
   state.sphere = lovrSphereShapeCreate(.001f);
   state.freeUserData = freeUserData;
@@ -443,7 +443,8 @@ uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length) {
     length -= span;
   }
 
-  return accept ? accept : ~ignore;
+  // Always set the unused 32nd tag bit, so that zero can be used for error
+  return (accept ? accept : ~ignore) | 0x80000000;
 }
 
 uint32_t lovrWorldGetColliderCount(World* world) {
@@ -691,29 +692,32 @@ bool lovrWorldQuerySphere(World* world, float position[3], float radius, uint32_
   return JPH_BroadPhaseQuery_CollideSphere(query, vec3_toJolt(position), radius, queryCallback, &context, layerFilter, tagFilter);
 }
 
-void lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {
+bool lovrWorldDisableCollisionBetween(World* world, const char* tag1, const char* tag2) {
   uint8_t i = findTag(world, tag1, strlen(tag1));
   uint8_t j = findTag(world, tag2, strlen(tag2));
   lovrCheck(i != 0xff, "Unknown tag '%s'", tag1);
   lovrCheck(j != 0xff, "Unknown tag '%s'", tag2);
   JPH_ObjectLayerPairFilterTable_DisableCollision(world->objectLayerPairFilter, i, j);
+  return true;
 }
 
-void lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2) {
+bool lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char* tag2) {
   uint8_t i = findTag(world, tag1, strlen(tag1));
   uint8_t j = findTag(world, tag2, strlen(tag2));
   lovrCheck(i != 0xff, "Unknown tag '%s'", tag1);
   lovrCheck(j != 0xff, "Unknown tag '%s'", tag2);
   JPH_ObjectLayerPairFilterTable_EnableCollision(world->objectLayerPairFilter, i, j);
+  return true;
 }
 
-bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2) {
+bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2, bool* enabled) {
   if (!tag1 || !tag2) return true;
   uint8_t i = findTag(world, tag1, strlen(tag1));
   uint8_t j = findTag(world, tag2, strlen(tag2));
   lovrCheck(i != 0xff, "Unknown tag '%s'", tag1);
   lovrCheck(j != 0xff, "Unknown tag '%s'", tag2);
-  return JPH_ObjectLayerPairFilterTable_ShouldCollide(world->objectLayerPairFilter, i, j);
+  *enabled = JPH_ObjectLayerPairFilterTable_ShouldCollide(world->objectLayerPairFilter, i, j);
+  return true;
 }
 
 void lovrWorldSetCallbacks(World* world, WorldCallbacks* callbacks) {
@@ -765,6 +769,7 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   uint32_t count = JPH_PhysicsSystem_GetNumBodies(world->system);
   uint32_t limit = JPH_PhysicsSystem_GetMaxBodies(world->system);
   lovrCheck(count < limit, "Too many colliders!");
+  lovrCheck(!shape || !shape->collider, "Shape is already attached to a collider!");
 
   Collider* collider = lovrCalloc(sizeof(Collider));
   collider->ref = 1;
@@ -774,7 +779,6 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   collider->automaticMass = true;
 
   if (shape) {
-    lovrCheck(!shape->collider, "Shape is already attached to a collider!");
     collider->shapes = shape;
     shape->collider = collider;
     shape->index = 0;
@@ -901,15 +905,19 @@ bool lovrColliderIsEnabled(Collider* collider) {
   return collider->enabled;
 }
 
-void lovrColliderSetEnabled(Collider* collider, bool enable) {
-  if (enable != collider->enabled) {
-    if (enable) {
-      JPH_BodyInterface_AddBody(getBodyInterface(collider, WRITE), collider->id, JPH_Activation_DontActivate);
-    } else if (!enable) {
-      JPH_BodyInterface_RemoveBody(getBodyInterface(collider, WRITE), collider->id);
-    }
-    collider->enabled = enable;
+bool lovrColliderSetEnabled(Collider* collider, bool enable) {
+  if (collider->enabled == enable) return true;
+
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
+
+  if (enable) {
+    JPH_BodyInterface_AddBody(interface, collider->id, JPH_Activation_DontActivate);
+  } else {
+    JPH_BodyInterface_RemoveBody(interface, collider->id);
   }
+  collider->enabled = enable;
+  return true;
 }
 
 World* lovrColliderGetWorld(Collider* collider) {
@@ -924,9 +932,10 @@ Shape* lovrColliderGetShapes(Collider* collider, Shape* shape) {
   return shape ? shape->next : collider->shapes;
 }
 
-void lovrColliderAddShape(Collider* collider, Shape* shape) {
+bool lovrColliderAddShape(Collider* collider, Shape* shape) {
   lovrCheck(!shape->collider, "Shape is already attached to a Collider");
   JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
 
   // Set the Collider to static if the new shape requires it
   if (JPH_Shape_MustBeStatic(shape->handle)) {
@@ -1026,11 +1035,13 @@ void lovrColliderAddShape(Collider* collider, Shape* shape) {
   shape->next = collider->shapes;
   collider->shapes = shape;
   lovrRetain(shape);
+  return true;
 }
 
-void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
+bool lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   lovrCheck(shape->collider == collider, "Shape is not attached to this Collider");
   JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
 
   JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
   JPH_Shape* offsetCenterOfMass = JPH_Shape_GetSubType(handle) == JPH_ShapeSubType_OffsetCenterOfMass ? handle : NULL;
@@ -1113,16 +1124,19 @@ void lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   shape->collider = NULL;
   shape->index = ~0u;
   shape->next = NULL;
+  return true;
 }
 
-static void lovrColliderReplaceShape(Collider* collider, Shape* shape, JPH_Shape* new) {
+static bool lovrColliderReplaceShape(Collider* collider, Shape* shape, JPH_Shape* new) {
   JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
+
   JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
   JPH_Shape* offsetCenterOfMass = JPH_Shape_GetSubType(handle) == JPH_ShapeSubType_OffsetCenterOfMass ? handle : NULL;
 
   if (handle == shape->handle) {
     JPH_BodyInterface_SetShape(interface, collider->id, new, collider->automaticMass, JPH_Activation_DontActivate);
-    return;
+    return true;
   }
 
   JPH_Vec3 oldCenter;
@@ -1137,13 +1151,15 @@ static void lovrColliderReplaceShape(Collider* collider, Shape* shape, JPH_Shape
       JPH_Shape* wrapper = (JPH_Shape*) JPH_OffsetCenterOfMassShape_Create(&offset, new);
       JPH_BodyInterface_SetShape(interface, collider->id, wrapper, collider->automaticMass, JPH_Activation_DontActivate);
       JPH_Shape_Destroy(handle);
-      return;
+      return true;
     } else {
       handle = inner;
     }
   }
 
-  lovrCheck(JPH_Shape_GetSubType(handle) == JPH_ShapeSubType_MutableCompound, "Unreachable");
+  if (JPH_Shape_GetSubType(handle) != JPH_ShapeSubType_MutableCompound) {
+    lovrUnreachable();
+  }
 
   JPH_Vec3* translation = vec3_toJolt(shape->translation);
   JPH_Quat* rotation = quat_toJolt(shape->rotation);
@@ -1166,10 +1182,14 @@ static void lovrColliderReplaceShape(Collider* collider, Shape* shape, JPH_Shape
   } else {
     JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, false, JPH_Activation_DontActivate);
   }
+
+  return true;
 }
 
-static void lovrColliderMoveShape(Collider* collider, Shape* shape, float translation[3], float rotation[4]) {
+static bool lovrColliderMoveShape(Collider* collider, Shape* shape, float translation[3], float rotation[4]) {
   JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
+
   JPH_Shape* handle = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
   JPH_Shape* offsetCenterOfMass = JPH_Shape_GetSubType(handle) == JPH_ShapeSubType_OffsetCenterOfMass ? handle : NULL;
 
@@ -1226,58 +1246,69 @@ static void lovrColliderMoveShape(Collider* collider, Shape* shape, float transl
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
     }
   }
+
+  return true;
 }
 
 const char* lovrColliderGetTag(Collider* collider) {
   return collider->tag == 0xff ? NULL : collider->world->tags[collider->tag];
 }
 
-void lovrColliderSetTag(Collider* collider, const char* tag) {
+bool lovrColliderSetTag(Collider* collider, const char* tag) {
   collider->tag = tag ? findTag(collider->world, tag, strlen(tag)) : 0xff;
   lovrCheck(!tag || collider->tag != 0xff, "Unknown tag '%s'", tag);
 
   JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
+
   if (collider->tag != 0xff && collider->world->staticTagMask & (1 << collider->tag)) {
     JPH_BodyInterface_SetMotionType(interface, collider->id, JPH_MotionType_Static, JPH_Activation_DontActivate);
   }
 
   // Colliders without shapes go on a special object layer that doesn't collide with anything
   if (!collider->shapes) {
-    return;
+    return true;
   }
 
   JPH_ObjectLayer objectLayer = collider->tag == 0xff ? collider->world->tagCount : collider->tag;
   JPH_BodyInterface_SetObjectLayer(interface, collider->id, objectLayer);
+  return true;
 }
 
 float lovrColliderGetFriction(Collider* collider) {
   return JPH_BodyInterface_GetFriction(getBodyInterface(collider, READ), collider->id);
 }
 
-void lovrColliderSetFriction(Collider* collider, float friction) {
-  JPH_BodyInterface_SetFriction(getBodyInterface(collider, WRITE), collider->id, MAX(friction, 0.f));
+bool lovrColliderSetFriction(Collider* collider, float friction) {
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_SetFriction(interface, collider->id, MAX(friction, 0.f));
+  return !!interface;
 }
 
 float lovrColliderGetRestitution(Collider* collider) {
   return JPH_BodyInterface_GetRestitution(getBodyInterface(collider, READ), collider->id);
 }
 
-void lovrColliderSetRestitution(Collider* collider, float restitution) {
-  JPH_BodyInterface_SetRestitution(getBodyInterface(collider, WRITE), collider->id, MAX(restitution, 0.f));
+bool lovrColliderSetRestitution(Collider* collider, float restitution) {
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_SetRestitution(interface, collider->id, MAX(restitution, 0.f));
+  return !!interface;
 }
 
 bool lovrColliderIsKinematic(Collider* collider) {
   return JPH_BodyInterface_GetMotionType(getBodyInterface(collider, READ), collider->id) != JPH_MotionType_Dynamic;
 }
 
-void lovrColliderSetKinematic(Collider* collider, bool kinematic) {
+bool lovrColliderSetKinematic(Collider* collider, bool kinematic) {
   JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
   bool mustBeStatic = JPH_Shape_MustBeStatic(JPH_BodyInterface_GetShape(interface, collider->id));
   bool hasStaticTag = collider->tag != 0xff && (collider->world->staticTagMask & (1 << collider->tag));
   if (!mustBeStatic && !hasStaticTag) {
     JPH_MotionType motionType = kinematic ? JPH_MotionType_Kinematic : JPH_MotionType_Dynamic;
     JPH_BodyInterface_SetMotionType(interface, collider->id, motionType, JPH_Activation_DontActivate);
   }
+  return true;
 }
 
 bool lovrColliderIsSensor(Collider* collider) {
@@ -1292,17 +1323,21 @@ bool lovrColliderIsContinuous(Collider* collider) {
   return JPH_BodyInterface_GetMotionQuality(getBodyInterface(collider, READ), collider->id) == JPH_MotionQuality_LinearCast;
 }
 
-void lovrColliderSetContinuous(Collider* collider, bool continuous) {
+bool lovrColliderSetContinuous(Collider* collider, bool continuous) {
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
   JPH_MotionQuality quality = continuous ? JPH_MotionQuality_LinearCast : JPH_MotionQuality_Discrete;
-  JPH_BodyInterface_SetMotionQuality(getBodyInterface(collider, WRITE), collider->id, quality);
+  if (interface) JPH_BodyInterface_SetMotionQuality(interface, collider->id, quality);
+  return !!interface;
 }
 
 float lovrColliderGetGravityScale(Collider* collider) {
   return JPH_BodyInterface_GetGravityFactor(getBodyInterface(collider, READ), collider->id);
 }
 
-void lovrColliderSetGravityScale(Collider* collider, float scale) {
-  JPH_BodyInterface_SetGravityFactor(getBodyInterface(collider, WRITE), collider->id, scale);
+bool lovrColliderSetGravityScale(Collider* collider, float scale) {
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_SetGravityFactor(interface, collider->id, scale);
+  return !!interface;
 }
 
 bool lovrColliderIsSleepingAllowed(Collider* collider) {
@@ -1317,14 +1352,16 @@ bool lovrColliderIsAwake(Collider* collider) {
   return JPH_BodyInterface_IsActive(getBodyInterface(collider, READ), collider->id);
 }
 
-void lovrColliderSetAwake(Collider* collider, bool awake) {
-  if (collider->enabled) {
+bool lovrColliderSetAwake(Collider* collider, bool awake) {
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface && collider->enabled) {
     if (awake) {
-      JPH_BodyInterface_ActivateBody(getBodyInterface(collider, WRITE), collider->id);
+      JPH_BodyInterface_ActivateBody(interface, collider->id);
     } else {
-      JPH_BodyInterface_DeactivateBody(getBodyInterface(collider, WRITE), collider->id);
+      JPH_BodyInterface_DeactivateBody(interface, collider->id);
     }
   }
+  return !!interface;
 }
 
 float lovrColliderGetMass(Collider* collider) {
@@ -1342,9 +1379,9 @@ float lovrColliderGetMass(Collider* collider) {
   return 1.f / JPH_MotionProperties_GetInverseMassUnchecked(motion);
 }
 
-void lovrColliderSetMass(Collider* collider, float mass) {
+bool lovrColliderSetMass(Collider* collider, float mass) {
   if (lovrColliderIsKinematic(collider)) {
-    return;
+    return true;
   }
 
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
@@ -1352,7 +1389,7 @@ void lovrColliderSetMass(Collider* collider, float mass) {
 
   // If all degrees of freedom are restricted, inverse mass is locked to zero
   if ((dofs & 0x7) == 0) {
-    return;
+    return true;
   }
 
   lovrCheck(mass > 0.f, "Mass must be positive");
@@ -1366,6 +1403,8 @@ void lovrColliderSetMass(Collider* collider, float mass) {
   } else {
     JPH_MotionProperties_SetInverseMass(motion, 1.f / mass);
   }
+
+  return true;
 }
 
 void lovrColliderGetInertia(Collider* collider, float diagonal[3], float rotation[4]) {
@@ -1416,12 +1455,14 @@ void lovrColliderGetCenterOfMass(Collider* collider, float center[3]) {
   vec3_fromJolt(center, &centerOfMass);
 }
 
-void lovrColliderSetCenterOfMass(Collider* collider, float center[3]) {
+bool lovrColliderSetCenterOfMass(Collider* collider, float center[3]) {
   if (lovrColliderIsKinematic(collider)) {
-    return;
+    return true;
   }
 
   JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
+
   const JPH_Shape* shape = JPH_BodyInterface_GetShape(interface, collider->id);
 
   JPH_Vec3 oldCenter;
@@ -1439,6 +1480,7 @@ void lovrColliderSetCenterOfMass(Collider* collider, float center[3]) {
   JPH_Shape* outer = (JPH_Shape*) JPH_OffsetCenterOfMassShape_Create(&offset, (JPH_Shape*) shape);
   JPH_BodyInterface_SetShape(interface, collider->id, outer, collider->automaticMass, JPH_Activation_DontActivate);
   adjustJoints(collider, &oldCenter, vec3_toJolt(center));
+  return true;
 }
 
 bool lovrColliderGetAutomaticMass(Collider* collider) {
@@ -1461,12 +1503,14 @@ void lovrColliderSetAutomaticMass(Collider* collider, bool enable) {
   }
 }
 
-void lovrColliderResetMassData(Collider* collider) {
+bool lovrColliderResetMassData(Collider* collider) {
   if (lovrColliderIsKinematic(collider)) {
-    return;
+    return true;
   }
 
   JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
+
   JPH_Shape* shape = (JPH_Shape*) JPH_BodyInterface_GetShape(interface, collider->id);
 
   if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_OffsetCenterOfMass) {
@@ -1487,6 +1531,8 @@ void lovrColliderResetMassData(Collider* collider) {
     JPH_AllowedDOFs dofs = JPH_MotionProperties_GetAllowedDOFs(motion);
     JPH_MotionProperties_SetMassProperties(motion, dofs, &mass);
   }
+
+  return true;
 }
 
 void lovrColliderGetDegreesOfFreedom(Collider* collider, bool translation[3], bool rotation[3]) {
@@ -1526,10 +1572,13 @@ void lovrColliderGetPosition(Collider* collider, float position[3]) {
   }
 }
 
-void lovrColliderSetPosition(Collider* collider, float position[3]) {
+bool lovrColliderSetPosition(Collider* collider, float position[3]) {
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_SetPosition(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), JPH_Activation_Activate);
+  JPH_BodyInterface_SetPosition(interface, collider->id, vec3_toJolt(position), JPH_Activation_Activate);
   vec3_init(collider->lastPosition, position);
+  return true;
 }
 
 void lovrColliderGetOrientation(Collider* collider, float orientation[4]) {
@@ -1541,10 +1590,13 @@ void lovrColliderGetOrientation(Collider* collider, float orientation[4]) {
   }
 }
 
-void lovrColliderSetOrientation(Collider* collider, float orientation[4]) {
+bool lovrColliderSetOrientation(Collider* collider, float orientation[4]) {
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_SetRotation(getBodyInterface(collider, WRITE), collider->id, quat_toJolt(orientation), JPH_Activation_Activate);
+  JPH_BodyInterface_SetRotation(interface, collider->id, quat_toJolt(orientation), JPH_Activation_Activate);
   quat_init(collider->lastOrientation, orientation);
+  return true;
 }
 
 void lovrColliderGetRawPosition(Collider* collider, float position[3]) {
@@ -1571,17 +1623,22 @@ void lovrColliderGetPose(Collider* collider, float position[3], float orientatio
   }
 }
 
-void lovrColliderSetPose(Collider* collider, float position[3], float orientation[4]) {
+bool lovrColliderSetPose(Collider* collider, float position[3], float orientation[4]) {
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (!interface) return false;
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_SetPositionAndRotation(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), quat_toJolt(orientation), JPH_Activation_Activate);
+  JPH_BodyInterface_SetPositionAndRotation(interface, collider->id, vec3_toJolt(position), quat_toJolt(orientation), JPH_Activation_Activate);
   vec3_init(collider->lastPosition, position);
   quat_init(collider->lastOrientation, orientation);
+  return true;
 }
 
-void lovrColliderMoveKinematic(Collider* collider, float position[3], float orientation[4], float dt) {
+bool lovrColliderMoveKinematic(Collider* collider, float position[3], float orientation[4], float dt) {
   lovrCheck(dt > 0.f, "dt must > 0");
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_MoveKinematic(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), quat_toJolt(orientation), dt);
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_MoveKinematic(interface, collider->id, vec3_toJolt(position), quat_toJolt(orientation), dt);
+  return !!interface;
 }
 
 void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]) {
@@ -1590,9 +1647,11 @@ void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]) {
   vec3_fromJolt(velocity, &v);
 }
 
-void lovrColliderSetLinearVelocity(Collider* collider, float velocity[3]) {
+bool lovrColliderSetLinearVelocity(Collider* collider, float velocity[3]) {
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_SetLinearVelocity(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(velocity));
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_SetLinearVelocity(interface, collider->id, vec3_toJolt(velocity));
+  return !!interface;
 }
 
 void lovrColliderGetAngularVelocity(Collider* collider, float velocity[3]) {
@@ -1601,9 +1660,11 @@ void lovrColliderGetAngularVelocity(Collider* collider, float velocity[3]) {
   vec3_fromJolt(velocity, &v);
 }
 
-void lovrColliderSetAngularVelocity(Collider* collider, float velocity[3]) {
+bool lovrColliderSetAngularVelocity(Collider* collider, float velocity[3]) {
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_SetAngularVelocity(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(velocity));
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_SetAngularVelocity(interface, collider->id, vec3_toJolt(velocity));
+  return !!interface;
 }
 
 float lovrColliderGetLinearDamping(Collider* collider) {
@@ -1626,34 +1687,46 @@ void lovrColliderSetAngularDamping(Collider* collider, float damping) {
   JPH_MotionProperties_SetAngularDamping(properties, MAX(damping, 0.f));
 }
 
-void lovrColliderApplyForce(Collider* collider, float force[3]) {
+bool lovrColliderApplyForce(Collider* collider, float force[3]) {
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_AddForce(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(force));
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_AddForce(interface, collider->id, vec3_toJolt(force));
+  return !!interface;
 }
 
-void lovrColliderApplyForceAtPosition(Collider* collider, float force[3], float position[3]) {
+bool lovrColliderApplyForceAtPosition(Collider* collider, float force[3], float position[3]) {
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_AddForce2(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(force), vec3_toJolt(position));
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_AddForce2(interface, collider->id, vec3_toJolt(force), vec3_toJolt(position));
+  return !!interface;
 }
 
-void lovrColliderApplyTorque(Collider* collider, float torque[3]) {
+bool lovrColliderApplyTorque(Collider* collider, float torque[3]) {
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_AddTorque(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(torque));
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_AddTorque(interface, collider->id, vec3_toJolt(torque));
+  return !!interface;
 }
 
-void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]) {
+bool lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]) {
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_AddImpulse(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(impulse));
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_AddImpulse(interface, collider->id, vec3_toJolt(impulse));
+  return !!interface;
 }
 
-void lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]) {
+bool lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]) {
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_AddImpulse2(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(impulse), vec3_toJolt(position));
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_AddImpulse2(interface, collider->id, vec3_toJolt(impulse), vec3_toJolt(position));
+  return !!interface;
 }
 
-void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]) {
+bool lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]) {
   lovrCheck(collider->enabled, "Collider must be enabled");
-  JPH_BodyInterface_AddAngularImpulse(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(impulse));
+  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
+  if (interface) JPH_BodyInterface_AddAngularImpulse(interface, collider->id, vec3_toJolt(impulse));
+  return !!interface;
 }
 
 void lovrColliderGetLocalPoint(Collider* collider, float world[3], float local[3]) {
@@ -1899,12 +1972,10 @@ void lovrShapeGetOffset(Shape* shape, float translation[3], float rotation[4]) {
   quat_init(rotation, shape->rotation);
 }
 
-void lovrShapeSetOffset(Shape* shape, float translation[3], float rotation[4]) {
+bool lovrShapeSetOffset(Shape* shape, float translation[3], float rotation[4]) {
   vec3_init(shape->translation, translation);
   quat_init(shape->rotation, rotation);
-  if (shape->collider) {
-    lovrColliderMoveShape(shape->collider, shape, translation, rotation);
-  }
+  return shape->collider ? lovrColliderMoveShape(shape->collider, shape, translation, rotation) : true;
 }
 
 void lovrShapeGetPose(Shape* shape, float position[3], float orientation[4]) {
@@ -1944,11 +2015,12 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   aabb[5] = box.max.z;
 }
 
-static void lovrShapeReplace(Shape* shape, JPH_Shape* new) {
-  if (shape->collider) lovrColliderReplaceShape(shape->collider, shape, new);
+static bool lovrShapeReplace(Shape* shape, JPH_Shape* new) {
+  if (shape->collider && !lovrColliderReplaceShape(shape->collider, shape, new)) return false;
   JPH_Shape_SetUserData(new, (uint64_t) (uintptr_t) shape);
   JPH_Shape_Destroy(shape->handle);
   shape->handle = new;
+  return true;
 }
 
 BoxShape* lovrBoxShapeCreate(float dimensions[3]) {
@@ -1971,11 +2043,11 @@ void lovrBoxShapeGetDimensions(BoxShape* shape, float dimensions[3]) {
   vec3_set(dimensions, halfExtent.x * 2.f, halfExtent.y * 2.f, halfExtent.z * 2.f);
 }
 
-void lovrBoxShapeSetDimensions(BoxShape* shape, float dimensions[3]) {
+bool lovrBoxShapeSetDimensions(BoxShape* shape, float dimensions[3]) {
   JPH_Vec3 halfExtent = { dimensions[0] / 2.f, dimensions[1] / 2.f, dimensions[2] / 2.f };
   float shortestSide = MIN(dimensions[0], MIN(dimensions[1], dimensions[2]));
   float convexRadius = MIN(shortestSide * .1f, .05f);
-  lovrShapeReplace(shape, (JPH_Shape*) JPH_BoxShape_Create(&halfExtent, convexRadius));
+  return lovrShapeReplace(shape, (JPH_Shape*) JPH_BoxShape_Create(&halfExtent, convexRadius));
 }
 
 SphereShape* lovrSphereShapeCreate(float radius) {
@@ -1993,8 +2065,8 @@ float lovrSphereShapeGetRadius(SphereShape* shape) {
   return JPH_SphereShape_GetRadius((JPH_SphereShape*) shape->handle);
 }
 
-void lovrSphereShapeSetRadius(SphereShape* shape, float radius) {
-  lovrShapeReplace(shape, (JPH_Shape*) JPH_SphereShape_Create(radius));
+bool lovrSphereShapeSetRadius(SphereShape* shape, float radius) {
+  return lovrShapeReplace(shape, (JPH_Shape*) JPH_SphereShape_Create(radius));
 }
 
 static JPH_Shape* makeCapsule(float radius, float length) {
@@ -2023,18 +2095,18 @@ float lovrCapsuleShapeGetRadius(CapsuleShape* shape) {
   return JPH_CapsuleShape_GetRadius((JPH_CapsuleShape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape->handle));
 }
 
-void lovrCapsuleShapeSetRadius(CapsuleShape* shape, float radius) {
+bool lovrCapsuleShapeSetRadius(CapsuleShape* shape, float radius) {
   float length = lovrCapsuleShapeGetLength(shape);
-  lovrShapeReplace(shape, makeCapsule(length / 2.f, radius));
+  return lovrShapeReplace(shape, makeCapsule(length / 2.f, radius));
 }
 
 float lovrCapsuleShapeGetLength(CapsuleShape* shape) {
   return 2.f * JPH_CapsuleShape_GetHalfHeightOfCylinder((JPH_CapsuleShape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape->handle));
 }
 
-void lovrCapsuleShapeSetLength(CapsuleShape* shape, float length) {
+bool lovrCapsuleShapeSetLength(CapsuleShape* shape, float length) {
   float radius = lovrCapsuleShapeGetRadius(shape);
-  lovrShapeReplace(shape, makeCapsule(radius, length));
+  return lovrShapeReplace(shape, makeCapsule(radius, length));
 }
 
 static JPH_Shape* makeCylinder(float radius, float length) {
@@ -2063,18 +2135,18 @@ float lovrCylinderShapeGetRadius(CylinderShape* shape) {
   return JPH_CylinderShape_GetRadius((JPH_CylinderShape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape->handle));
 }
 
-void lovrCylinderShapeSetRadius(CylinderShape* shape, float radius) {
+bool lovrCylinderShapeSetRadius(CylinderShape* shape, float radius) {
   float length = lovrCylinderShapeGetLength(shape);
-  lovrShapeReplace(shape, makeCylinder(radius, length));
+  return lovrShapeReplace(shape, makeCylinder(radius, length));
 }
 
 float lovrCylinderShapeGetLength(CylinderShape* shape) {
   return 2.f * JPH_CylinderShape_GetHalfHeight((JPH_CylinderShape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape->handle));
 }
 
-void lovrCylinderShapeSetLength(CylinderShape* shape, float length) {
+bool lovrCylinderShapeSetLength(CylinderShape* shape, float length) {
   float radius = lovrCylinderShapeGetRadius(shape);
-  lovrShapeReplace(shape, makeCylinder(radius, length));
+  return lovrShapeReplace(shape, makeCylinder(radius, length));
 }
 
 ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count) {
@@ -2101,11 +2173,12 @@ uint32_t lovrConvexShapeGetPointCount(ConvexShape* shape) {
   return JPH_ConvexHullShape_GetNumPoints((JPH_ConvexHullShape*) shape->handle);
 }
 
-void lovrConvexShapeGetPoint(ConvexShape* shape, uint32_t index, float point[3]) {
+bool lovrConvexShapeGetPoint(ConvexShape* shape, uint32_t index, float point[3]) {
   lovrCheck(index < lovrConvexShapeGetPointCount(shape), "Invalid point index '%d'", index + 1);
   JPH_Vec3 v;
   JPH_ConvexHullShape_GetPoint((JPH_ConvexHullShape*) shape->handle, index, &v);
   vec3_fromJolt(point, &v);
+  return true;
 }
 
 uint32_t lovrConvexShapeGetFaceCount(ConvexShape* shape) {
@@ -2471,9 +2544,10 @@ float lovrConeJointGetLimit(ConeJoint* joint) {
   return acosf(JPH_ConeConstraint_GetCosHalfConeAngle((JPH_ConeConstraint*) joint->constraint));
 }
 
-void lovrConeJointSetLimit(ConeJoint* joint, float angle) {
+bool lovrConeJointSetLimit(ConeJoint* joint, float angle) {
   lovrCheck(angle >= 0.f && angle <= (float) M_PI, "Cone joint angle limit must be between 0 and PI");
   JPH_ConeConstraint_SetHalfConeAngle((JPH_ConeConstraint*) joint->constraint, angle);
+  return true;
 }
 
 // DistanceJoint
@@ -2502,10 +2576,11 @@ void lovrDistanceJointGetLimits(DistanceJoint* joint, float* min, float* max) {
   *max = JPH_DistanceConstraint_GetMaxDistance((JPH_DistanceConstraint*) joint->constraint);
 }
 
-void lovrDistanceJointSetLimits(DistanceJoint* joint, float min, float max) {
+bool lovrDistanceJointSetLimits(DistanceJoint* joint, float min, float max) {
   lovrCheck(min <= max, "Distance joint lower limit can not exceed the upper limit");
   lovrCheck(max >= 0.f, "Distance joint upper limit can not be negative");
   JPH_DistanceConstraint_SetDistance((JPH_DistanceConstraint*) joint->constraint, min, max);
+  return true;
 }
 
 void lovrDistanceJointGetSpring(DistanceJoint* joint, float* frequency, float* damping) {
@@ -2576,10 +2651,11 @@ void lovrHingeJointGetLimits(HingeJoint* joint, float* min, float* max) {
   *max = JPH_HingeConstraint_GetLimitsMax((JPH_HingeConstraint*) joint->constraint);
 }
 
-void lovrHingeJointSetLimits(HingeJoint* joint, float min, float max) {
+bool lovrHingeJointSetLimits(HingeJoint* joint, float min, float max) {
   lovrCheck(min <= 0.f && min >= -(float) M_PI, "Hinge joint lower angle limit must be between -PI and 0");
   lovrCheck(max >= 0.f && max <= (float) M_PI, "Hinge joint upper angle limit must be between 0 and PI");
   JPH_HingeConstraint_SetLimits((JPH_HingeConstraint*) joint->constraint, min, max);
+  return true;
 }
 
 float lovrHingeJointGetFriction(HingeJoint* joint) {
@@ -2714,10 +2790,11 @@ void lovrSliderJointGetLimits(SliderJoint* joint, float* min, float* max) {
   *max = JPH_SliderConstraint_GetLimitsMax((JPH_SliderConstraint*) joint->constraint);
 }
 
-void lovrSliderJointSetLimits(SliderJoint* joint, float min, float max) {
+bool lovrSliderJointSetLimits(SliderJoint* joint, float min, float max) {
   lovrCheck(min <= 0.f, "Slider joint lower distance limit can not be positive");
   lovrCheck(max >= 0.f, "Slider joint upper distance limit can not be negative");
   JPH_SliderConstraint_SetLimits((JPH_SliderConstraint*) joint->constraint, min, max);
+  return true;
 }
 
 float lovrSliderJointGetFriction(SliderJoint* joint) {

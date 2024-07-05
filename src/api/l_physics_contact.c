@@ -4,7 +4,7 @@
 
 static Contact* luax_checkcontact(lua_State* L, int index) {
   Contact* contact = luax_checktype(L, index, Contact);
-  lovrCheck(lovrContactIsValid(contact), "Attempt to use a Contact outside of a World callback!");
+  luax_check(L, lovrContactIsValid(contact), "Attempt to use a Contact outside of a World callback!");
   return contact;
 }
 

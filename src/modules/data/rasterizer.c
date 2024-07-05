@@ -28,6 +28,7 @@ struct Rasterizer {
   float ascent;
   float descent;
   float leading;
+  float spaceAdvance;
   map_t kerning;
   Blob* blob;
   Image* atlas;
@@ -41,17 +42,17 @@ static Glyph* lovrRasterizerGetGlyph(Rasterizer* rasterizer, uint32_t codepoint)
   return index == MAP_NIL ? NULL : &rasterizer->glyphs.data[index];
 }
 
-static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
+static bool lovrRasterizerCreateTTF(Rasterizer** result, Blob* blob, float size) {
   const unsigned char* data = blob ? blob->data : etc_VarelaRound_ttf;
 
   int offset = stbtt_GetFontOffsetForIndex(data, 0);
   if (offset == -1) {
-    return NULL;
+    return true;
   }
 
   stbtt_fontinfo font;
   if (!stbtt_InitFont(&font, data, offset)) {
-    return NULL;
+    return true;
   }
 
   Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
@@ -71,9 +72,14 @@ static Rasterizer* lovrRasterizerCreateTTF(Blob* blob, float size) {
   rasterizer->descent = descent * rasterizer->scale;
   rasterizer->leading = (ascent - descent + lineGap) * rasterizer->scale;
 
+  int advance, bearing;
+  stbtt_GetCodepointHMetrics(&rasterizer->font, ' ', &advance, &bearing);
+  rasterizer->spaceAdvance = advance * rasterizer->scale;
+
   map_init(&rasterizer->kerning, 0);
 
-  return rasterizer;
+  *result = rasterizer;
+  return true;
 }
 
 static int64_t parseNumber(const char* string, size_t length, map_t* map, const char* key) {
@@ -115,16 +121,24 @@ static int16_t readi16(const uint8_t* p) { int16_t x; memcpy(&x, p, sizeof(x)); 
 static uint16_t readu16(const uint8_t* p) { uint16_t x; memcpy(&x, p, sizeof(x)); return x; }
 static uint32_t readu32(const uint8_t* p) { uint32_t x; memcpy(&x, p, sizeof(x)); return x; }
 
-static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
-  if (!blob || blob->size < 4) return NULL;
+static bool lovrRasterizerCreateBMF(Rasterizer** result, Blob* blob, RasterizerIO* io) {
+  if (!blob || blob->size < 4) return true;
 
   uint8_t magic[] = { 'B', 'M', 'F' };
   bool text = !memcmp(blob->data, "info", 4);
   bool binary = !memcmp(blob->data, magic, sizeof(magic));
 
   if (!text && !binary) {
-    return NULL;
+    return true;
   }
+
+  char fullpath[1024];
+  size_t nameLength = strlen(blob->name);
+  lovrCheck(nameLength < sizeof(fullpath), "BMFont Blob filename is too long");
+  memcpy(fullpath, blob->name, nameLength + 1);
+  char* slash = strrchr(fullpath, '/');
+  char* filename = slash ? slash + 1 : fullpath;
+  size_t maxLength = sizeof(fullpath) - 1 - (filename - fullpath);
 
   Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
   rasterizer->ref = 1;
@@ -134,14 +148,6 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
   arr_init(&rasterizer->glyphs);
   arr_reserve(&rasterizer->glyphs, 36);
   map_init(&rasterizer->glyphLookup, 36);
-
-  char fullpath[1024];
-  size_t nameLength = strlen(blob->name);
-  lovrCheck(nameLength < sizeof(fullpath), "BMFont Blob filename is too long");
-  memcpy(fullpath, blob->name, nameLength + 1);
-  char* slash = strrchr(fullpath, '/');
-  char* filename = slash ? slash + 1 : fullpath;
-  size_t maxLength = sizeof(fullpath) - 1 - (filename - fullpath);
 
   if (text) {
     map_t map;
@@ -184,11 +190,21 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
       if (!memcmp(tag, "info", tagLength)) {
         rasterizer->size = parseNumber(string, lineLength, &map, "size");
       } else if (!memcmp(tag, "common", tagLength)) {
-        lovrCheck(parseNumber(string, lineLength, &map, "pages") == 1, "Currently, BMFont files with multiple images are not supported");
-        lovrCheck(parseNumber(string, lineLength, &map, "packed") == 0, "Currently, packed BMFont files are not supported");
         rasterizer->leading = parseNumber(string, lineLength, &map, "lineHeight");
         rasterizer->ascent = parseNumber(string, lineLength, &map, "base");
         rasterizer->descent = rasterizer->leading - rasterizer->ascent; // Best effort
+
+        if (parseNumber(string, lineLength, &map, "pages") != 1) {
+          lovrSetError("Currently, BMFont files with multiple images are not supported");
+          map_free(&map);
+          goto fail;
+        }
+
+        if (parseNumber(string, lineLength, &map, "packed") != 0) {
+          lovrSetError("Currently, packed BMFont files are not supported");
+          map_free(&map);
+          goto fail;
+        }
       } else if (!memcmp(tag, "page", tagLength)) {
         size_t fileLength;
         const char* file = parseString(string, lineLength, &map, "file", &fileLength);
@@ -206,6 +222,7 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
         glyph.ox = parseNumber(string, lineLength, &map, "xoffset");
         glyph.oy = parseNumber(string, lineLength, &map, "yoffset");
         glyph.advance = parseNumber(string, lineLength, &map, "xadvance");
+        if (glyph.codepoint == ' ') rasterizer->spaceAdvance = glyph.advance;
         arr_push(&rasterizer->glyphs, glyph);
         map_set(&rasterizer->glyphLookup, hash64(&glyph.codepoint, 4), rasterizer->glyphs.length - 1);
       } else if (!memcmp(tag, "kerning", tagLength)) {
@@ -293,19 +310,36 @@ static Rasterizer* lovrRasterizerCreateBMF(Blob* blob, RasterizerIO* io) {
 
   size_t atlasSize;
   void* atlasData = io(fullpath, &atlasSize);
-  lovrCheck(atlasData, "Failed to read BMFont image from %s", fullpath);
+
+  if (!atlasData) {
+    lovrSetError("Failed to read BMFont image from %s", fullpath);
+    goto fail;
+  }
+
   Blob* atlasBlob = lovrBlobCreate(atlasData, atlasSize, "BMFont atlas");
   rasterizer->atlas = lovrImageCreateFromFile(atlasBlob);
+  lovrRelease(atlasBlob, lovrBlobDestroy);
 
-  return rasterizer;
+  if (!rasterizer->atlas) {
+    lovrSetError("Failed to load BMFont atlas image: %s", lovrGetError());
+    goto fail;
+  }
+
+  *result = rasterizer;
+  return true;
+fail:
+  map_free(&rasterizer->kerning);
+  arr_free(&rasterizer->glyphs);
+  map_free(&rasterizer->glyphLookup);
+  return false;
 }
 
 Rasterizer* lovrRasterizerCreate(Blob* blob, float size, RasterizerIO* io) {
   Rasterizer* rasterizer = NULL;
-  if ((rasterizer = lovrRasterizerCreateTTF(blob, size)) != NULL) return rasterizer;
-  if ((rasterizer = lovrRasterizerCreateBMF(blob, io)) != NULL) return rasterizer;
-  lovrThrow("Problem loading font: not recognized as TTF or BMFont");
-  return NULL;
+  if (!rasterizer && !lovrRasterizerCreateTTF(&rasterizer, blob, size)) return NULL;
+  if (!rasterizer && !lovrRasterizerCreateBMF(&rasterizer, blob, io)) return NULL;
+  if (!rasterizer) lovrSetError("Problem loading font: not recognized as TTF or BMFont");
+  return rasterizer;
 }
 
 void lovrRasterizerDestroy(void* ref) {
@@ -379,6 +413,10 @@ float lovrRasterizerGetLeading(Rasterizer* rasterizer) {
 }
 
 float lovrRasterizerGetAdvance(Rasterizer* rasterizer, uint32_t codepoint) {
+  if (codepoint == ' ') {
+    return rasterizer->spaceAdvance;
+  }
+
   if (rasterizer->type == RASTERIZER_TTF) {
     int advance, bearing;
     stbtt_GetCodepointHMetrics(&rasterizer->font, codepoint, &advance, &bearing);
@@ -532,7 +570,7 @@ bool lovrRasterizerGetPixels(Rasterizer* rasterizer, uint32_t codepoint, float* 
   int id = stbtt_FindGlyphIndex(&rasterizer->font, codepoint);
 
   if (!id || stbtt_IsGlyphEmpty(&rasterizer->font, id)) {
-    return false;
+    return true;
   }
 
   stbtt_vertex* vertices;

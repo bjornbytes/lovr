@@ -109,7 +109,7 @@ static int l_lovrSoundGetFrames(lua_State* L) {
   uint32_t dstOffset = luax_optu32(L, index + 2, 0);
   uint32_t srcOffset = luax_optu32(L, index + 1, 0);
   uint32_t count = luax_optu32(L, index, frameCount - srcOffset);
-  lovrCheck(srcOffset + count <= frameCount, "Tried to read samples past the end of the Sound");
+  luax_check(L, srcOffset + count <= frameCount, "Tried to read samples past the end of the Sound");
   lua_settop(L, 2);
 
   switch (lua_type(L, 2)) {
@@ -151,7 +151,7 @@ static int l_lovrSoundGetFrames(lua_State* L) {
       Sound* other = luax_totype(L, 2, Sound);
       Blob* blob = luax_totype(L, 2, Blob);
       if (blob) {
-        lovrCheck(dstOffset + count * stride <= blob->size, "This Blob can hold %d bytes, which is not enough space to hold %d bytes of audio data at the requested offset (%d)", blob->size, count * stride, dstOffset);
+        luax_check(L, dstOffset + count * stride <= blob->size, "This Blob can hold %d bytes, which is not enough space to hold %d bytes of audio data at the requested offset (%d)", blob->size, count * stride, dstOffset);
         char* data = (char*) blob->data + dstOffset;
         uint32_t frames = 0;
         while (frames < count) {
@@ -163,7 +163,9 @@ static int l_lovrSoundGetFrames(lua_State* L) {
         lua_pushinteger(L, frames);
         return 1;
       } else if (other) {
-        uint32_t frames = lovrSoundCopy(sound, other, count, srcOffset, dstOffset);
+        uint32_t frames;
+        bool success = lovrSoundCopy(sound, other, count, srcOffset, dstOffset, &frames);
+        luax_assert(L, success);
         lua_pushinteger(L, frames);
         return 1;
       }
@@ -189,7 +191,9 @@ static int l_lovrSoundSetFrames(lua_State* L) {
       uint32_t dstOffset = luax_optu32(L, 4, 0);
       uint32_t defaultCount = (uint32_t) MIN((blob->size - srcOffset) / stride, UINT32_MAX);
       uint32_t count = luax_optu32(L, 3, defaultCount);
-      uint32_t frames = lovrSoundWrite(sound, dstOffset, count, (char*) blob->data + srcOffset);
+      uint32_t frames;
+      bool success = lovrSoundWrite(sound, dstOffset, count, (char*) blob->data + srcOffset, &frames);
+      luax_assert(L, success);
       lua_pushinteger(L, frames);
       return 1;
     }
@@ -200,7 +204,9 @@ static int l_lovrSoundSetFrames(lua_State* L) {
       uint32_t srcOffset = luax_optu32(L, 5, 0);
       uint32_t dstOffset = luax_optu32(L, 4, 0);
       uint32_t count = luax_optu32(L, 3, lovrSoundGetCapacity(other) - srcOffset);
-      uint32_t frames = lovrSoundCopy(other, sound, count, srcOffset, dstOffset);
+      uint32_t frames;
+      bool success = lovrSoundCopy(other, sound, count, srcOffset, dstOffset,  &frames);
+      luax_assert(L, success);
       lua_pushinteger(L, frames);
       return 1;
     }
@@ -215,7 +221,7 @@ static int l_lovrSoundSetFrames(lua_State* L) {
   uint32_t dstOffset = luax_optu32(L, 4, 0);
   uint32_t limit = MIN(frameCount - dstOffset, (length - srcOffset) / channels + 1);
   uint32_t count = luax_optu32(L, 3, limit);
-  lovrCheck(count <= limit, "Tried to write too many frames (%d is over limit %d)", count, limit);
+  luax_check(L, count <= limit, "Tried to write too many frames (%d is over limit %d)", count, limit);
 
   uint32_t frames = 0;
   while (frames < count) {
@@ -239,7 +245,9 @@ static int l_lovrSoundSetFrames(lua_State* L) {
       }
     }
 
-    uint32_t written = lovrSoundWrite(sound, dstOffset + frames, chunk, buffer);
+    uint32_t written;
+    bool success = lovrSoundWrite(sound, dstOffset + frames, chunk, buffer, &written);
+    luax_assert(L, success);
     if (written == 0) break;
     frames += written;
   }

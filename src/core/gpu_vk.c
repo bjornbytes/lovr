@@ -897,9 +897,10 @@ bool gpu_surface_resize(uint32_t width, uint32_t height) {
   return true;
 }
 
-gpu_texture* gpu_surface_acquire(void) {
+bool gpu_surface_acquire(gpu_texture** texture) {
   if (!state.surface.valid) {
-    return NULL;
+    *texture = NULL;
+    return true;
   }
 
   gpu_surface* surface = &state.surface;
@@ -909,14 +910,16 @@ gpu_texture* gpu_surface_acquire(void) {
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     surface->imageIndex = ~0u;
     surface->valid = false;
-    return NULL;
-  } else if (result != VK_SUCCESS) {
-    vkerror(result, "Failed to acquire swapchain");
-    return NULL;
+    *texture = NULL;
+    return true;
+  } else if (result < 0) {
+    vkerror(result, "vkAcquireNextImageKHR");
+    return false;
   }
 
   surface->semaphore = tick->semaphores[0];
-  return &surface->images[surface->imageIndex];
+  *texture = &surface->images[surface->imageIndex];
+  return true;
 }
 
 bool gpu_surface_present(void) {
@@ -945,7 +948,7 @@ bool gpu_surface_present(void) {
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     state.surface.valid = false;
-  } else {
+  } else if (result < 0) {
     // TODO wait on semaphore, for errors that don't wait on it
     vkerror(result, "vkQueuePresentKHR");
     return false;
@@ -2875,7 +2878,7 @@ bool gpu_wait_tick(uint32_t tick, bool* waited) {
     return true;
   } else {
     if (waited) *waited = false;
-    return false;
+    return true;
   }
 }
 
@@ -3245,7 +3248,7 @@ static void nickname(void* handle, VkObjectType type, const char* name) {
 }
 
 static bool vkcheck(VkResult result, const char* function) {
-  if (result == VK_SUCCESS) {
+  if (result >= VK_SUCCESS) {
     return true;
   } else {
     vkerror(result, function);
@@ -3270,7 +3273,7 @@ static void vkerror(VkResult result, const char* function) {
     CASE(VK_ERROR_FORMAT_NOT_SUPPORTED);
     CASE(VK_ERROR_FRAGMENTED_POOL);
     CASE(VK_ERROR_OUT_OF_POOL_MEMORY);
-    default: break;
+    default: suffix = " failed with unknown error"; break;
 #undef CASE
   }
 

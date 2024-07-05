@@ -8,7 +8,7 @@
 
 static World* luax_checkworld(lua_State* L, int index) {
   World* world = luax_checktype(L, index, World);
-  lovrCheck(!lovrWorldIsDestroyed(world), "Attempt to use a destroyed World");
+  luax_check(L, !lovrWorldIsDestroyed(world), "Attempt to use a destroyed World");
   return world;
 }
 
@@ -142,6 +142,7 @@ static int l_lovrWorldNewCollider(lua_State* L) {
   float position[3];
   luax_readvec3(L, 2, position, NULL);
   Collider* collider = lovrColliderCreate(world, position, NULL);
+  luax_assert(L, collider);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
   return 1;
@@ -153,9 +154,10 @@ static int l_lovrWorldNewBoxCollider(lua_State* L) {
   int index = luax_readvec3(L, 2, position, NULL);
   BoxShape* shape = luax_newboxshape(L, index);
   Collider* collider = lovrColliderCreate(world, position, shape);
+  lovrRelease(shape, lovrShapeDestroy);
+  luax_assert(L, collider);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
-  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -165,9 +167,10 @@ static int l_lovrWorldNewCapsuleCollider(lua_State* L) {
   int index = luax_readvec3(L, 2, position, NULL);
   CapsuleShape* shape = luax_newcapsuleshape(L, index);
   Collider* collider = lovrColliderCreate(world, position, shape);
+  lovrRelease(shape, lovrShapeDestroy);
+  luax_assert(L, collider);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
-  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -177,9 +180,10 @@ static int l_lovrWorldNewCylinderCollider(lua_State* L) {
   int index = luax_readvec3(L, 2, position, NULL);
   CylinderShape* shape = luax_newcylindershape(L, index);
   Collider* collider = lovrColliderCreate(world, position, shape);
+  lovrRelease(shape, lovrShapeDestroy);
+  luax_assert(L, collider);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
-  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -189,9 +193,10 @@ static int l_lovrWorldNewConvexCollider(lua_State* L) {
   int index = luax_readvec3(L, 2, position, NULL);
   ConvexShape* shape = luax_newconvexshape(L, index);
   Collider* collider = lovrColliderCreate(world, position, shape);
+  lovrRelease(shape, lovrShapeDestroy);
+  luax_assert(L, collider);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
-  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -201,9 +206,10 @@ static int l_lovrWorldNewSphereCollider(lua_State* L) {
   int index = luax_readvec3(L, 2, position, NULL);
   SphereShape* shape = luax_newsphereshape(L, index);
   Collider* collider = lovrColliderCreate(world, position, shape);
+  lovrRelease(shape, lovrShapeDestroy);
+  luax_assert(L, collider);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
-  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -212,9 +218,10 @@ static int l_lovrWorldNewMeshCollider(lua_State* L) {
   MeshShape* shape = luax_newmeshshape(L, 2);
   float position[3] = { 0.f, 0.f, 0.f };
   Collider* collider = lovrColliderCreate(world, position, shape);
+  lovrRelease(shape, lovrShapeDestroy);
+  luax_assert(L, collider);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
-  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -223,9 +230,10 @@ static int l_lovrWorldNewTerrainCollider(lua_State* L) {
   TerrainShape* shape = luax_newterrainshape(L, 2);
   float position[3] = { 0.f, 0.f, 0.f };
   Collider* collider = lovrColliderCreate(world, position, shape);
+  lovrRelease(shape, lovrShapeDestroy);
+  luax_assert(L, collider);
   luax_pushtype(L, Collider, collider);
   lovrRelease(collider, lovrColliderDestroy);
-  lovrRelease(shape, lovrShapeDestroy);
   return 1;
 }
 
@@ -327,7 +335,9 @@ static uint32_t luax_checktagmask(lua_State* L, int index, World* world) {
   } else {
     size_t length;
     const char* string = luaL_checklstring(L, index, &length);
-    return lovrWorldGetTagMask(world, string, length);
+    uint32_t mask = lovrWorldGetTagMask(world, string, length);
+    luax_assert(L, mask);
+    return mask;
   }
 }
 
@@ -437,7 +447,7 @@ static int l_lovrWorldDisableCollisionBetween(lua_State* L) {
   World* world = luax_checkworld(L, 1);
   const char* tag1 = luaL_checkstring(L, 2);
   const char* tag2 = luaL_checkstring(L, 3);
-  lovrWorldDisableCollisionBetween(world, tag1, tag2);
+  luax_assert(L, lovrWorldDisableCollisionBetween(world, tag1, tag2));
   return 0;
 }
 
@@ -445,7 +455,7 @@ static int l_lovrWorldEnableCollisionBetween(lua_State* L) {
   World* world = luax_checkworld(L, 1);
   const char* tag1 = luaL_checkstring(L, 2);
   const char* tag2 = luaL_checkstring(L, 3);
-  lovrWorldEnableCollisionBetween(world, tag1, tag2);
+  luax_assert(L, lovrWorldEnableCollisionBetween(world, tag1, tag2));
   return 0;
 }
 
@@ -453,7 +463,9 @@ static int l_lovrWorldIsCollisionEnabledBetween(lua_State* L) {
   World* world = luax_checkworld(L, 1);
   const char* tag1 = lua_tostring(L, 2);
   const char* tag2 = lua_tostring(L, 3);
-  lua_pushboolean(L, lovrWorldIsCollisionEnabledBetween(world, tag1, tag2));
+  bool enabled;
+  luax_assert(L, lovrWorldIsCollisionEnabledBetween(world, tag1, tag2, &enabled));
+  lua_pushboolean(L, enabled);
   return 1;
 }
 
@@ -542,7 +554,7 @@ static int l_lovrWorldSetCallbacks(lua_State* L) {
 static int l_lovrWorldGetTightness(lua_State* L) {
   World* world = luax_checkworld(L, 1);
   float tightness = lovrWorldGetTightness(world);
-  lovrCheck(tightness >= 0, "Negative tightness factor causes simulation instability");
+  luax_check(L, tightness >= 0, "Negative tightness factor causes simulation instability");
   lua_pushnumber(L, tightness);
   return 1;
 }
@@ -564,7 +576,7 @@ static int l_lovrWorldGetResponseTime(lua_State* L) {
 static int l_lovrWorldSetResponseTime(lua_State* L) {
   World* world = luax_checkworld(L, 1);
   float responseTime = luax_checkfloat(L, 2);
-  lovrCheck(responseTime >= 0, "Negative response time causes simulation instability");
+  luax_check(L, responseTime >= 0, "Negative response time causes simulation instability");
   lovrWorldSetResponseTime(world, responseTime);
   return 0;
 }

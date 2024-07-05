@@ -10,7 +10,7 @@ static int l_lovrThreadStart(lua_State* L) {
   for (uint32_t i = 0; i < argumentCount; i++) {
     luax_checkvariant(L, 2 + i, &arguments[i]);
   }
-  lovrThreadStart(thread, arguments, argumentCount);
+  luax_assert(L, lovrThreadStart(thread, arguments, argumentCount));
   return 0;
 }
 

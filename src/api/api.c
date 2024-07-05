@@ -389,7 +389,7 @@ void luax_pushconf(lua_State* L) {
 
 int luax_setconf(lua_State* L) {
   luax_pushconf(L);
-  lovrCheck(lua_isnil(L, -1), "Unable to set lovr.conf multiple times");
+  luax_check(L, lua_isnil(L, -1), "Unable to set lovr.conf multiple times");
   lua_pop(L, 1);
   lua_setfield(L, LUA_REGISTRYINDEX, "_lovrconf");
   return 0;
@@ -530,7 +530,7 @@ void luax_optcolor(lua_State* L, int index, float color[4]) {
         break;
       }
     } /* fallthrough */
-    default: lovrThrow("Expected nil, number, table, vec3, or vec4 for color value");
+    default: luaL_error(L, "Expected nil, number, table, vec3, or vec4 for color value");
   }
 }
 
@@ -541,7 +541,7 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     lua_pop(L, 1);
 
     *vertexCount = luax_len(L, index) / (nested ? 1 : 3);
-    lovrCheck(*vertexCount > 0, "Invalid mesh data: vertex count is zero");
+    luax_check(L, *vertexCount > 0, "Invalid mesh data: vertex count is zero");
     *vertices = lovrMalloc(sizeof(float) * *vertexCount * 3);
     *shouldFree = true;
 
@@ -567,14 +567,14 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     if (indices) {
       luaL_checktype(L, index + 1, LUA_TTABLE);
       *indexCount = luax_len(L, index + 1);
-      lovrCheck(*indexCount > 0, "Invalid mesh data: index count is zero");
-      lovrCheck(*indexCount % 3 == 0, "Index count must be a multiple of 3");
+      luax_check(L, *indexCount > 0, "Invalid mesh data: index count is zero");
+      luax_check(L, *indexCount % 3 == 0, "Index count must be a multiple of 3");
       *indices = lovrMalloc(sizeof(uint32_t) * *indexCount);
 
       for (uint32_t i = 0; i < *indexCount; i++) {
         lua_rawgeti(L, index + 1, i + 1);
         uint32_t index = luaL_checkinteger(L, -1) - 1;
-        lovrCheck(index < *vertexCount, "Invalid vertex index %d (expected [%d, %d])", index + 1, 1, *vertexCount);
+        luax_check(L, index < *vertexCount, "Invalid vertex index %d (expected [%d, %d])", index + 1, 1, *vertexCount);
         (*indices)[i] = index;
         lua_pop(L, 1);
       }

@@ -8,7 +8,9 @@ Material* luax_optmaterial(lua_State* L, int index) {
   } else {
     Texture* texture = luax_totype(L, index, Texture);
     if (texture) {
-      return lovrTextureToMaterial(texture);
+      Material* material = lovrTextureToMaterial(texture);
+      luax_assert(L, material);
+      return material;
     } else {
       return luax_checktype(L, index, Material);
     }

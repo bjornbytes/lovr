@@ -6,10 +6,34 @@
 
 #define FS_PATH_MAX 1024
 
+static int error(void) {
+  switch (GetLastError()) {
+    case ERROR_SUCCESS: return FS_OK;
+    case ERROR_FILE_NOT_FOUND: return FS_NOT_FOUND;
+    case ERROR_PATH_NOT_FOUND: return FS_NOT_FOUND;
+    case ERROR_ACCESS_DENIED: return FS_PERMISSION;
+    case ERROR_INVALID_DRIVE: return FS_NOT_FOUND;
+    case ERROR_CURRENT_DIRECTORY: return FS_BUSY;
+    case ERROR_INSUFFICIENT_BUFFER: return FS_TOO_LONG;
+    case ERROR_WRITE_PROTECT: return FS_READ_ONLY;
+    case ERROR_NOT_READY: return FS_IO;
+    case ERROR_SEEK: return FS_IO;
+    case ERROR_SECTOR_NOT_FOUND: return FS_IO;
+    case ERROR_WRITE_FAULT: return FS_IO;
+    case ERROR_READ_FAULT: return FS_IO;
+    case ERROR_GEN_FAILURE: return FS_IO;
+    case ERROR_SHARING_VIOLATION: return FS_BUSY;
+    case ERROR_LOCK_VIOLATION: return FS_BUSY;
+    case ERROR_HANDLE_DISK_FULL: return FS_FULL;
+    case ERROR_NETWORK_ACCESS_DENIED: return FS_PERMISSION;
+    default: return FS_UNKNOWN_ERROR;
+  }
+}
+
 bool fs_open(const char* path, char mode, fs_handle* file) {
   WCHAR wpath[FS_PATH_MAX];
   if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
-    return false;
+    return error();
   }
 
   DWORD access;
@@ -190,8 +214,32 @@ bool fs_list(const char* path, fs_list_cb* callback, void* context) {
 #include <dirent.h>
 #include <limits.h>
 #include <unistd.h>
+#include <errno.h>
 
-bool fs_open(const char* path, char mode, fs_handle* file) {
+static int check(int result) {
+  if (result < 0) {
+    switch (errno) {
+      case EACCES: return FS_PERMISSION;
+      case EPERM: return FS_PERMISSION;
+      case EROFS: return FS_READ_ONLY;
+      case EEXIST: return FS_EXISTS;
+      case ENOENT: return FS_NOT_FOUND;
+      case EDQUOT: return FS_FULL;
+      case ENOSPC: return FS_FULL;
+      case ENOTDIR: return FS_NOT_DIR;
+      case EISDIR: return FS_IS_DIR;
+      case ENOTEMPTY: return FS_NOT_EMPTY;
+      case ELOOP: return FS_LOOP;
+      case ETXTBSY: return FS_BUSY;
+      case EIO: return FS_IO;
+      default: return FS_UNKNOWN_ERROR;
+    }
+  } else {
+    return FS_OK;
+  }
+}
+
+int fs_open(const char* path, char mode, fs_handle* file) {
   int flags;
   switch (mode) {
     case 'r': flags = O_RDONLY; break;
@@ -199,94 +247,113 @@ bool fs_open(const char* path, char mode, fs_handle* file) {
     case 'a': flags = O_APPEND | O_WRONLY | O_CREAT; break;
     default: return false;
   }
-  struct stat stats;
   file->fd = open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
-  return file->fd >= 0 && !fstat(file->fd, &stats) && !S_ISDIR(stats.st_mode);
+  if (file->fd < 0) return check(file->fd);
+
+  int result;
+  struct stat stats;
+  if ((result = fstat(file->fd, &stats)) < 0 || S_ISDIR(stats.st_mode)) {
+    close(file->fd);
+    return result < 0 ? check(result) : FS_IS_DIR;
+  }
+
+  return FS_OK;
 }
 
-bool fs_close(fs_handle file) {
-  return close(file.fd) == 0;
+int fs_close(fs_handle file) {
+  return check(close(file.fd));
 }
 
-bool fs_read(fs_handle file, void* data, size_t size, size_t* count) {
+int fs_read(fs_handle file, void* data, size_t size, size_t* count) {
   ssize_t result = read(file.fd, data, size);
-  if (result < 0 || result > SSIZE_MAX) {
+  if (result < 0) {
     *count = 0;
-    return false;
+    return check(result);
   } else {
     *count = result;
-    return true;
+    return FS_OK;
   }
 }
 
-bool fs_write(fs_handle file, const void* data, size_t size, size_t* count) {
+int fs_write(fs_handle file, const void* data, size_t size, size_t* count) {
   ssize_t result = write(file.fd, data, size);
-  if (result < 0 || result > SSIZE_MAX) {
+  if (result < 0) {
     *count = 0;
-    return false;
+    return check(result);
   } else {
-    *count = (size_t) result;
-    return true;
+    *count = result;
+    return FS_OK;
   }
 }
 
-bool fs_seek(fs_handle file, uint64_t offset) {
-  return lseek(file.fd, (off_t) offset, SEEK_SET) != (off_t) -1;
+int fs_seek(fs_handle file, uint64_t offset) {
+  return check(lseek(file.fd, (off_t) offset, SEEK_SET));
 }
 
-bool fs_fstat(fs_handle file, FileInfo* info) {
+int fs_fstat(fs_handle file, FileInfo* info) {
   struct stat stats;
-  if (fstat(file.fd, &stats)) {
-    return false;
-  }
-
+  int result = fstat(file.fd, &stats);
   info->size = (uint64_t) stats.st_size;
   info->lastModified = (uint64_t) stats.st_mtime;
   info->type = S_ISDIR(stats.st_mode) ? FILE_DIRECTORY : FILE_REGULAR;
-  return true;
+  return check(result);
 }
 
-void* fs_map(const char* path, size_t* size) {
+int fs_map(const char* path, void** pointer, size_t* size) {
+  int error;
+
   FileInfo info;
+  if ((error = fs_stat(path, &info)) != FS_OK) {
+    return error;
+  }
+
   fs_handle file;
-  if (!fs_stat(path, &info) || !fs_open(path, 'r', &file)) {
-    return NULL;
+  if ((error = fs_open(path, 'r', &file)) != FS_OK) {
+    return error;
   }
+
+  *pointer = mmap(NULL, info.size, PROT_READ, MAP_PRIVATE, file.fd, 0);
   *size = info.size;
-  void* data = mmap(NULL, *size, PROT_READ, MAP_PRIVATE, file.fd, 0);
   fs_close(file);
-  return data;
-}
 
-bool fs_unmap(void* data, size_t size) {
-  return munmap(data, size) == 0;
-}
-
-bool fs_stat(const char* path, FileInfo* info) {
-  struct stat stats;
-  if (stat(path, &stats)) {
-    return false;
+  if (*pointer == MAP_FAILED) {
+    return check(-1);
   }
 
+  return FS_OK;
+}
+
+int fs_unmap(void* data, size_t size) {
+  return check(munmap(data, size));
+}
+
+int fs_stat(const char* path, FileInfo* info) {
+  struct stat stats;
+  int result = stat(path, &stats);
   info->size = (uint64_t) stats.st_size;
   info->lastModified = (uint64_t) stats.st_mtime;
   info->type = S_ISDIR(stats.st_mode) ? FILE_DIRECTORY : FILE_REGULAR;
-  return true;
+  return check(result);
 }
 
-bool fs_remove(const char* path) {
-  return unlink(path) == 0 || rmdir(path) == 0;
-}
-
-bool fs_mkdir(const char* path) {
-  return mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) == 0;
-}
-
-bool fs_list(const char* path, fs_list_cb* callback, void* context) {
-  DIR* dir = opendir(path);
-  if (!dir) {
-    return false;
+int fs_remove(const char* path) {
+  if (unlink(path)) {
+    if (errno == EISDIR) {
+      return check(rmdir(path));
+    } else {
+      return check(-1);
+    }
   }
+  return FS_OK;
+}
+
+int fs_mkdir(const char* path) {
+  return check(mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH));
+}
+
+int fs_list(const char* path, fs_list_cb* callback, void* context) {
+  DIR* dir = opendir(path);
+  if (!dir) return check(-1);
 
   struct dirent* entry;
   while ((entry = readdir(dir)) != NULL) {
@@ -294,7 +361,7 @@ bool fs_list(const char* path, fs_list_cb* callback, void* context) {
   }
 
   closedir(dir);
-  return true;
+  return FS_OK;
 }
 
 #endif

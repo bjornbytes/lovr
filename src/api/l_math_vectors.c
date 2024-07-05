@@ -1,6 +1,7 @@
 #include "api.h"
 #include "core/maf.h"
 #include "util.h"
+#include <stdlib.h>
 
 #define EQ_THRESHOLD 1e-10f
 

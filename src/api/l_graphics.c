@@ -355,21 +355,18 @@ static int l_lovrGraphicsInitialize(lua_State* L) {
   }
   lua_pop(L, 2);
 
-  uint32_t defer = lovrDeferPush();
-
   if (shaderCache) {
     config.cacheData = luax_readfile(".lovrshadercache", &config.cacheSize);
-    lovrDefer(lovrFree, config.cacheData);
   }
 
-  lovrGraphicsInit(&config);
+  bool success = lovrGraphicsInit(&config);
+  lovrFree(config.cacheData);
+  luax_assert(L, success);
   luax_atexit(L, lovrGraphicsDestroy);
 
   if (shaderCache) { // Finalizers run in the opposite order they were added, so this has to go last
     luax_atexit(L, luax_writeshadercache);
   }
-
-  lovrDeferPop(defer);
 
   return 0;
 }
@@ -398,13 +395,7 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
   uint32_t count = 0;
 
   Pass* stack[8];
-  Pass** passes = stack;
-  uint32_t defer = lovrDeferPush();
-
-  if ((size_t) length > COUNTOF(stack)) {
-    passes = lovrMalloc(length * sizeof(Pass*));
-    lovrDefer(lovrFree, passes);
-  }
+  Pass** passes = (size_t) length > COUNTOF(stack) ? lovrMalloc(length * sizeof(Pass*)) : stack;
 
   if (table) {
     for (int i = 0; i < length; i++) {
@@ -422,19 +413,20 @@ static int l_lovrGraphicsSubmit(lua_State* L) {
     }
   }
 
-  lovrGraphicsSubmit(passes, count);
+  bool success = lovrGraphicsSubmit(passes, count);
+  if (passes != stack) lovrFree(passes);
+  luax_assert(L, success);
   lua_pushboolean(L, true);
-  lovrDeferPop(defer);
   return 1;
 }
 
 static int l_lovrGraphicsPresent(lua_State* L) {
-  lovrGraphicsPresent();
+  luax_assert(L, lovrGraphicsPresent());
   return 0;
 }
 
 static int l_lovrGraphicsWait(lua_State* L) {
-  lovrGraphicsWait();
+  luax_assert(L, lovrGraphicsWait());
   return 0;
 }
 
@@ -555,30 +547,32 @@ static int l_lovrGraphicsSetBackgroundColor(lua_State* L) {
 }
 
 static int l_lovrGraphicsGetWindowPass(lua_State* L) {
-  Pass* pass = lovrGraphicsGetWindowPass();
+  Pass* pass = NULL;
+  luax_assert(L, lovrGraphicsGetWindowPass(&pass));
   luax_pushtype(L, Pass, pass);
   return 1;
 }
 
 static int l_lovrGraphicsGetDefaultFont(lua_State* L) {
   Font* font = lovrGraphicsGetDefaultFont();
+  luax_assert(L, font);
   luax_pushtype(L, Font, font);
   return 1;
 }
 
 static uint32_t luax_checkbufferformat(lua_State* L, int index, DataField* fields, uint32_t* count, uint32_t max) {
-  lovrCheck(lua_istable(L, index), "Expected a table for field list");
+  luax_check(L, lua_istable(L, index), "Expected a table for field list");
 
   uint32_t length = luax_len(L, index);
-  lovrCheck(length > 0, "At least one field must be provided");
-  lovrCheck(*count + length <= max, "Too many buffer fields (maybe format contains a cycle?)");
+  luax_check(L, length > 0, "At least one field must be provided");
+  luax_check(L, *count + length <= max, "Too many buffer fields (maybe format contains a cycle?)");
   memset(fields + *count, 0, length * sizeof(DataField));
   DataField* field = fields + *count;
   *count += length;
 
   for (uint32_t i = 0; i < length; i++, field++) {
     lua_rawgeti(L, index, i + 1);
-    lovrCheck(lua_istable(L, -1), "Expected table for type info");
+    luax_check(L, lua_istable(L, -1), "Expected table for type info");
 
     lua_getfield(L, -1, "type");
     if (lua_isnil(L, -1)) lua_pop(L, 1), lua_rawgeti(L, -1, 2);
@@ -588,24 +582,24 @@ static uint32_t luax_checkbufferformat(lua_State* L, int index, DataField* field
     } else if (lua_type(L, -1) == LUA_TSTRING) {
       field->type = luax_checkdatatype(L, -1);
     } else {
-      lovrThrow("Buffer field type must be a string or a table");
+      luaL_error(L, "Buffer field type must be a string or a table");
     }
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "name");
     if (lua_isnil(L, -1)) lua_pop(L, 1), lua_rawgeti(L, -1, 1);
-    lovrCheck(lua_type(L, -1) == LUA_TSTRING, "Buffer fields must have a 'name' key");
+    luax_check(L, lua_type(L, -1) == LUA_TSTRING, "Buffer fields must have a 'name' key");
     field->name = lua_tostring(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, -1, "length");
     if (lua_isnil(L, -1)) lua_pop(L, 1), lua_rawgeti(L, -1, 3);
     if (!lua_isnil(L, -1)) {
-      lovrCheck(lua_type(L, -1) == LUA_TNUMBER, "Field lengths must be numbers");
+      luax_check(L, lua_type(L, -1) == LUA_TNUMBER, "Field lengths must be numbers");
       double number = lua_tonumber(L, -1);
       if (number < 0.) {
         // If it's a dynamic array, it must be the last field at the top level
-        lovrCheck(*count == length + 1 && i == length - 1, "Dynamic arrays must be the last field, and can not be nested");
+        luax_check(L, *count == length + 1 && i == length - 1, "Dynamic arrays must be the last field, and can not be nested");
         field->length = ~0u;
       } else {
         field->length = (uint32_t) number;
@@ -636,7 +630,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   if (type == LUA_TNUMBER) {
     info.size = luax_checku32(L, 1);
   } else if ((blob = luax_totype(L, 1, Blob)) != NULL) {
-    lovrCheck(blob->size < UINT32_MAX, "Blob is too big to create a Buffer");
+    luax_check(L, blob->size < UINT32_MAX, "Blob is too big to create a Buffer");
     info.size = (uint32_t) blob->size;
   } else if (type == LUA_TSTRING) {
     info.fieldCount = 1;
@@ -651,7 +645,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     lua_pop(L, 1);
 
     if (anonymous) {
-      lovrCheck(format->fieldCount < COUNTOF(format), "Too many buffer fields");
+      luax_check(L, format->fieldCount < COUNTOF(format), "Too many buffer fields");
       info.fieldCount = format->fieldCount + 1;
 
       for (uint32_t i = 1; i <= format->fieldCount; i++) {
@@ -722,7 +716,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
         case LUA_TTABLE:
           lua_rawgeti(L, 2, 1);
           if (lua_type(L, -1) == LUA_TNUMBER) {
-            lovrCheck(format->fieldCount <= 1, "Struct data must be provided as a table of tables");
+            luax_check(L, format->fieldCount <= 1, "Struct data must be provided as a table of tables");
             DataType type = format->fieldCount == 0 ? format->type : format->fields[0].type;
             format->length = luax_len(L, -2) / luax_gettablestride(L, type);
           } else {
@@ -733,7 +727,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
           break;
         default:
           if ((blob = luax_totype(L, 2, Blob)) != NULL) {
-            lovrCheck(blob->size < UINT32_MAX, "Blob is too big to create a Buffer (max size is 1GB)");
+            luax_check(L, blob->size < UINT32_MAX, "Blob is too big to create a Buffer (max size is 1GB)");
             info.size = (uint32_t) blob->size;
             format->length = info.size / format->stride;
             break;
@@ -762,13 +756,6 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   return 1;
 }
 
-static void freeImages(void* arg) {
-  TextureInfo* info = arg;
-  for (uint32_t i = 0; i < info->imageCount; i++) {
-    lovrRelease(info->images[i], lovrImageDestroy);
-  }
-}
-
 static int l_lovrGraphicsNewTexture(lua_State* L) {
   TextureInfo info = {
     .type = TEXTURE_2D,
@@ -782,7 +769,6 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   int index = 1;
   Image* stack[6];
   Image** images = stack;
-  uint32_t defer = lovrDeferPush();
 
   if (lua_isnumber(L, 1)) {
     info.width = luax_checku32(L, index++);
@@ -794,18 +780,12 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     info.usage |= TEXTURE_RENDER;
     info.mipmaps = 1;
   } else if (lua_istable(L, 1)) {
-    int tableLength = luax_len(L, index++);
+    info.imageCount = luax_len(L, index++);
+    images = info.imageCount > COUNTOF(stack) ? lovrMalloc(info.imageCount * sizeof(Image*)) : stack;
 
-    if ((size_t) tableLength > COUNTOF(stack)) {
-      images = lovrMalloc(tableLength * sizeof(Image*));
-      lovrDefer(lovrFree, images);
-    }
-
-    info.images = images;
-    lovrDefer(freeImages, &info);
-
-    if (tableLength == 0) {
+    if (info.imageCount == 0) {
       info.layers = 6;
+      info.imageCount = 6;
       info.type = TEXTURE_CUBE;
       const char* faces[6] = { "right", "left", "top", "bottom", "back", "front" };
       const char* altFaces[6] = { "px", "nx", "py", "ny", "pz", "nz" };
@@ -817,13 +797,13 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
           lua_pushstring(L, altFaces[i]);
           lua_rawget(L, 1);
         }
-        lovrCheck(!lua_isnil(L, -1), "No array texture layers given and cubemap face '%s' missing", faces[i]);
-        images[info.imageCount++] = luax_checkimage(L, -1);
+        luax_check(L, !lua_isnil(L, -1), "No array texture layers given and cubemap face '%s' missing", faces[i]);
+        images[i] = luax_checkimage(L, -1);
       }
     } else {
-      for (int i = 0; i < tableLength; i++) {
-        lua_rawgeti(L, 1, i + 1);
-        images[info.imageCount++] = luax_checkimage(L, -1);
+      for (uint32_t i = 0; i < info.imageCount; i++) {
+        lua_rawgeti(L, 1, (int) i + 1);
+        images[i] = luax_checkimage(L, -1);
         lua_pop(L, 1);
       }
 
@@ -843,6 +823,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   if (info.imageCount > 0) {
+    info.images = images;
     Image* image = images[0];
     uint32_t levels = lovrImageGetLevelCount(image);
     info.format = lovrImageGetFormat(image);
@@ -852,11 +833,11 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     bool mipmappable = lovrGraphicsGetFormatSupport(info.format, TEXTURE_FEATURE_BLIT) & (1 << info.srgb);
     info.mipmaps = (levels == 1 && mipmappable) ? ~0u : levels;
     for (uint32_t i = 1; i < info.imageCount; i++) {
-      lovrCheck(lovrImageGetWidth(images[0], 0) == lovrImageGetWidth(images[i], 0), "Image widths must match");
-      lovrCheck(lovrImageGetHeight(images[0], 0) == lovrImageGetHeight(images[i], 0), "Image heights must match");
-      lovrCheck(lovrImageGetFormat(images[0]) == lovrImageGetFormat(images[i]), "Image formats must match");
-      lovrCheck(lovrImageGetLevelCount(images[0]) == lovrImageGetLevelCount(images[i]), "Image mipmap counts must match");
-      lovrCheck(lovrImageGetLayerCount(images[i]) == 1, "When a list of images are provided, each must have a single layer");
+      luax_check(L, lovrImageGetWidth(images[0], 0) == lovrImageGetWidth(images[i], 0), "Image widths must match");
+      luax_check(L, lovrImageGetHeight(images[0], 0) == lovrImageGetHeight(images[i], 0), "Image heights must match");
+      luax_check(L, lovrImageGetFormat(images[0]) == lovrImageGetFormat(images[i]), "Image formats must match");
+      luax_check(L, lovrImageGetLevelCount(images[0]) == lovrImageGetLevelCount(images[i]), "Image mipmap counts must match");
+      luax_check(L, lovrImageGetLayerCount(images[i]) == 1, "When a list of images are provided, each must have a single layer");
     }
   }
 
@@ -884,7 +865,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     } else {
       info.mipmaps = (info.imageCount == 0 || !mipmappable) ? 1 : ~0u;
     }
-    lovrCheck(info.imageCount == 0 || info.mipmaps == 1 || mipmappable, "This texture format does not support blitting, which is required for mipmap generation");
+    luax_check(L, info.imageCount == 0 || info.mipmaps == 1 || mipmappable, "This texture format does not support blitting, which is required for mipmap generation");
     lua_pop(L, 1);
 
     lua_getfield(L, index, "usage");
@@ -914,9 +895,18 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
   }
 
   Texture* texture = lovrTextureCreate(&info);
+
+  for (uint32_t i = 0; i < info.imageCount; i++) {
+    lovrRelease(images[i], lovrImageDestroy);
+  }
+
+  if (images != stack) {
+    lovrFree(images);
+  }
+
+  luax_assert(L, texture);
   luax_pushtype(L, Texture, texture);
   lovrRelease(texture, lovrTextureDestroy);
-  lovrDeferPop(defer);
   return 1;
 }
 
@@ -952,6 +942,7 @@ static int l_lovrGraphicsNewTextureView(lua_State* L) {
   lua_pop(L, 1);
 
   Texture* view = lovrTextureCreateView(texture, &info);
+  luax_assert(L, view);
   luax_pushtype(L, Texture, view);
   lovrRelease(view, lovrTextureDestroy);
   return 1;
@@ -980,7 +971,7 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
     info.mip = luax_checkenum(L, -1, FilterMode, NULL);
     lua_pop(L, 3);
   } else if (!lua_isnil(L, -1)) {
-    lovrThrow("Expected string or table for Sampler filter");
+    luaL_error(L, "Expected string or table for Sampler filter");
   }
   lua_pop(L, 1);
 
@@ -996,7 +987,7 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
     info.wrap[2] = luax_checkenum(L, -1, WrapMode, NULL);
     lua_pop(L, 3);
   } else if (!lua_isnil(L, -1)) {
-    lovrThrow("Expected string or table for Sampler wrap");
+    luaL_error(L, "Expected string or table for Sampler wrap");
   }
   lua_pop(L, 1);
 
@@ -1010,7 +1001,7 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
 
   lua_getfield(L, 1, "mipmaprange");
   if (!lua_isnil(L, -1)) {
-    lovrCheck(lua_istable(L, -1), "Sampler mipmap range must be nil or a table");
+    luax_check(L, lua_istable(L, -1), "Sampler mipmap range must be nil or a table");
     lua_rawgeti(L, -1, 1);
     lua_rawgeti(L, -2, 2);
     info.range[0] = luax_checkfloat(L, -2);
@@ -1020,6 +1011,7 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
   lua_pop(L, 1);
 
   Sampler* sampler = lovrSamplerCreate(&info);
+  luax_assert(L, sampler);
   luax_pushtype(L, Sampler, sampler);
   lovrRelease(sampler, lovrSamplerDestroy);
   return 1;
@@ -1074,7 +1066,13 @@ static int l_lovrGraphicsCompileShader(lua_State* L) {
     count = 2;
   }
 
-  lovrGraphicsCompileShader(inputs, outputs, count, luax_readfile, false);
+  if (!lovrGraphicsCompileShader(inputs, outputs, count, luax_readfile, false)) {
+    for (uint32_t i = 0; i < count; i++) {
+      if (shouldFree[i]) lovrFree((void*) inputs[i].code);
+    }
+    luax_throw(L);
+    return 0;
+  }
 
   for (uint32_t i = 0; i < count; i++) {
     if (shouldFree[i] && outputs[i].code != inputs[i].code) lovrFree((void*) inputs[i].code);
@@ -1109,6 +1107,10 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
   arr_init(&flags);
 
   if (lua_istable(L, index)) {
+    lua_getfield(L, index, "type");
+    info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, ShaderType, NULL);
+    lua_pop(L, 1);
+
     lua_getfield(L, index, "flags");
     if (!lua_isnil(L, -1)) {
       luaL_checktype(L, -1, LUA_TTABLE);
@@ -1119,18 +1121,23 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
         switch (lua_type(L, -2)) {
           case LUA_TSTRING: flag.name = lua_tostring(L, -2); break;
           case LUA_TNUMBER: flag.id = lua_tointeger(L, -2); break;
-          default: lovrThrow("Unexpected ShaderFlag key type (%s)", lua_typename(L, lua_type(L, -2)));
+          default: luaL_error(L, "Unexpected ShaderFlag key type (%s)", lua_typename(L, lua_type(L, -2)));
         }
         arr_push(&flags, flag);
         lua_pop(L, 1);
       }
 
-      lovrCheck(flags.length < 1000, "Too many Shader flags");
+      info.flags = flags.data;
+      info.flagCount = (uint32_t) flags.length;
+      if (flags.length >= 1000) {
+        for (uint32_t i = 0; i < info.stageCount; i++) {
+          if (shouldFree[i]) lovrFree((void*) source[i].code);
+        }
+        arr_free(&flags);
+        luaL_error(L, "Too many shader flags");
+        return 0;
+      }
     }
-    lua_pop(L, 1);
-
-    lua_getfield(L, index, "type");
-    info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, ShaderType, NULL);
     lua_pop(L, 1);
 
     lua_getfield(L, index, "raw");
@@ -1142,21 +1149,26 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  lovrGraphicsCompileShader(source, compiled, info.stageCount, luax_readfile, info.raw);
-
-  info.flags = flags.data;
-  info.flagCount = (uint32_t) flags.length;
+  if (!lovrGraphicsCompileShader(source, compiled, info.stageCount, luax_readfile, info.raw)) {
+    for (uint32_t i = 0; i < info.stageCount; i++) {
+      if (shouldFree[i]) lovrFree((void*) source[i].code);
+    }
+    arr_free(&flags);
+    luax_throw(L);
+    return 0;
+  }
 
   Shader* shader = lovrShaderCreate(&info);
-  luax_pushtype(L, Shader, shader);
-  lovrRelease(shader, lovrShaderDestroy);
 
   for (uint32_t i = 0; i < info.stageCount; i++) {
     if (shouldFree[i]) lovrFree((void*) source[i].code);
     if (source[i].code != compiled[i].code) lovrFree((void*) compiled[i].code);
   }
-
   arr_free(&flags);
+
+  luax_assert(L, shader);
+  luax_pushtype(L, Shader, shader);
+  lovrRelease(shader, lovrShaderDestroy);
   return 1;
 }
 
@@ -1183,10 +1195,9 @@ static Texture* luax_opttexture(lua_State* L, int index) {
     .images = &image
   };
 
-  uint32_t defer = lovrDeferPush();
-  lovrDeferRelease(image, lovrImageDestroy);
   texture = lovrTextureCreate(&info);
-  lovrDeferPop(defer);
+  lovrRelease(image, lovrImageDestroy);
+  luax_assert(L, texture);
   return texture;
 }
 
@@ -1304,6 +1315,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
   lua_pop(L, 1);
 
   Material* material = lovrMaterialCreate(&info);
+  luax_assert(L, material);
   luax_pushtype(L, Material, material);
   lovrRelease(material, lovrMaterialDestroy);
   return 1;
@@ -1314,8 +1326,6 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
 
   info.rasterizer = luax_totype(L, 1, Rasterizer);
   info.spread = 4.;
-
-  uint32_t defer = lovrDeferPush();
 
   if (!info.rasterizer) {
     Blob* blob = NULL;
@@ -1328,19 +1338,20 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
       blob = luax_readblob(L, 1, "Font");
       size = luax_optfloat(L, 2, 32.);
       info.spread = luaL_optnumber(L, 3, info.spread);
-      lovrDeferRelease(blob, lovrBlobDestroy);
     }
 
     info.rasterizer = lovrRasterizerCreate(blob, size, luax_readfile);
-    lovrDeferRelease(info.rasterizer, lovrRasterizerDestroy);
+    lovrRelease(blob, lovrBlobDestroy);
   } else {
     info.spread = luaL_optnumber(L, 2, info.spread);
+    lovrRetain(info.rasterizer);
   }
 
   Font* font = lovrFontCreate(&info);
+  lovrRelease(info.rasterizer, lovrRasterizerDestroy);
+  luax_assert(L, font);
   luax_pushtype(L, Font, font);
   lovrRelease(font, lovrFontDestroy);
-  lovrDeferPop(defer);
   return 1;
 }
 
@@ -1359,22 +1370,22 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
       if (lua_type(L, -2) == LUA_TSTRING || lua_type(L, -1) == LUA_TSTRING) {
         info.vertexFormat = format;
         format[0] = (DataField) { .fields = format + 1, .fieldCount = luax_len(L, 1) };
-        lovrCheck(format->fieldCount + 1 <= COUNTOF(stack), "Mesh has too many vertex attributes (max is %d)", COUNTOF(stack) - 1);
+        luax_check(L, format->fieldCount + 1 <= COUNTOF(stack), "Mesh has too many vertex attributes (max is %d)", COUNTOF(stack) - 1);
         for (uint32_t i = 0; i < format->fieldCount; i++) {
           lua_rawgeti(L, 1, i + 1);
-          lovrCheck(lua_istable(L, -1), "Expected table of tables");
+          luax_check(L, lua_istable(L, -1), "Expected table of tables");
           DataField* attribute = &format->fields[i];
           memset(attribute, 0, sizeof(*attribute));
 
           lua_getfield(L, -1, "name");
           if (lua_isnil(L, -1)) lua_pop(L, 1), lua_rawgeti(L, -1, 1);
-          lovrCheck(lua_type(L, -1) == LUA_TSTRING, "Mesh attribute must have 'name' key");
+          luax_check(L, lua_type(L, -1) == LUA_TSTRING, "Mesh attribute must have 'name' key");
           attribute->name = lua_tostring(L, -1);
           lua_pop(L, 1);
 
           lua_getfield(L, -1, "type");
           if (lua_isnil(L, -1)) lua_pop(L, 1), lua_rawgeti(L, -1, 2);
-          lovrCheck(lua_type(L, -1) == LUA_TSTRING, "Mesh attribute must have 'type' key");
+          luax_check(L, lua_type(L, -1) == LUA_TSTRING, "Mesh attribute must have 'type' key");
           attribute->type = luax_checkdatatype(L, -1);
           lua_pop(L, 1);
 
@@ -1419,8 +1430,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     case LUA_TUSERDATA:
       if ((info.vertexBuffer = luax_totype(L, index, Buffer)) != NULL) break;
       if ((blob = luax_totype(L, index, Blob)) != NULL) {
-        lovrCheck(blob->size % format->stride == 0, "Blob size must be a multiple of vertex size");
-        lovrCheck(blob->size < UINT32_MAX, "Max Blob size is 4GB");
+        luax_check(L, blob->size % format->stride == 0, "Blob size must be a multiple of vertex size");
+        luax_check(L, blob->size < UINT32_MAX, "Max Blob size is 4GB");
         format->length = (uint32_t) (blob->size / format->stride);
         hasData = true;
         break;
@@ -1436,6 +1447,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
 
   void* vertices = NULL;
   Mesh* mesh = lovrMeshCreate(&info, hasData ? &vertices : NULL);
+  luax_assert(L, mesh);
 
   if (blob) {
     memcpy(vertices, blob->data, blob->size);
@@ -1454,13 +1466,12 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   info.materials = true;
   info.mipmaps = true;
 
-  uint32_t defer = lovrDeferPush();
-
   if (!info.data) {
     Blob* blob = luax_readblob(L, 1, "Model");
-    lovrDeferRelease(blob, lovrBlobDestroy);
     info.data = lovrModelDataCreate(blob, luax_readfile);
-    lovrDeferRelease(info.data, lovrModelDataDestroy);
+    lovrRelease(blob, lovrBlobDestroy);
+  } else {
+    lovrRetain(info.data);
   }
 
   if (lua_istable(L, 2)) {
@@ -1474,9 +1485,10 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
   }
 
   Model* model = lovrModelCreate(&info);
+  lovrRelease(info.data, lovrModelDataDestroy);
+  luax_assert(L, model);
   luax_pushtype(L, Model, model);
   lovrRelease(model, lovrModelDestroy);
-  lovrDeferPop(defer);
   return 1;
 }
 

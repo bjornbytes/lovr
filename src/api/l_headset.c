@@ -92,7 +92,7 @@ static Device luax_optdevice(lua_State* L, int index) {
 }
 
 static int l_lovrHeadsetStart(lua_State* L) {
-  lovrHeadsetInterface->start();
+  luax_assert(L, lovrHeadsetInterface->start());
   return 0;
 }
 
@@ -156,7 +156,7 @@ static int l_lovrHeadsetGetRefreshRate(lua_State* L) {
 
 static int l_lovrHeadsetSetRefreshRate(lua_State* L) {
   float refreshRate = luax_checkfloat(L, 1);
-  bool success = lovrHeadsetInterface->setRefreshRate ? lovrHeadsetInterface->setRefreshRate(refreshRate) : false;
+  bool success = lovrHeadsetInterface->setRefreshRate(refreshRate);
   lua_pushboolean(L, success);
   return 1;
 }
@@ -545,11 +545,8 @@ static int l_lovrHeadsetVibrate(lua_State* L) {
   float strength = luax_optfloat(L, 2, 1.f);
   float duration = luax_optfloat(L, 3, .5f);
   float frequency = luax_optfloat(L, 4, 0.f);
-  if (lovrHeadsetInterface->vibrate(device, strength, duration, frequency)) {
-    lua_pushboolean(L, true);
-    return 1;
-  }
-  lua_pushboolean(L, false);
+  bool success = lovrHeadsetInterface->vibrate(device, strength, duration, frequency);
+  lua_pushboolean(L, success);
   return 1;
 }
 
@@ -573,12 +570,11 @@ static int l_lovrHeadsetNewModel(lua_State* L) {
 
   if (modelData) {
     ModelInfo info = { .data = modelData, .mipmaps = true };
-    uint32_t defer = lovrDeferPush();
-    lovrDeferRelease(info.data, lovrModelDataDestroy);
     Model* model = lovrModelCreate(&info);
+    lovrRelease(modelData, lovrModelDataDestroy);
+    luax_assert(L, model);
     luax_pushtype(L, Model, model);
     lovrRelease(model, lovrModelDestroy);
-    lovrDeferPop(defer);
     return 1;
   }
 
@@ -607,7 +603,7 @@ static int l_lovrHeadsetSetLayers(lua_State* L) {
   uint32_t count = 0;
   if (lua_type(L, 1) == LUA_TTABLE) {
     count = luax_len(L, 1);
-    lovrCheck(count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
+    luax_check(L, count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
     for (uint32_t i = 0; i < count; i++) {
       lua_rawgeti(L, 1, (int) i + 1);
       layers[i] = luax_checktype(L, -1, Layer);
@@ -615,12 +611,13 @@ static int l_lovrHeadsetSetLayers(lua_State* L) {
     }
   } else {
     count = lua_gettop(L);
-    lovrCheck(count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
+    luax_check(L, count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
     for (uint32_t i = 0; i < count; i++) {
       layers[i] = luax_checktype(L, (int) i + 1, Layer);
     }
   }
-  lovrHeadsetInterface->setLayers(layers, count);
+  bool success = lovrHeadsetInterface->setLayers(layers, count);
+  luax_assert(L, success);
   return 0;
 }
 
@@ -628,25 +625,30 @@ static int l_lovrHeadsetNewLayer(lua_State* L) {
   uint32_t width = luax_checku32(L, 1);
   uint32_t height = luax_checku32(L, 2);
   Layer* layer = lovrHeadsetInterface->newLayer(width, height);
+  luax_assert(L, layer);
   luax_pushtype(L, Layer, layer);
-  lovrRelease(layer, lovrHeadsetInterface->destroyLayer);
+  lovrRelease(layer, lovrLayerDestroy);
   return 1;
 }
 
 static int l_lovrHeadsetGetTexture(lua_State* L) {
-  Texture* texture = lovrHeadsetInterface->getTexture();
+  Texture* texture = NULL;
+  bool success = lovrHeadsetInterface->getTexture(&texture);
+  luax_assert(L, success);
   luax_pushtype(L, Texture, texture);
   return 1;
 }
 
 static int l_lovrHeadsetGetPass(lua_State* L) {
-  Pass* pass = lovrHeadsetInterface->getPass();
+  Pass* pass = NULL;
+  bool success = lovrHeadsetInterface->getPass(&pass);
+  luax_assert(L, success);
   luax_pushtype(L, Pass, pass);
   return 1;
 }
 
 static int l_lovrHeadsetSubmit(lua_State* L) {
-  lovrHeadsetInterface->submit();
+  luax_assert(L, lovrHeadsetInterface->submit());
   return 0;
 }
 
@@ -669,7 +671,7 @@ static int l_lovrHeadsetUpdate(lua_State* L) {
   double dt = 0.;
 
   if (lovrHeadsetInterface->update) {
-    dt = lovrHeadsetInterface->update();
+    luax_assert(L, lovrHeadsetInterface->update(&dt));
   }
 
   lua_pushnumber(L, dt);
@@ -811,7 +813,7 @@ int luaopen_lovr_headset(lua_State* L) {
         }
 
         config.drivers[config.driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
-        lovrCheck(config.driverCount < COUNTOF(drivers), "Too many headset drivers specified in conf.lua");
+        luax_check(L, config.driverCount < COUNTOF(drivers), "Too many headset drivers specified in conf.lua");
         lua_pop(L, 1);
       }
       lua_pop(L, 1);
@@ -850,6 +852,6 @@ int luaopen_lovr_headset(lua_State* L) {
   lua_pop(L, 1);
 
   luax_atexit(L, lovrHeadsetDestroy);
-  lovrHeadsetInit(&config);
+  luax_assert(L, lovrHeadsetInit(&config));
   return 1;
 }

@@ -24,12 +24,12 @@ static int l_lovrBlobGetString(lua_State* L) {
   Blob* blob = luax_checktype(L, 1, Blob);
 
   lua_Integer offset = luaL_optinteger(L, 2, 0);
-  lovrCheck(offset >= 0, "Blob byte offset can not be negative");
-  lovrCheck((size_t) offset < blob->size, "Blob byte offset must be less than the size of the Blob");
+  luax_check(L, offset >= 0, "Blob byte offset can not be negative");
+  luax_check(L, (size_t) offset < blob->size, "Blob byte offset must be less than the size of the Blob");
 
   lua_Integer length = luaL_optinteger(L, 3, blob->size - offset);
-  lovrCheck(length >= 0, "Length can not be negative");
-  lovrCheck((size_t) length <= blob->size - offset, "Blob:getString range overflows the size of the Blob");
+  luax_check(L, length >= 0, "Length can not be negative");
+  luax_check(L, (size_t) length <= blob->size - offset, "Blob:getString range overflows the size of the Blob");
 
   lua_pushlstring(L, (char*) blob->data + offset, (size_t) length);
   return 1;
@@ -38,11 +38,11 @@ static int l_lovrBlobGetString(lua_State* L) {
 #define l_lovrBlobGet(L, T)\
   Blob* blob = luax_checktype(L, 1, Blob);\
   lua_Integer offset = luaL_optinteger(L, 2, 0);\
-  lovrCheck(offset >= 0, "Blob byte offset can not be negative");\
-  lovrCheck((size_t) offset < blob->size, "Blob byte offset must be less than the size of the Blob");\
+  luax_check(L, offset >= 0, "Blob byte offset can not be negative");\
+  luax_check(L, (size_t) offset < blob->size, "Blob byte offset must be less than the size of the Blob");\
   lua_Integer count = luaL_optinteger(L, 3, 1);\
-  lovrCheck(count > 0, "Count must be greater than zero");\
-  lovrCheck((size_t) count * sizeof(T) <= blob->size - (size_t) offset, "Byte range overflows the size of the Blob");\
+  luax_check(L, count > 0, "Count must be greater than zero");\
+  luax_check(L, (size_t) count * sizeof(T) <= blob->size - (size_t) offset, "Byte range overflows the size of the Blob");\
   const T* data = (const T*) ((char*) blob->data + offset);\
   for (lua_Integer i = 0; i < count; i++) lua_pushnumber(L, (lua_Number) data[i]);\
   return count;

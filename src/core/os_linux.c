@@ -110,7 +110,8 @@ void os_set_clipboard_text(const char* text) {
 #endif
 
 void* os_vm_init(size_t size) {
-  return mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  void* pointer = mmap(NULL, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  return pointer == MAP_FAILED ? NULL : pointer;
 }
 
 bool os_vm_free(void* p, size_t size) {

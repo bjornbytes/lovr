@@ -18,7 +18,7 @@ typedef enum {
 
 bool lovrFilesystemInit(void);
 void lovrFilesystemDestroy(void);
-void lovrFilesystemSetSource(const char* source);
+bool lovrFilesystemSetSource(const char* source);
 const char* lovrFilesystemGetSource(void);
 bool lovrFilesystemIsFused(void);
 void lovrFilesystemWatch(void);
@@ -28,8 +28,8 @@ bool lovrFilesystemUnmount(const char* path);
 const char* lovrFilesystemGetRealDirectory(const char* path);
 bool lovrFilesystemIsFile(const char* path);
 bool lovrFilesystemIsDirectory(const char* path);
-uint64_t lovrFilesystemGetSize(const char* path);
-uint64_t lovrFilesystemGetLastModified(const char* path);
+bool lovrFilesystemGetSize(const char* path, uint64_t* size);
+bool lovrFilesystemGetLastModified(const char* path, uint64_t* modtime);
 void* lovrFilesystemRead(const char* path, size_t* size);
 void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* context, const char* path), void* context);
 const char* lovrFilesystemGetIdentity(void);
@@ -59,11 +59,11 @@ typedef enum {
   OPEN_APPEND
 } OpenMode;
 
-File* lovrFileCreate(const char* path, OpenMode mode, const char** error);
+File* lovrFileCreate(const char* path, OpenMode mode);
 void lovrFileDestroy(void* ref);
 const char* lovrFileGetPath(File* file);
 OpenMode lovrFileGetMode(File* file);
-uint64_t lovrFileGetSize(File* file);
+bool lovrFileGetSize(File* file, uint64_t* size);
 bool lovrFileRead(File* file, void* data, size_t size, size_t* count);
 bool lovrFileWrite(File* file, const void* data, size_t size, size_t* count);
 bool lovrFileSeek(File* file, uint64_t offset);

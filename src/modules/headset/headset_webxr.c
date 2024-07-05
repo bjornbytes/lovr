@@ -1,7 +1,7 @@
 #include "headset/headset.h"
 
 extern bool webxr_init(HeadsetConfig* config);
-extern void webxr_start(void);
+extern bool webxr_start(void);
 extern void webxr_stop(void);
 extern void webxr_destroy(void);
 extern bool webxr_getDriverName(char* name, size_t length);
@@ -33,13 +33,13 @@ extern bool webxr_vibrate(Device device, float strength, float duration, float f
 extern void webxr_stopVibration(Device device);
 extern struct ModelData* webxr_newModelData(Device device, bool animated);
 extern bool webxr_animate(struct Model* model);
-extern struct Texture* webxr_getTexture(void);
-extern struct Pass* webxr_getPass(void);
-extern void webxr_submit(void);
+extern bool webxr_getTexture(Texture** texture);
+extern bool webxr_getPass(Pass** pass);
+extern bool webxr_submit(void);
 extern bool webxr_isVisible(void);
 extern bool webxr_isFocused(void);
 extern bool webxr_isMounted(void);
-extern double webxr_update(void);
+extern bool webxr_update(double* dt);
 
 static bool webxrAttached = false;
 static HeadsetInterface* previousHeadsetDriver;

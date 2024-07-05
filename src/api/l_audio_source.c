@@ -6,6 +6,7 @@
 static int l_lovrSourceClone(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   Source* clone = lovrSourceClone(source);
+  luax_assert(L, clone);
   luax_pushtype(L, Source, clone);
   lovrRelease(clone, lovrSourceDestroy);
   return 1;
@@ -51,7 +52,8 @@ static int l_lovrSourceIsLooping(lua_State* L) {
 
 static int l_lovrSourceSetLooping(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  lovrSourceSetLooping(source, lua_toboolean(L, 2));
+  bool success = lovrSourceSetLooping(source, lua_toboolean(L, 2));
+  luax_assert(L, success);
   return 0;
 }
 
@@ -63,7 +65,8 @@ static int l_lovrSourceGetPitch(lua_State* L) {
 
 static int l_lovrSourceSetPitch(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  lovrSourceSetPitch(source, luax_checkfloat(L, 2));
+  bool success = lovrSourceSetPitch(source, luax_checkfloat(L, 2));
+  luax_assert(L, success);
   return 0;
 }
 
@@ -212,7 +215,8 @@ static int l_lovrSourceSetEffectEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   Effect effect = luax_checkenum(L, 2, Effect, NULL);
   bool enabled = lua_isnoneornil(L, -1) ? true : lua_toboolean(L, -1);
-  lovrSourceSetEffectEnabled(source, effect, enabled);
+  bool success = lovrSourceSetEffectEnabled(source, effect, enabled);
+  luax_assert(L, success);
   return 0;
 }
 
