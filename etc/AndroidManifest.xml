@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.lovr.app" android:installLocation="auto" android:versionCode="1">
-  <uses-sdk android:minSdkVersion="32" android:targetSdkVersion="32"/>
+  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
   <uses-feature android:name="android.hardware.vulkan.version" android:version="0x00401000" android:required="true"/>
   <uses-feature android:name="android.hardware.vr.headtracking" android:required="false"/>
   <!-- Oculus -->
@@ -15,6 +15,7 @@
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
   <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="com.magicleap.permission.HAND_TRACKING" />
 
   <!-- Khronos/Generic -->
   <uses-permission android:name="org.khronos.openxr.permission.OPENXR"/>
