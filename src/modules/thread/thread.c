@@ -123,6 +123,9 @@ void lovrThreadDestroy(void* ref) {
   Thread* thread = ref;
   mtx_destroy(&thread->lock);
   if (thread->handle) thrd_detach(thread->handle);
+  for (uint32_t i = 0; i < thread->argumentCount; i++) {
+    lovrVariantDestroy(&thread->arguments[i]);
+  }
   lovrRelease(thread->body, lovrBlobDestroy);
   lovrFree(thread->error);
   lovrFree(thread);
@@ -137,6 +140,10 @@ void lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount)
 
   lovrFree(thread->error);
   thread->error = NULL;
+
+  for (uint32_t i = 0; i < thread->argumentCount; i++) {
+    lovrVariantDestroy(&thread->arguments[i]);
+  }
 
   lovrCheck(argumentCount <= MAX_THREAD_ARGUMENTS, "Too many Thread arguments (max is %d)", MAX_THREAD_ARGUMENTS);
   memcpy(thread->arguments, arguments, argumentCount * sizeof(Variant));
