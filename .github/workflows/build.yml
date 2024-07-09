@@ -147,7 +147,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: lovr64.apk
-          path: build/lovr64.apk
+          path: build/lovr.apk
 
   macos:
     name: macOS
