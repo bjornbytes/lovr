@@ -5408,24 +5408,24 @@ void lovrPassSetCanvas(Pass* pass, Texture* textures[4], Texture* depthTexture, 
   canvas->depth.texture = NULL;
   canvas->depth.format = 0;
 
-  const TextureInfo* t = textures[0] ? &textures[0]->info : &depthTexture->info;
-
-  if (textures[0] || depthTexture) {
-    canvas->width = t->width;
-    canvas->height = t->height;
-    canvas->views = t->layers;
-    lovrCheck(t->width <= state.limits.renderSize[0], "Pass canvas width (%d) exceeds the renderSize limit of this GPU (%d)", t->width, state.limits.renderSize[0]);
-    lovrCheck(t->height <= state.limits.renderSize[1], "Pass canvas height (%d) exceeds the renderSize limit of this GPU (%d)", t->height, state.limits.renderSize[1]);
-    lovrCheck(t->layers <= state.limits.renderSize[2], "Pass canvas layer count (%d) exceeds the renderSize limit of this GPU (%d)", t->layers, state.limits.renderSize[2]);
-    lovrCheck(samples == 1 || samples == 4, "Currently MSAA must be 1 or 4");
-    canvas->samples = samples;
-    canvas->resolve = samples > 1;
-  } else {
+  if (!textures[0] && !depthTexture) {
     memset(canvas, 0, sizeof(Canvas));
     pass->gpu = NULL;
     lovrPassReset(pass);
     return;
   }
+
+  const TextureInfo* t = textures[0] ? &textures[0]->info : &depthTexture->info;
+
+  canvas->width = t->width;
+  canvas->height = t->height;
+  canvas->views = t->layers;
+  lovrCheck(t->width <= state.limits.renderSize[0], "Pass canvas width (%d) exceeds the renderSize limit of this GPU (%d)", t->width, state.limits.renderSize[0]);
+  lovrCheck(t->height <= state.limits.renderSize[1], "Pass canvas height (%d) exceeds the renderSize limit of this GPU (%d)", t->height, state.limits.renderSize[1]);
+  lovrCheck(t->layers <= state.limits.renderSize[2], "Pass canvas layer count (%d) exceeds the renderSize limit of this GPU (%d)", t->layers, state.limits.renderSize[2]);
+  lovrCheck(samples == 1 || samples == 4, "Currently MSAA must be 1 or 4");
+  canvas->samples = samples;
+  canvas->resolve = samples > 1;
 
   for (uint32_t i = 0; i < COUNTOF(canvas->color) && textures[i]; i++, canvas->count++) {
     const TextureInfo* texture = &textures[i]->info;
