@@ -2932,7 +2932,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     spv[i].attributes = tempAlloc(&state.allocator, spv[i].attributeCount * sizeof(spv_attribute));
     spv[i].resources = tempAlloc(&state.allocator, spv[i].resourceCount * sizeof(spv_resource));
     spv[i].fields = tempAlloc(&state.allocator, spv[i].fieldCount * sizeof(spv_field));
-    memset(spv[i].fields, 0, spv[i].fieldCount * sizeof(spv_field));
+    if (spv[i].fields) memset(spv[i].fields, 0, spv[i].fieldCount * sizeof(spv_field));
 
     result = spv_parse(source[i], info->stages[i].size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
@@ -7351,7 +7351,7 @@ void lovrPassSetTallyBuffer(Pass* pass, Buffer* buffer, uint32_t offset) {
 void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* indirect, uint32_t offset) {
   if ((pass->computeCount & (pass->computeCount - 1)) == 0) {
     Compute* computes = lovrPassAllocate(pass, MAX(pass->computeCount << 1, 1) * sizeof(Compute));
-    memcpy(computes, pass->computes, pass->computeCount * sizeof(Compute));
+    if (pass->computes) memcpy(computes, pass->computes, pass->computeCount * sizeof(Compute));
     pass->computes = computes;
   }
 
