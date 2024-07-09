@@ -836,6 +836,7 @@ void lovrColliderDestruct(Collider* collider) {
     shape->next = NULL;
     shape->index = ~0u;
     lovrShapeDestruct(shape);
+    lovrRelease(shape, lovrShapeDestroy);
     shape = next;
   }
 
