@@ -2252,9 +2252,8 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
         .source = texture->gpu,
         .type = (gpu_texture_type) info->type,
         .usage = GPU_TEXTURE_SAMPLE,
-        .aspect = GPU_ASPECT_DEPTH,
-        .layerCount = info->layers,
-        .levelCount = 1
+        .srgb = srgb,
+        .aspect = GPU_ASPECT_DEPTH
       });
     } else {
       texture->sampleView = texture->gpu;
