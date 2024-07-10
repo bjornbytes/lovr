@@ -19,7 +19,7 @@ dev
 - Add support for transfer operations on texture views.
 - Add support for nesting texture views (creating a view of a view).
 - Add `sn10x3` `DataType`.
-- Add `d24` `TextureFormat`.
+- Add support for `d24` texture format.
 - Add `Quat:get/setEuler`.
 - Add `lovr.system.openConsole`.
 - Add `lovr.filesystem.getBundlePath` (for internal Lua code).
@@ -62,7 +62,6 @@ dev
 - Add `Texture:getLabel` and `Shader:getLabel`.
 - Add `Shader:hasVariable`.
 - Add `lovr.headset.getHandles`.
-- Add support for depth texture format `d24`.
 
 ### Change
 
@@ -101,6 +100,7 @@ dev
 - Fix OBJ triangulation for faces with more than 4 vertices.
 - Fix possible crash when using vectors in multiple threads.
 - Fix possible crash with `Blob:getName`.
+- Fix issue when sampling from depth-stencil textures.
 
 ### Deprecate
 
