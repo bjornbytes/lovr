@@ -7721,7 +7721,7 @@ static gpu_texture* getScratchTexture(gpu_stream* stream, Canvas* canvas, Textur
 }
 
 static bool isDepthFormat(TextureFormat format) {
-  return format == FORMAT_D16 || format == FORMAT_D32F || format == FORMAT_D24S8 || format == FORMAT_D32FS8;
+  return format == FORMAT_D16 || format == FORMAT_D24 || format == FORMAT_D32F || format == FORMAT_D24S8 || format == FORMAT_D32FS8;
 }
 
 static bool supportsSRGB(TextureFormat format) {
@@ -7763,6 +7763,7 @@ static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uin
     case FORMAT_RGB565:
     case FORMAT_RGB5A1:
     case FORMAT_D16: return w * h * d * 2;
+    case FORMAT_D24: return w * h * d * 3;
     case FORMAT_RGBA8:
     case FORMAT_RG16:
     case FORMAT_RG16F:
