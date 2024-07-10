@@ -927,8 +927,17 @@ void lovrColliderAddShape(Collider* collider, Shape* shape) {
     JPH_MutableCompoundShape_AddShape((JPH_MutableCompoundShape*) handle, position, rotation, shape->handle, 0);
     shape->index = JPH_CompoundShape_GetNumSubShapes((JPH_CompoundShape*) handle) - 1;
   } else if (handle == state.sphere->handle) {
-    handle = shape->handle;
-    shape->index = 0;
+    // If the shape is at the origin, use it directly, otherwise wrap in a compound shape with an offset
+    if (vec3_length(shape->translation) < 1e-6 && shape->rotation[3] > .999f) {
+      handle = shape->handle;
+      shape->index = 0;
+    } else {
+      JPH_MutableCompoundShapeSettings* settings = JPH_MutableCompoundShapeSettings_Create();
+      JPH_CompoundShapeSettings_AddShape2((JPH_CompoundShapeSettings*) settings, position, rotation, shape->handle, 0);
+      handle = (JPH_Shape*) JPH_MutableCompoundShape_Create(settings);
+      JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
+      shape->index = 0;
+    }
   } else {
     float identity[] = { 0.f, 0.f, 0.f, 1.f };
     JPH_MutableCompoundShapeSettings* settings = JPH_MutableCompoundShapeSettings_Create();
@@ -964,7 +973,7 @@ void lovrColliderAddShape(Collider* collider, Shape* shape) {
     }
   } else {
     if (collider->automaticMass) {
-      // Replace the simple shape with the new compound shape, adjusting all the mass properties
+      // Replace the existing shape with the new shape, adjusting all the mass properties
       JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
       adjustJoints(collider, &oldCenter, &newCenter);
