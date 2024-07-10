@@ -83,6 +83,7 @@ struct Texture {
   bool xrAcquired;
   Sync sync;
   gpu_texture* gpu;
+  gpu_texture* sampleView;
   gpu_texture* renderView;
   gpu_texture* storageView;
   Material* material;
@@ -2067,6 +2068,7 @@ Texture* lovrGraphicsGetWindowTexture(void) {
     state.window = lovrCalloc(sizeof(Texture));
     state.window->ref = 1;
     state.window->gpu = NULL;
+    state.window->sampleView = NULL;
     state.window->renderView = NULL;
     state.window->info = (TextureInfo) {
       .type = TEXTURE_2D,
@@ -2242,6 +2244,23 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     }
   });
 
+  // Depth-stencil textures use a different depth-only view for sampling, otherwise default view can be used
+  if (info->usage & TEXTURE_SAMPLE) {
+    if (info->format == FORMAT_D24S8 || info->format == FORMAT_D32FS8) {
+      texture->sampleView = lovrMalloc(gpu_sizeof_texture());
+      gpu_texture_init_view(texture->sampleView, &(gpu_texture_view_info) {
+        .source = texture->gpu,
+        .type = (gpu_texture_type) info->type,
+        .usage = GPU_TEXTURE_SAMPLE,
+        .aspect = GPU_ASPECT_DEPTH,
+        .layerCount = info->layers,
+        .levelCount = 1
+      });
+    } else {
+      texture->sampleView = texture->gpu;
+    }
+  }
+
   // Automatically create a renderable view for renderable non-volume textures
   if ((info->usage & TEXTURE_RENDER) && info->type != TEXTURE_3D && info->layers <= state.limits.renderSize[2]) {
     if (info->mipmaps == 1) {
@@ -2343,6 +2362,25 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
     texture->gpu = NULL;
   }
 
+  // Depth-stencil textures use a different depth-only view for sampling, otherwise default view can be used
+  if (base->usage & TEXTURE_SAMPLE) {
+    if (base->format == FORMAT_D24S8 || base->format == FORMAT_D32FS8) {
+      texture->sampleView = lovrMalloc(gpu_sizeof_texture());
+      gpu_texture_init_view(texture->sampleView, &(gpu_texture_view_info) {
+        .source = texture->root->gpu,
+        .type = (gpu_texture_type) base->type,
+        .usage = GPU_TEXTURE_SAMPLE,
+        .aspect = GPU_ASPECT_DEPTH,
+        .layerIndex = texture->baseLayer,
+        .layerCount = info->layerCount,
+        .levelIndex = texture->baseLevel,
+        .levelCount = info->levelCount
+      });
+    } else {
+      texture->sampleView = texture->gpu;
+    }
+  }
+
   if ((base->usage & TEXTURE_RENDER) && info->layerCount <= state.limits.renderSize[2]) {
     if (info->levelCount == 1) {
       texture->renderView = texture->gpu;
@@ -2390,6 +2428,7 @@ void lovrTextureDestroy(void* ref) {
     flushTransfers();
     lovrRelease(texture->material, lovrMaterialDestroy);
     if (texture->root != texture) lovrRelease(texture->root, lovrTextureDestroy);
+    if (texture->sampleView && texture->sampleView != texture->gpu) gpu_texture_destroy(texture->sampleView), lovrFree(texture->sampleView);
     if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
     if (texture->storageView && texture->storageView != texture->gpu) gpu_texture_destroy(texture->storageView);
     if (texture->gpu) gpu_texture_destroy(texture->gpu);
@@ -3480,7 +3519,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
     Texture* texture = textures[i] ? textures[i] : state.defaultTexture;
     lovrCheck(i == 0 || texture->info.type == TEXTURE_2D, "Material textures must be 2D");
     lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to use them in Materials");
-    bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture = texture->gpu };
+    bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture = texture->sampleView };
     material->hasWritableTexture |= texture->info.usage != TEXTURE_SAMPLE;
   }
 
@@ -5938,12 +5977,13 @@ void lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture* t
 
   lovrCheck(shader->textureMask & (1u << slot), "Trying to send a Texture to '%s', but the active Shader doesn't have a Texture in that slot", name);
 
-  gpu_texture* view = texture->gpu;
+  gpu_texture* view;
   if (shader->storageMask & (1u << slot)) {
     lovrCheck(texture->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' usage to send them to image variables in shaders");
     view = texture->storageView;
   } else {
     lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to send them to sampler variables in shaders");
+    view = texture->sampleView;
   }
 
   trackTexture(pass, texture, resource->phase, resource->cache);

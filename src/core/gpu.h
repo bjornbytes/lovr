@@ -114,11 +114,18 @@ typedef enum {
   GPU_FORMAT_SURFACE = 0xff
 } gpu_texture_format;
 
+enum {
+  GPU_ASPECT_COLOR = (1 << 0),
+  GPU_ASPECT_DEPTH = (1 << 1),
+  GPU_ASPECT_STENCIL = (1 << 2)
+};
+
 typedef struct {
   gpu_texture* source;
   gpu_texture_type type;
   uint32_t usage;
   bool srgb;
+  uint32_t aspect;
   uint32_t layerIndex;
   uint32_t layerCount;
   uint32_t levelIndex;

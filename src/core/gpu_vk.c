@@ -628,11 +628,19 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
   if (texture != info->source) {
     texture->handle = info->source->handle;
     texture->memory = ~0u;
-    texture->aspect = info->source->aspect;
     texture->layout = info->source->layout;
     texture->layers = info->layerCount ? info->layerCount : (info->source->layers - info->layerIndex);
     texture->format = info->source->format;
     texture->srgb = info->srgb;
+
+    if (info->aspect == 0) {
+      texture->aspect = info->source->aspect;
+    } else {
+      texture->aspect =
+        ((info->aspect & GPU_ASPECT_COLOR) ? VK_IMAGE_ASPECT_COLOR_BIT : 0) |
+        ((info->aspect & GPU_ASPECT_DEPTH) ? VK_IMAGE_ASPECT_DEPTH_BIT : 0) |
+        ((info->aspect & GPU_ASPECT_STENCIL) ? VK_IMAGE_ASPECT_STENCIL_BIT : 0);
+    }
   }
 
   VkImageViewType type;
