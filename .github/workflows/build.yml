@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: 'recursive'
       - name: Configure
@@ -21,7 +21,7 @@ jobs:
         run: cmake --build build --config %CMAKE_BUILD_TYPE%
         shell: cmd
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lovr.exe
           path: |
@@ -38,7 +38,7 @@ jobs:
       - name: Install Packages
         run: sudo apt install -y xorg-dev libxcb-glx0-dev libx11-xcb-dev libfuse2 libcurl4-openssl-dev libssl-dev
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: 'recursive'
       - name: Init
@@ -52,7 +52,7 @@ jobs:
           ./appimagetool-x86_64.AppImage build/bin &&
           mv LÖVR-x86_64.AppImage lovr-x86_64.AppImage
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lovr.appimage
           path: lovr-x86_64.AppImage
@@ -68,7 +68,7 @@ jobs:
       - name: Install Android 29
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-29"
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: 'recursive'
       - name: Init
@@ -96,7 +96,7 @@ jobs:
       - name: Build
         run: cmake --build build
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lovr.apk
           path: build/lovr.apk
@@ -116,7 +116,7 @@ jobs:
           export VULKAN_SDK=${{ runner.temp }}/vulkan && echo "VULKAN_SDK=$VULKAN_SDK/macOS" >> $GITHUB_ENV
           sudo vulkansdk-macos-$VKV/InstallVulkan.app/Contents/MacOS/InstallVulkan --root $VULKAN_SDK --accept-licenses --default-answer --confirm-command install
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: 'recursive'
       - name: Init
@@ -132,7 +132,7 @@ jobs:
           sed -i '' 's|./libMoltenVK.dylib|../../../MacOS/libMoltenVK.dylib|' build/lovr.app/Contents/Resources/vulkan/icd.d/MoltenVK_icd.json &&
           ditto -c -k --keepParent build/lovr.app lovr.zip
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lovr.app
           path: lovr.zip
