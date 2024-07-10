@@ -7803,13 +7803,13 @@ static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uin
     case FORMAT_RGB565:
     case FORMAT_RGB5A1:
     case FORMAT_D16: return w * h * d * 2;
-    case FORMAT_D24: return w * h * d * 3;
     case FORMAT_RGBA8:
     case FORMAT_RG16:
     case FORMAT_RG16F:
     case FORMAT_R32F:
     case FORMAT_RG11B10F:
     case FORMAT_RGB10A2:
+    case FORMAT_D24:
     case FORMAT_D24S8:
     case FORMAT_D32F: return w * h * d * 4;
     case FORMAT_D32FS8: return w * h * d * 5;
