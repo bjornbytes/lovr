@@ -62,6 +62,7 @@ dev
 - Add `Texture:getLabel` and `Shader:getLabel`.
 - Add `Shader:hasVariable`.
 - Add `lovr.headset.getHandles`.
+- Add `raw` flag to `lovr.graphics.newShader`.
 
 ### Change
 
