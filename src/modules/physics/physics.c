@@ -1912,33 +1912,55 @@ void lovrSphereShapeSetRadius(SphereShape* shape, float radius) {
   lovrShapeReplace(shape, (JPH_Shape*) JPH_SphereShape_Create(radius));
 }
 
+static JPH_Shape* makeCapsule(float radius, float length) {
+  float position[3];
+  float orientation[4];
+  vec3_set(position, 0.f, 0.f, 0.f);
+  quat_fromAngleAxis(orientation, (float) M_PI / 2.f, 1.f, 0.f, 0.f);
+  JPH_Shape* capsule = (JPH_Shape*) JPH_CapsuleShape_Create(length / 2.f, radius);
+  JPH_Shape* wrapper = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(vec3_toJolt(position), quat_toJolt(orientation), capsule);
+  JPH_Shape_Destroy(capsule);
+  return wrapper;
+}
+
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
   lovrCheck(radius > 0.f && length > 0.f, "CapsuleShape dimensions must be positive");
   CapsuleShape* shape = lovrCalloc(sizeof(CapsuleShape));
   shape->ref = 1;
   shape->type = SHAPE_CAPSULE;
-  shape->handle = (JPH_Shape*) JPH_CapsuleShape_Create(length / 2.f, radius);
+  shape->handle = makeCapsule(radius, length);
   JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
   quat_identity(shape->rotation);
   return shape;
 }
 
 float lovrCapsuleShapeGetRadius(CapsuleShape* shape) {
-  return JPH_CapsuleShape_GetRadius((JPH_CapsuleShape*) shape->handle);
+  return JPH_CapsuleShape_GetRadius((JPH_CapsuleShape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape->handle));
 }
 
 void lovrCapsuleShapeSetRadius(CapsuleShape* shape, float radius) {
   float length = lovrCapsuleShapeGetLength(shape);
-  lovrShapeReplace(shape, (JPH_Shape*) JPH_CapsuleShape_Create(length / 2.f, radius));
+  lovrShapeReplace(shape, makeCapsule(length / 2.f, radius));
 }
 
 float lovrCapsuleShapeGetLength(CapsuleShape* shape) {
-  return 2.f * JPH_CapsuleShape_GetHalfHeightOfCylinder((JPH_CapsuleShape*) shape->handle);
+  return 2.f * JPH_CapsuleShape_GetHalfHeightOfCylinder((JPH_CapsuleShape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape->handle));
 }
 
 void lovrCapsuleShapeSetLength(CapsuleShape* shape, float length) {
   float radius = lovrCapsuleShapeGetRadius(shape);
-  lovrShapeReplace(shape, (JPH_Shape*) JPH_CapsuleShape_Create(length / 2.f, radius));
+  lovrShapeReplace(shape, makeCapsule(radius, length));
+}
+
+static JPH_Shape* makeCylinder(float radius, float length) {
+  float position[3];
+  float orientation[4];
+  vec3_set(position, 0.f, 0.f, 0.f);
+  quat_fromAngleAxis(orientation, (float) M_PI / 2.f, 1.f, 0.f, 0.f);
+  JPH_Shape* cylinder = (JPH_Shape*) JPH_CylinderShape_Create(length / 2.f, radius);
+  JPH_Shape* wrapper = (JPH_Shape*) JPH_RotatedTranslatedShape_Create(vec3_toJolt(position), quat_toJolt(orientation), cylinder);
+  JPH_Shape_Destroy(cylinder);
+  return wrapper;
 }
 
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
@@ -1946,28 +1968,28 @@ CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
   CylinderShape* shape = lovrCalloc(sizeof(CylinderShape));
   shape->ref = 1;
   shape->type = SHAPE_CYLINDER;
-  shape->handle = (JPH_Shape*) JPH_CylinderShape_Create(length / 2.f, radius);
+  shape->handle = makeCylinder(radius, length);
   JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
   quat_identity(shape->rotation);
   return shape;
 }
 
 float lovrCylinderShapeGetRadius(CylinderShape* shape) {
-  return JPH_CylinderShape_GetRadius((JPH_CylinderShape*) shape->handle);
+  return JPH_CylinderShape_GetRadius((JPH_CylinderShape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape->handle));
 }
 
 void lovrCylinderShapeSetRadius(CylinderShape* shape, float radius) {
   float length = lovrCylinderShapeGetLength(shape);
-  lovrShapeReplace(shape, (JPH_Shape*) JPH_CylinderShape_Create(length / 2.f, radius));
+  lovrShapeReplace(shape, makeCylinder(radius, length));
 }
 
 float lovrCylinderShapeGetLength(CylinderShape* shape) {
-  return JPH_CylinderShape_GetHalfHeight((JPH_CylinderShape*) shape->handle) * 2.f;
+  return 2.f * JPH_CylinderShape_GetHalfHeight((JPH_CylinderShape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape->handle));
 }
 
 void lovrCylinderShapeSetLength(CylinderShape* shape, float length) {
   float radius = lovrCylinderShapeGetRadius(shape);
-  lovrShapeReplace(shape, (JPH_Shape*) JPH_CylinderShape_Create(length / 2.f, radius));
+  lovrShapeReplace(shape, makeCylinder(radius, length));
 }
 
 ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count) {
