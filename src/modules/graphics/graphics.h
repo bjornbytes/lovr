@@ -320,11 +320,12 @@ typedef struct {
   uint32_t flagCount;
   const char* label;
   bool isDefault;
+  bool raw;
 } ShaderInfo;
 
 typedef void* ShaderIncluder(const char* filename, size_t* bytesRead);
 
-void lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint32_t count, ShaderIncluder* includer);
+void lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint32_t count, ShaderIncluder* includer, bool raw);
 ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage);
 Shader* lovrGraphicsGetDefaultShader(DefaultShader type);
 Shader* lovrShaderCreate(const ShaderInfo* info);

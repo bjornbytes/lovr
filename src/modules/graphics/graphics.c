@@ -135,6 +135,7 @@ struct Shader {
   uint32_t textureMask;
   uint32_t samplerMask;
   uint32_t storageMask;
+  uint32_t pushConstantSize;
   uint32_t uniformSize;
   uint32_t uniformCount;
   uint32_t stageMask;
@@ -1459,8 +1460,9 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
       }
     }
 
-    uint32_t DrawID = i & 0xff;
-    gpu_push_constants(stream, draw->shader->gpu, &DrawID, sizeof(DrawID));
+    if (draw->shader->pushConstantSize >= 4) {
+      gpu_push_constants(stream, draw->shader->gpu, (uint32_t[1]) { i & 0xff }, 4);
+    }
 
     if (draw->flags & DRAW_INDIRECT) {
       if (draw->indexBuffer) {
@@ -2647,7 +2649,7 @@ static glsl_include_result_t* includer(void* cb, const char* path, const char* i
 }
 #endif
 
-void lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint32_t stageCount, ShaderIncluder* io) {
+void lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint32_t stageCount, ShaderIncluder* io, bool raw) {
 #ifdef LOVR_USE_GLSLANG
   const glslang_stage_t stageMap[] = {
     [STAGE_VERTEX] = GLSLANG_STAGE_VERTEX,
@@ -2703,18 +2705,26 @@ void lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint
       source->size
     };
 
-    size_t totalLength = 0;
-    for (size_t i = 0; i < COUNTOF(strings); i++) {
-      totalLength += lengths[i];
-    }
+    char* code = NULL;
 
-    size_t cursor = 0;
-    char* code = tempAlloc(&state.allocator, totalLength + 1);
-    for (size_t i = 0; i < COUNTOF(strings); i++) {
-      memcpy(code + cursor, strings[i], lengths[i]);
-      cursor += lengths[i];
+    if (raw) {
+      code = tempAlloc(&state.allocator, source->size + 1);
+      memcpy(code, source->code, source->size);
+      code[source->size] = '\0';
+    } else {
+      size_t totalLength = 0;
+      for (size_t i = 0; i < COUNTOF(strings); i++) {
+        totalLength += lengths[i];
+      }
+
+      size_t cursor = 0;
+      code = tempAlloc(&state.allocator, totalLength + 1);
+      for (size_t i = 0; i < COUNTOF(strings); i++) {
+        memcpy(code + cursor, strings[i], lengths[i]);
+        cursor += lengths[i];
+      }
+      code[cursor] = '\0';
     }
-    code[cursor] = '\0';
 
     const glslang_resource_t* resource = glslang_default_resource();
 
@@ -3054,6 +3064,10 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         }
       }
 
+      if (info->raw && *set != resourceSet) {
+        continue;
+      }
+
       static const gpu_slot_type types[] = {
         [SPV_UNIFORM_BUFFER] = GPU_SLOT_UNIFORM_BUFFER,
         [SPV_STORAGE_BUFFER] = GPU_SLOT_STORAGE_BUFFER,
@@ -3101,7 +3115,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
       // Move resources into user set and give them auto-incremented binding numbers
       // Default shaders refer to resources with explicit binding numbers, so leave those alone
-      if (!info->isDefault) {
+      if (!info->isDefault && !info->raw) {
         *set = resourceSet;
         *binding = index;
       }
@@ -3283,6 +3297,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       gpu.pushConstantSize = MAX(gpu.pushConstantSize, spv[i].pushConstants->elementSize);
     }
   }
+
+  shader->pushConstantSize = gpu.pushConstantSize;
 
   gpu_layout* resourceLayout = state.layouts.data[shader->layout].gpu;
   gpu_layout* uniformsLayout = shader->uniformSize > 0 ? state.layouts.data[LAYOUT_UNIFORMS].gpu : NULL;

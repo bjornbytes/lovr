@@ -1072,7 +1072,7 @@ static int l_lovrGraphicsCompileShader(lua_State* L) {
     count = 2;
   }
 
-  lovrGraphicsCompileShader(inputs, outputs, count, luax_readfile);
+  lovrGraphicsCompileShader(inputs, outputs, count, luax_readfile, false);
 
   for (uint32_t i = 0; i < count; i++) {
     if (shouldFree[i] && outputs[i].code != inputs[i].code) lovrFree((void*) inputs[i].code);
@@ -1103,8 +1103,6 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     index = 3;
   }
 
-  lovrGraphicsCompileShader(source, compiled, info.stageCount, luax_readfile);
-
   arr_t(ShaderFlag) flags;
   arr_init(&flags);
 
@@ -1124,6 +1122,8 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
         arr_push(&flags, flag);
         lua_pop(L, 1);
       }
+
+      lovrCheck(flags.length < 1000, "Too many Shader flags");
     }
     lua_pop(L, 1);
 
@@ -1131,12 +1131,16 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
     info.type = lua_isnil(L, -1) ? info.type : luax_checkenum(L, -1, ShaderType, NULL);
     lua_pop(L, 1);
 
+    lua_getfield(L, index, "raw");
+    info.raw = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
     lua_getfield(L, index, "label");
     info.label = lua_tostring(L, -1);
     lua_pop(L, 1);
   }
 
-  lovrCheck(flags.length < 1000, "Too many Shader flags");
+  lovrGraphicsCompileShader(source, compiled, info.stageCount, luax_readfile, info.raw);
 
   info.flags = flags.data;
   info.flagCount = (uint32_t) flags.length;
