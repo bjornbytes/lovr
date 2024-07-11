@@ -178,9 +178,9 @@ typedef struct {
 } gpu_surface_info;
 
 bool gpu_surface_init(gpu_surface_info* info);
-void gpu_surface_resize(uint32_t width, uint32_t height);
+bool gpu_surface_resize(uint32_t width, uint32_t height);
 gpu_texture* gpu_surface_acquire(void);
-void gpu_surface_present(void);
+bool gpu_surface_present(void);
 
 // Sampler
 
@@ -623,7 +623,7 @@ typedef struct {
 } gpu_barrier;
 
 gpu_stream* gpu_stream_begin(const char* label);
-void gpu_stream_end(gpu_stream* stream);
+bool gpu_stream_end(gpu_stream* stream);
 void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas);
 void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas);
 void gpu_compute_begin(gpu_stream* stream);
@@ -726,7 +726,7 @@ typedef struct {
 typedef struct {
   bool debug;
   void* userdata;
-  void (*fnLog)(void* userdata, const char* message, bool error);
+  void (*fnLog)(void* userdata, const char* message);
   void* (*fnAlloc)(size_t size);
   void (*fnFree)(void* data);
   const char* engineName;
@@ -745,8 +745,9 @@ typedef struct {
 
 bool gpu_init(gpu_config* config);
 void gpu_destroy(void);
-uint32_t gpu_begin(void);
-void gpu_submit(gpu_stream** streams, uint32_t count);
+const char* gpu_get_error(void);
+bool gpu_begin(uint32_t* tick);
+bool gpu_submit(gpu_stream** streams, uint32_t count);
 bool gpu_is_complete(uint32_t tick);
-bool gpu_wait_tick(uint32_t tick);
-void gpu_wait_idle(void);
+bool gpu_wait_tick(uint32_t tick, bool* waited);
+bool gpu_wait_idle(void);
