@@ -382,6 +382,16 @@ static int l_lovrColliderSetPose(lua_State* L) {
   return 0;
 }
 
+static l_lovrColliderMoveKinematic(lua_State* L) {
+  Collider* collider = luax_checkcollider(L, 1);
+  float position[3], orientation[4];
+  int index = luax_readvec3(L, 2, position, NULL);
+  index = luax_readquat(L, index, orientation, NULL);
+  float inDeltaTime = luax_checkfloat(L, index);
+  lovrColliderMoveKinematic(collider, position, orientation, inDeltaTime);
+  return 0;
+}
+
 static int l_lovrColliderGetRawPosition(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float position[3];
@@ -701,6 +711,7 @@ const luaL_Reg lovrCollider[] = {
   { "setOrientation", l_lovrColliderSetOrientation },
   { "getPose", l_lovrColliderGetPose },
   { "setPose", l_lovrColliderSetPose },
+  { "moveKinematic", l_lovrColliderMoveKinematic },
   { "getRawPosition", l_lovrColliderGetRawPosition },
   { "getRawOrientation", l_lovrColliderGetRawOrientation },
   { "getRawPose", l_lovrColliderGetRawPose },
