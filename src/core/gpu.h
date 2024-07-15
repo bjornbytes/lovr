@@ -193,7 +193,7 @@ typedef enum {
   GPU_WRAP_CLAMP,
   GPU_WRAP_REPEAT,
   GPU_WRAP_MIRROR,
-  GPU_WRAP_BORDER,
+  GPU_WRAP_BORDER
 } gpu_wrap;
 
 typedef enum {

@@ -1520,9 +1520,9 @@ void lovrColliderSetPose(Collider* collider, float position[3], float orientatio
   quat_init(collider->lastOrientation, orientation);
 }
 
-void lovrColliderMoveKinematic(Collider* collider, float position[3], float orientation[4], float inDeltaTime) {
-  lovrCheck(inDeltaTime > 0.f, "inDeltaTime must > 0");
-  JPH_BodyInterface_MoveKinematic(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), quat_toJolt(orientation), inDeltaTime);
+void lovrColliderMoveKinematic(Collider* collider, float position[3], float orientation[4], float dt) {
+  lovrCheck(dt > 0.f, "dt must > 0");
+  JPH_BodyInterface_MoveKinematic(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), quat_toJolt(orientation), dt);
 }
 
 void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]) {

@@ -248,7 +248,7 @@ typedef enum {
   WRAP_CLAMP,
   WRAP_REPEAT,
   WRAP_MIRROR,
-  WRAP_BORDER,
+  WRAP_BORDER
 } WrapMode;
 
 typedef enum {
