@@ -247,7 +247,8 @@ Material* lovrTextureToMaterial(Texture* texture);
 typedef enum {
   WRAP_CLAMP,
   WRAP_REPEAT,
-  WRAP_MIRROR
+  WRAP_MIRROR,
+  WRAP_BORDER,
 } WrapMode;
 
 typedef enum {

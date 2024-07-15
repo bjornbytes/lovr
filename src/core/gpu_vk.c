@@ -913,7 +913,8 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
   static const VkSamplerAddressMode wraps[] = {
     [GPU_WRAP_CLAMP] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
     [GPU_WRAP_REPEAT] = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    [GPU_WRAP_MIRROR] = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
+    [GPU_WRAP_MIRROR] = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
+    [GPU_WRAP_BORDER] = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
   };
 
   static const VkCompareOp compareOps[] = {
