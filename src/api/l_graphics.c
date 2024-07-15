@@ -210,6 +210,8 @@ StringEntry lovrWinding[] = {
 StringEntry lovrWrapMode[] = {
   [WRAP_CLAMP] = ENTRY("clamp"),
   [WRAP_REPEAT] = ENTRY("repeat"),
+  [WRAP_MIRROR] = ENTRY("mirror"),
+  [WRAP_BORDER] = ENTRY("border"),
   { 0 }
 };
 
