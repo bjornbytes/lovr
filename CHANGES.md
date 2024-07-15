@@ -36,6 +36,7 @@ dev
 - Add `Collider:is/setContinuous`.
 - Add `Collider:get/setDegreesOfFreedom`.
 - Add `Collider:applyLinearImpulse` and `Collider:applyAngularImpulse`.
+- Add `Collider:moveKinematic`.
 - Add `Collider:getRawPosition` and `Collider:getRawOrientation`.
 - Add `Collider:getShape`.
 - Add `Collider:is/setSensor` (replaces `Shape:is/setSensor`).
@@ -63,6 +64,7 @@ dev
 - Add `Shader:hasVariable`.
 - Add `lovr.headset.getHandles`.
 - Add `raw` flag to `lovr.graphics.newShader`.
+- Add `border` `WrapMode`.
 
 ### Change
 
