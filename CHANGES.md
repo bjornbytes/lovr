@@ -91,6 +91,7 @@ dev
 - Change `World:raycast` to take a set of tags to allow/ignore.
 - Change `World:raycast` callback to be optional (if nil, the closest hit will be returned).
 - Change physics queries to report colliders in addition to shapes.
+- Change `tostring` on objects to also include their pointers.
 
 ### Fix
 
