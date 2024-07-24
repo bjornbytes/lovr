@@ -1065,9 +1065,9 @@ static int l_lovrPassToString(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   const char* label = lovrPassGetLabel(pass);
   if (label) {
-    lua_pushfstring(L, "Pass(%s)", label);
+    lua_pushfstring(L, "Pass(%s): %p", label, pass);
   } else {
-    lua_pushstring(L, "Pass");
+    lua_pushfstring(L, "Pass: %p", pass);
   }
   return 1;
 }
