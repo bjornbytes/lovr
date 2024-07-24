@@ -1484,15 +1484,15 @@ int l_lovrPassSetCanvas(lua_State* L);
 
 static int l_lovrGraphicsNewPass(lua_State* L) {
   Pass* pass = lovrPassCreate();
-  luax_pushtype(L, Pass, pass);
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "label");
+  if (lua_istable(L, 1)) {
+    lua_getfield(L, 1, "label");
     char* label = lua_tostring(L, -1);
-    lua_pop(L, 1);
     if (label) {
       lovrPassSetLabel(pass, label);
     }
+    lua_pop(L, 1);
   }
+  luax_pushtype(L, Pass, pass);
   lua_insert(L, 1);
   l_lovrPassSetCanvas(L);
   lua_settop(L, 1);

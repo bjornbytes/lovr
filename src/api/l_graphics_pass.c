@@ -1063,7 +1063,12 @@ static int l_lovrPassBarrier(lua_State* L) {
 
 static int l_lovrPassToString(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
-  lua_pushfstring(L, "Pass(%s)", lovrPassGetLabel(pass));
+  const char* label = lovrPassGetLabel(pass);
+  if (label) {
+    lua_pushfstring(L, "Pass(%s)", label);
+  } else {
+    lua_pushstring(L, "Pass");
+  }
   return 1;
 }
 
