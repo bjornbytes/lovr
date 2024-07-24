@@ -35,6 +35,7 @@ typedef enum {
   TYPE_BOOLEAN,
   TYPE_NUMBER,
   TYPE_STRING,
+  TYPE_TABLE,
   TYPE_MINISTRING,
   TYPE_POINTER,
   TYPE_OBJECT,
@@ -66,6 +67,10 @@ typedef union {
   struct {
     float* data;
   } matrix;
+  struct {
+    void* list;
+    size_t length;
+  } table;
 } VariantValue;
 
 typedef struct Variant {

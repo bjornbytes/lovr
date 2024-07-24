@@ -65,6 +65,19 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       break;
     }
 
+    case LUA_TTABLE:
+      size_t length = luax_len(L, index);
+      variant->type = TYPE_TABLE;
+      variant->value.table.length = length;
+
+      Variant* list = lovrMalloc(length * sizeof(Variant));
+      variant->value.table.list = list;
+      for (int i = 0; i < length; i++) {
+        lua_rawgeti(L, index, i + 1);
+        luax_checkvariant(L, -1, &list[i]);
+      }
+      break;
+
     case LUA_TUSERDATA:
       variant->type = TYPE_OBJECT;
       Proxy* proxy = lua_touserdata(L, index);
@@ -122,6 +135,14 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
     case TYPE_STRING: lua_pushlstring(L, variant->value.string.pointer, variant->value.string.length); return 1;
+    case TYPE_TABLE:
+      lua_newtable(L);
+      Variant* list = variant->value.table.list;
+      for (int i = 0; i < variant->value.table.length; i++) {
+        luax_pushvariant(L, &list[i]);
+        lua_rawseti(L, -2, i + 1);
+      }
+      return 1;
     case TYPE_MINISTRING: lua_pushlstring(L, variant->value.ministring.data, variant->value.ministring.length); return 1;
     case TYPE_POINTER: lua_pushlightuserdata(L, variant->value.pointer); return 1;
     case TYPE_OBJECT: _luax_pushtype(L, variant->value.object.type, hash64(variant->value.object.type, strlen(variant->value.object.type)), variant->value.object.pointer); return 1;
