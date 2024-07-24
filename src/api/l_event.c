@@ -66,6 +66,9 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
     }
 
     case LUA_TTABLE:
+      if (index < 0) {
+        index = lua_gettop(L) + index + 1;
+      }
       size_t length = luax_len(L, index);
       variant->type = TYPE_TABLE;
       variant->value.table.length = length;
