@@ -76,6 +76,7 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
         lua_rawgeti(L, index, i + 1);
         luax_checkvariant(L, -1, &list[i]);
       }
+      lua_pop(L, length);
       break;
 
     case LUA_TUSERDATA:
