@@ -229,6 +229,12 @@ static int l_lovrTextureSetSampler(lua_State* L) {
   }
 }
 
+static int l_lovrTextureToString(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  lua_pushfstring(L, "Texture(%s)", lovrTextureGetLabel(texture));
+  return 1;
+}
+
 const luaL_Reg lovrTexture[] = {
   { "getLabel", l_lovrTextureGetLabel },
   { "getType", l_lovrTextureGetType },
@@ -247,5 +253,6 @@ const luaL_Reg lovrTexture[] = {
   { "generateMipmaps", l_lovrTextureGenerateMipmaps },
   { "getSampler", l_lovrTextureGetSampler },
   { "setSampler", l_lovrTextureSetSampler },
+  { "__tostring", l_lovrTextureToString },
   { NULL, NULL }
 };
