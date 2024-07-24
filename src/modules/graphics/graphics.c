@@ -5335,7 +5335,7 @@ static void lovrPassRelease(Pass* pass) {
 
 Pass* lovrGraphicsGetWindowPass(void) {
   if (!state.windowPass) {
-    state.windowPass = lovrPassCreate();
+    state.windowPass = lovrPassCreate(NULL);
   }
 
   Texture* window = lovrGraphicsGetWindowTexture();
@@ -5352,7 +5352,7 @@ Pass* lovrGraphicsGetWindowPass(void) {
   return state.windowPass;
 }
 
-Pass* lovrPassCreate(void) {
+Pass* lovrPassCreate(const char* label) {
   Pass* pass = lovrCalloc(sizeof(Pass));
   pass->ref = 1;
 
@@ -5360,6 +5360,12 @@ Pass* lovrPassCreate(void) {
   pass->allocator.length = 1 << 12;
   pass->allocator.memory = os_vm_init(pass->allocator.limit);
   os_vm_commit(pass->allocator.memory, pass->allocator.length);
+
+  if (label) {
+    size_t size = strlen(label) + 1;
+    pass->label = lovrMalloc(size);
+    memcpy(pass->label, label, size);
+  }
 
   lovrPassReset(pass);
 
@@ -7461,20 +7467,6 @@ void lovrPassCompute(Pass* pass, uint32_t x, uint32_t y, uint32_t z, Buffer* ind
 void lovrPassBarrier(Pass* pass) {
   if (pass->computeCount > 0) {
     pass->computes[pass->computeCount - 1].flags |= COMPUTE_BARRIER;
-  }
-}
-
-void lovrPassSetLabel(Pass* pass, const char* label) {
-  if (pass->label) {
-    lovrFree(pass->label);
-  }
-
-  if (label) {
-    size_t size = strlen(label) + 1;
-    pass->label = lovrMalloc(size);
-    memcpy(pass->label, label, size);
-  } else {
-    pass->label = NULL;
   }
 }
 
