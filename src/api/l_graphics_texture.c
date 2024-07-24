@@ -205,6 +205,30 @@ static int l_lovrTextureGenerateMipmaps(lua_State* L) {
   return 0;
 }
 
+static int l_lovrTextureGetSampler(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  Sampler* sampler = lovrTextureGetSampler(texture);
+  luax_pushtype(L, Sampler, sampler);
+  return 1;
+}
+
+static int l_lovrTextureSetSampler(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  switch (lua_type(L, 2)) {
+    case LUA_TNONE:
+    case LUA_TNIL:
+      lovrTextureSetSampler(texture, NULL);
+      return 0;
+    case LUA_TSTRING:
+      lovrTextureSetSampler(texture, lovrGraphicsGetDefaultSampler(luax_checkenum(L, 2, FilterMode, NULL)));
+      return 0;
+    case LUA_TUSERDATA:
+      lovrTextureSetSampler(texture, luax_checktype(L, 2, Sampler));
+      return 0;
+    default: return luax_typeerror(L, 2, "nil, FilterMode, or Sampler");
+  }
+}
+
 const luaL_Reg lovrTexture[] = {
   { "getLabel", l_lovrTextureGetLabel },
   { "getType", l_lovrTextureGetType },
@@ -221,5 +245,7 @@ const luaL_Reg lovrTexture[] = {
   { "setPixels", l_lovrTextureSetPixels },
   { "clear", l_lovrTextureClear },
   { "generateMipmaps", l_lovrTextureGenerateMipmaps },
+  { "getSampler", l_lovrTextureGetSampler },
+  { "setSampler", l_lovrTextureSetSampler },
   { NULL, NULL }
 };

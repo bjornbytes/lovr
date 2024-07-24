@@ -240,6 +240,8 @@ void lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
 void lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
 void lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
 void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count);
+Sampler* lovrTextureGetSampler(Texture* texture);
+void lovrTextureSetSampler(Texture* texture, Sampler* sampler);
 Material* lovrTextureToMaterial(Texture* texture);
 
 // Sampler
