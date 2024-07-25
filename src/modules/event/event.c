@@ -16,6 +16,18 @@ static struct {
 void lovrVariantDestroy(Variant* variant) {
   switch (variant->type) {
     case TYPE_STRING: lovrFree(variant->value.string.pointer); return;
+    case TYPE_TABLE:
+      if (variant->value.table.keys) {
+        Variant* keys = variant->value.table.keys;
+        Variant* vals = variant->value.table.vals;
+        for (int i = 0; i < variant->value.table.length; i++) {
+          lovrVariantDestroy(&keys[i]);
+          lovrVariantDestroy(&vals[i]);
+        }
+        lovrFree(keys);
+        lovrFree(vals);
+      }
+      return;
     case TYPE_OBJECT: lovrRelease(variant->value.object.pointer, variant->value.object.destructor); return;
     case TYPE_MATRIX: lovrFree(variant->value.matrix.data); return;
     default: return;

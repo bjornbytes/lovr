@@ -66,20 +66,32 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
     }
 
     case LUA_TTABLE:
-      if (index < 0) {
-        index = lua_gettop(L) + index + 1;
-      }
-      size_t length = luax_len(L, index);
+      if (index < 0) { index += lua_gettop(L) + 1; }
+      size_t length = 0;
+      lua_pushnil(L);
+      while (lua_next(L, index) != 0) { length++; lua_pop(L, 1); }
       variant->type = TYPE_TABLE;
       variant->value.table.length = length;
+      Variant* keys;
+      Variant* vals;
 
-      Variant* list = lovrMalloc(length * sizeof(Variant));
-      variant->value.table.list = list;
-      for (int i = 0; i < length; i++) {
-        lua_rawgeti(L, index, i + 1);
-        luax_checkvariant(L, -1, &list[i]);
+      if (length > 0) {
+        keys = lovrMalloc(length * sizeof(Variant));
+        vals = lovrMalloc(length * sizeof(Variant));
+        int i = 0;
+        lua_pushnil(L);
+        while (lua_next(L, index) != 0) {
+          luax_checkvariant(L, -1, &vals[i]);
+          lua_pop(L, 1);
+          luax_checkvariant(L, -1, &keys[i]);
+          i++;
+        }
+      } else {
+        keys = NULL;
+        vals = NULL;
       }
-      lua_pop(L, length);
+      variant->value.table.keys = keys;
+      variant->value.table.vals = vals;
       break;
 
     case LUA_TUSERDATA:
@@ -141,10 +153,12 @@ int luax_pushvariant(lua_State* L, Variant* variant) {
     case TYPE_STRING: lua_pushlstring(L, variant->value.string.pointer, variant->value.string.length); return 1;
     case TYPE_TABLE:
       lua_newtable(L);
-      Variant* list = variant->value.table.list;
+      Variant* keys = variant->value.table.keys;
+      Variant* vals = variant->value.table.vals;
       for (int i = 0; i < variant->value.table.length; i++) {
-        luax_pushvariant(L, &list[i]);
-        lua_rawseti(L, -2, i + 1);
+        luax_pushvariant(L, &keys[i]);
+        luax_pushvariant(L, &vals[i]);
+        lua_settable(L, -3);
       }
       return 1;
     case TYPE_MINISTRING: lua_pushlstring(L, variant->value.ministring.data, variant->value.ministring.length); return 1;

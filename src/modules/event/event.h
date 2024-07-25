@@ -68,7 +68,8 @@ typedef union {
     float* data;
   } matrix;
   struct {
-    void* list;
+    void* keys;
+    void* vals;
     size_t length;
   } table;
 } VariantValue;
