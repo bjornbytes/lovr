@@ -1,4 +1,6 @@
 #include "api.h"
+#include "core/maf.h"
+#include "math/math.h"
 #include "util.h"
 #include "lib/luax/lutf8lib.h"
 #include <stdlib.h>
@@ -491,7 +493,7 @@ void luax_readcolor(lua_State* L, int index, float color[4]) {
   }
 }
 
-// Like readcolor, but only consumes 1 argument (nil, hex, table, vec3, vec4), useful for table keys
+// Like readcolor, but only consumes 1 argument (nil, hex, table), useful for table keys
 void luax_optcolor(lua_State* L, int index, float color[4]) {
   switch (lua_type(L, index)) {
     case LUA_TNONE:
@@ -517,20 +519,7 @@ void luax_optcolor(lua_State* L, int index, float color[4]) {
       color[3] = luax_optfloat(L, -1, 1.);
       lua_pop(L, 4);
       break;
-    case LUA_TUSERDATA:
-    case LUA_TLIGHTUSERDATA: {
-      VectorType type;
-      float* v = luax_tovector(L, index, &type);
-      if (type == V_VEC3) {
-        memcpy(color, v, 3 * sizeof(float));
-        color[3] = 1.f;
-        break;
-      } else if (type == V_VEC4) {
-        memcpy(color, v, 4 * sizeof(float));
-        break;
-      }
-    } /* fallthrough */
-    default: lovrThrow("Expected nil, number, table, vec3, or vec4 for color value");
+    default: lovrThrow("Expected nil, number, or table for color value");
   }
 }
 
@@ -614,4 +603,140 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
   luaL_argerror(L, index, "table or ModelData expected");
 #endif
   return 0;
+}
+
+int luax_pushvec3(lua_State* L, float* v) {
+  lua_createtable(L, 3, 0);
+  lua_pushnumber(L, v[0]);
+  lua_rawseti(L, -2, 1);
+  lua_pushnumber(L, v[1]);
+  lua_rawseti(L, -2, 2);
+  lua_pushnumber(L, v[2]);
+  lua_rawseti(L, -2, 3);
+  luaL_newmetatable(L, "Vec3");
+  return lua_setmetatable(L, -2);
+}
+
+int luax_readvec3(lua_State* L, int index, vec3 v, const char* expected) {
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+    case LUA_TNONE:
+      v[0] = v[1] = v[2] = 0.f;
+      return index + 1;
+    case LUA_TNUMBER:
+      v[0] = luax_tofloat(L, index);
+      v[1] = luax_optfloat(L, index + 1, v[0]);
+      v[2] = luax_optfloat(L, index + 2, v[0]);
+      return index + 3;
+    case LUA_TTABLE:
+      for (int i = 0; i < 3; i++) {
+        lua_rawgeti(L, index, i + 1);
+        v[i] = luax_tofloat(L, -1);
+        lua_pop(L, 1);
+      }
+      return index + 1;
+    default: return luax_typeerror(L, index, "number or table");
+  }
+}
+
+int luax_readscale(lua_State* L, int index, vec3 v, int components, const char* expected) {
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+    case LUA_TNONE:
+      v[0] = v[1] = v[2] = 1.f;
+      return index + 1;
+    case LUA_TNUMBER:
+      if (components == 1) {
+        v[0] = v[1] = v[2] = luax_tofloat(L, index);
+      } else if (components == -2) { // -2 is special and means "2 components: xy and z"
+        v[0] = v[1] = luax_tofloat(L, index);
+        v[2] = luax_optfloat(L, index, 1.f);
+        return index + 2;
+      } else {
+        v[0] = v[1] = v[2] = 1.f;
+        for (int i = 0; i < components; i++) {
+          v[i] = luax_optfloat(L, index + i, v[0]);
+        }
+      }
+      return index + components;
+    case LUA_TTABLE:
+      v[0] = 1.f;
+      for (int i = 0; i < 3; i++) {
+        lua_rawgeti(L, index, i + 1);
+        v[i] = luax_optfloat(L, -1, v[0]);
+        lua_pop(L, 1);
+      }
+      return index + 1;
+    default: return luax_typeerror(L, index, "number or table");
+  }
+}
+
+int luax_readquat(lua_State* L, int index, quat q, const char* expected) {
+  float angle, ax, ay, az;
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+    case LUA_TNONE:
+      quat_identity(q);
+      return index + 1;
+    case LUA_TNUMBER:
+      angle = luax_optfloat(L, index, 0.f);
+      ax = luax_optfloat(L, index + 1, 0.f);
+      ay = luax_optfloat(L, index + 2, 1.f);
+      az = luax_optfloat(L, index + 3, 0.f);
+      quat_fromAngleAxis(q, angle, ax, ay, az);
+      return index + 4;
+    case LUA_TTABLE:
+      for (int i = 0; i < 4; i++) {
+        lua_rawgeti(L, index, i + 1);
+        q[i] = luax_tofloat(L, -1);
+        lua_pop(L, 1);
+      }
+      return index + 1;
+    default: return luax_typeerror(L, index, "number or table");
+  }
+}
+
+float* luax_newmat4(lua_State* L) {
+  float* p = lua_newuserdata(L, 4 * 4 * sizeof(float));
+  luaL_newmetatable(L, "Mat4");
+  lua_setmetatable(L, -2);
+  return p;
+}
+
+bool luax_ismat4(lua_State* L, int index) {
+  return lua_type(L, index) == LUA_TUSERDATA && luax_len(L, index) == 64;
+}
+
+float* luax_checkmat4(lua_State* L, int index) {
+  if (luax_ismat4(L, index)) {
+    return lua_touserdata(L, index);
+  } else {
+    luax_typeerror(L, index, "Mat4");
+    return NULL;
+  }
+}
+
+int luax_readmat4(lua_State* L, int index, mat4 m, int scaleComponents) {
+  switch (lua_type(L, index)) {
+    case LUA_TNIL:
+    case LUA_TNONE:
+      mat4_identity(m);
+      return index + 1;
+    case LUA_TNUMBER:
+    case LUA_TTABLE: {
+      float T[3], R[4], S[3];
+      index = luax_readvec3(L, index, T, "number, table, or Mat4");
+      index = luax_readscale(L, index, S, scaleComponents, NULL);
+      index = luax_readquat(L, index, R, NULL);
+      mat4_fromPose(m, T, R);
+      mat4_scale(m, S[0], S[1], S[2]);
+      return index;
+    }
+    default:
+      if (luax_ismat4(L, index)) {
+        mat4_init(m, lua_touserdata(L, index));
+        return index + 1;
+      }
+      return luax_typeerror(L, index, "number, table, or Mat4");
+  }
 }

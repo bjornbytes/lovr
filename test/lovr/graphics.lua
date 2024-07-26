@@ -20,18 +20,17 @@ group('graphics', function()
     end)
 
     test('format: vector', function()
-      buffer = lovr.graphics.newBuffer('vec3', vec3(1, 2, 3))
+      buffer = lovr.graphics.newBuffer('vec3')
       expect(buffer:getSize()).to.be(12)
       expect(buffer:getLength()).to.be(0)
       expect(buffer:getStride()).to.be(12)
+      expect({ buffer:getData() }).to.equal({ 0, 0, 0 })
+
+      buffer:setData(vec3(1, 2, 3))
       expect({ buffer:getData() }).to.equal({ 1, 2, 3 })
 
-      buffer:setData(vec3(4, 5, 6))
+      buffer:setData({ 4, 5, 6 })
       expect({ buffer:getData() }).to.equal({ 4, 5, 6 })
-
-      buffer:setData({ 7, 8, 9 })
-      x, y, z = buffer:getData()
-      expect({ buffer:getData() }).to.equal({ 7, 8, 9 })
     end)
 
     test('format: scalar array (single)', function()

@@ -177,7 +177,6 @@ function lovr.run()
       lovr.graphics.present()
     end
     if lovr.headset then lovr.headset.submit() end
-    if lovr.math then lovr.math.drain() end
   end
 end
 
@@ -273,8 +272,6 @@ function lovr.errhand(message)
         lovr.graphics.present()
       end
     end
-
-    lovr.math.drain()
   end
 end
 

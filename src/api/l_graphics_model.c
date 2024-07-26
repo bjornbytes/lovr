@@ -198,13 +198,12 @@ static int l_lovrModelSetNodeTransform(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t node = luax_checknodeindex(L, 2, lovrModelGetInfo(model)->data);
   int index = 3;
-  VectorType type;
   float position[3], scale[3], rotation[4];
-  float* m = luax_tovector(L, index, &type);
-  if (m && type == V_MAT4) {
+  if (luax_ismat4(L, index)) {
+    float* m = lua_touserdata(L, index);
     mat4_getPosition(m, position);
-    mat4_getScale(m, scale);
     mat4_getOrientation(m, rotation);
+    mat4_getScale(m, scale);
     index = 4;
   } else {
     index = luax_readvec3(L, index, position, NULL);

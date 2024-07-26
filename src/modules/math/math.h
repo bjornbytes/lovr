@@ -5,7 +5,6 @@
 #pragma once
 
 typedef struct Curve Curve;
-typedef struct Pool Pool;
 typedef struct RandomGenerator RandomGenerator;
 
 bool lovrMathInit(void);
@@ -30,35 +29,6 @@ void lovrCurveGetPoint(Curve* curve, size_t index, float* point);
 void lovrCurveSetPoint(Curve* curve, size_t index, float* point);
 void lovrCurveAddPoint(Curve* curve, float* point, size_t index);
 void lovrCurveRemovePoint(Curve* curve, size_t index);
-
-// Pool
-
-typedef enum {
-  V_NONE,
-  V_VEC2,
-  V_VEC3,
-  V_VEC4,
-  V_QUAT,
-  V_MAT4,
-  MAX_VECTOR_TYPES
-} VectorType;
-
-typedef union {
-  void* pointer;
-  struct {
-    unsigned type : 4;
-    unsigned generation : 4;
-    unsigned index : 24;
-    unsigned padding : 32;
-  } handle;
-} Vector;
-
-Pool* lovrPoolCreate(void);
-void lovrPoolDestroy(void* ref);
-void lovrPoolGrow(Pool* pool, size_t count);
-Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data);
-float* lovrPoolResolve(Pool* pool, Vector vector);
-void lovrPoolDrain(Pool* pool);
 
 // RandomGenerator
 

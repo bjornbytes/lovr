@@ -737,12 +737,12 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
             info.size = (uint32_t) blob->size;
             format->length = info.size / format->stride;
             break;
-          } else if (luax_tovector(L, 2, NULL)) {
+          } else if (luax_ismat4(L, 2)) {
             format->length = 0;
             hasData = true;
             break;
           }
-          return luax_typeerror(L, 2, "nil, number, vector, table, or Blob");
+          return luax_typeerror(L, 2, "nil, number, table, Mat4, or Blob");
       }
     }
   }
@@ -754,7 +754,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   if (blob) {
     memcpy(data, blob->data, info.size);
   } else if (hasData) {
-    luax_checkbufferdata(L, 2, format, data);
+    luax_checkbufferdata(L, 2, format, data, true);
   }
 
   luax_pushtype(L, Buffer, buffer);
@@ -1213,16 +1213,13 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     float shift = lua_tonumber(L, -1);
     info.data.uvShift[0] = shift;
     info.data.uvShift[1] = shift;
-  } else if (lua_type(L, -1) == LUA_TTABLE) {
+  } else if (!lua_isnil(L, -1)) {
+    lovrCheck(lua_istable(L, -1), "Expected number or table for uvShift");
     lua_rawgeti(L, -1, 1);
     lua_rawgeti(L, -2, 2);
     info.data.uvShift[0] = luax_optfloat(L, -2, 0.f);
     info.data.uvShift[1] = luax_optfloat(L, -1, 0.f);
     lua_pop(L, 2);
-  } else if (!lua_isnil(L, -1)) {
-    float* v = luax_checkvector(L, -1, V_VEC2, "vec2, table, or nil");
-    info.data.uvShift[0] = v[0];
-    info.data.uvShift[1] = v[1];
   }
   lua_pop(L, 1);
 
@@ -1234,16 +1231,13 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
     float scale = lua_tonumber(L, -1);
     info.data.uvScale[0] = scale;
     info.data.uvScale[1] = scale;
-  } else if (lua_type(L, -1) == LUA_TTABLE) {
+  } else {
+    lovrCheck(lua_istable(L, -1), "Expected number or table for uvScale");
     lua_rawgeti(L, -1, 1);
     lua_rawgeti(L, -2, 2);
     info.data.uvScale[0] = luax_optfloat(L, -2, 1.f);
     info.data.uvScale[1] = luax_optfloat(L, -1, 1.f);
     lua_pop(L, 2);
-  } else {
-    float* v = luax_checkvector(L, -1, V_VEC2, "vec2, table, or nil");
-    info.data.uvScale[0] = v[0];
-    info.data.uvScale[1] = v[1];
   }
   lua_pop(L, 1);
 
@@ -1440,7 +1434,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   if (blob) {
     memcpy(vertices, blob->data, blob->size);
   } else if (hasData) {
-    luax_checkbufferdata(L, index, lovrMeshGetVertexFormat(mesh), vertices);
+    luax_checkbufferdata(L, index, lovrMeshGetVertexFormat(mesh), vertices, true);
   }
 
   luax_pushtype(L, Mesh, mesh);

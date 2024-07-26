@@ -38,7 +38,6 @@ typedef enum {
   TYPE_MINISTRING,
   TYPE_POINTER,
   TYPE_OBJECT,
-  TYPE_VECTOR,
   TYPE_MATRIX
 } VariantType;
 
@@ -59,10 +58,6 @@ typedef union {
     const char* type;
     void (*destructor)(void*);
   } object;
-  struct {
-    int type;
-    float data[4];
-  } vector;
   struct {
     float* data;
   } matrix;

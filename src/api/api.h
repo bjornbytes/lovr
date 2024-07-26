@@ -133,6 +133,14 @@ uint32_t _luax_optu32(lua_State* L, int index, uint32_t fallback);
 void luax_readcolor(lua_State* L, int index, float color[4]);
 void luax_optcolor(lua_State* L, int index, float color[4]);
 int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCount, uint32_t** indices, uint32_t* indexCount, bool* shouldFree);
+int luax_pushvec3(lua_State* L, float* v);
+int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
+int luax_readscale(lua_State* L, int index, float* v, int components, const char* expected);
+int luax_readquat(lua_State* L, int index, float* q, const char* expected);
+float* luax_newmat4(lua_State* L);
+bool luax_ismat4(lua_State* L, int index);
+float* luax_checkmat4(lua_State* L, int index);
+int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);
 
 // Module helpers
 
@@ -163,7 +171,7 @@ bool luax_writefile(const char* filename, const void* data, size_t size);
 struct DataField;
 struct Material;
 struct ColoredString;
-void luax_checkbufferdata(lua_State* L, int index, const struct DataField* format, char* data);
+void luax_checkbufferdata(lua_State* L, int index, const struct DataField* format, char* data, bool single);
 int luax_pushbufferdata(lua_State* L, const struct DataField* format, uint32_t count, char* data);
 void luax_pushbufferformat(lua_State* L, const struct DataField* fields, uint32_t count);
 int luax_gettablestride(lua_State* L, int type);
@@ -173,16 +181,6 @@ struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t
 #endif
 
 #ifndef LOVR_DISABLE_MATH
-#include "math/math.h" // TODO
-float* luax_tovector(lua_State* L, int index, VectorType* type);
-float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected);
-float* luax_newtempvector(lua_State* L, VectorType type);
-int luax_readvec2(lua_State* L, int index, float* v, const char* expected);
-int luax_readvec3(lua_State* L, int index, float* v, const char* expected);
-int luax_readvec4(lua_State* L, int index, float* v, const char* expected);
-int luax_readscale(lua_State* L, int index, float* v, int components, const char* expected);
-int luax_readquat(lua_State* L, int index, float* q, const char* expected);
-int luax_readmat4(lua_State* L, int index, float* m, int scaleComponents);
 uint64_t luax_checkrandomseed(lua_State* L, int index);
 #endif
 

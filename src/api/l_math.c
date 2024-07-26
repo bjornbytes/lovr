@@ -1,96 +1,9 @@
 #include "api.h"
 #include "math/math.h"
+#include "l_math.lua.h"
 #include "util.h"
-#include <threads.h>
 #include <stdlib.h>
 #include <string.h>
-
-int l_lovrRandomGeneratorRandom(lua_State* L);
-int l_lovrRandomGeneratorRandomNormal(lua_State* L);
-int l_lovrRandomGeneratorGetSeed(lua_State* L);
-int l_lovrRandomGeneratorSetSeed(lua_State* L);
-int l_lovrVec2Set(lua_State* L);
-int l_lovrVec3Set(lua_State* L);
-int l_lovrVec4Set(lua_State* L);
-int l_lovrQuatSet(lua_State* L);
-int l_lovrMat4Set(lua_State* L);
-int l_lovrVec2__metaindex(lua_State* L);
-int l_lovrVec3__metaindex(lua_State* L);
-int l_lovrVec4__metaindex(lua_State* L);
-int l_lovrQuat__metaindex(lua_State* L);
-int l_lovrMat4__metaindex(lua_State* L);
-static int l_lovrMathVec2(lua_State* L);
-static int l_lovrMathVec3(lua_State* L);
-static int l_lovrMathVec4(lua_State* L);
-static int l_lovrMathQuat(lua_State* L);
-static int l_lovrMathMat4(lua_State* L);
-extern const luaL_Reg lovrCurve[];
-extern const luaL_Reg lovrRandomGenerator[];
-extern const luaL_Reg lovrVec2[];
-extern const luaL_Reg lovrVec3[];
-extern const luaL_Reg lovrVec4[];
-extern const luaL_Reg lovrQuat[];
-extern const luaL_Reg lovrMat4[];
-
-static thread_local Pool* pool;
-static thread_local int metaref[MAX_VECTOR_TYPES];
-
-static struct { const char* name; lua_CFunction constructor, indexer; const luaL_Reg* api; } lovrVectorInfo[] = {
-  [V_VEC2] = { "vec2", l_lovrMathVec2, l_lovrVec2__metaindex, lovrVec2 },
-  [V_VEC3] = { "vec3", l_lovrMathVec3, l_lovrVec3__metaindex, lovrVec3 },
-  [V_VEC4] = { "vec4", l_lovrMathVec4, l_lovrVec4__metaindex, lovrVec4 },
-  [V_QUAT] = { "quat", l_lovrMathQuat, l_lovrQuat__metaindex, lovrQuat },
-  [V_MAT4] = { "mat4", l_lovrMathMat4, l_lovrMat4__metaindex, lovrMat4 }
-};
-
-static void luax_destroypool(void) {
-  lovrRelease(pool, lovrPoolDestroy);
-}
-
-float* luax_tovector(lua_State* L, int index, VectorType* type) {
-  void* p = lua_touserdata(L, index);
-
-  if (p) {
-    if (lua_type(L, index) == LUA_TLIGHTUSERDATA) {
-      Vector v = { .pointer = p };
-      if (v.handle.type > V_NONE && v.handle.type < MAX_VECTOR_TYPES) {
-        if (type) *type = v.handle.type;
-        return lovrPoolResolve(pool, v);
-      }
-    } else {
-      VectorType* t = p;
-      if (*t > V_NONE && *t < MAX_VECTOR_TYPES) {
-        if (type) *type = *t;
-        return (float*) (t + 1);
-      }
-    }
-  }
-
-  if (type) *type = V_NONE;
-  return NULL;
-}
-
-float* luax_checkvector(lua_State* L, int index, VectorType type, const char* expected) {
-  VectorType t;
-  float* p = luax_tovector(L, index, &t);
-  if (!p || t != type) luax_typeerror(L, index, expected ? expected : lovrVectorInfo[type].name);
-  return p;
-}
-
-static float* luax_newvector(lua_State* L, VectorType type, size_t components) {
-  VectorType* p = lua_newuserdata(L, sizeof(VectorType) + components * sizeof(float));
-  *p = type;
-  lua_rawgeti(L, LUA_REGISTRYINDEX, metaref[type]);
-  lua_setmetatable(L, -2);
-  return (float*) (p + 1);
-}
-
-float* luax_newtempvector(lua_State* L, VectorType type) {
-  float* data;
-  Vector vector = lovrPoolAllocate(pool, type, &data);
-  lua_pushlightuserdata(L, vector.pointer);
-  return data;
-}
 
 static int l_lovrMathNewCurve(lua_State* L) {
   Curve* curve = lovrCurveCreate();
@@ -130,6 +43,13 @@ static int l_lovrMathNewCurve(lua_State* L) {
   return 1;
 }
 
+extern int l_lovrMat4Set(lua_State* L);
+static int l_lovrMathNewMat4(lua_State* L) {
+  luax_newmat4(L);
+  lua_insert(L, 1);
+  return l_lovrMat4Set(L);
+}
+
 static int l_lovrMathNewRandomGenerator(lua_State* L) {
   RandomGenerator* generator = lovrRandomGeneratorCreate();
   if (lua_gettop(L) > 0){
@@ -154,24 +74,28 @@ static int l_lovrMathNoise(lua_State* L) {
   }
 }
 
+extern int l_lovrRandomGeneratorRandom(lua_State* L);
 static int l_lovrMathRandom(lua_State* L) {
   luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorRandom(L);
 }
 
+extern int l_lovrRandomGeneratorRandomNormal(lua_State* L);
 static int l_lovrMathRandomNormal(lua_State* L) {
   luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorRandomNormal(L);
 }
 
+extern int l_lovrRandomGeneratorGetSeed(lua_State* L);
 static int l_lovrMathGetRandomSeed(lua_State* L) {
   luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
   return l_lovrRandomGeneratorGetSeed(L);
 }
 
+extern int l_lovrRandomGeneratorSetSeed(lua_State* L);
 static int l_lovrMathSetRandomSeed(lua_State* L) {
   luax_pushtype(L, RandomGenerator, lovrMathGetRandomGenerator());
   lua_insert(L, 1);
@@ -214,73 +138,10 @@ static int l_lovrMathLinearToGamma(lua_State* L) {
   }
 }
 
-static int l_lovrMathNewVec2(lua_State* L) {
-  luax_newvector(L, V_VEC2, 2);
-  lua_insert(L, 1);
-  return l_lovrVec2Set(L);
-}
-
-static int l_lovrMathNewVec3(lua_State* L) {
-  luax_newvector(L, V_VEC3, 4);
-  lua_insert(L, 1);
-  return l_lovrVec3Set(L);
-}
-
-static int l_lovrMathNewVec4(lua_State* L) {
-  luax_newvector(L, V_VEC4, 4);
-  lua_insert(L, 1);
-  return l_lovrVec4Set(L);
-}
-
-static int l_lovrMathNewQuat(lua_State* L) {
-  luax_newvector(L, V_QUAT, 4);
-  lua_insert(L, 1);
-  return l_lovrQuatSet(L);
-}
-
-static int l_lovrMathNewMat4(lua_State* L) {
-  luax_newvector(L, V_MAT4, 16);
-  lua_insert(L, 1);
-  return l_lovrMat4Set(L);
-}
-
-static int l_lovrMathVec2(lua_State* L) {
-  luax_newtempvector(L, V_VEC2);
-  lua_replace(L, 1);
-  return l_lovrVec2Set(L);
-}
-
-static int l_lovrMathVec3(lua_State* L) {
-  luax_newtempvector(L, V_VEC3);
-  lua_replace(L, 1);
-  return l_lovrVec3Set(L);
-}
-
-static int l_lovrMathVec4(lua_State* L) {
-  luax_newtempvector(L, V_VEC4);
-  lua_replace(L, 1);
-  return l_lovrVec4Set(L);
-}
-
-static int l_lovrMathQuat(lua_State* L) {
-  luax_newtempvector(L, V_QUAT);
-  lua_replace(L, 1);
-  return l_lovrQuatSet(L);
-}
-
-static int l_lovrMathMat4(lua_State* L) {
-  luax_newtempvector(L, V_MAT4);
-  lua_replace(L, 1);
-  return l_lovrMat4Set(L);
-}
-
-static int l_lovrMathDrain(lua_State* L) {
-  lovrPoolDrain(pool);
-  return 0;
-}
-
 static const luaL_Reg lovrMath[] = {
   { "newCurve", l_lovrMathNewCurve },
+  { "newMat4", l_lovrMathNewMat4 },
+  { "mat4", l_lovrMathNewMat4 },
   { "newRandomGenerator", l_lovrMathNewRandomGenerator },
   { "noise", l_lovrMathNoise },
   { "random", l_lovrMathRandom },
@@ -289,63 +150,12 @@ static const luaL_Reg lovrMath[] = {
   { "setRandomSeed", l_lovrMathSetRandomSeed },
   { "gammaToLinear", l_lovrMathGammaToLinear },
   { "linearToGamma", l_lovrMathLinearToGamma },
-  { "newVec2", l_lovrMathNewVec2 },
-  { "newVec3", l_lovrMathNewVec3 },
-  { "newVec4", l_lovrMathNewVec4 },
-  { "newQuat", l_lovrMathNewQuat },
-  { "newMat4", l_lovrMathNewMat4 },
-  { "drain", l_lovrMathDrain },
   { NULL, NULL }
 };
 
-static int l_lovrLightUserdata__index(lua_State* L) {
-  VectorType type;
-  if (!luax_tovector(L, 1, &type)) {
-    return 0;
-  }
-
-  lua_rawgeti(L, LUA_REGISTRYINDEX, metaref[type]);
-  lua_pushvalue(L, 2);
-  lua_rawget(L, -2);
-  if (lua_isnil(L, -1)) {
-    lua_pop(L, 1);
-    lua_pushliteral(L, "__index");
-    lua_rawget(L, -2);
-    if (!lua_isnil(L, -1)) {
-      lua_pushvalue(L, 1);
-      lua_pushvalue(L, 2);
-      lua_call(L, 2, 1);
-      return 1;
-    } else {
-      return 0;
-    }
-  }
-  return 1;
-}
-
-static int l_lovrLightUserdataOp(lua_State* L) {
-  VectorType type;
-  if (!luax_tovector(L, lua_islightuserdata(L, 1) ? 1 : 2, &type)) {
-    lua_pushliteral(L, "__tostring");
-    if (lua_rawequal(L, -1, lua_upvalueindex(1))) {
-      lua_pop(L, 1);
-      lua_pushfstring(L, "%s: %p", lua_typename(L, lua_type(L, 1)), lua_topointer(L, 1));
-      return 1;
-    }
-    lua_pop(L, 1);
-    luaL_error(L, "Unsupported lightuserdata operator %q", lua_tostring(L, lua_upvalueindex(1)));
-    return 0;
-  }
-
-  lua_rawgeti(L, LUA_REGISTRYINDEX, metaref[type]);
-  lua_pushvalue(L, lua_upvalueindex(1));
-  lua_gettable(L, -2);
-  lua_pushvalue(L, 1);
-  lua_pushvalue(L, 2);
-  lua_pushvalue(L, 3);
-  lua_call(L, 3, 1);
-  return 1;
-}
+extern const luaL_Reg lovrCurve[];
+extern const luaL_Reg lovrRandomGenerator[];
+extern const luaL_Reg lovrMat4[];
 
 int luaopen_lovr_math(lua_State* L) {
   lua_newtable(L);
@@ -353,49 +163,38 @@ int luaopen_lovr_math(lua_State* L) {
   luax_registertype(L, Curve);
   luax_registertype(L, RandomGenerator);
 
-  for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
-    lua_newtable(L);
-
-    lua_newtable(L);
-    lua_pushcfunction(L, lovrVectorInfo[i].constructor);
-    lua_setfield(L, -2, "__call");
-    lua_pushcfunction(L, lovrVectorInfo[i].indexer);
-    lua_setfield(L, -2, "__index");
-    lua_setmetatable(L, -2);
-
-    lua_pushstring(L, lovrVectorInfo[i].name);
-    lua_setfield(L, -2, "__name");
-
-    // lovr.math[__name] = metatable
-    lua_pushstring(L, lovrVectorInfo[i].name);
-    lua_pushvalue(L, -2);
-    lua_settable(L, -4);
-
-    luax_register(L, lovrVectorInfo[i].api);
-    metaref[i] = luaL_ref(L, LUA_REGISTRYINDEX);
-  }
-
-  // Global lightuserdata metatable
-  lua_pushlightuserdata(L, NULL);
-  lua_newtable(L);
-  lua_pushcfunction(L, l_lovrLightUserdata__index);
+  luaL_newmetatable(L, "Mat4");
+  lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
-  const char* ops[] = { "__add", "__sub", "__mul", "__div", "__unm", "__len", "__tostring", "__newindex" };
-  for (size_t i = 0; i < COUNTOF(ops); i++) {
-    lua_pushstring(L, ops[i]);
-    lua_pushcclosure(L, l_lovrLightUserdataOp, 1);
-    lua_setfield(L, -2, ops[i]);
-  }
-  lua_setmetatable(L, -2);
+  luax_register(L, lovrMat4);
   lua_pop(L, 1);
 
   // Module
   lovrMathInit();
   luax_atexit(L, lovrMathDestroy);
 
-  // Each Lua state gets its own thread-local Pool
-  pool = lovrPoolCreate();
-  luax_atexit(L, luax_destroypool);
+  const char* names[] = { "vec2", "vec3", "vec4", "quat", "mat4" };
+  const char* capitals[] = { "newVec2", "newVec3", "newVec4", "newQuat", "newMat4" };
+
+  // Lua vectors
+  if (!luaL_loadbuffer(L, (const char*) src_api_l_math_lua, src_api_l_math_lua_len, "@math.lua")) {
+    luaL_newmetatable(L, "Vec2");
+    luaL_newmetatable(L, "Vec3");
+    luaL_newmetatable(L, "Vec4");
+    luaL_newmetatable(L, "Quat");
+    luaL_newmetatable(L, "Mat4");
+    lua_call(L, 5, 0);
+  } else {
+    lovrThrow("%s", lua_tostring(L, -1));
+    lua_pop(L, 1);
+  }
+
+  for (size_t i = 0; i < COUNTOF(names) - 1; i++) {
+    luaL_newmetatable(L, capitals[i] + 3);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -3, names[i]); // lovr.math.vec3 = metatable
+    lua_setfield(L, -2, capitals[i]); // lovr.math.newVec3 = metatable
+  }
 
   // Globals
   luax_pushconf(L);
@@ -404,18 +203,11 @@ int luaopen_lovr_math(lua_State* L) {
     if (lua_istable(L, -1)) {
       lua_getfield(L, -1, "globals");
       if (lua_toboolean(L, -1)) {
-        for (size_t i = V_NONE + 1; i < MAX_VECTOR_TYPES; i++) {
-          lua_getfield(L, -4, lovrVectorInfo[i].name);
-          lua_setglobal(L, lovrVectorInfo[i].name);
-
-          // Capitalized global is permanent vector constructor
-          char constructor[8];
-          memcpy(constructor, "new", 3);
-          memcpy(constructor + 3, lovrVectorInfo[i].name, 4);
-          constructor[3] -= 32;
-          constructor[7] = '\0';
-          lua_getfield(L, -4, constructor);
-          lua_setglobal(L, constructor + 3);
+        for (size_t i = 0; i < COUNTOF(names); i++) {
+          lua_getfield(L, -4, names[i]);
+          lua_pushvalue(L, -1);
+          lua_setglobal(L, names[i]);
+          lua_setglobal(L, capitals[i] + 3); // Skip 'new'
         }
       }
       lua_pop(L, 1);

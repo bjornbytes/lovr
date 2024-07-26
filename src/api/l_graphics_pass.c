@@ -2,6 +2,7 @@
 #include "graphics/graphics.h"
 #include "data/blob.h"
 #include "data/image.h"
+#include "math/math.h"
 #include "core/maf.h"
 #include "util.h"
 #include <stdlib.h>
@@ -233,10 +234,10 @@ static int l_lovrPassGetViewPose(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
   if (lua_gettop(L) > 2) {
-    float* matrix = luax_checkvector(L, 3, V_MAT4, NULL);
+    mat4 m = luax_checkmat4(L, 3);
     bool invert = lua_toboolean(L, 4);
-    lovrPassGetViewMatrix(pass, view, matrix);
-    if (!invert) mat4_invert(matrix);
+    lovrPassGetViewMatrix(pass, view, m);
+    if (!invert) mat4_invert(m);
     lua_settop(L, 3);
     return 1;
   } else {
@@ -258,14 +259,12 @@ static int l_lovrPassGetViewPose(lua_State* L) {
 static int l_lovrPassSetViewPose(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
-  VectorType type;
-  float* p = luax_tovector(L, 3, &type);
-  if (p && type == V_MAT4) {
-    float matrix[16];
-    mat4_init(matrix, p);
+  if (luax_ismat4(L, 3)) {
+    float m[16];
+    mat4_init(m, lua_touserdata(L, 3));
     bool inverted = lua_toboolean(L, 4);
-    if (!inverted) mat4_invert(matrix);
-    lovrPassSetViewMatrix(pass, view, matrix);
+    if (!inverted) mat4_invert(m);
+    lovrPassSetViewMatrix(pass, view, m);
   } else {
     int index = 3;
     float position[3], orientation[4], matrix[16];
@@ -282,8 +281,8 @@ static int l_lovrPassGetProjection(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   uint32_t view = luaL_checkinteger(L, 2) - 1;
   if (lua_gettop(L) > 2) {
-    float* matrix = luax_checkvector(L, 3, V_MAT4, NULL);
-    lovrPassGetProjection(pass, view, matrix);
+    mat4 m = luax_checkmat4(L, 3);
+    lovrPassGetProjection(pass, view, m);
     lua_settop(L, 3);
     return 1;
   } else {
@@ -311,9 +310,10 @@ static int l_lovrPassSetProjection(lua_State* L) {
     float matrix[16];
     mat4_fov(matrix, left, right, up, down, clipNear, clipFar);
     lovrPassSetProjection(pass, view, matrix);
+  } else if (luax_ismat4(L, 3)) {
+    lovrPassSetProjection(pass, view, lua_touserdata(L, 3));
   } else {
-    float* matrix = luax_checkvector(L, 3, V_MAT4, "mat4 or number");
-    lovrPassSetProjection(pass, view, matrix);
+    return luax_typeerror(L, 3, "number or Mat4");
   }
   return 0;
 }
@@ -686,7 +686,7 @@ static int l_lovrPassSend(lua_State* L) {
     lua_pushinteger(L, value);
   }
 
-  luax_checkbufferdata(L, 3, format, data);
+  luax_checkbufferdata(L, 3, format, data, true);
 
   return 0;
 }
@@ -699,15 +699,16 @@ static uint32_t luax_getvertexcount(lua_State* L, int index) {
     case LUA_TNUMBER:
       return (lua_gettop(L) - index + 1) / 3;
     case LUA_TTABLE:
-      lua_rawgeti(L, index, 1);
-      int innerType = lua_type(L, -1);
-      lua_pop(L, 1);
-      return luax_len(L, index) / (innerType == LUA_TNUMBER ? 3 : 1);
-    case LUA_TUSERDATA:
-    case LUA_TLIGHTUSERDATA:
-      return lua_gettop(L) - index + 1;
+      if (lua_gettop(L) > index) {
+        return lua_gettop(L) - index + 1;
+      } else {
+        lua_rawgeti(L, index, 1);
+        bool nested = lua_istable(L, -1);
+        lua_pop(L, 1);
+        return nested ? luax_len(L, index) : luax_len(L, index) / 3;
+      }
     default:
-      return luax_typeerror(L, index, "number, table, or vector");
+      return luax_typeerror(L, index, "number or table");
   }
 }
 
@@ -723,31 +724,38 @@ static void luax_readvertices(lua_State* L, int index, float* vertices, uint32_t
       }
       break;
     case LUA_TTABLE:
-      lua_rawgeti(L, index, 1);
-      int innerType = lua_type(L, -1);
-      lua_pop(L, 1);
-      if (innerType == LUA_TNUMBER) {
-        for (uint32_t i = 0; i < 3 * count; i++) {
-          lua_rawgeti(L, index, i + 1);
-          *vertices++ = luax_tofloat(L, -1);
-          lua_pop(L, 1);
-        }
-      } else if (innerType == LUA_TUSERDATA || innerType == LUA_TLIGHTUSERDATA) {
+      if (lua_gettop(L) > index) {
         for (uint32_t i = 0; i < count; i++) {
-          lua_rawgeti(L, index, i + 1);
-          float* v = luax_checkvector(L, -1, V_VEC3, NULL);
-          memcpy(vertices, v, 3 * sizeof(float));
-          vertices += 3;
-          lua_pop(L, 1);
+          lua_rawgeti(L, index + i, 1);
+          lua_rawgeti(L, index + i, 2);
+          lua_rawgeti(L, index + i, 3);
+          *vertices++ = luax_tofloat(L, -3);
+          *vertices++ = luax_tofloat(L, -2);
+          *vertices++ = luax_tofloat(L, -1);
+          lua_pop(L, 3);
         }
-      }
-      break;
-    case LUA_TUSERDATA:
-    case LUA_TLIGHTUSERDATA:
-      for (uint32_t i = 0; i < count; i++) {
-        float *v = luax_checkvector(L, index + i, V_VEC3, NULL);
-        memcpy(vertices, v, 3 * sizeof(float));
-        vertices += 3;
+      } else {
+        lua_rawgeti(L, index, 1);
+        bool nested = lua_istable(L, -1);
+        lua_pop(L, 1);
+        if (nested) {
+          for (uint32_t i = 0; i < count; i++) {
+            lua_rawgeti(L, index, i + 1);
+            lua_rawgeti(L, -1, 1);
+            lua_rawgeti(L, -2, 2);
+            lua_rawgeti(L, -3, 3);
+            *vertices++ = luax_tofloat(L, -3);
+            *vertices++ = luax_tofloat(L, -2);
+            *vertices++ = luax_tofloat(L, -1);
+            lua_pop(L, 4);
+          }
+        } else {
+          for (uint32_t i = 0; i < 3 * count; i++) {
+            lua_rawgeti(L, index, i + 1);
+            *vertices++ = luax_tofloat(L, -1);
+            lua_pop(L, 1);
+          }
+        }
       }
       break;
   }
@@ -843,10 +851,12 @@ static int l_lovrPassSphere(lua_State* L) {
 }
 
 static bool luax_checkendpoints(lua_State* L, int index, float transform[16], bool center) {
-  float *v, *u;
-  VectorType t1, t2;
-  if ((v = luax_tovector(L, index + 0, &t1)) == NULL || t1 != V_VEC3) return false;
-  if ((u = luax_tovector(L, index + 1, &t2)) == NULL || t2 != V_VEC3) return false;
+  float v[3], u[3];
+  if (lua_type(L, index) != LUA_TTABLE || lua_type(L, index + 1) != LUA_TTABLE) {
+    return false;
+  }
+  luax_readvec3(L, index + 0, v, NULL);
+  luax_readvec3(L, index + 1, u, NULL);
   float radius = luax_optfloat(L, index + 2, 1.);
   float orientation[4];
   float forward[3] = { 0.f, 0.f, -1.f };

@@ -1,6 +1,5 @@
 #include "math.h"
 #include "core/maf.h"
-#include "core/os.h"
 #include "util.h"
 #include "lib/noise/simplexnoise1234.h"
 #include <math.h>
@@ -14,14 +13,6 @@
 struct Curve {
   uint32_t ref;
   arr_t(float) points;
-};
-
-struct Pool {
-  uint32_t ref;
-  float* data;
-  uint32_t count;
-  uint32_t cursor;
-  uint32_t generation;
 };
 
 struct RandomGenerator {
@@ -89,7 +80,7 @@ RandomGenerator* lovrMathGetRandomGenerator(void) {
 // Curve
 
 // Explicit curve evaluation, unroll simple cases to avoid pow overhead
-static void evaluate(float* restrict P, size_t n, float t, vec4 p) {
+static void evaluate(float* restrict P, size_t n, float t, float* p) {
   if (n == 2) {
     p[0] = P[0] + (P[4] - P[0]) * t;
     p[1] = P[1] + (P[5] - P[1]) * t;
@@ -142,18 +133,18 @@ void lovrCurveDestroy(void* ref) {
   lovrFree(curve);
 }
 
-void lovrCurveEvaluate(Curve* curve, float t, vec4 p) {
+void lovrCurveEvaluate(Curve* curve, float t, float* p) {
   lovrCheck(curve->points.length >= 8, "Need at least 2 points to evaluate a Curve");
   lovrCheck(t >= 0.f && t <= 1.f, "Curve evaluation interval must be within [0, 1]");
   evaluate(curve->points.data, curve->points.length / 4, t, p);
 }
 
-void lovrCurveGetTangent(Curve* curve, float t, vec4 p) {
+void lovrCurveGetTangent(Curve* curve, float t, float* p) {
   float q[4];
   size_t n = curve->points.length / 4;
   evaluate(curve->points.data, n - 1, t, q);
   evaluate(curve->points.data + 4, n - 1, t, p);
-  vec4_add(p, vec4_scale(q, -1.f));
+  vec3_add(p, vec3_scale(q, -1.f));
   vec3_normalize(p);
 }
 
@@ -172,7 +163,7 @@ Curve* lovrCurveSlice(Curve* curve, float t1, float t2) {
     evaluate(curve->points.data + 4 * i, n - i, t1, new->points.data + 4 * i);
   }
 
-  vec4_init(new->points.data + 4 * (n - 1), curve->points.data + 4 * (n - 1));
+  memcpy(new->points.data + 4 * (n - 1), curve->points.data + 4 * (n - 1), 4 * sizeof(float));
 
   // Split segment at t2, taking left half
   float t = (t2 - t1) / (1.f - t1);
@@ -187,15 +178,15 @@ size_t lovrCurveGetPointCount(Curve* curve) {
   return curve->points.length / 4;
 }
 
-void lovrCurveGetPoint(Curve* curve, size_t index, vec4 point) {
-  vec4_init(point, curve->points.data + 4 * index);
+void lovrCurveGetPoint(Curve* curve, size_t index, float* point) {
+  memcpy(point, curve->points.data + 4 * index, 4 * sizeof(float));
 }
 
-void lovrCurveSetPoint(Curve* curve, size_t index, vec4 point) {
-  vec4_init(curve->points.data + 4 * index, point);
+void lovrCurveSetPoint(Curve* curve, size_t index, float* point) {
+  memcpy(curve->points.data + 4 * index, point, 4 * sizeof(float));
 }
 
-void lovrCurveAddPoint(Curve* curve, vec4 point, size_t index) {
+void lovrCurveAddPoint(Curve* curve, float* point, size_t index) {
 
   // Reserve enough memory for 4 more floats, then record destination once memory is allocated
   arr_reserve(&curve->points, curve->points.length + 4);
@@ -213,69 +204,6 @@ void lovrCurveAddPoint(Curve* curve, vec4 point, size_t index) {
 
 void lovrCurveRemovePoint(Curve* curve, size_t index) {
   arr_splice(&curve->points, index * 4, 4);
-}
-
-// Pool
-
-static const size_t vectorComponents[] = {
-  [V_VEC2] = 2,
-  [V_VEC3] = 4,
-  [V_VEC4] = 4,
-  [V_QUAT] = 4,
-  [V_MAT4] = 16
-};
-
-Pool* lovrPoolCreate(void) {
-  Pool* pool = lovrCalloc(sizeof(Pool));
-  pool->ref = 1;
-  pool->data = os_vm_init((1 << 24) * sizeof(float));
-  lovrPoolGrow(pool, 1 << 12);
-  return pool;
-}
-
-void lovrPoolDestroy(void* ref) {
-  Pool* pool = ref;
-  os_vm_free(pool->data, (1 << 24) * sizeof(float));
-  lovrFree(pool);
-}
-
-void lovrPoolGrow(Pool* pool, size_t count) {
-  lovrAssert(count <= (1 << 24), "Temporary vector space exhausted.  Try using lovr.math.drain to drain the vector pool periodically.");
-  pool->count = (uint32_t) count; // Assert guarantees safe
-  bool result = os_vm_commit(pool->data, count * sizeof(float));
-  lovrAssert(result, "Out of memory");
-}
-
-Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data) {
-  lovrCheck(pool, "The math module must be initialized to create vectors");
-
-  size_t count = vectorComponents[type];
-
-  if (pool->cursor + count > pool->count) {
-    lovrPoolGrow(pool, pool->count * 2);
-  }
-
-  Vector v = {
-    .handle = {
-      .type = type,
-      .generation = pool->generation,
-      .index = pool->cursor
-    }
-  };
-
-  *data = pool->data + pool->cursor;
-  pool->cursor += (uint32_t) count; // Cast safe because vectorComponents members are known
-  return v;
-}
-
-float* lovrPoolResolve(Pool* pool, Vector vector) {
-  lovrCheck(vector.handle.generation == pool->generation, "Attempt to use a temporary vector from a previous frame");
-  return pool->data + vector.handle.index;
-}
-
-void lovrPoolDrain(Pool* pool) {
-  pool->cursor = 0;
-  pool->generation = (pool->generation + 1) & 0xf;
 }
 
 // RandomGenerator (compatible with LÖVE's)

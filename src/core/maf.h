@@ -10,94 +10,9 @@
 #define M_PI 3.14159265358979
 #endif
 
-typedef float* vec2;
 typedef float* vec3;
-typedef float* vec4;
 typedef float* quat;
 typedef float* mat4;
-
-// vec2
-
-MAF vec2 vec2_set(vec2 v, float x, float y) {
-  v[0] = x;
-  v[1] = y;
-  return v;
-}
-
-MAF vec2 vec2_init(vec2 v, const vec2 u) {
-  return memcpy(v, u, 2 * sizeof(float));
-}
-
-MAF vec2 vec2_add(vec2 v, const vec2 u) {
-  v[0] += u[0];
-  v[1] += u[1];
-  return v;
-}
-
-MAF vec2 vec2_sub(vec2 v, const vec2 u) {
-  v[0] -= u[0];
-  v[1] -= u[1];
-  return v;
-}
-
-MAF vec2 vec2_mul(vec2 v, const vec2 u) {
-  v[0] *= u[0];
-  v[1] *= u[1];
-  return v;
-}
-
-MAF vec2 vec2_div(vec2 v, const vec2 u) {
-  v[0] /= u[0];
-  v[1] /= u[1];
-  return v;
-}
-
-MAF vec2 vec2_scale(vec2 v, float s) {
-  v[0] *= s;
-  v[1] *= s;
-  return v;
-}
-
-MAF float vec2_length(vec2 v) {
-  return sqrtf(v[0] * v[0] + v[1] * v[1]);
-}
-
-MAF vec2 vec2_normalize(vec2 v) {
-  float length = vec2_length(v);
-  return length == 0.f ? v : vec2_scale(v, 1.f / length);
-}
-
-MAF float vec2_distance2(const vec2 v, const vec2 u) {
-  float dx = v[0] - u[0];
-  float dy = v[1] - u[1];
-  return dx * dx + dy * dy;
-}
-
-MAF float vec2_distance(const vec2 v, const vec2 u) {
-  return sqrtf(vec2_distance2(v, u));
-}
-
-MAF float vec2_dot(const vec2 v, const vec2 u) {
-  return v[0] * u[0] + v[1] * u[1];
-}
-
-MAF vec2 vec2_lerp(vec2 v, const vec2 u, float t) {
-  v[0] = v[0] * (1.f - t) + u[0] * t;
-  v[1] = v[1] * (1.f - t) + u[1] * t;
-  return v;
-}
-
-MAF float vec2_angle(const vec2 v, const vec2 u) {
-  float denom = vec2_length(v) * vec2_length(u);
-  if (denom == 0.f) {
-    return (float) M_PI / 2.f;
-  } else {
-    float cos = vec2_dot(v, u) / denom;
-    cos = cos < -1.f ? -1.f : cos;
-    cos = cos > 1.f ? 1.f : cos;
-    return acosf(cos);
-  }
-}
 
 // vec3
 
@@ -123,20 +38,6 @@ MAF vec3 vec3_sub(vec3 v, const vec3 u) {
   v[0] -= u[0];
   v[1] -= u[1];
   v[2] -= u[2];
-  return v;
-}
-
-MAF vec3 vec3_mul(vec3 v, const vec3 u) {
-  v[0] *= u[0];
-  v[1] *= u[1];
-  v[2] *= u[2];
-  return v;
-}
-
-MAF vec3 vec3_div(vec3 v, const vec3 u) {
-  v[0] /= u[0];
-  v[1] /= u[1];
-  v[2] /= u[2];
   return v;
 }
 
@@ -183,132 +84,6 @@ MAF vec3 vec3_lerp(vec3 v, const vec3 u, float t) {
   v[1] = v[1] * (1.f - t) + u[1] * t;
   v[2] = v[2] * (1.f - t) + u[2] * t;
   return v;
-}
-
-MAF vec3 vec3_abs(vec3 v) {
-  v[0] = fabsf(v[0]);
-  v[1] = fabsf(v[1]);
-  v[2] = fabsf(v[2]);
-  return v;
-}
-
-MAF float vec3_angle(const vec3 v, const vec3 u) {
-  float denom = vec3_length(v) * vec3_length(u);
-  if (denom == 0.f) {
-    return (float) M_PI / 2.f;
-  } else {
-    float cos = vec3_dot(v, u) / denom;
-    cos = cos < -1.f ? -1.f : cos;
-    cos = cos > 1.f ? 1.f : cos;
-    return acosf(cos);
-  }
-}
-
-// vec4
-
-MAF vec4 vec4_set(vec4 v, float x, float y, float z, float w) {
-  v[0] = x;
-  v[1] = y;
-  v[2] = z;
-  v[3] = w;
-  return v;
-}
-
-MAF vec4 vec4_init(vec4 v, const vec4 u) {
-  return memcpy(v, u, 4 * sizeof(float));
-}
-
-MAF vec2 vec4_add(vec4 v, const vec4 u) {
-  v[0] += u[0];
-  v[1] += u[1];
-  v[2] += u[2];
-  v[3] += u[3];
-  return v;
-}
-
-MAF vec4 vec4_sub(vec4 v, const vec4 u) {
-  v[0] -= u[0];
-  v[1] -= u[1];
-  v[2] -= u[2];
-  v[3] -= u[3];
-  return v;
-}
-
-MAF vec4 vec4_mul(vec4 v, const vec4 u) {
-  v[0] *= u[0];
-  v[1] *= u[1];
-  v[2] *= u[2];
-  v[3] *= u[3];
-  return v;
-}
-
-MAF vec4 vec4_div(vec4 v, const vec4 u) {
-  v[0] /= u[0];
-  v[1] /= u[1];
-  v[2] /= u[2];
-  v[3] /= u[3];
-  return v;
-}
-
-MAF vec4 vec4_scale(vec4 v, float s) {
-  v[0] *= s;
-  v[1] *= s;
-  v[2] *= s;
-  v[3] *= s;
-  return v;
-}
-
-MAF float vec4_length(vec4 v) {
-  return sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]);
-}
-
-MAF vec4 vec4_normalize(vec4 v) {
-  float length = vec4_length(v);
-  return length == 0.f ? v : vec4_scale(v, 1.f / length);
-}
-
-MAF float vec4_distance2(const vec4 v, const vec4 u) {
-  float dx = v[0] - u[0];
-  float dy = v[1] - u[1];
-  float dz = v[2] - u[2];
-  float dw = v[3] - u[3];
-  return dx * dx + dy * dy + dz * dz + dw * dw;
-}
-
-MAF float vec4_distance(const vec4 v, const vec4 u) {
-  return sqrtf(vec4_distance2(v, u));
-}
-
-MAF float vec4_dot(const vec4 v, const vec4 u) {
-  return v[0] * u[0] + v[1] * u[1] + v[2] * u[2] + v[3] * u[3];
-}
-
-MAF vec4 vec4_lerp(vec4 v, const vec4 u, float t) {
-  v[0] = v[0] * (1.f - t) + u[0] * t;
-  v[1] = v[1] * (1.f - t) + u[1] * t;
-  v[2] = v[2] * (1.f - t) + u[2] * t;
-  v[3] = v[3] * (1.f - t) + u[3] * t;
-  return v;
-}
-
-MAF vec4 vec4_abs(vec4 v) {
-  v[0] = fabsf(v[0]);
-  v[1] = fabsf(v[1]);
-  v[2] = fabsf(v[2]);
-  v[3] = fabsf(v[3]);
-  return v;
-}
-
-MAF float vec4_angle(const vec4 v, const vec4 u) {
-  float denom = vec4_length(v) * vec4_length(u);
-  if (denom == 0.f) {
-    return (float) M_PI / 2.f;
-  } else {
-    float cos = vec4_dot(v, u) / denom;
-    cos = cos < -1.f ? -1.f : cos;
-    cos = cos > 1.f ? 1.f : cos;
-    return acosf(cos);
-  }
 }
 
 // quat
@@ -494,42 +269,6 @@ MAF quat quat_between(quat q, vec3 u, vec3 v) {
   return quat_normalize(q);
 }
 
-MAF void quat_getEuler(quat q, float* x, float* y, float* z) {
-  float unit = (q[0] * q[0]) + (q[1] * q[1]) + (q[2] * q[2]) + (q[3] * q[3]);
-  float test = q[0] * q[3] - q[1] * q[2];
-  const float eps = 1e-7f;
-
-  if (test > (.5f - eps) * unit) {
-    *x = (float) M_PI / 2.f;
-    *y = 2.f * atan2f(q[1], q[0]);
-    *z = 0.f;
-  } else if (test < -(.5f - eps) * unit) {
-    *x = (float) -M_PI / 2.f;
-    *y = -2.f * atan2f(q[1], q[0]);
-    *z = 0.f;
-  } else {
-    *x = asinf(2.f * (q[3] * q[0] - q[1] * q[2]));
-    *y = atan2f(2.f * q[3] * q[1] + 2.f * q[2] * q[0], 1.f - 2.f * (q[0] * q[0] + q[1] * q[1]));
-    *z = atan2f(2.f * q[3] * q[2] + 2.f * q[0] * q[1], 1.f - 2.f * (q[2] * q[2] + q[0] * q[0]));
-  }
-}
-
-MAF quat quat_setEuler(quat q, float x, float y, float z) {
-  float cx = cosf(x * .5f);
-  float sx = sinf(x * .5f);
-  float cy = cosf(y * .5f);
-  float sy = sinf(y * .5f);
-  float cz = cosf(z * .5f);
-  float sz = sinf(z * .5f);
-
-  return quat_set(q,
-    cy * sx * cz + sy * cx * sz,
-    sy * cx * cz - cy * sx * sz,
-    cy * cx * sz - sy * sx * cz,
-    cy * cx * cz + sy * sx * sz
-  );
-}
-
 // mat4
 
 #define MAT4_IDENTITY { 1.f, 0.f, 0.f, 0.f,  0.f, 1.f, 0.f, 0.f,  0.f, 0.f, 1.f, 0.f,  0.f, 0.f, 0.f, 1.f }
@@ -683,16 +422,20 @@ MAF mat4 mat4_mul(mat4 m, mat4 n) {
   return m;
 }
 
-MAF vec4 mat4_mulVec4(mat4 m, vec4 v) {
+MAF float* mat4_mulVec4(mat4 m, float* v) {
   float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + v[3] * m[12];
   float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + v[3] * m[13];
   float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + v[3] * m[14];
   float w = v[0] * m[3] + v[1] * m[7] + v[2] * m[11] + v[3] * m[15];
-  return vec4_set(v, x, y, z, w);
+  v[0] = x;
+  v[1] = y;
+  v[2] = z;
+  v[3] = w;
+  return v;
 }
 
 
-MAF vec4 mat4_mulPoint(mat4 m, vec3 v) {
+MAF vec3 mat4_mulPoint(mat4 m, vec3 v) {
   float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12];
   float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13];
   float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14];
@@ -700,7 +443,7 @@ MAF vec4 mat4_mulPoint(mat4 m, vec3 v) {
   return vec3_set(v, x / w, y / w, z / w);
 }
 
-MAF vec4 mat4_mulDirection(mat4 m, vec3 v) {
+MAF vec3 mat4_mulDirection(mat4 m, vec3 v) {
   float x = v[0] * m[0] + v[1] * m[4] + v[2] * m[8];
   float y = v[0] * m[1] + v[1] * m[5] + v[2] * m[9];
   float z = v[0] * m[2] + v[1] * m[6] + v[2] * m[10];

@@ -540,7 +540,7 @@ if(LOVR_ENABLE_MATH)
     src/api/l_math.c
     src/api/l_math_curve.c
     src/api/l_math_randomGenerator.c
-    src/api/l_math_vectors.c
+    src/api/l_math_mat4.c
     src/lib/noise/simplexnoise1234.c
   )
 else()
@@ -631,7 +631,7 @@ if(NOT EMSCRIPTEN)
 endif()
 
 # Resources
-file(GLOB LOVR_RESOURCES "etc/*.ttf" "etc/*.lua" "etc/shaders/*.glsl")
+file(GLOB LOVR_RESOURCES "etc/*.ttf" "etc/*.lua" "etc/shaders/*.glsl" "src/api/l_math.lua")
 foreach(path ${LOVR_RESOURCES})
 
   # Turn the absolute path into a C variable like etc_boot_lua
