@@ -24,6 +24,13 @@ group('thread', function()
       assert(r.c.a == channel)
       assert(type(r.d) == 'table')
       assert(next(r.d) == nil)
+
+
+      local t = { 123, a = 1 }
+      t.t = t
+      local ok, r = pcall(channel.push, channel, t)
+      assert(ok == false)
+      assert(r:match("depth > 128"))
     end)
   end)
 end)

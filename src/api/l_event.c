@@ -30,7 +30,8 @@ StringEntry lovrEventType[] = {
 
 static thread_local int pollRef;
 
-void luax_checkvariant(lua_State* L, int index, Variant* variant) {
+static void _luax_checkvariant(lua_State* L, int index, Variant* variant, int depth) {
+  lovrAssert(depth <= 128, "depth > 128, please avoid circular references.");
   int type = lua_type(L, index);
   switch (type) {
     case LUA_TNIL:
@@ -81,9 +82,9 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
         int i = 0;
         lua_pushnil(L);
         while (lua_next(L, index) != 0) {
-          luax_checkvariant(L, -1, &vals[i]);
+          _luax_checkvariant(L, -1, &vals[i], depth + 1);
           lua_pop(L, 1);
-          luax_checkvariant(L, -1, &keys[i]);
+          _luax_checkvariant(L, -1, &keys[i], depth + 1);
           i++;
         }
       } else {
@@ -143,6 +144,10 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       lovrThrow("Bad variant type for argument %d: %s", index, lua_typename(L, type));
       return;
   }
+}
+
+void luax_checkvariant(lua_State* L, int index, Variant* variant) {
+  _luax_checkvariant(L, index, variant, 0);
 }
 
 int luax_pushvariant(lua_State* L, Variant* variant) {
