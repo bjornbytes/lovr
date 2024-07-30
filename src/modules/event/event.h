@@ -7,6 +7,7 @@
 #define MAX_EVENT_NAME_LENGTH 32
 
 struct Thread;
+struct Variant;
 
 typedef enum {
   EVENT_QUIT,
@@ -35,12 +36,12 @@ typedef enum {
   TYPE_BOOLEAN,
   TYPE_NUMBER,
   TYPE_STRING,
-  TYPE_TABLE,
   TYPE_MINISTRING,
   TYPE_POINTER,
   TYPE_OBJECT,
   TYPE_VECTOR,
-  TYPE_MATRIX
+  TYPE_MATRIX,
+  TYPE_TABLE
 } VariantType;
 
 typedef union {
@@ -68,8 +69,8 @@ typedef union {
     float* data;
   } matrix;
   struct {
-    void* keys;
-    void* vals;
+    struct Variant* keys;
+    struct Variant* vals;
     size_t length;
   } table;
 } VariantValue;
