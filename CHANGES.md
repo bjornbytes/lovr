@@ -65,6 +65,7 @@ dev
 - Add `lovr.headset.getHandles`.
 - Add `raw` flag to `lovr.graphics.newShader`.
 - Add `border` `WrapMode`.
+- Add table support to `channel:push`.
 
 ### Change
 

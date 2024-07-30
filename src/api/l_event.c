@@ -30,7 +30,8 @@ StringEntry lovrEventType[] = {
 
 static thread_local int pollRef;
 
-void luax_checkvariant(lua_State* L, int index, Variant* variant) {
+static void _luax_checkvariant(lua_State* L, int index, Variant* variant, int depth) {
+  lovrAssert(depth <= 128, "depth > 128, please avoid circular references.");
   int type = lua_type(L, index);
   switch (type) {
     case LUA_TNIL:
@@ -64,6 +65,35 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
       }
       break;
     }
+
+    case LUA_TTABLE:
+      if (index < 0) { index += lua_gettop(L) + 1; }
+      size_t length = 0;
+      lua_pushnil(L);
+      while (lua_next(L, index) != 0) { length++; lua_pop(L, 1); }
+      variant->type = TYPE_TABLE;
+      variant->value.table.length = length;
+      Variant* keys;
+      Variant* vals;
+
+      if (length > 0) {
+        keys = lovrMalloc(length * sizeof(Variant));
+        vals = lovrMalloc(length * sizeof(Variant));
+        int i = 0;
+        lua_pushnil(L);
+        while (lua_next(L, index) != 0) {
+          _luax_checkvariant(L, -1, &vals[i], depth + 1);
+          lua_pop(L, 1);
+          _luax_checkvariant(L, -1, &keys[i], depth + 1);
+          i++;
+        }
+      } else {
+        keys = NULL;
+        vals = NULL;
+      }
+      variant->value.table.keys = keys;
+      variant->value.table.vals = vals;
+      break;
 
     case LUA_TUSERDATA:
       variant->type = TYPE_OBJECT;
@@ -116,12 +146,26 @@ void luax_checkvariant(lua_State* L, int index, Variant* variant) {
   }
 }
 
+void luax_checkvariant(lua_State* L, int index, Variant* variant) {
+  _luax_checkvariant(L, index, variant, 0);
+}
+
 int luax_pushvariant(lua_State* L, Variant* variant) {
   switch (variant->type) {
     case TYPE_NIL: lua_pushnil(L); return 1;
     case TYPE_BOOLEAN: lua_pushboolean(L, variant->value.boolean); return 1;
     case TYPE_NUMBER: lua_pushnumber(L, variant->value.number); return 1;
     case TYPE_STRING: lua_pushlstring(L, variant->value.string.pointer, variant->value.string.length); return 1;
+    case TYPE_TABLE:
+      lua_newtable(L);
+      Variant* keys = variant->value.table.keys;
+      Variant* vals = variant->value.table.vals;
+      for (int i = 0; i < variant->value.table.length; i++) {
+        luax_pushvariant(L, &keys[i]);
+        luax_pushvariant(L, &vals[i]);
+        lua_settable(L, -3);
+      }
+      return 1;
     case TYPE_MINISTRING: lua_pushlstring(L, variant->value.ministring.data, variant->value.ministring.length); return 1;
     case TYPE_POINTER: lua_pushlightuserdata(L, variant->value.pointer); return 1;
     case TYPE_OBJECT: _luax_pushtype(L, variant->value.object.type, hash64(variant->value.object.type, strlen(variant->value.object.type)), variant->value.object.pointer); return 1;
