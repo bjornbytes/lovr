@@ -1706,7 +1706,7 @@ void lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   gpu_stream_end(state.stream);
 
   for (uint32_t i = 0; i < count; i++) {
-    gpu_stream* stream = streams[streamCount++] = gpu_stream_begin(NULL);
+    gpu_stream* stream = streams[streamCount++] = gpu_stream_begin(passes[i]->label);
 
     if (state.timingEnabled) {
       times[i].cpuTime = os_get_time();
@@ -2561,10 +2561,6 @@ void lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t
   gpu_barrier barrier = syncTransfer(&texture->root->sync, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
   gpu_clear_texture(state.stream, texture->root->gpu, value, texture->baseLayer + layer, layerCount, texture->baseLevel + level, levelCount);
-}
-
-const char* lovrTextureGetLabel(Texture* texture) {
-  return texture->info.label;
 }
 
 void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count) {
@@ -5335,7 +5331,7 @@ static void lovrPassRelease(Pass* pass) {
 
 Pass* lovrGraphicsGetWindowPass(void) {
   if (!state.windowPass) {
-    state.windowPass = lovrPassCreate(NULL);
+    state.windowPass = lovrPassCreate("Window");
   }
 
   Texture* window = lovrGraphicsGetWindowTexture();
@@ -5389,9 +5385,7 @@ void lovrPassDestroy(void* ref) {
     freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], pass->buffers.current);
   }
   os_vm_free(pass->allocator.memory, pass->allocator.limit);
-  if (pass->label) {
-    lovrFree(pass->label);
-  }
+  lovrFree(pass->label);
   lovrFree(pass);
 }
 
@@ -5462,6 +5456,10 @@ const PassStats* lovrPassGetStats(Pass* pass) {
   pass->stats.cpuMemoryReserved = pass->allocator.length;
   pass->stats.cpuMemoryUsed = pass->allocator.cursor;
   return &pass->stats;
+}
+
+const char* lovrPassGetLabel(Pass* pass) {
+  return pass->label;
 }
 
 void lovrPassGetCanvas(Pass* pass, Texture* textures[4], Texture** depthTexture, uint32_t* depthFormat, uint32_t* samples) {
@@ -7468,10 +7466,6 @@ void lovrPassBarrier(Pass* pass) {
   if (pass->computeCount > 0) {
     pass->computes[pass->computeCount - 1].flags |= COMPUTE_BARRIER;
   }
-}
-
-const char* lovrPassGetLabel(Pass* pass) {
-  return pass->label;
 }
 
 // Helpers

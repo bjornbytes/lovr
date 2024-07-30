@@ -231,7 +231,7 @@ static int l_lovrTextureSetSampler(lua_State* L) {
 
 static int l_lovrTextureToString(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  const char* label = lovrTextureGetLabel(texture);
+  const char* label = lovrTextureGetInfo(texture)->label;
   if (label) {
     lua_pushfstring(L, "Texture(%s): %p", label, texture);
   } else {

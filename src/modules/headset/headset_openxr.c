@@ -1379,7 +1379,7 @@ static void openxr_start(void) {
       state.depthFormat = state.config.stencil ? FORMAT_D24S8 : FORMAT_D24;
     }
 
-    state.pass = lovrPassCreate(NULL);
+    state.pass = lovrPassCreate("Headset");
 
 #ifdef LOVR_VK
     int64_t nativeColorFormat = VK_FORMAT_R8G8B8A8_SRGB;
