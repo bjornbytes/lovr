@@ -94,7 +94,7 @@ static void simulator_start(void) {
 #endif
 
   if (hasGraphics) {
-    state.pass = lovrPassCreate();
+    state.pass = lovrPassCreate(NULL);
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
     if (!lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
       state.depthFormat = state.config.stencil ? FORMAT_D24S8 : FORMAT_D24;

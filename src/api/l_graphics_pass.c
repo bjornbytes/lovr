@@ -1061,6 +1061,17 @@ static int l_lovrPassBarrier(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassToString(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  const char* label = lovrPassGetLabel(pass);
+  if (label) {
+    lua_pushfstring(L, "Pass(%s): %p", label, pass);
+  } else {
+    lua_pushfstring(L, "Pass: %p", pass);
+  }
+  return 1;
+}
+
 const luaL_Reg lovrPass[] = {
   { "reset", l_lovrPassReset },
   { "getStats", l_lovrPassGetStats },
@@ -1140,6 +1151,8 @@ const luaL_Reg lovrPass[] = {
 
   { "compute", l_lovrPassCompute },
   { "barrier", l_lovrPassBarrier },
+
+  { "__tostring", l_lovrPassToString },
 
   // Deprecated
   { "setCullMode", l_lovrPassSetFaceCull },

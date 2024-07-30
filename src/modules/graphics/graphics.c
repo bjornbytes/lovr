@@ -539,6 +539,7 @@ struct Pass {
   uint32_t drawCapacity;
   Draw* draws;
   PassStats stats;
+  char* label;
 };
 
 typedef struct {
@@ -2560,6 +2561,10 @@ void lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t
   gpu_barrier barrier = syncTransfer(&texture->root->sync, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
   gpu_clear_texture(state.stream, texture->root->gpu, value, texture->baseLayer + layer, layerCount, texture->baseLevel + level, levelCount);
+}
+
+const char* lovrTextureGetLabel(Texture* texture) {
+  return texture->info.label;
 }
 
 void lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count) {
@@ -5330,7 +5335,7 @@ static void lovrPassRelease(Pass* pass) {
 
 Pass* lovrGraphicsGetWindowPass(void) {
   if (!state.windowPass) {
-    state.windowPass = lovrPassCreate();
+    state.windowPass = lovrPassCreate(NULL);
   }
 
   Texture* window = lovrGraphicsGetWindowTexture();
@@ -5347,7 +5352,7 @@ Pass* lovrGraphicsGetWindowPass(void) {
   return state.windowPass;
 }
 
-Pass* lovrPassCreate(void) {
+Pass* lovrPassCreate(const char* label) {
   Pass* pass = lovrCalloc(sizeof(Pass));
   pass->ref = 1;
 
@@ -5355,6 +5360,12 @@ Pass* lovrPassCreate(void) {
   pass->allocator.length = 1 << 12;
   pass->allocator.memory = os_vm_init(pass->allocator.limit);
   os_vm_commit(pass->allocator.memory, pass->allocator.length);
+
+  if (label) {
+    size_t size = strlen(label) + 1;
+    pass->label = lovrMalloc(size);
+    memcpy(pass->label, label, size);
+  }
 
   lovrPassReset(pass);
 
@@ -5378,6 +5389,9 @@ void lovrPassDestroy(void* ref) {
     freeBlock(&state.bufferAllocators[GPU_BUFFER_STREAM], pass->buffers.current);
   }
   os_vm_free(pass->allocator.memory, pass->allocator.limit);
+  if (pass->label) {
+    lovrFree(pass->label);
+  }
   lovrFree(pass);
 }
 
@@ -7454,6 +7468,10 @@ void lovrPassBarrier(Pass* pass) {
   if (pass->computeCount > 0) {
     pass->computes[pass->computeCount - 1].flags |= COMPUTE_BARRIER;
   }
+}
+
+const char* lovrPassGetLabel(Pass* pass) {
+  return pass->label;
 }
 
 // Helpers

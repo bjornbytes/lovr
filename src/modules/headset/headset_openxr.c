@@ -1379,7 +1379,7 @@ static void openxr_start(void) {
       state.depthFormat = state.config.stencil ? FORMAT_D24S8 : FORMAT_D24;
     }
 
-    state.pass = lovrPassCreate();
+    state.pass = lovrPassCreate(NULL);
 
 #ifdef LOVR_VK
     int64_t nativeColorFormat = VK_FORMAT_R8G8B8A8_SRGB;
@@ -2481,7 +2481,7 @@ static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
     layer->settings.next = layer->info.next;
     layer->info.next = &layer->settings;
   }
-  layer->pass = lovrPassCreate();
+  layer->pass = lovrPassCreate(NULL);
   return layer;
 }
 
