@@ -74,6 +74,13 @@ static int l_lovrThreadNewThread(lua_State* L) {
   return 1;
 }
 
+static int l_lovrThreadNewChannel(lua_State* L) {
+  Channel* channel = lovrChannelCreate(0);
+  luax_pushtype(L, Channel, channel);
+  lovrRelease(channel, lovrChannelDestroy);
+  return 1;
+}
+
 static int l_lovrThreadGetChannel(lua_State* L) {
   const char* name = luaL_checkstring(L, 1);
   Channel* channel = lovrThreadGetChannel(name);
@@ -84,6 +91,7 @@ static int l_lovrThreadGetChannel(lua_State* L) {
 
 static const luaL_Reg lovrThreadModule[] = {
   { "newThread", l_lovrThreadNewThread },
+  { "newChannel", l_lovrThreadNewChannel },
   { "getChannel", l_lovrThreadGetChannel },
   { NULL, NULL }
 };
