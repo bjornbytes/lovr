@@ -858,7 +858,8 @@ void lovrColliderDestruct(Collider* collider) {
   // Body
 
   World* world = collider->world;
-  JPH_BodyInterface_RemoveBody(world->bodyInterfaceLocked, collider->id);
+  bool added = JPH_BodyInterface_IsAdded(world->bodyInterfaceLocked, collider->id);
+  if (added) JPH_BodyInterface_RemoveBody(world->bodyInterfaceLocked, collider->id);
   JPH_BodyInterface_DestroyBody(world->bodyInterfaceLocked, collider->id);
   collider->body = NULL;
 
@@ -879,9 +880,10 @@ bool lovrColliderIsEnabled(Collider* collider) {
 
 void lovrColliderSetEnabled(Collider* collider, bool enable) {
   JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
-  if (enable) {
+  bool added = JPH_BodyInterface_IsAdded(interface, collider->id);
+  if (enable && !added) {
     JPH_BodyInterface_AddBody(interface, collider->id, JPH_Activation_DontActivate);
-  } else {
+  } else if (!enable && added) {
     JPH_BodyInterface_RemoveBody(interface, collider->id);
   }
 }
