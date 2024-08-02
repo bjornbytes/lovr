@@ -290,27 +290,14 @@ void os_thread_detach(void) {
   (*state.app->activity->vm)->DetachCurrentThread(state.app->activity->vm);
 }
 
-// Notes about polling:
-// - Stop polling if a destroy is requested to give the application a chance to shut down.
-//   Otherwise this loop would still wait for an event and the app would seem unresponsive.
-// - Block if the app is paused or no window is present
-// - If the app was active and becomes inactive after an event, break instead of waiting for
-//   another event.  This gives the main loop a chance to respond (e.g. exit VR mode).
 void os_poll_events(void) {
-  while (!state.app->destroyRequested) {
-    int events;
+  if (!state.app->destroyRequested) {
     struct android_poll_source* source;
     int timeout = (state.app->window && state.app->activityState == APP_CMD_RESUME) ? 0 : -1;
-    if (ALooper_pollAll(timeout, NULL, &events, (void**) &source) >= 0) {
-      if (source) {
-        source->process(state.app, source);
-      }
+    ALooper_pollOnce(timeout, NULL, NULL, (void**) &source);
 
-      if (timeout == 0 && (!state.app->window || state.app->activityState != APP_CMD_RESUME)) {
-        break;
-      }
-    } else {
-      break;
+    if (source) {
+      source->process(state.app, source);
     }
   }
 }
