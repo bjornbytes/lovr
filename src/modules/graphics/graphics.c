@@ -7243,6 +7243,7 @@ void lovrPassDrawMesh(Pass* pass, Mesh* mesh, float* transform, uint32_t instanc
     .index.buffer = mesh->indexBuffer,
     .start = start,
     .count = count,
+    .baseVertex = mesh->baseVertex,
     .instances = instances
   });
 }
