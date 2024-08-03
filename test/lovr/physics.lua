@@ -24,14 +24,16 @@ group('physics', function()
   end)
 
   group('MeshShape', function()
-    test('from Mesh', function()
-      mesh = lovr.graphics.newMesh({
-        {   0,  .4, 0 },
-        { -.5, -.4, 0 },
-        {  .5, -.4, 0 }
-      })
+    if lovr.graphics then
+      test('from Mesh', function()
+        mesh = lovr.graphics.newMesh({
+          {   0,  .4, 0 },
+          { -.5, -.4, 0 },
+          {  .5, -.4, 0 }
+        })
 
-      shape = lovr.physics.newMeshShape(mesh)
-    end)
+        shape = lovr.physics.newMeshShape(mesh)
+      end)
+    end
   end)
 end)
