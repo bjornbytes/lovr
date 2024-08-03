@@ -4279,11 +4279,11 @@ void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint
   const DataField* format = lovrMeshGetVertexFormat(mesh);
 
   *vertices = lovrMalloc(format->length * 3 * sizeof(float));
+  *vertexCount = format->length;
 
   for (uint32_t i = 0; i < format->length; i++) {
-    vec3_init(*vertices, position);
+    vec3_init((*vertices) + 3 * i, position);
     position = (float*) ((char*) position + format->stride);
-    *vertices += 3;
   }
 
   if (mesh->indexCount > 0) {
@@ -4301,8 +4301,7 @@ void lovrMeshGetTriangles(Mesh* mesh, float** vertices, uint32_t** indices, uint
     *indices = lovrMalloc(*indexCount * sizeof(uint32_t));
     lovrCheck(format->length >= 3 && format->length % 3 == 0, "Mesh vertex count must be divisible by 3");
     for (uint32_t i = 0; i < format->length; i++) {
-      **indices = i;
-      *indices += 1;
+      (*indices)[i] = i;
     }
   }
 }
