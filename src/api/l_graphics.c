@@ -1387,8 +1387,6 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
         format->stride = luax_optu32(L, -1, 0);
         lua_pop(L, 1);
 
-        lovrGraphicsAlignFields(format, LAYOUT_PACKED);
-
         customFormat = true;
       }
       lua_pop(L, 2);
@@ -1409,6 +1407,8 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
     info.vertexFormat->fields = defaultFormat + 1;
     info.vertexFormat->fieldCount = COUNTOF(defaultFormat) - 1;
   }
+
+  lovrGraphicsAlignFields(format, LAYOUT_PACKED);
 
   Blob* blob = NULL;
   bool hasData = false;
