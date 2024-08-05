@@ -348,6 +348,14 @@ extern const luaL_Reg lovrDistanceJoint[];
 extern const luaL_Reg lovrHingeJoint[];
 extern const luaL_Reg lovrSliderJoint[];
 
+static void luax_unref(void* object, uintptr_t userdata) {
+  if (!userdata) return;
+  lua_State* L = (lua_State*) userdata;
+  lua_pushlightuserdata(L, object);
+  lua_pushnil(L);
+  lua_rawset(L, LUA_REGISTRYINDEX);
+}
+
 int luaopen_lovr_physics(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrPhysics);
@@ -367,7 +375,7 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, DistanceJoint);
   luax_registertype(L, HingeJoint);
   luax_registertype(L, SliderJoint);
-  lovrPhysicsInit();
+  lovrPhysicsInit(luax_unref);
   luax_atexit(L, lovrPhysicsDestroy);
   return 1;
 }

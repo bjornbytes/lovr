@@ -185,20 +185,19 @@ static int l_lovrShapeGetCollider(lua_State* L) {
 }
 
 static int l_lovrShapeGetUserData(lua_State* L) {
-  luax_checkshape(L, 1);
-  luax_pushstash(L, "lovr.shape.userdata");
-  lua_pushvalue(L, 1);
-  lua_rawget(L, -2);
+  Shape* shape = luax_checkshape(L, 1);
+  lua_pushlightuserdata(L, shape);
+  lua_rawget(L, LUA_REGISTRYINDEX);
   return 1;
 }
 
 static int l_lovrShapeSetUserData(lua_State* L) {
-  luax_checkshape(L, 1);
-  lua_settop(L, 2);
-  luax_pushstash(L, "lovr.shape.userdata");
-  lua_pushvalue(L, 1);
+  Shape* shape = luax_checkshape(L, 1);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
+  lovrShapeSetUserData(shape, (uintptr_t) lua_tothread(L, -1));
+  lua_pushlightuserdata(L, shape);
   lua_pushvalue(L, 2);
-  lua_rawset(L, -3);
+  lua_rawset(L, LUA_REGISTRYINDEX);
   return 0;
 }
 

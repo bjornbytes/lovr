@@ -55,6 +55,7 @@ struct Collider {
   uint8_t tag;
   bool automaticMass;
   uint32_t activeIndex;
+  uintptr_t userdata;
   float lastPosition[4];
   float lastOrientation[4];
 };
@@ -64,6 +65,7 @@ struct Shape {
   ShapeType type;
   JPH_Shape* handle;
   Collider* collider;
+  uintptr_t userdata;
   Shape* next;
   uint32_t index;
   float translation[3];
@@ -79,6 +81,7 @@ struct Joint {
   uint32_t ref;
   JointType type;
   JPH_Constraint* constraint;
+  uintptr_t userdata;
   JointNode a, b, world;
 };
 
@@ -91,6 +94,7 @@ static thread_local struct {
 static struct {
   bool initialized;
   SphereShape* sphere;
+  void (*freeUserData)(void* object, uintptr_t userdata);
 } state;
 
 #define vec3_toJolt(v) &(JPH_Vec3) { v[0], v[1], v[2] }
@@ -272,10 +276,11 @@ static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
   }
 }
 
-bool lovrPhysicsInit(void) {
+bool lovrPhysicsInit(void (*freeUserData)(void* object, uintptr_t userdata)) {
   if (state.initialized) return false;
   JPH_Init(32 * 1024 * 1024);
   state.sphere = lovrSphereShapeCreate(.001f);
+  state.freeUserData = freeUserData;
   return state.initialized = true;
 }
 
@@ -816,6 +821,10 @@ void lovrColliderDestruct(Collider* collider) {
     return;
   }
 
+  if (state.freeUserData) {
+    state.freeUserData(collider, collider->userdata);
+  }
+
   // Joints
 
   Joint* joint = collider->joints;
@@ -872,6 +881,15 @@ void lovrColliderDestruct(Collider* collider) {
 
 bool lovrColliderIsDestroyed(Collider* collider) {
   return !collider->body;
+}
+
+uintptr_t lovrColliderGetUserData(Collider* collider) {
+  return collider->userdata;
+}
+
+void lovrColliderSetUserData(Collider* collider, uintptr_t userdata) {
+  if (state.freeUserData) state.freeUserData(collider, collider->userdata);
+  collider->userdata = userdata;
 }
 
 bool lovrColliderIsEnabled(Collider* collider) {
@@ -1737,6 +1755,10 @@ void lovrShapeDestruct(Shape* shape) {
     return;
   }
 
+  if (state.freeUserData) {
+    state.freeUserData(shape, shape->userdata);
+  }
+
   if (shape->collider) {
     lovrColliderRemoveShape(shape->collider, shape);
   }
@@ -1755,6 +1777,15 @@ ShapeType lovrShapeGetType(Shape* shape) {
 
 Collider* lovrShapeGetCollider(Shape* shape) {
   return shape->collider;
+}
+
+uintptr_t lovrShapeGetUserData(Shape* shape) {
+  return shape->userdata;
+}
+
+void lovrShapeSetUserData(Shape* shape, uintptr_t userdata) {
+  if (state.freeUserData) state.freeUserData(shape, shape->userdata);
+  shape->userdata = userdata;
 }
 
 float lovrShapeGetVolume(Shape* shape) {
@@ -2142,6 +2173,10 @@ void lovrJointDestruct(Joint* joint) {
     return;
   }
 
+  if (state.freeUserData) {
+    state.freeUserData(joint, joint->userdata);
+  }
+
   JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
   Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
   Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
@@ -2193,6 +2228,15 @@ Collider* lovrJointGetColliderB(Joint* joint) {
 
 Joint* lovrJointGetNext(Joint* joint, Collider* collider) {
   return lovrJointGetNode(joint, collider)->next;
+}
+
+uintptr_t lovrJointGetUserData(Joint* joint) {
+  return joint->userdata;
+}
+
+void lovrJointSetUserData(Joint* joint, uintptr_t userdata) {
+  if (state.freeUserData) state.freeUserData(joint, joint->userdata);
+  joint->userdata = userdata;
 }
 
 void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]) {

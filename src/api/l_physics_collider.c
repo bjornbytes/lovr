@@ -95,20 +95,19 @@ static int l_lovrColliderRemoveShape(lua_State* L) {
 }
 
 static int l_lovrColliderGetUserData(lua_State* L) {
-  luax_checkcollider(L, 1);
-  luax_pushstash(L, "lovr.collider.userdata");
-  lua_pushvalue(L, 1);
-  lua_rawget(L, -2);
+  Collider* collider = luax_checkcollider(L, 1);
+  lua_pushlightuserdata(L, collider);
+  lua_rawget(L, LUA_REGISTRYINDEX);
   return 1;
 }
 
 static int l_lovrColliderSetUserData(lua_State* L) {
-  luax_checkcollider(L, 1);
-  lua_settop(L, 2);
-  luax_pushstash(L, "lovr.collider.userdata");
-  lua_pushvalue(L, 1);
+  Collider* collider = luax_checkcollider(L, 1);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
+  lovrColliderSetUserData(collider, (uintptr_t) lua_tothread(L, -1));
+  lua_pushlightuserdata(L, collider);
   lua_pushvalue(L, 2);
-  lua_rawset(L, -3);
+  lua_rawset(L, LUA_REGISTRYINDEX);
   return 0;
 }
 

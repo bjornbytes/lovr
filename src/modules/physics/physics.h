@@ -27,7 +27,7 @@ typedef Joint DistanceJoint;
 typedef Joint HingeJoint;
 typedef Joint SliderJoint;
 
-bool lovrPhysicsInit(void);
+bool lovrPhysicsInit(void (*freeUserdata)(void* object, uintptr_t userdata));
 void lovrPhysicsDestroy(void);
 
 // World
@@ -113,6 +113,8 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape);
 void lovrColliderDestroy(void* ref);
 void lovrColliderDestruct(Collider* collider);
 bool lovrColliderIsDestroyed(Collider* collider);
+uintptr_t lovrColliderGetUserData(Collider* collider);
+void lovrColliderSetUserData(Collider* collider, uintptr_t userdata);
 bool lovrColliderIsEnabled(Collider* collider);
 void lovrColliderSetEnabled(Collider* collider, bool enable);
 World* lovrColliderGetWorld(Collider* collider);
@@ -218,6 +220,8 @@ void lovrShapeDestruct(Shape* shape);
 bool lovrShapeIsDestroyed(Shape* shape);
 ShapeType lovrShapeGetType(Shape* shape);
 Collider* lovrShapeGetCollider(Shape* shape);
+uintptr_t lovrShapeGetUserData(Shape* shape);
+void lovrShapeSetUserData(Shape* shape, uintptr_t userdata);
 float lovrShapeGetVolume(Shape* shape);
 float lovrShapeGetDensity(Shape* shape);
 void lovrShapeSetDensity(Shape* shape, float density);
@@ -294,6 +298,8 @@ JointType lovrJointGetType(Joint* joint);
 Collider* lovrJointGetColliderA(Joint* joint);
 Collider* lovrJointGetColliderB(Joint* joint);
 Joint* lovrJointGetNext(Joint* joint, Collider* collider);
+uintptr_t lovrJointGetUserData(Joint* joint);
+void lovrJointSetUserData(Joint* joint, uintptr_t userdata);
 void lovrJointGetAnchors(Joint* joint, float anchor1[3], float anchor2[3]);
 uint32_t lovrJointGetPriority(Joint* joint);
 void lovrJointSetPriority(Joint* joint, uint32_t priority);
