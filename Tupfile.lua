@@ -238,10 +238,10 @@ if config.glfw and (target == 'win32' or target == 'macos' or target == 'linux')
 
   glfw_cflags += '-fPIC'
   glfw_cflags += ({ win32 = '-D_GLFW_WIN32', macos = '-D_GLFW_COCOA', linux = '-D_GLFW_X11' })[target]
-  glfw_src += { 'init.c', 'context.c', 'input.c', 'monitor.c', 'vulkan.c', 'window.c' }
+  glfw_src += { 'init.c', 'context.c', 'platform.c', 'null*.c', 'input.c', 'monitor.c', 'vulkan.c', 'window.c' }
   glfw_src += ({
     win32 = { 'win32*.c', 'wgl*.c', 'egl*.c', 'osmesa*.c' },
-    macos = { 'cocoa*.c', 'cocoa*.m', 'posix_thread.c', 'egl*.c', 'nsgl*.m', 'osmesa*.c' },
+    macos = { 'cocoa*.c', 'cocoa*.m', 'posix_module.c', 'posix_thread.c', 'egl*.c', 'nsgl*.m', 'osmesa*.c' },
     linux = { 'x11*.c', 'xkb*.c', 'posix*.c', 'glx*.c', 'egl*.c', 'linux*.c', 'osmesa*.c' }
   })[target]
   for i = 1, #glfw_src do glfw_src[i] = 'deps/glfw/src/' .. glfw_src[i] end
