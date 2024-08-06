@@ -4242,7 +4242,7 @@ void* lovrMeshSetIndices(Mesh* mesh, uint32_t count, DataType type) {
     BufferInfo info = { .format = &format };
     if (mesh->storage == MESH_CPU) {
       mesh->indexBuffer = lovrBufferCreate(&info, NULL);
-      mesh->indices = realloc(mesh->indices, count * stride);
+      mesh->indices = lovrRealloc(mesh->indices, count * stride);
       lovrAssert(mesh->indices, "Out of memory");
       return mesh->indices;
     } else {

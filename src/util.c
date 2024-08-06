@@ -12,22 +12,27 @@
 void* lovrMalloc(size_t size) {
   void* data = malloc(size);
   lovrAssert(data, "Out of memory");
+  lovrProfileAlloc(data, size);
   return data;
 }
 
 void* lovrCalloc(size_t size) {
   void* data = calloc(1, size);
   lovrAssert(data, "Out of memory");
+  lovrProfileAlloc(data, size);
   return data;
 }
 
 void* lovrRealloc(void* old, size_t size) {
+  lovrProfileFree(old);
   void* data = realloc(old, size);
   lovrAssert(data, "Out of memory");
+  lovrProfileAlloc(data, size);
   return data;
 }
 
 void lovrFree(void* data) {
+  lovrProfileFree(data);
   free(data);
 }
 
@@ -165,7 +170,7 @@ void lovrLog(int level, const char* tag, const char* format, ...) {
 static void map_rehash(map_t* map) {
   map_t old = *map;
   map->size <<= 1;
-  map->hashes = malloc(2 * map->size * sizeof(uint64_t));
+  map->hashes = lovrMalloc(2 * map->size * sizeof(uint64_t));
   map->values = map->hashes + map->size;
   lovrAssert(map->size && map->hashes, "Out of memory");
   memset(map->hashes, 0xff, 2 * map->size * sizeof(uint64_t));
@@ -182,7 +187,7 @@ static void map_rehash(map_t* map) {
         map->values[index] = old.values[i];
       }
     }
-    free(old.hashes);
+    lovrFree(old.hashes);
   }
 }
 
@@ -208,7 +213,7 @@ void map_init(map_t* map, uint32_t n) {
 }
 
 void map_free(map_t* map) {
-  free(map->hashes);
+  lovrFree(map->hashes);
 }
 
 uint64_t map_get(map_t* map, uint64_t hash) {

@@ -67,10 +67,14 @@ void lovrLog(int level, const char* tag, const char* format, ...);
 #define lovrProfileMarkFrame() TracyCFrameMark
 #define lovrProfileStart(id, label) TracyCZoneN(id, label, true)
 #define lovrProfileEnd(id) TracyCZoneEnd(id)
+#define lovrProfileAlloc(p, size) TracyCAlloc(p, size)
+#define lovrProfileFree(p) TracyCFree(p)
 #else
 #define lovrProfileMarkFrame() ((void) 0)
 #define lovrProfileStart(id, label) ((void) 0)
 #define lovrProfileEnd(id) ((void) 0)
+#define lovrProfileAlloc(p, size) ((void) 0)
+#define lovrProfileFree(p) ((void) 0)
 #endif
 
 // Dynamic Array

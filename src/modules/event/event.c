@@ -67,7 +67,7 @@ void lovrEventPush(Event event) {
   if (event.type == EVENT_THREAD_ERROR) {
     lovrRetain(event.data.thread.thread);
     size_t length = strlen(event.data.thread.error);
-    char* copy = malloc(length + 1);
+    char* copy = lovrMalloc(length + 1);
     memcpy(copy, event.data.thread.error, length + 1);
     event.data.thread.error = copy;
   }
@@ -75,13 +75,13 @@ void lovrEventPush(Event event) {
 
   if (event.type == EVENT_FILECHANGED) {
     size_t length = strlen(event.data.file.path);
-    char* copy = malloc(length + 1);
+    char* copy = lovrMalloc(length + 1);
     memcpy(copy, event.data.file.path, length + 1);
     event.data.file.path = copy;
 
     if (event.data.file.oldpath) {
       length = strlen(event.data.file.oldpath);
-      copy = malloc(length + 1);
+      copy = lovrMalloc(length + 1);
       memcpy(copy, event.data.file.oldpath, length + 1);
       event.data.file.oldpath = copy;
     }

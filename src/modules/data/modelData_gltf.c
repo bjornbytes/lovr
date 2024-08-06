@@ -259,7 +259,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
 
     do {
       capacity *= 2;
-      heapTokens = realloc(heapTokens, capacity * sizeof(jsmntok_t));
+      heapTokens = lovrRealloc(heapTokens, capacity * sizeof(jsmntok_t));
       lovrAssert(heapTokens, "Out of memory");
       tokenCount = jsmn_parse(&parser, json, jsonLength, heapTokens, capacity);
     } while (tokenCount == JSMN_ERROR_NOMEM);

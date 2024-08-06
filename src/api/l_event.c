@@ -260,8 +260,8 @@ static int nextEvent(lua_State* L) {
       lua_pushstring(L, event.data.file.path);
       luax_pushenum(L, FileAction, event.data.file.action);
       lua_pushstring(L, event.data.file.oldpath);
-      free(event.data.file.path);
-      free(event.data.file.oldpath);
+      lovrFree(event.data.file.path);
+      lovrFree(event.data.file.oldpath);
       return 4;
 
     case EVENT_PERMISSION:
