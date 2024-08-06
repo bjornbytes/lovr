@@ -1323,14 +1323,24 @@ void lovrColliderSetMass(Collider* collider, float mass) {
   }
 
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
+  JPH_AllowedDOFs dofs = JPH_MotionProperties_GetAllowedDOFs(motion);
 
   // If all degrees of freedom are restricted, inverse mass is locked to zero
-  if ((JPH_MotionProperties_GetAllowedDOFs(motion) & 0x7) == 0) {
+  if (dofs & 0x7 == 0) {
     return;
   }
 
   lovrCheck(mass > 0.f, "Mass must be positive");
-  JPH_MotionProperties_SetInverseMass(motion, 1.f / mass);
+
+  if (collider->automaticMass) {
+    const JPH_Shape* shape = JPH_BodyInterface_GetShape(getBodyInterface(collider, READ), collider->id);
+    JPH_MassProperties properties;
+    JPH_Shape_GetMassProperties(shape, &properties);
+    JPH_MassProperties_ScaleToMass(&properties, mass);
+    JPH_MotionProperties_SetMassProperties(motion, dofs, &properties);
+  } else {
+    JPH_MotionProperties_SetInverseMass(motion, 1.f / mass);
+  }
 }
 
 void lovrColliderGetInertia(Collider* collider, float diagonal[3], float rotation[4]) {
