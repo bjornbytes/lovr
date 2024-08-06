@@ -94,6 +94,7 @@ dev
 - Change `World:raycast` callback to be optional (if nil, the closest hit will be returned).
 - Change physics queries to report colliders in addition to shapes.
 - Change `tostring` on objects to also include their pointers.
+- Change `desktop` HeadsetDriver to be named `simulator`.
 
 ### Fix
 
@@ -107,6 +108,7 @@ dev
 - Fix possible crash when using vectors in multiple threads.
 - Fix possible crash with `Blob:getName`.
 - Fix issue when sampling from depth-stencil textures.
+- Fix bug when rendering meshes from `Model:getMesh`.
 
 ### Deprecate
 
