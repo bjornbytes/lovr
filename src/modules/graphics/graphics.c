@@ -1272,9 +1272,9 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   memcpy(view.pointer, pass->cameras, pass->cameraCount * canvas->views * sizeof(Camera));
 
   // DrawData
-  uint32_t alignedDrawCount = activeDrawCount <= 256 ? activeDrawCount : ALIGN(activeDrawCount, 256);
+  uint32_t alignedDrawCount = ALIGN(activeDrawCount, 256);
   view = getBuffer(GPU_BUFFER_STREAM, alignedDrawCount * sizeof(DrawData), align);
-  builtins[2].buffer = (gpu_buffer_binding) { view.buffer, view.offset, MIN(activeDrawCount, 256) * sizeof(DrawData) };
+  builtins[2].buffer = (gpu_buffer_binding) { view.buffer, view.offset, 256 * sizeof(DrawData) };
   DrawData* data = view.pointer;
 
   for (uint32_t i = 0; i < activeDrawCount; i++, data++) {
