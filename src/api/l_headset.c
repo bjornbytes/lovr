@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 StringEntry lovrHeadsetDriver[] = {
-  [DRIVER_SIMULATOR] = ENTRY("desktop"),
+  [DRIVER_SIMULATOR] = ENTRY("simulator"),
   [DRIVER_OPENXR] = ENTRY("openxr"),
   [DRIVER_WEBXR] = ENTRY("webxr"),
   { 0 }
@@ -797,6 +797,13 @@ int luaopen_lovr_headset(lua_State* L) {
       int n = luax_len(L, -1);
       for (int i = 0; i < n; i++) {
         lua_rawgeti(L, -1, i + 1);
+
+        // Deprecated
+        if (lua_type(L, -1) == LUA_TSTRING && !strcmp(lua_tostring(L, -1), "desktop")) {
+          lua_pushliteral(L, "simulator");
+          lua_replace(L, -2);
+        }
+
         config.drivers[config.driverCount++] = luax_checkenum(L, -1, HeadsetDriver, NULL);
         lovrCheck(config.driverCount < COUNTOF(drivers), "Too many headset drivers specified in conf.lua");
         lua_pop(L, 1);

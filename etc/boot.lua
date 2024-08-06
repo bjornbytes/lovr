@@ -30,7 +30,7 @@ local conf = {
     shadercache = true
   },
   headset = {
-    drivers = { 'openxr', 'webxr', 'desktop' },
+    drivers = { 'openxr', 'webxr', 'simulator' },
     supersample = false,
     seated = false,
     stencil = false,
@@ -225,7 +225,7 @@ function lovr.errhand(message)
       elseif name == 'keypressed' and a == 'escape' then lovr.event.quit() end
     end
 
-    if lovr.headset and lovr.headset.getDriver() ~= 'desktop' then
+    if lovr.headset and lovr.headset.getDriver() ~= 'simulator' then
       lovr.headset.update()
       local pass = lovr.headset.getPass()
       if pass then
