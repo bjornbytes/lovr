@@ -1,7 +1,8 @@
 #include "api.h"
 #include "util.h"
 
-#define STRINGIFY(x) #x
+#define _STRINGIFY(x) #x
+#define STRINGIFY(x) _STRINGIFY(x)
 
 static int l_lovrGetVersion(lua_State* L) {
   lua_pushinteger(L, LOVR_VERSION_MAJOR);
