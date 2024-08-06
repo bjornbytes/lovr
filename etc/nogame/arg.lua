@@ -62,7 +62,11 @@ function lovr.arg(arg)
   end
 
   if arg._version then
-    print(('LOVR %d.%d.%d'):format(lovr.getVersion()))
+    if select('#', lovr.getVersion()) >= 5 then
+      print(('LOVR %d.%d.%d (%s) %s'):format(lovr.getVersion()))
+    else
+      print(('LOVR %d.%d.%d (%s)'):format(lovr.getVersion()))
+    end
     os.exit(0)
   end
 
