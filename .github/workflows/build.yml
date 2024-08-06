@@ -18,7 +18,7 @@ jobs:
         with:
           submodules: 'recursive'
       - name: Configure
-        run: cmake -B build
+        run: cmake -B build -D LOVR_VERSION_HASH=%GITHUB_SHA:~0,6%
       - name: Build
         run: cmake --build build --config %CMAKE_BUILD_TYPE%
       - name: Test
@@ -45,7 +45,7 @@ jobs:
         with:
           submodules: 'recursive'
       - name: Init
-        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
+        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON -D LOVR_VERSION_HASH=${GITHUB_SHA::6}
       - name: Build
         run: cmake --build build -j
       - name: Test
@@ -101,6 +101,7 @@ jobs:
           -D ANDROID_BUILD_TOOLS_VERSION=34.0.0
           -D ANDROID_KEYSTORE=key.keystore
           -D ANDROID_KEYSTORE_PASS=pass:hunter2
+          -D LOVR_VERSION_HASH=${GITHUB_SHA::6}
       - name: Build
         run: cmake --build build
       - name: Upload
@@ -128,7 +129,7 @@ jobs:
         with:
           submodules: 'recursive'
       - name: Init
-        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON
+        run: cmake -B build -D LOVR_BUILD_BUNDLE=ON -D LOVR_VERSION_HASH=${GITHUB_SHA::6}
       - name: Build
         run: cmake --build build -j
       - name: Test
