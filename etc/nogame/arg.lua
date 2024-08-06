@@ -4,6 +4,7 @@ function lovr.arg(arg)
     _version = { short = '-v', long = '--version', help = 'Show version and exit' },
     console = { long = '--console', help = 'Attach Windows console' },
     debug = { long = '--debug', help = 'Enable debugging checks and logging' },
+    simulator = { long = '--simulator', help = 'Force headset simulator' },
     watch = { short = '-w', long = '--watch', help = 'Watch files and restart on change' }
   }
 
@@ -68,6 +69,10 @@ function lovr.arg(arg)
   return function(conf)
     if arg.debug then
       conf.graphics.debug = true
+    end
+
+    if arg.simulator then
+      conf.headset.drivers = { 'simulator' }
     end
 
     if arg.watch then
