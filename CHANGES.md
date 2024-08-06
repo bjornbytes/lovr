@@ -10,6 +10,7 @@ dev
 - Add `File` object and `lovr.filesystem.newFile`.
 - Add support for BMFont in `Font` and `Rasterizer`.
 - Add `--watch` CLI flag, `lovr.filechanged` event, and `lovr.filesystem.watch/unwatch`.
+- Add `--simulator` CLI flag to force use of simulator headset driver.
 - Add `Model:resetBlendShapes`.
 - Add `lovr.system.wasMousePressed` and `lovr.system.wasMouseReleased`.
 - Add `lovr.system.get/setClipboardText`.
@@ -95,6 +96,7 @@ dev
 - Change physics queries to report colliders in addition to shapes.
 - Change `tostring` on objects to also include their pointers.
 - Change `desktop` HeadsetDriver to be named `simulator`.
+- Change `--graphics-debug` CLI flag to be named `--debug`.
 
 ### Fix
 
