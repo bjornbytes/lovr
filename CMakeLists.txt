@@ -664,6 +664,10 @@ if(NOT ANDROID)
   )
 endif()
 
+if(LOVR_VERSION_HASH)
+  target_compile_definitions(lovr PRIVATE LOVR_VERSION_HASH=${LOVR_VERSION_HASH})
+endif()
+
 # Add a custom target that is always out of date so libraries are always moved
 add_custom_target(move_files ALL)
 
