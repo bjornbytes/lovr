@@ -971,7 +971,7 @@ void lovrGraphicsGetLimits(GraphicsLimits* limits) {
   limits->textureLayers = state.limits.textureLayers;
   limits->renderSize[0] = state.limits.renderSize[0];
   limits->renderSize[1] = state.limits.renderSize[1];
-  limits->renderSize[2] = state.limits.renderSize[2];
+  limits->renderSize[2] = MIN(state.limits.renderSize[2], 6);
   limits->uniformBuffersPerStage = MIN(state.limits.uniformBuffersPerStage - 3, MAX_SHADER_RESOURCES);
   limits->storageBuffersPerStage = MIN(state.limits.storageBuffersPerStage, MAX_SHADER_RESOURCES);
   limits->sampledTexturesPerStage = MIN(state.limits.sampledTexturesPerStage - 7, MAX_SHADER_RESOURCES);
@@ -1266,8 +1266,9 @@ static void recordRenderPass(Pass* pass, gpu_stream* stream) {
   global->time = lovrHeadsetInterface ? lovrHeadsetInterface->getDisplayTime() : os_get_time();
 
   // Cameras
-  view = getBuffer(GPU_BUFFER_STREAM, pass->cameraCount * canvas->views * sizeof(Camera), align);
-  builtins[1].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
+  uint32_t padding = (6 - canvas->views) * sizeof(Camera); // Ensure shader can always access all 6 cameras
+  view = getBuffer(GPU_BUFFER_STREAM, pass->cameraCount * canvas->views * sizeof(Camera) + padding, align);
+  builtins[1].buffer = (gpu_buffer_binding) { view.buffer, view.offset, 6 * sizeof(Camera) };
   memcpy(view.pointer, pass->cameras, pass->cameraCount * canvas->views * sizeof(Camera));
 
   // DrawData
