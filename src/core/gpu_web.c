@@ -295,6 +295,9 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
         entries[i].buffer.type = bufferTypes[slot->type];
         break;
 
+      case GPU_SLOT_TEXTURE_WITH_SAMPLER:
+        return false; // Unsupported
+
       // FIXME need more metadata
       case GPU_SLOT_SAMPLED_TEXTURE:
         entries[i].texture.sampleType = WGPUTextureSampleType_Float;
@@ -395,12 +398,14 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
           entry->offset = binding->buffer.offset;
           entry->size = binding->buffer.extent;
           break;
+        case GPU_SLOT_TEXTURE_WITH_SAMPLER:
+          break; // Unsupported
         case GPU_SLOT_SAMPLED_TEXTURE:
         case GPU_SLOT_STORAGE_TEXTURE:
-          entry->textureView = binding->texture->view;
+          entry->textureView = binding->texture.object->view;
           break;
         case GPU_SLOT_SAMPLER:
-          entry->sampler = binding->sampler->handle;
+          entry->sampler = binding->texture.sampler->handle;
           break;
       }
     }
