@@ -4611,7 +4611,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     draw->bounds[4] = (position->max[1] - position->min[1]) / 2.f;
     draw->bounds[5] = (position->max[2] - position->min[2]) / 2.f;
 
-    baseVertex[i] = vertexCursor;
+    baseVertex[primitiveOrder[i] & ~0u] = vertexCursor;
     vertexCursor += position->count;
   }
 
