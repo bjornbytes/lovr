@@ -1326,7 +1326,7 @@ void lovrColliderSetMass(Collider* collider, float mass) {
   JPH_AllowedDOFs dofs = JPH_MotionProperties_GetAllowedDOFs(motion);
 
   // If all degrees of freedom are restricted, inverse mass is locked to zero
-  if (dofs & 0x7 == 0) {
+  if ((dofs & 0x7) == 0) {
     return;
   }
 
