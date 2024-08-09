@@ -111,6 +111,7 @@ dev
 - Fix possible crash with `Blob:getName`.
 - Fix issue when sampling from depth-stencil textures.
 - Fix bug when rendering meshes from `Model:getMesh`.
+- Fix bug with `Curve:slice` when curve has more than 4 points.
 
 ### Deprecate
 
