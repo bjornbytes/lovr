@@ -177,7 +177,9 @@ Curve* lovrCurveSlice(Curve* curve, float t1, float t2) {
   // Split segment at t2, taking left half
   float t = (t2 - t1) / (1.f - t1);
   for (size_t i = n - 1; i >= 1; i--) {
-    evaluate(new->points.data, i + 1, t, new->points.data + 4 * i);
+    float point[4];
+    evaluate(new->points.data, i + 1, t, point);
+    vec4_init(new->points.data + 4 * i, point);
   }
 
   return new;
