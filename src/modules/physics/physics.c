@@ -1469,12 +1469,12 @@ void lovrColliderResetMassData(Collider* collider) {
 void lovrColliderGetDegreesOfFreedom(Collider* collider, bool translation[3], bool rotation[3]) {
   JPH_MotionProperties* motion = JPH_Body_GetMotionProperties(collider->body);
   JPH_AllowedDOFs dofs = JPH_MotionProperties_GetAllowedDOFs(motion);
-  if (dofs & JPH_AllowedDOFs_TranslationX) translation[0] = true;
-  if (dofs & JPH_AllowedDOFs_TranslationY) translation[1] = true;
-  if (dofs & JPH_AllowedDOFs_TranslationZ) translation[2] = true;
-  if (dofs & JPH_AllowedDOFs_RotationX) rotation[0] = true;
-  if (dofs & JPH_AllowedDOFs_RotationY) rotation[1] = true;
-  if (dofs & JPH_AllowedDOFs_RotationZ) rotation[2] = true;
+  translation[0] = dofs & JPH_AllowedDOFs_TranslationX;
+  translation[1] = dofs & JPH_AllowedDOFs_TranslationY;
+  translation[2] = dofs & JPH_AllowedDOFs_TranslationZ;
+  rotation[0] = dofs & JPH_AllowedDOFs_RotationX;
+  rotation[1] = dofs & JPH_AllowedDOFs_RotationY;
+  rotation[2] = dofs & JPH_AllowedDOFs_RotationZ;
 }
 
 void lovrColliderSetDegreesOfFreedom(Collider* collider, bool translation[3], bool rotation[3]) {
