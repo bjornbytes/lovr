@@ -1295,10 +1295,12 @@ bool lovrColliderIsAwake(Collider* collider) {
 }
 
 void lovrColliderSetAwake(Collider* collider, bool awake) {
-  if (awake) {
-    JPH_BodyInterface_ActivateBody(getBodyInterface(collider, WRITE), collider->id);
-  } else {
-    JPH_BodyInterface_DeactivateBody(getBodyInterface(collider, WRITE), collider->id);
+  if (lovrColliderIsEnabled(collider)) {
+    if (awake) {
+      JPH_BodyInterface_ActivateBody(getBodyInterface(collider, WRITE), collider->id);
+    } else {
+      JPH_BodyInterface_DeactivateBody(getBodyInterface(collider, WRITE), collider->id);
+    }
   }
 }
 
