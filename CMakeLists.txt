@@ -651,7 +651,7 @@ foreach(path ${LOVR_RESOURCES})
   file(WRITE ${output} "const unsigned char ${identifier}[] = {${data}};\nconst unsigned int ${identifier}_len = sizeof(${identifier});\n")
 endforeach()
 
-if(NOT ANDROID)
+if(NOT ANDROID AND NOT EMSCRIPTEN)
   if(APPLE AND LOVR_BUILD_BUNDLE)
     set(NOGAME_BUNDLE "${CMAKE_CURRENT_BINARY_DIR}/lovr.app/Contents/Resources/nogame.lovr")
   else()
