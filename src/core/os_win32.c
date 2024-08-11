@@ -491,6 +491,7 @@ bool os_window_open(const os_window_config* config) {
   WNDCLASSW wc = {
     .lpfnWndProc = windowProc,
     .hInstance = state.instance,
+    .hIcon = LoadImageW(state.instance, L"GLFW_ICON", IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED),
     .lpszClassName = L"LOVR"
   };
 
