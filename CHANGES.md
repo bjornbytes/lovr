@@ -11,6 +11,7 @@ dev
 - Add support for BMFont in `Font` and `Rasterizer`.
 - Add `--watch` CLI flag, `lovr.filechanged` event, and `lovr.filesystem.watch/unwatch`.
 - Add `--simulator` CLI flag to force use of simulator headset driver.
+- Add back `lovr.headset.isMounted` and the `lovr.mount` callback.
 - Add `Model:resetBlendShapes`.
 - Add `lovr.system.wasMousePressed` and `lovr.system.wasMouseReleased`.
 - Add `lovr.system.get/setClipboardText`.
@@ -22,7 +23,7 @@ dev
 - Add `sn10x3` `DataType`.
 - Add support for `d24` texture format.
 - Add `Quat:get/setEuler`.
-- Add `lovr.system.openConsole`.
+- Add `lovr.system.openConsole` (for internal Lua code).
 - Add `lovr.filesystem.getBundlePath` (for internal Lua code).
 - Add `lovr.filesystem.setSource` (for internal Lua code).
 - Add table support to `Channel:push`.
