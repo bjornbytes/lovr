@@ -436,6 +436,10 @@ var webxr = {
     return state.session.visibilityState == 'visible';
   },
 
+  webxr_isMounted: function() {
+    return true;
+  },
+
   webxr_update: function() {
     return (state.displayTime - state.lastDisplayTime) / 1000.0;
   }

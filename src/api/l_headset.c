@@ -660,6 +660,11 @@ static int l_lovrHeadsetIsFocused(lua_State* L) {
   return 1;
 }
 
+static int l_lovrHeadsetIsMounted(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetInterface->isMounted());
+  return 1;
+}
+
 static int l_lovrHeadsetUpdate(lua_State* L) {
   double dt = 0.;
 
@@ -760,6 +765,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "submit", l_lovrHeadsetSubmit },
   { "isVisible", l_lovrHeadsetIsVisible },
   { "isFocused", l_lovrHeadsetIsFocused },
+  { "isMounted", l_lovrHeadsetIsMounted },
   { "update", l_lovrHeadsetUpdate },
   { "getTime", l_lovrHeadsetGetTime },
   { "getDeltaTime", l_lovrHeadsetGetDeltaTime },

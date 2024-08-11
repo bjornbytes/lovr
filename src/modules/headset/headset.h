@@ -204,6 +204,7 @@ typedef struct HeadsetInterface {
   void (*submit)(void);
   bool (*isVisible)(void);
   bool (*isFocused)(void);
+  bool (*isMounted)(void);
   double (*update)(void);
 } HeadsetInterface;
 

@@ -38,6 +38,7 @@ extern struct Pass* webxr_getPass(void);
 extern void webxr_submit(void);
 extern bool webxr_isVisible(void);
 extern bool webxr_isFocused(void);
+extern bool webxr_isMounted(void);
 extern double webxr_update(void);
 
 static bool webxrAttached = false;
@@ -103,5 +104,6 @@ HeadsetInterface lovrHeadsetWebXRDriver = {
   .submit = webxr_submit,
   .isVisible = webxr_isVisible,
   .isFocused = webxr_isFocused,
+  .isMounted = webxr_isMounted,
   .update = webxr_update
 };

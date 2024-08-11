@@ -420,6 +420,10 @@ static bool simulator_isFocused(void) {
   return state.focused;
 }
 
+static bool simulator_isMounted(void) {
+  return true;
+}
+
 static double simulator_update(void) {
   double t = os_get_time() - state.epoch;
   state.dt = t - state.time;
@@ -563,5 +567,6 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .getPass = simulator_getPass,
   .submit = simulator_submit,
   .isFocused = simulator_isFocused,
+  .isMounted = simulator_isMounted,
   .update = simulator_update
 };

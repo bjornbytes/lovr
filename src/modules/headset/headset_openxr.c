@@ -220,6 +220,7 @@ static struct {
   XrPassthroughFB passthrough;
   XrPassthroughLayerFB passthroughLayerHandle;
   bool passthroughActive;
+  bool mounted;
   struct {
     bool controllerModel;
     bool depth;
@@ -233,11 +234,12 @@ static struct {
     bool keyboardTracking;
     bool layerDepthTest;
     bool layerSettings;
-    bool ml2Controller;
     bool localFloor;
+    bool ml2Controller;
     bool overlay;
-    bool questPassthrough;
     bool picoController;
+    bool presence;
+    bool questPassthrough;
     bool refreshRate;
     bool viveTrackers;
   } features;
@@ -613,6 +615,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_EXT_hand_interaction", &state.features.handInteraction, true },
       { "XR_EXT_hand_tracking", &state.features.handTracking, true },
       { "XR_EXT_local_floor", &state.features.localFloor, true },
+      { "XR_EXT_user_presence", &state.features.presence, true },
       { "XR_BD_controller_interaction", &state.features.picoController, true },
       { "XR_FB_composition_layer_depth_test", &state.features.layerDepthTest, true },
       { "XR_FB_composition_layer_settings", &state.features.layerSettings, true },
@@ -680,6 +683,7 @@ static bool openxr_init(HeadsetConfig* config) {
     XrSystemEyeGazeInteractionPropertiesEXT eyeGazeProperties = { .type = XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT };
     XrSystemHandTrackingPropertiesEXT handTrackingProperties = { .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT };
     XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = { .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB };
+    XrSystemUserPresencePropertiesEXT presenceProperties = { .type = XR_TYPE_SYSTEM_USER_PRESENCE_PROPERTIES_EXT };
     XrSystemPassthroughProperties2FB passthroughProperties = { .type = XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB };
     XrSystemProperties properties = { .type = XR_TYPE_SYSTEM_PROPERTIES };
 
@@ -698,6 +702,11 @@ static bool openxr_init(HeadsetConfig* config) {
       properties.next = &keyboardTrackingProperties;
     }
 
+    if (state.features.presence) {
+      presenceProperties.next = properties.next;
+      properties.next = &presenceProperties;
+    }
+
     if (state.features.questPassthrough) {
       passthroughProperties.next = properties.next;
       properties.next = &passthroughProperties;
@@ -707,6 +716,7 @@ static bool openxr_init(HeadsetConfig* config) {
     state.features.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
     state.features.handTracking = handTrackingProperties.supportsHandTracking;
     state.features.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
+    state.features.presence = presenceProperties.supportsUserPresence;
     state.features.questPassthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
 
     uint32_t viewConfigurationCount;
@@ -2771,6 +2781,10 @@ static bool openxr_isFocused(void) {
   return state.sessionState == XR_SESSION_STATE_FOCUSED;
 }
 
+static bool openxr_isMounted(void) {
+  return state.features.presence ? state.mounted : true;
+}
+
 static double openxr_update(void) {
   if (state.waited) return openxr_getDeltaTime();
 
@@ -2793,6 +2807,7 @@ static double openxr_update(void) {
 
           case XR_SESSION_STATE_STOPPING:
             XR(xrEndSession(state.session), "Failed to end session");
+            state.mounted = false;
             break;
 
           case XR_SESSION_STATE_EXITING:
@@ -2824,6 +2839,12 @@ static double openxr_update(void) {
           createReferenceSpace(event->changeTime);
           lovrEventPush((Event) { .type = EVENT_RECENTER });
         }
+        break;
+      }
+      case XR_TYPE_EVENT_DATA_USER_PRESENCE_CHANGED_EXT: {
+        XrEventDataUserPresenceChangedEXT* event = (XrEventDataUserPresenceChangedEXT*) &e;
+        state.mounted = event->isUserPresent;
+        lovrEventPush((Event) { .type = EVENT_MOUNT, .data.boolean.value = state.mounted });
         break;
       }
       default: break;
@@ -2923,5 +2944,6 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .submit = openxr_submit,
   .isVisible = openxr_isVisible,
   .isFocused = openxr_isFocused,
+  .isMounted = openxr_isMounted,
   .update = openxr_update
 };

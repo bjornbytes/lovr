@@ -11,6 +11,7 @@ StringEntry lovrEventType[] = {
   [EVENT_RESTART] = ENTRY("restart"),
   [EVENT_VISIBLE] = ENTRY("visible"),
   [EVENT_FOCUS] = ENTRY("focus"),
+  [EVENT_MOUNT] = ENTRY("mount"),
   [EVENT_RECENTER] = ENTRY("recenter"),
   [EVENT_RESIZE] = ENTRY("resize"),
   [EVENT_KEYPRESSED] = ENTRY("keypressed"),
@@ -201,6 +202,10 @@ static int nextEvent(lua_State* L) {
       return 2;
 
     case EVENT_FOCUS:
+      lua_pushboolean(L, event.data.boolean.value);
+      return 2;
+
+    case EVENT_MOUNT:
       lua_pushboolean(L, event.data.boolean.value);
       return 2;
 
