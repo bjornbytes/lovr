@@ -53,6 +53,7 @@ struct Collider {
   Joint* joints;
   Shape* shapes;
   uint8_t tag;
+  bool enabled;
   bool automaticMass;
   uint32_t activeIndex;
   uintptr_t userdata;
@@ -766,6 +767,7 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   collider->ref = 1;
   collider->world = world;
   collider->tag = 0xff;
+  collider->enabled = true;
   collider->automaticMass = true;
 
   if (shape) {
@@ -893,16 +895,17 @@ void lovrColliderSetUserData(Collider* collider, uintptr_t userdata) {
 }
 
 bool lovrColliderIsEnabled(Collider* collider) {
-  return JPH_BodyInterface_IsAdded(getBodyInterface(collider, READ), collider->id);
+  return collider->enabled;
 }
 
 void lovrColliderSetEnabled(Collider* collider, bool enable) {
-  JPH_BodyInterface* interface = getBodyInterface(collider, WRITE);
-  bool added = JPH_BodyInterface_IsAdded(interface, collider->id);
-  if (enable && !added) {
-    JPH_BodyInterface_AddBody(interface, collider->id, JPH_Activation_DontActivate);
-  } else if (!enable && added) {
-    JPH_BodyInterface_RemoveBody(interface, collider->id);
+  if (enable != collider->enabled) {
+    if (enable) {
+      JPH_BodyInterface_AddBody(getBodyInterface(collider, WRITE), collider->id, JPH_Activation_DontActivate);
+    } else if (!enable) {
+      JPH_BodyInterface_RemoveBody(getBodyInterface(collider, WRITE), collider->id);
+    }
+    collider->enabled = enable;
   }
 }
 
@@ -1295,7 +1298,7 @@ bool lovrColliderIsAwake(Collider* collider) {
 }
 
 void lovrColliderSetAwake(Collider* collider, bool awake) {
-  if (lovrColliderIsEnabled(collider)) {
+  if (collider->enabled) {
     if (awake) {
       JPH_BodyInterface_ActivateBody(getBodyInterface(collider, WRITE), collider->id);
     } else {
@@ -1504,6 +1507,7 @@ void lovrColliderGetPosition(Collider* collider, float position[3]) {
 }
 
 void lovrColliderSetPosition(Collider* collider, float position[3]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_SetPosition(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), JPH_Activation_Activate);
   vec3_init(collider->lastPosition, position);
 }
@@ -1518,6 +1522,7 @@ void lovrColliderGetOrientation(Collider* collider, float orientation[4]) {
 }
 
 void lovrColliderSetOrientation(Collider* collider, float orientation[4]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_SetRotation(getBodyInterface(collider, WRITE), collider->id, quat_toJolt(orientation), JPH_Activation_Activate);
   quat_init(collider->lastOrientation, orientation);
 }
@@ -1547,6 +1552,7 @@ void lovrColliderGetPose(Collider* collider, float position[3], float orientatio
 }
 
 void lovrColliderSetPose(Collider* collider, float position[3], float orientation[4]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_SetPositionAndRotation(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), quat_toJolt(orientation), JPH_Activation_Activate);
   vec3_init(collider->lastPosition, position);
   quat_init(collider->lastOrientation, orientation);
@@ -1554,6 +1560,7 @@ void lovrColliderSetPose(Collider* collider, float position[3], float orientatio
 
 void lovrColliderMoveKinematic(Collider* collider, float position[3], float orientation[4], float dt) {
   lovrCheck(dt > 0.f, "dt must > 0");
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_MoveKinematic(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(position), quat_toJolt(orientation), dt);
 }
 
@@ -1564,6 +1571,7 @@ void lovrColliderGetLinearVelocity(Collider* collider, float velocity[3]) {
 }
 
 void lovrColliderSetLinearVelocity(Collider* collider, float velocity[3]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_SetLinearVelocity(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(velocity));
 }
 
@@ -1574,6 +1582,7 @@ void lovrColliderGetAngularVelocity(Collider* collider, float velocity[3]) {
 }
 
 void lovrColliderSetAngularVelocity(Collider* collider, float velocity[3]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_SetAngularVelocity(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(velocity));
 }
 
@@ -1598,26 +1607,32 @@ void lovrColliderSetAngularDamping(Collider* collider, float damping) {
 }
 
 void lovrColliderApplyForce(Collider* collider, float force[3]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_AddForce(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(force));
 }
 
 void lovrColliderApplyForceAtPosition(Collider* collider, float force[3], float position[3]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_AddForce2(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(force), vec3_toJolt(position));
 }
 
 void lovrColliderApplyTorque(Collider* collider, float torque[3]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_AddTorque(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(torque));
 }
 
 void lovrColliderApplyLinearImpulse(Collider* collider, float impulse[3]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_AddImpulse(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(impulse));
 }
 
 void lovrColliderApplyLinearImpulseAtPosition(Collider* collider, float impulse[3], float position[3]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_AddImpulse2(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(impulse), vec3_toJolt(position));
 }
 
 void lovrColliderApplyAngularImpulse(Collider* collider, float impulse[3]) {
+  lovrCheck(collider->enabled, "Collider must be enabled");
   JPH_BodyInterface_AddAngularImpulse(getBodyInterface(collider, WRITE), collider->id, vec3_toJolt(impulse));
 }
 
