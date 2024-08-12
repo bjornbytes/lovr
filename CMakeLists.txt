@@ -47,10 +47,11 @@ option(LOVR_BUILD_WITH_SYMBOLS "Build with C function symbols exposed" OFF)
 if(EMSCRIPTEN)
   string(CONCAT EMSCRIPTEN_LINKER_FLAGS
     "-Os "
-    "-s USE_WEBGPU=1 "
-    "-s FORCE_FILESYSTEM=1 "
-    "-s EXPORTED_FUNCTIONS=_main,_webxr_attach,_webxr_detach "
-    "-s \"EXPORTED_RUNTIME_METHODS=['getValue','setValue']\" "
+    "-sUSE_WEBGPU=1 "
+    "-sFORCE_FILESYSTEM=1 "
+    "-sINITIAL_HEAP=1677721600 "
+    "-sEXPORTED_FUNCTIONS=_main,_webxr_attach,_webxr_detach "
+    "-sEXPORTED_RUNTIME_METHODS=getValue,setValue "
     "--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/etc/webxr.js\" "
     "--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/etc/lovr.html\""
   )
