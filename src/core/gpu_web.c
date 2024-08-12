@@ -946,6 +946,58 @@ bool gpu_init(gpu_config* config) {
     config->features->float64 = false;
     config->features->int64 = false;
     config->features->int16 = false;
+
+    config->features->formats[GPU_FORMAT_R8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_RG8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_RGBA8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_STORAGE;
+    config->features->formats[GPU_FORMAT_R16][0] = 0;
+    config->features->formats[GPU_FORMAT_RG16][0] = 0;
+    config->features->formats[GPU_FORMAT_RGBA16][0] = 0;
+    config->features->formats[GPU_FORMAT_R16F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_RG16F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_RGBA16F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_STORAGE;
+    config->features->formats[GPU_FORMAT_R32F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_STORAGE; // not blendable
+    config->features->formats[GPU_FORMAT_RG32F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_STORAGE; // not blendable
+    config->features->formats[GPU_FORMAT_RGBA32F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_STORAGE; // not blendable
+    config->features->formats[GPU_FORMAT_RGB565][0] = 0;
+    config->features->formats[GPU_FORMAT_RGB5A1][0] = 0;
+    config->features->formats[GPU_FORMAT_RGB10A2][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_RG11B10F][0] = GPU_FEATURE_SAMPLE; // need rg11b10ufloat-renderable feature for RENDER
+    config->features->formats[GPU_FORMAT_D16][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_D24][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_D32F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_D24S8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_D32FS8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_BC1][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_BC2][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_BC3][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_BC4U][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_BC4S][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_BC5U][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_BC5S][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_BC6UF][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_BC6SF][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_BC7][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_4x4][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_5x4][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_5x5][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_6x5][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_6x6][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_8x5][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_8x6][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_8x8][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_10x5][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_10x6][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_10x8][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_10x10][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_12x10][0] = GPU_FEATURE_SAMPLE;
+    config->features->formats[GPU_FORMAT_ASTC_12x12][0] = GPU_FEATURE_SAMPLE;
+
+    for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
+      config->features->formats[i][1] = config->features->formats[i][0];
+    }
+
+    config->features->formats[GPU_FORMAT_RGBA8][1] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
   }
 
   if (config->limits) {
