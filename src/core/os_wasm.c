@@ -207,6 +207,10 @@ bool os_init(void) {
   emscripten_set_wheel_callback(CANVAS, NULL, true, onMouseWheelMove);
   emscripten_set_keydown_callback(CANVAS, NULL, true, onKeyEvent);
   emscripten_set_keyup_callback(CANVAS, NULL, true, onKeyEvent);
+  int width, height;
+  emscripten_get_canvas_element_size(CANVAS, &width, &height);
+  state.width = width;
+  state.height = height;
   return true;
 }
 
