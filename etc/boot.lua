@@ -60,7 +60,7 @@ function lovr.boot()
   -- See if there's a ZIP archive fused to the executable, and set up the fused CLI if it exists
 
   local bundle, root = lovr.filesystem.getBundlePath()
-  local fused = lovr.filesystem.mount(bundle, nil, true, root)
+  local fused = bundle and lovr.filesystem.mount(bundle, nil, true, root)
   local cli = lovr.filesystem.isFile('arg.lua') and assert(pcall(require, 'arg')) and lovr.arg and lovr.arg(arg)
 
   -- Implement a barebones CLI if there is no bundled CLI/project
