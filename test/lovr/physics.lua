@@ -8,6 +8,13 @@ group('physics', function()
       local c2 = world:newBoxCollider(1e8, 0, 0)
       world:update(1)
     end)
+
+    group(':raycast', function()
+      test('zero-shape Collider', function()
+        collider = world:newCollider(0, 0, 0)
+        world:raycast(0, 10, 0, 0, -10, 0)
+      end)
+    end)
   end)
 
   group('Collider', function()
