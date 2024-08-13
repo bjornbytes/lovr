@@ -35,19 +35,19 @@ dev
 - Add `World:getColliderCount`.
 - Add `World:getJointCount` and `World:getJoints`.
 - Add `World:shapecast`.
-- Add `World:collideShape`.
+- Add `World:overlapShape`.
 - Add `Collider:get/setGravityScale`.
 - Add `Collider:is/setContinuous`.
 - Add `Collider:get/setDegreesOfFreedom`.
 - Add `Collider:applyLinearImpulse` and `Collider:applyAngularImpulse`.
 - Add `Collider:moveKinematic`.
-- Add `Collider:getRawPosition` and `Collider:getRawOrientation`.
+- Add `Collider:getRawPosition`, `Collider:getRawOrientation`, and `Collider:getRawPose`.
 - Add `Collider:getShape`.
 - Add `Collider:is/setSensor` (replaces `Shape:is/setSensor`).
 - Add `Collider:get/setInertia`.
 - Add `Collider:get/setCenterOfMass`.
-- Add `Collider:resetMassData`.
 - Add `Collider:get/setAutomaticMass`.
+- Add `Collider:resetMassData`.
 - Add `Collider:is/setEnabled`.
 - Add `ConvexShape`.
 - Add `WeldJoint`.
@@ -64,7 +64,7 @@ dev
 - Add `Shape:get/setOffset`.
 - Add motor support to `HingeJoint` and `SliderJoint`.
 - Add support for creating a `MeshShape` from a `ModelData`.
-- Add `Texture:getLabel` and `Shader:getLabel`.
+- Add `Texture:getLabel`, `Shader:getLabel`, and `Pass:getLabel`.
 - Add `Shader:hasVariable`.
 - Add `lovr.headset.getHandles`.
 - Add `raw` flag to `lovr.graphics.newShader`.
@@ -88,7 +88,7 @@ dev
 - Change maximum number of physics tags from 16 to 31.
 - Change `TerrainShape` to require square dimensions.
 - Change `Buffer:setData` to use more consistent rules to read data from tables.
-- Change `World:queryBox/querySphere` to perform coarse AABB collision detection (use `World:collideShape` for an exact test).
+- Change `World:queryBox/querySphere` to perform coarse AABB collision detection (use `World:overlapShape` for an exact test).
 - Change `World:queryBox/querySphere` to take an optional set of tags to include/exclude.
 - Change `World:queryBox/querySphere` to return the first collider detected, when the callback is nil.
 - Change `World:queryBox/querySphere` to return nil when a callback is given.
@@ -113,6 +113,7 @@ dev
 - Fix issue when sampling from depth-stencil textures.
 - Fix bug when rendering meshes from `Model:getMesh`.
 - Fix bug with `Curve:slice` when curve has more than 4 points.
+- Fix bug with `hand/*/pinch` and `hand/*/poke` device poses.
 
 ### Deprecate
 
@@ -120,7 +121,7 @@ dev
 - Deprecate `World:get/setTightness` (use `stabilization` option when creating World).
 - Deprecate `World:get/setLinearDamping` (use `Collider:get/setLinearDamping`).
 - Deprecate `World:get/setAngularDamping` (use `Collider:get/setAngularDamping`).
-- Deprecate `World:is/setSleepingAllowed` (use `sleep` option when creating World).
+- Deprecate `World:is/setSleepingAllowed` (use `allowSleep` option when creating World).
 - Deprecate `World:get/setStepCount` (use `positionSteps`/`velocitySteps` option when creating World).
 - Deprecate `Collider:is/setGravityIgnored` (use `Collider:get/setGravityScale`).
 
