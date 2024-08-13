@@ -775,10 +775,10 @@ static bool openxr_init(HeadsetConfig* config) {
 
     Binding* bindings[] = {
       [PROFILE_SIMPLE] = (Binding[]) {
-        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
-        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/input/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/input/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/input/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/input/poke_ext/pose" },
         { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
@@ -792,10 +792,10 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_VIVE] = (Binding[]) {
-        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
-        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/input/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/input/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/input/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/input/poke_ext/pose" },
         { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
@@ -821,10 +821,10 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_TOUCH] = (Binding[]) {
-        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
-        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/input/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/input/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/input/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/input/poke_ext/pose" },
         { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
@@ -864,10 +864,10 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_GO] = (Binding[]) {
-        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
-        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/input/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/input/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/input/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/input/poke_ext/pose" },
         { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
@@ -885,10 +885,10 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_INDEX] = (Binding[]) {
-        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
-        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/input/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/input/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/input/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/input/poke_ext/pose" },
         { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
@@ -934,10 +934,10 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_WMR] = (Binding[]) {
-        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
-        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/input/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/input/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/input/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/input/poke_ext/pose" },
         { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
@@ -971,10 +971,10 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_ML2] = (Binding[]) {
-        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
-        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/input/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/input/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/input/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/input/poke_ext/pose" },
         { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
@@ -1000,10 +1000,10 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_PICO_NEO3] = (Binding[]) {
-        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
-        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/input/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/input/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/input/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/input/poke_ext/pose" },
         { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
@@ -1041,10 +1041,10 @@ static bool openxr_init(HeadsetConfig* config) {
         { 0, NULL }
       },
       [PROFILE_PICO4] = (Binding[]) {
-        { ACTION_PINCH_POSE, "/user/hand/left/pinch_ext/pose" },
-        { ACTION_PINCH_POSE, "/user/hand/right/pinch_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/left/poke_ext/pose" },
-        { ACTION_POKE_POSE, "/user/hand/right/poke_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/left/input/pinch_ext/pose" },
+        { ACTION_PINCH_POSE, "/user/hand/right/input/pinch_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/left/input/poke_ext/pose" },
+        { ACTION_POKE_POSE, "/user/hand/right/input/poke_ext/pose" },
         { ACTION_GRIP_POSE, "/user/hand/left/input/grip/pose" },
         { ACTION_GRIP_POSE, "/user/hand/right/input/grip/pose" },
         { ACTION_POINTER_POSE, "/user/hand/left/input/aim/pose" },
