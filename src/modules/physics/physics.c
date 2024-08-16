@@ -499,14 +499,14 @@ void lovrWorldUpdate(World* world, float dt) {
         JPH_Body_GetRotation(collider->body, &orientation);
         quat_fromJolt(collider->lastOrientation, &orientation);
       }
-
-      world->interpolation = 1.f - fmodf(world->time, world->timestep) / world->timestep;
     }
 
     JPH_PhysicsSystem_Step(world->system, world->timestep, 1);
     world->inverseDelta = 1.f / world->timestep;
     step++;
   }
+
+  world->interpolation = 1.f - fmodf(world->time, world->timestep) / world->timestep;
 }
 
 typedef struct {
