@@ -13,7 +13,7 @@
 #define MAGIC_BIN 0x004e4942
 
 #define STR_EQ(k, s) !strncmp(k.data, s, k.length)
-#define NOM_VALUE(j, t) nomValue(j, t, 1, 0)
+#define NOM(t) nomToken(t)
 #define NOM_INT(j, t) nomInt(j + (t++)->start)
 #define NOM_STR(j, t) (gltfString) { (char* )j + t->start, t->end - t->start }; t++
 #define NOM_BOOL(j, t) (*(j + (t++)->start) == 't')
@@ -69,13 +69,15 @@ static uint32_t nomInt(const char* s) {
   return n;
 }
 
-static int nomValue(const char* data, jsmntok_t* token, int count, int sum) {
-  if (count == 0) { return sum; }
-  switch (token->type) {
-    case JSMN_OBJECT: return nomValue(data, token + 1, count - 1 + 2 * token->size, sum + 1);
-    case JSMN_ARRAY: return nomValue(data, token + 1, count - 1 + token->size, sum + 1);
-    default: return nomValue(data, token + 1, count - 1, sum + 1);
+static jsmntok_t* nomToken(jsmntok_t* token) {
+  for (uint32_t remaining = 1; remaining > 0; remaining--, token++) {
+    switch (token->type) {
+      case JSMN_OBJECT: remaining += 2 * token->size; break;
+      case JSMN_ARRAY: remaining += token->size; break;
+      default: break;
+    }
   }
+  return token;
 }
 
 static void* decodeBase64(char* str, size_t length, size_t* decodedLength) {
@@ -149,15 +151,15 @@ static jsmntok_t* nomTexture(const char* json, jsmntok_t* token, uint32_t* image
               material->uvScale[0] = NOM_FLOAT(json, token);
               material->uvScale[1] = NOM_FLOAT(json, token);
             } else {
-              token += NOM_VALUE(json, token);
+              token = NOM(token);
             }
           }
         } else {
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
     } else {
-      token += NOM_VALUE(json, token);
+      token = NOM(token);
     }
   }
   return token;
@@ -303,7 +305,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     if (STR_EQ(key, "accessors")) {
       info.attributes = token;
       model->attributeCount = token->size;
-      token += NOM_VALUE(json, token);
+      token = NOM(token);
 
     } else if (STR_EQ(key, "animations")){
       info.animations = token;
@@ -317,7 +319,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             if (STR_EQ(key, "channels")) { model->channelCount += t->size; }
             else if (STR_EQ(key, "samplers")) { samplerCount += t->size; }
             else if (STR_EQ(key, "name")) { model->charCount += t->end - t->start + 1; }
-            t += NOM_VALUE(json, t);
+            t = NOM(t);
           }
         }
       }
@@ -343,12 +345,12 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   else if (STR_EQ(smoothing, "CUBICSPLINE")) { sampler->smoothing = SMOOTH_CUBIC; }
                   else { lovrThrow("Unknown animation sampler interpolation"); }
                 } else {
-                  token += NOM_VALUE(json, token);
+                  token = NOM(token);
                 }
               }
             }
           } else {
-            token += NOM_VALUE(json, token);
+            token = NOM(token);
           }
         }
       }
@@ -356,12 +358,12 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
     } else if (STR_EQ(key, "buffers")) {
       info.buffers = token;
       model->blobCount = token->size;
-      token += NOM_VALUE(json, token);
+      token = NOM(token);
 
     } else if (STR_EQ(key, "bufferViews")) {
       info.bufferViews = token;
       model->bufferCount = token->size;
-      token += NOM_VALUE(json, token);
+      token = NOM(token);
 
     } else if (STR_EQ(key, "images")) {
       model->imageCount = token->size;
@@ -376,7 +378,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           } else if (STR_EQ(key, "uri")) {
             image->uri = NOM_STR(json, token);
           } else {
-            token += NOM_VALUE(json, token);
+            token = NOM(token);
           }
         }
         lovrAssert(image->bufferView != ~0u || image->uri.data, "Image is missing data");
@@ -400,15 +402,15 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   if (STR_EQ(key, "source")) {
                     texture->image = NOM_INT(json, token);
                   } else {
-                    token += NOM_VALUE(json, token);
+                    token = NOM(token);
                   }
                 }
               } else {
-                token += NOM_VALUE(json, token);
+                token = NOM(token);
               }
             }
           } else {
-            token += NOM_VALUE(json, token);
+            token = NOM(token);
           }
         }
         lovrAssert(texture->image != ~0u, "Texture is missing an image (maybe an unsupported extension is used?)");
@@ -421,7 +423,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         for (int k = (token++)->size; k > 0; k--) {
           gltfString key = NOM_STR(json, token);
           if (STR_EQ(key, "name")) { model->charCount += token->end - token->start + 1; }
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
 
@@ -452,7 +454,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   }
                   model->blendDataCount += token->size;
                 }
-                token += NOM_VALUE(json, token);
+                token = NOM(token);
               }
             }
           } else if (STR_EQ(key, "extras")) {
@@ -464,11 +466,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   token++;
                 }
               } else {
-                token += NOM_VALUE(json, token);
+                token = NOM(token);
               }
             }
           } else {
-            token += NOM_VALUE(json, token);
+            token = NOM(token);
           }
         }
       }
@@ -482,7 +484,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             gltfString key = NOM_STR(json, token);
             if (STR_EQ(key, "children")) { model->childCount += token->size; }
             else if (STR_EQ(key, "name")) { model->charCount += token->end - token->start + 1; }
-            token += NOM_VALUE(json, token);
+            token = NOM(token);
           }
         }
       }
@@ -503,7 +505,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             jsmntok_t* t = token + 1;
             scene->node = NOM_INT(json, t);
           }
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
 
@@ -514,12 +516,12 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         for (int k = (token++)->size; k > 0; k--) {
           gltfString key = NOM_STR(json, token);
           if (STR_EQ(key, "joints")) { model->jointCount += token->size; }
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
 
     } else {
-      token += NOM_VALUE(json, token);
+      token = NOM(token);
     }
   }
 
@@ -547,7 +549,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "byteLength")) { size = NOM_INT(json, token); }
         else if (STR_EQ(key, "uri")) { uri = NOM_STR(json, token); }
-        else { token += NOM_VALUE(json, token); }
+        else { token = NOM(token); }
       }
 
       if (uri.data) {
@@ -585,7 +587,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
         else if (STR_EQ(key, "byteOffset")) { buffer->offset = NOM_INT(json, token); }
         else if (STR_EQ(key, "byteLength")) { buffer->size = NOM_INT(json, token); }
         else if (STR_EQ(key, "byteStride")) { buffer->stride = NOM_INT(json, token); }
-        else { token += NOM_VALUE(json, token); }
+        else { token = NOM(token); }
       }
 
       Blob* blob = model->blobs[buffer->blob];
@@ -641,7 +643,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             attribute->max[j] = NOM_FLOAT(json, token);
           }
         } else {
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
     }
@@ -686,11 +688,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                     else if (STR_EQ(property, "weights")) { channel->property = PROP_WEIGHTS; }
                     else { lovrThrow("Unknown animation channel property"); }
                   } else {
-                    token += NOM_VALUE(json, token);
+                    token = NOM(token);
                   }
                 }
               } else {
-                token += NOM_VALUE(json, token);
+                token = NOM(token);
               }
             }
 
@@ -711,7 +713,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           }
         } else if (STR_EQ(key, "samplers")) {
           samplerCount = token->size;
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
           map_set(model->animationMap, hash64(name.data, name.length), animation - model->animations);
@@ -719,7 +721,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           animation->name = model->chars;
           model->chars += name.length + 1;
         } else {
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
       baseSampler += samplerCount;
@@ -777,7 +779,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
               material->roughnessTexture = material->metalnessTexture;
               *root = '\0';
             } else {
-              token += NOM_VALUE(json, token);
+              token = NOM(token);
             }
           }
         } else if (STR_EQ(key, "normalTexture")) {
@@ -806,7 +808,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           material->name = model->chars;
           model->chars += name.length + 1;
         } else {
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
     }
@@ -873,7 +875,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                   }
                 }
               } else {
-                token += NOM_VALUE(json, token);
+                token = NOM(token);
               }
             }
           }
@@ -897,11 +899,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
                 model->chars += name.length + 1;
               }
             } else {
-              token += NOM_VALUE(json, token);
+              token = NOM(token);
             }
           }
         } else {
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
     }
@@ -974,7 +976,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
           node->name = model->chars;
           model->chars += name.length + 1;
         } else {
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
 
@@ -1006,7 +1008,7 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
             model->joints[jointIndex++] = NOM_INT(json, token);
           }
         } else {
-          token += NOM_VALUE(json, token);
+          token = NOM(token);
         }
       }
     }
@@ -1039,11 +1041,11 @@ ModelData* lovrModelDataInitGltf(ModelData* model, Blob* source, ModelDataIO* io
               lastNode->children[lastNode->childCount - j] = NOM_INT(json, token);
             }
           } else {
-            token += NOM_VALUE(json, token);
+            token = NOM(token);
           }
         }
       } else {
-        token += NOM_VALUE(json, token);
+        token = NOM(token);
       }
     }
   } else {
