@@ -5131,7 +5131,6 @@ static void lovrModelAnimateVertices(Model* model) {
         uint32_t subgroupSize = state.device.subgroupSize; 
         uint32_t verticesRemaining = j == 0 ? skin->blendedVertexCount : (skin->vertexCount - skin->blendedVertexCount);
         uint32_t maxVerticesPerDispatch = (uint32_t) MIN((uint64_t) state.limits.workgroupCount[0] * subgroupSize, (uint64_t) verticesRemaining);
-        lovrAssert(maxVerticesPerDispatch > 0, "maxVerticesPerDispatch count must be greater than zero.");
 
         while (verticesRemaining > 0) {
           uint32_t vertexCount = MIN(verticesRemaining, maxVerticesPerDispatch);
