@@ -5129,8 +5129,10 @@ static void lovrModelAnimateVertices(Model* model) {
       // - Blended vertices should animate the post-blended vertices in-place
       for (uint32_t j = 0; j < 2; j++) {
         uint32_t subgroupSize = state.device.subgroupSize;
-        uint32_t maxVerticesPerDispatch = state.limits.workgroupCount[0] * subgroupSize;
+        uint32_t maxVerticesPerDispatch = MAX(state.limits.workgroupCount[0] * subgroupSize, 4294967295);
         uint32_t verticesRemaining = j == 0 ? skin->blendedVertexCount : (skin->vertexCount - skin->blendedVertexCount);
+
+        lovrAssert(maxVerticesPerDispatch > 0, "maxVerticesPerDispatch count must be greater than zero.");
 
         while (verticesRemaining > 0) {
           uint32_t vertexCount = MIN(verticesRemaining, maxVerticesPerDispatch);
