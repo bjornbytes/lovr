@@ -8,34 +8,25 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void threadRun(void* L) {
-  int top = lua_gettop(L);
-  int status = lua_pcall(L, top - 2, 0, 1);
-  lua_pushinteger(L, status);
-}
-
 static char* threadRunner(Thread* thread, Blob* body, Variant* arguments, uint32_t argumentCount) {
   lua_State* L = luaL_newstate();
   luaL_openlibs(L);
   luax_preload(L);
 
   lua_pushcfunction(L, luax_getstack);
+  int errhandler = lua_gettop(L);
 
   if (!luaL_loadbuffer(L, body->data, body->size, "thread")) {
     for (uint32_t i = 0; i < argumentCount; i++) {
       luax_pushvariant(L, &arguments[i]);
     }
 
-    lovrTry(threadRun, L, luax_vthrow, L);
-
-    if (lua_tointeger(L, -1) == 0) {
-      lua_close(L);
+    if (!lua_pcall(L, argumentCount, 0, errhandler)) {
       return NULL;
-    } else {
-      lua_pop(L, 1);
     }
   }
 
+  // Error handling
   size_t length;
   const char* message = lua_tolstring(L, -1, &length);
 

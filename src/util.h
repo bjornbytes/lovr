@@ -42,6 +42,7 @@ void lovrRelease(void* ref, void (*destructor)(void*));
 const char* lovrGetError(void);
 int lovrSetError(const char* format, ...);
 
+#define lovrUnreachable() abort()
 #define lovrAssert(c, ...) do { if (!(c)) { lovrSetError(__VA_ARGS__); return 0; } } while (0)
 #define lovrAssertGoto(label, c, ...) do { if (!(c)) { lovrSetError(__VA_ARGS__); goto label; } } while (0)
 #ifdef LOVR_UNCHECKED
@@ -51,10 +52,6 @@ int lovrSetError(const char* format, ...);
 #define lovrCheck lovrAssert
 #define lovrCheckGoto lovrAssertGoto
 #endif
-#define lovrUnreachable() abort()
-
-// Exceptions
-void lovrTry(void (*fn)(void*), void* arg, void (*catch)(void*, const char*, va_list), void* catchArg);
 
 // Logging
 typedef void fn_log(void*, int, const char*, const char*, va_list);

@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <threads.h>
-#include <setjmp.h>
 #include <stdio.h>
 
 // Allocation
@@ -68,39 +67,6 @@ int lovrSetError(const char* format, ...) {
   vsnprintf(error, sizeof(error), format, args);
   va_end(args);
   return false;
-}
-
-// Exceptions
-
-typedef struct Handler {
-  struct Handler* prev;
-  void (*catch)(void* arg, const char* format, va_list args);
-  void* arg;
-  jmp_buf env;
-} Handler;
-
-static thread_local Handler* lovrHandler;
-
-void lovrTry(void (*fn)(void*), void* arg, void(*catch)(void*, const char*, va_list), void* catchArg) {
-  lovrHandler = &(Handler) {
-    .prev = lovrHandler,
-    .catch = catch,
-    .arg = arg
-  };
-
-  if (setjmp(lovrHandler->env) == 0) {
-    fn(arg);
-  }
-
-  lovrHandler = lovrHandler->prev;
-}
-
-void lovrThrow(const char* format, ...) {
-  va_list args;
-  va_start(args, format);
-  lovrHandler->catch(lovrHandler->arg, format, args);
-  va_end(args);
-  longjmp(lovrHandler->env, 1);
 }
 
 // Logging
