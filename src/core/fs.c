@@ -75,7 +75,7 @@ int fs_write(fs_handle file, const void* data, size_t size, size_t* count) {
   DWORD bytes32 = size > UINT32_MAX ? UINT32_MAX : (DWORD) size;
   bool success = WriteFile(file.handle, data, bytes32, &bytes32, NULL);
   *count = bytes32;
-  return success;
+  return success ? FS_OK : error();
 }
 
 int fs_seek(fs_handle file, uint64_t offset) {
