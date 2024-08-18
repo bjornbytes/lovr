@@ -20,7 +20,7 @@ Rasterizer* lovrRasterizerCreate(struct Blob* blob, float size, RasterizerIO* io
 void lovrRasterizerDestroy(void* ref);
 RasterizerType lovrRasterizerGetType(Rasterizer* rasterizer);
 float lovrRasterizerGetFontSize(Rasterizer* rasterizer);
-uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
+size_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer);
 bool lovrRasterizerHasGlyph(Rasterizer* rasterizer, uint32_t codepoint);
 bool lovrRasterizerHasGlyphs(Rasterizer* rasterizer, const char* str, size_t length);
 bool lovrRasterizerIsGlyphEmpty(Rasterizer* rasterizer, uint32_t codepoint);
@@ -35,4 +35,4 @@ void lovrRasterizerGetGlyphBoundingBox(Rasterizer* rasterizer, uint32_t codepoin
 bool lovrRasterizerGetCurves(Rasterizer* rasterizer, uint32_t codepoint, void (*fn)(void* context, uint32_t degree, float* points), void* context);
 bool lovrRasterizerGetPixels(Rasterizer* rasterizer, uint32_t codepoint, float* pixels, uint32_t width, uint32_t height, double spread);
 struct Image* lovrRasterizerGetAtlas(Rasterizer* rasterizer);
-uint32_t lovrRasterizerGetAtlasGlyph(Rasterizer* rasterizer, uint32_t index, uint16_t* x, uint16_t* y);
+uint32_t lovrRasterizerGetAtlasGlyph(Rasterizer* rasterizer, size_t index, uint16_t* x, uint16_t* y);

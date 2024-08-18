@@ -888,7 +888,7 @@ void lovrGraphicsDestroy(void) {
     lovrFree(state.scratchTextures.data[i].texture);
   }
   arr_free(&state.scratchTextures);
-  for (size_t i = 0; i < state.pipelineCount; i++) {
+  for (uint32_t i = 0; i < state.pipelineCount; i++) {
     gpu_pipeline_destroy(getPipeline(i));
   }
   os_vm_free(state.pipelines, MAX_PIPELINES * gpu_sizeof_pipeline());
@@ -1967,8 +1967,8 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
   lovrCheck(buffer->info.size > 0, "Buffer size can not be zero");
   lovrCheck(buffer->info.size <= 1 << 30, "Max buffer size is 1GB");
 
-  size_t stride = buffer->info.format ? buffer->info.format->stride : 4;
-  size_t align = lcm(stride, MAX(state.limits.storageBufferAlign, state.limits.uniformBufferAlign));
+  uint32_t stride = buffer->info.format ? buffer->info.format->stride : 4;
+  uint32_t align = lcm(stride, MAX(state.limits.storageBufferAlign, state.limits.uniformBufferAlign));
   BufferView view = getBuffer(GPU_BUFFER_STATIC, buffer->info.size, align);
   buffer->gpu = view.buffer;
   buffer->base = view.offset;
@@ -2981,7 +2981,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   uint32_t maxResources = 0;
   uint32_t maxSpecConstants = 0;
   uint32_t maxFields = 0;
-  uint32_t maxChars = 0;
+  size_t maxChars = 0;
   for (uint32_t i = 0; i < info->stageCount; i++) {
     result = spv_parse(source[i], info->stages[i].size, &spv[i]);
     lovrCheck(result == SPV_OK, "Failed to load Shader: %s\n", spv_result_to_string(result));
@@ -3483,7 +3483,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
       block->head = 0;
 
       size_t align = state.limits.uniformBufferAlign;
-      size_t bufferSize = MATERIALS_PER_BLOCK * ALIGN(sizeof(MaterialData), align);
+      uint32_t bufferSize = MATERIALS_PER_BLOCK * (uint32_t) ALIGN(sizeof(MaterialData), align);
       block->view = getBuffer(GPU_BUFFER_STATIC, bufferSize, align);
       atomic_fetch_add(&block->view.block->ref, 1);
 
@@ -3633,9 +3633,9 @@ Font* lovrFontCreate(const FontInfo* info) {
       .texture = font->atlas
     });
 
-    uint32_t glyphCount = lovrRasterizerGetGlyphCount(info->rasterizer);
+    size_t glyphCount = lovrRasterizerGetGlyphCount(info->rasterizer);
 
-    for (uint32_t i = 0; i < glyphCount; i++) {
+    for (size_t i = 0; i < glyphCount; i++) {
       arr_expand(&font->glyphs, 1);
       Glyph* glyph = &font->glyphs.data[font->glyphs.length++];
       uint32_t codepoint = lovrRasterizerGetAtlasGlyph(info->rasterizer, i, &glyph->x, &glyph->y);

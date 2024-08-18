@@ -276,7 +276,7 @@ static int l_lovrColliderGetDegreesOfFreedom(lua_State* L) {
   size_t length;
 
   length = 0;
-  for (size_t i = 0; i < 3; i++) {
+  for (char i = 0; i < 3; i++) {
     if (translation[i]) {
       string[length++] = 'x' + i;
     }
@@ -284,7 +284,7 @@ static int l_lovrColliderGetDegreesOfFreedom(lua_State* L) {
   lua_pushlstring(L, string, length);
 
   length = 0;
-  for (size_t i = 0; i < 3; i++) {
+  for (char i = 0; i < 3; i++) {
     if (rotation[i]) {
       string[length++] = 'x' + i;
     }

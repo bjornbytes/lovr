@@ -328,7 +328,7 @@ float lovrRasterizerGetFontSize(Rasterizer* rasterizer) {
   return rasterizer->size;
 }
 
-uint32_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer) {
+size_t lovrRasterizerGetGlyphCount(Rasterizer* rasterizer) {
   if (rasterizer->type == RASTERIZER_TTF) {
     return rasterizer->font.numGlyphs;
   } else {
@@ -591,7 +591,7 @@ Image* lovrRasterizerGetAtlas(Rasterizer* rasterizer) {
   return rasterizer->atlas;
 }
 
-uint32_t lovrRasterizerGetAtlasGlyph(Rasterizer* rasterizer, uint32_t index, uint16_t* x, uint16_t* y) {
+uint32_t lovrRasterizerGetAtlasGlyph(Rasterizer* rasterizer, size_t index, uint16_t* x, uint16_t* y) {
   if (rasterizer->type == RASTERIZER_TTF || index >= rasterizer->glyphs.length) {
     return 0;
   }

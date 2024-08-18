@@ -27,7 +27,7 @@ static int l_lovrRasterizerGetFontSize(lua_State* L) {
 
 static int l_lovrRasterizerGetGlyphCount(lua_State* L) {
   Rasterizer* rasterizer = luax_checktype(L, 1, Rasterizer);
-  uint32_t count = lovrRasterizerGetGlyphCount(rasterizer);
+  size_t count = lovrRasterizerGetGlyphCount(rasterizer);
   lua_pushinteger(L, count);
   return 1;
 }
