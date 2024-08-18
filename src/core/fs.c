@@ -30,7 +30,7 @@ static int error(void) {
   }
 }
 
-bool fs_open(const char* path, char mode, fs_handle* file) {
+int fs_open(const char* path, char mode, fs_handle* file) {
   WCHAR wpath[FS_PATH_MAX];
   if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
     return error();
@@ -42,111 +42,115 @@ bool fs_open(const char* path, char mode, fs_handle* file) {
     case 'r': access = GENERIC_READ; creation = OPEN_EXISTING; break;
     case 'w': access = GENERIC_WRITE; creation = CREATE_ALWAYS; break;
     case 'a': access = GENERIC_WRITE; creation = OPEN_ALWAYS; break;
-    default: return false;
+    default: return FS_UNKNOWN_ERROR;
   }
 
   DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE;
   file->handle = CreateFileW(wpath, access, share, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
   if (file->handle == INVALID_HANDLE_VALUE) {
-    return false;
+    return error();
   }
 
   if (mode == 'a' && SetFilePointer(file->handle, 0, NULL, FILE_END) == INVALID_SET_FILE_POINTER) {
+    int err = error();
     CloseHandle(file->handle);
-    return false;
+    return err;
   }
 
-  return true;
+  return FS_OK;
 }
 
-bool fs_close(fs_handle file) {
-  return CloseHandle(file.handle);
+int fs_close(fs_handle file) {
+  return CloseHandle(file.handle) ? FS_OK : error();
 }
 
-bool fs_read(fs_handle file, void* data, size_t size, size_t* count) {
+int fs_read(fs_handle file, void* data, size_t size, size_t* count) {
   DWORD bytes32 = size > UINT32_MAX ? UINT32_MAX : (DWORD) size;
   bool success = ReadFile(file.handle, data, bytes32, &bytes32, NULL);
   *count = bytes32;
-  return success;
+  return success ? FS_OK : error();
 }
 
-bool fs_write(fs_handle file, const void* data, size_t size, size_t* count) {
+int fs_write(fs_handle file, const void* data, size_t size, size_t* count) {
   DWORD bytes32 = size > UINT32_MAX ? UINT32_MAX : (DWORD) size;
   bool success = WriteFile(file.handle, data, bytes32, &bytes32, NULL);
   *count = bytes32;
   return success;
 }
 
-bool fs_seek(fs_handle file, uint64_t offset) {
+int fs_seek(fs_handle file, uint64_t offset) {
   LARGE_INTEGER n = { .QuadPart = offset };
-  return SetFilePointerEx(file.handle, n, NULL, FILE_BEGIN);
+  return SetFilePointerEx(file.handle, n, NULL, FILE_BEGIN) ? FS_OK : error();
 }
 
-bool fs_fstat(fs_handle file, FileInfo* info) {
+int fs_fstat(fs_handle file, FileInfo* info) {
   LARGE_INTEGER size;
   if (!GetFileSizeEx(file.handle, &size)) {
-    return false;
+    return error();
   }
   info->size = size.QuadPart;
   info->lastModified = 0;
   info->type = FILE_REGULAR;
-  return true;
+  return FS_OK;
 }
 
-void* fs_map(const char* path, size_t* size) {
+int fs_map(const char* path, void** pointer, size_t* size) {
   WCHAR wpath[FS_PATH_MAX];
   if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
-    return false;
+    return error();
   }
 
   fs_handle file;
   file.handle = CreateFileW(wpath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
   if (file.handle == INVALID_HANDLE_VALUE) {
-    return NULL;
+    return error();
   }
 
   DWORD hi;
   DWORD lo = GetFileSize(file.handle, &hi);
   if (lo == INVALID_FILE_SIZE) {
+    int err = error();
     CloseHandle(file.handle);
-    return NULL;
+    return err;
   }
 
   if (SIZE_MAX > UINT32_MAX) {
     *size = ((size_t) hi << 32) | lo;
   } else if (hi > 0) {
     CloseHandle(file.handle);
-    return NULL;
+    return FS_UNKNOWN_ERROR;
   } else {
     *size = lo;
   }
 
   HANDLE mapping = CreateFileMappingA(file.handle, NULL, PAGE_READONLY, hi, lo, NULL);
   if (mapping == NULL) {
+    int err = error();
     CloseHandle(file.handle);
-    return NULL;
+    return err;
   }
 
-  void* data = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, *size);
+  *pointer = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, *size);
+  int err = error();
 
   CloseHandle(mapping);
   CloseHandle(file.handle);
-  return data;
+  return err;
 }
 
-bool fs_unmap(void* data, size_t size) {
-  return UnmapViewOfFile(data);
+int fs_unmap(void* data, size_t size) {
+  return UnmapViewOfFile(data) ? FS_OK : error();
 }
 
-bool fs_stat(const char* path, FileInfo* info) {
+int fs_stat(const char* path, FileInfo* info) {
   WCHAR wpath[FS_PATH_MAX];
   if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
-    return false;
+    return error();
   }
 
   WIN32_FILE_ATTRIBUTE_DATA attributes;
   if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &attributes)) {
-    return false;
+    return error();
   }
 
   FILETIME lastModified = attributes.ftLastWriteTime;
@@ -155,32 +159,32 @@ bool fs_stat(const char* path, FileInfo* info) {
   info->lastModified /= 10000000ULL; // Convert windows 100ns ticks to seconds
   info->lastModified -= 11644473600ULL; // Convert windows epoch (1601) to POSIX epoch (1970)
   info->size = ((uint64_t) attributes.nFileSizeHigh << 32) | attributes.nFileSizeLow;
-  return true;
+  return FS_OK;
 }
 
-bool fs_remove(const char* path) {
+int fs_remove(const char* path) {
   WCHAR wpath[FS_PATH_MAX];
   if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
-    return false;
+    return error();
   }
-  return DeleteFileW(wpath) || RemoveDirectoryW(wpath);
+  return (DeleteFileW(wpath) || RemoveDirectoryW(wpath)) ? FS_OK : error();
 }
 
-bool fs_mkdir(const char* path) {
+int fs_mkdir(const char* path) {
   WCHAR wpath[FS_PATH_MAX];
   if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
-    return false;
+    return error();
   }
-  return CreateDirectoryW(wpath, NULL);
+  return CreateDirectoryW(wpath, NULL) ? FS_OK : error();
 }
 
-bool fs_list(const char* path, fs_list_cb* callback, void* context) {
+int fs_list(const char* path, fs_list_cb* callback, void* context) {
   WCHAR wpath[FS_PATH_MAX];
 
   int length = MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX);
 
   if (length == 0 || length + 3 >= FS_PATH_MAX) {
-    return false;
+    return error();
   } else {
     wcscat(wpath, L"/*");
   }
@@ -188,21 +192,22 @@ bool fs_list(const char* path, fs_list_cb* callback, void* context) {
   WIN32_FIND_DATAW findData;
   HANDLE handle = FindFirstFileW(wpath, &findData);
   if (handle == INVALID_HANDLE_VALUE) {
-    return false;
+    return error();
   }
 
   char filename[FS_PATH_MAX];
   do {
     if (!WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, filename, FS_PATH_MAX, NULL, NULL)) {
+      int err = error();
       FindClose(handle);
-      return false;
+      return err;
     }
 
     callback(context, filename);
   } while (FindNextFileW(handle, &findData));
 
   FindClose(handle);
-  return true;
+  return FS_OK;
 }
 
 #else // !_WIN32
@@ -245,8 +250,9 @@ int fs_open(const char* path, char mode, fs_handle* file) {
     case 'r': flags = O_RDONLY; break;
     case 'w': flags = O_WRONLY | O_CREAT | O_TRUNC; break;
     case 'a': flags = O_APPEND | O_WRONLY | O_CREAT; break;
-    default: return false;
+    default: return FS_UNKNOWN_ERROR;
   }
+
   file->fd = open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
   if (file->fd < 0) return check(file->fd);
 
