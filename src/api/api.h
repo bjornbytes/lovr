@@ -92,9 +92,11 @@ typedef struct {
 #endif
 
 #ifdef LOVR_UNCHECKED
+#define luax_check(L, c, ...) ((void) 0)
 #define luax_checku32(L, i) (uint32_t) lua_tonumber(L, i)
 #define luax_optu32(L, i, x) (uint32_t) luaL_optnumber(L, i, x)
 #else
+#define luax_check(L, c, ...) if (!(c)) { luaL_error(L, __VA_ARGS__); }
 #define luax_checku32(L, i) _luax_checku32(L, i)
 #define luax_optu32(L, i, x) _luax_optu32(L, i, x)
 #endif
@@ -110,7 +112,6 @@ typedef struct {
 #define luax_tofloat(L, i) (float) lua_tonumber(L, i)
 #define luax_throw(L) luaL_error(L, lovrGetError())
 #define luax_assert(L, c) if (!(c)) { luax_throw(L); }
-#define luax_check(L, c, ...) if (!(c)) { luaL_error(L, __VA_ARGS__); }
 
 void luax_preload(lua_State* L);
 void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, void (*destructor)(void*));

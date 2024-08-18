@@ -865,7 +865,9 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     } else {
       info.mipmaps = (info.imageCount == 0 || !mipmappable) ? 1 : ~0u;
     }
-    luax_check(L, info.imageCount == 0 || info.mipmaps == 1 || mipmappable, "This texture format does not support blitting, which is required for mipmap generation");
+    if (info.imageCount > 0 && info.mipmaps > 1 && !mipmappable) {
+      luaL_error(L, "This texture format does not support blitting, which is required for mipmap generation");
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, index, "usage");
