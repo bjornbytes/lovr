@@ -344,7 +344,7 @@ int fs_stat(const char* path, FileInfo* info) {
 
 int fs_remove(const char* path) {
   if (unlink(path)) {
-    if (errno == EISDIR) {
+    if (errno == EISDIR || errno == EPERM) {
       return check(rmdir(path));
     } else {
       return check(-1);
