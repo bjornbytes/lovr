@@ -6,8 +6,7 @@
 #include <string.h>
 
 static bool lovrModelDataInitStlAscii(ModelData** result, Blob* source, ModelDataIO* io) {
-  lovrSetError("ASCII STL files are not supported yet");
-  return false;
+  return lovrSetError("ASCII STL files are not supported yet");
 }
 
 // The binary format has an 80 byte header, followed by a u32 triangle count, followed by 50 byte

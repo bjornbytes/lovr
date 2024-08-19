@@ -205,9 +205,8 @@ bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
   result = ma_mutex_init(&state.lock);
 
   if (result != MA_SUCCESS) {
-    lovrSetError("Failed to create audio mutex: %s", ma_result_description(result));
     ma_context_uninit(&state.context);
-    return false;
+    return lovrSetError("Failed to create audio mutex: %s", ma_result_description(result));
   }
 
   for (size_t i = 0; i < COUNTOF(spatializers); i++) {
@@ -222,10 +221,9 @@ bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
   }
 
   if (!state.spatializer) {
-    lovrSetError("Must have at least one spatializer");
     ma_context_uninit(&state.context);
     ma_mutex_uninit(&state.lock);
-    return false;
+    return lovrSetError("Must have at least one spatializer");
   }
 
   // SteamAudio's default frequency-dependent absorption coefficients for air

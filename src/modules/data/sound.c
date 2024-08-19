@@ -130,7 +130,6 @@ static bool loadOgg(Sound** result, Blob* blob, bool decode) {
   if (!sound->decoder) {
     lovrSetError("Could not load Ogg from '%s'", blob->name);
     lovrFree(sound);
-    return false;
   }
 
   stb_vorbis_info info = stb_vorbis_get_info(sound->decoder);
@@ -143,21 +142,19 @@ static bool loadOgg(Sound** result, Blob* blob, bool decode) {
     sound->read = lovrSoundReadRaw;
     uint32_t channels = lovrSoundGetChannelCount(sound);
     if (sound->frames * channels > INT_MAX) {
-      lovrSetError("Decoded OGG file has too many samples");
       stb_vorbis_close(sound->decoder);
       lovrFree(sound);
-      return false;
+      return lovrSetError("Decoded OGG file has too many samples");
     }
 
     size_t size = sound->frames * lovrSoundGetStride(sound);
     void* data = lovrCalloc(size);
     sound->blob = lovrBlobCreate(data, size, "Sound");
     if (stb_vorbis_get_samples_float_interleaved(sound->decoder, channels, data, (int) size / sizeof(float)) < (int) sound->frames) {
-      lovrSetError("Could not decode vorbis from '%s'", blob->name);
       lovrRelease(sound->blob, lovrBlobDestroy);
       stb_vorbis_close(sound->decoder);
       lovrFree(sound);
-      return false;
+      return lovrSetError("Could not decode vorbis from '%s'", blob->name);
     }
 
     stb_vorbis_close(sound->decoder);
@@ -217,8 +214,7 @@ static bool loadWAV(Sound** result, Blob* blob, bool decode) {
   bool f32 = (extensible ? wav->guid[0] == 0x03 : wav->format == 3) && wav->sampleSize == 32;
 
   if (extensible && !amb && memcmp(wav->guid, guidpcm, 16) && memcmp(wav->guid, guidf32, 16)) {
-    lovrSetError("Invalid WAV GUID");
-    return false;
+    return lovrSetError("Invalid WAV GUID");
   }
 
   lovrAssert(pcm || f32, "Invalid WAV sample format");
@@ -239,9 +235,8 @@ static bool loadWAV(Sound** result, Blob* blob, bool decode) {
     memcpy(&size, data + 4, 4);
     if (!memcmp(data, "data", 4)) {
       if (offset + 8 + size > blob->size) {
-        lovrSetError("Invalid WAV");
         lovrFree(sound);
-        return false;
+        return lovrSetError("Invalid WAV");
       }
       sound->frames = size / wav->frameSize;
       data += 8;
@@ -317,8 +312,7 @@ static bool loadMP3(Sound** result, Blob* blob, bool decode) {
     lovrAssert(!status, "Could not decode mp3 from '%s'", blob->name);
     if (info.samples / info.channels > UINT32_MAX) {
       lovrFree(info.buffer);
-      lovrSetError("MP3 is too long");
-      return false;
+      return lovrSetError("MP3 is too long");
     }
 
     Sound* sound = lovrCalloc(sizeof(Sound));
@@ -335,10 +329,9 @@ static bool loadMP3(Sound** result, Blob* blob, bool decode) {
     Sound* sound = lovrCalloc(sizeof(Sound));
     mp3dec_ex_t* decoder = sound->decoder = lovrMalloc(sizeof(mp3dec_ex_t));
     if (mp3dec_ex_open_buf(sound->decoder, blob->data, blob->size, MP3D_SEEK_TO_SAMPLE)) {
-      lovrSetError("Could not load mp3 from '%s'", blob->name);
       lovrFree(sound->decoder);
       lovrFree(sound);
-      return false;
+      return lovrSetError("Could not load mp3 from '%s'", blob->name);
     }
     sound->ref = 1;
     sound->format = SAMPLE_F32;

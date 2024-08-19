@@ -41,9 +41,8 @@ static bool parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
     while (length > 0 && (data[length - 1] == '\r' || data[length - 1] == '\t' || data[length - 1] == ' ')) length--;
 
     if (length >= sizeof(line)) {
-      lovrSetError("OBJ MTL line length is too long (max is %d)", sizeof(line) - 1);
       lovrFree(p);
-      return true;
+      return lovrSetError("OBJ MTL line length is too long (max is %d)", sizeof(line) - 1);
     }
 
     memcpy(line, data, length);
@@ -81,25 +80,22 @@ static bool parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       memcpy(material->color, (float[4]) { r, g, b, 1.f }, 16);
     } else if (STARTS_WITH(line, "map_Kd ")) {
       if (materials->length == 0) {
-        lovrSetError("Tried to set a material property without declaring a material first");
         lovrFree(p);
-        return false;
+        return lovrSetError("Tried to set a material property without declaring a material first");
       }
 
       const char* subpath = line + 7;
 
       if (subpath[0] == '/') {
-        lovrSetError("Absolute paths in models are not supported");
         lovrFree(p);
-        return false;
+        return lovrSetError("Absolute paths in models are not supported");
       }
 
       if (subpath[0] && subpath[1] && !memcmp(subpath, "./", 2)) subpath += 2;
 
       if (base - path + (length - 7) >= 1024) {
-        lovrSetError("Bad OBJ: Material image filename is too long");
         lovrFree(p);
-        return false;
+        return lovrSetError("Bad OBJ: Material image filename is too long");
       }
 
       memcpy(base, subpath, length - 7);
@@ -109,9 +105,8 @@ static bool parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
       void* pixels = io(path, &imageSize);
 
       if (!pixels) {
-        lovrSetError("Unable to read image from %s", path);
         lovrFree(p);
-        return false;
+        return lovrSetError("Unable to read image from %s", path);
       }
 
       Blob* blob = lovrBlobCreate(pixels, imageSize, NULL);
@@ -189,11 +184,7 @@ bool lovrModelDataInitObj(ModelData** result, Blob* source, ModelDataIO* io) {
     char line[1024];
     size_t length = newline ? (size_t) (newline - data) : size;
     while (length > 0 && (data[length - 1] == '\r' || data[length - 1] == '\t' || data[length - 1] == ' ')) length--;
-
-    if (length >= sizeof(line)) {
-      lovrSetError("OBJ line length is too long (max is %d)", sizeof(line) - 1);
-      goto fail;
-    }
+    lovrAssertGoto(fail, length < sizeof(line), "OBJ line length is too long (max is %d)", sizeof(line) - 1);
 
     memcpy(line, data, length);
     line[length] = '\0';
@@ -227,12 +218,8 @@ bool lovrModelDataInitObj(ModelData** result, Blob* source, ModelDataIO* io) {
         while (*s && (*s == ' ' || *s == '\t')) s++;
 
         if (*s == '\n') {
-          if (i < 3) {
-            lovrSetError("Bad OBJ: Face has no triangles");
-            goto fail;
-          } else {
-            break;
-          }
+          lovrCheckGoto(fail, i >= 3, "Bad OBJ: Face has no triangles");
+          break;
         }
 
         // Find next non-number/non-slash
@@ -259,10 +246,8 @@ bool lovrModelDataInitObj(ModelData** result, Blob* source, ModelDataIO* io) {
         uint32_t v = 0;
         uint32_t vt = 0;
         uint32_t vn = 0;
-        if ((v = nomu32(s, &s)) == 0) {
-          lovrSetError("Bad OBJ: Expected positive number for face vertex position index");
-          goto fail;
-        }
+        v = nomu32(s, &s);
+        lovrCheckGoto(fail, v > 0, "Bad OBJ: Expected positive number for face vertex position index");
 
         // Handle v//vn, v/vt, v/vt/vtn, and v
         if (s[0] == '/') {
@@ -289,21 +274,9 @@ bool lovrModelDataInitObj(ModelData** result, Blob* source, ModelDataIO* io) {
     } else if (STARTS_WITH(line, "mtllib ")) {
       const char* filename = line + 7;
       size_t filenameLength = strlen(filename);
-
-      if (filename[0] == '/') {
-        lovrSetError("Absolute paths in models are not supported");
-        goto fail;
-      }
-
-      if (filenameLength > 2 && !memcmp(filename, "./", 2)) {
-        filename += 2;
-      }
-
-      if (baseLength + filenameLength >= sizeof(path)) {
-        lovrSetError("Bad OBJ: Material filename is too long");
-        goto fail;
-      }
-
+      lovrCheckGoto(fail, filename[0] != '/', "Absolute paths in models are not supported");
+      if (filenameLength > 2 && !memcmp(filename, "./", 2)) filename += 2;
+      lovrCheckGoto(fail, baseLength + filenameLength < sizeof(path), "Bad OBJ: Material filename is too long");
       memcpy(path + baseLength, filename, filenameLength);
       path[baseLength + filenameLength] = '\0';
 

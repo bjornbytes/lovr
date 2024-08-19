@@ -260,7 +260,7 @@ bool lovrImageMapPixel(Image* image, uint32_t x0, uint32_t y0, uint32_t w, uint3
     case FORMAT_R32F: getPixel = getPixelR32F, setPixel = setPixelR32F; break;
     case FORMAT_RG32F: getPixel = getPixelRG32F, setPixel = setPixelRG32F; break;
     case FORMAT_RGBA32F: getPixel = getPixelRGBA32F, setPixel = setPixelRGBA32F; break;
-    default: lovrSetError("Unsupported format for Image:mapPixel"); return false;
+    default: return lovrSetError("Unsupported format for Image:mapPixel");
   }
   float pixel[4] = { 0.f, 0.f, 0.f, 1.f };
   uint32_t width = image->width;
@@ -785,13 +785,9 @@ static bool loadDDS(Blob* blob, Image** result) {
     else if (header->format.fourCC == 0x72) format = FORMAT_R32F;
     else if (header->format.fourCC == 0x73) format = FORMAT_RG32F;
     else if (header->format.fourCC == 0x74) format = FORMAT_RGBA32F;
-    else {
-      lovrSetError("DDS file uses an unsupported FourCC format (%d)", header->format.fourCC);
-      return false;
-    }
+    else return lovrSetError("DDS file uses an unsupported FourCC format (%d)", header->format.fourCC);
   } else {
-    lovrSetError("DDS file uses an unsupported format"); // TODO could handle more uncompressed formats
-    return false;
+    return lovrSetError("DDS file uses an unsupported format"); // TODO could handle more uncompressed formats
   }
 
   lovrAssert(~header->flags & DDSD_DEPTH, "Loading 3D DDS images is not supported");
@@ -812,9 +808,8 @@ static bool loadDDS(Blob* blob, Image** result) {
     size_t size = measure(width, height, format);
 
     if (length < size) {
-      lovrSetError("DDS file overflow");
       lovrFree(image);
-      return false;
+      return lovrSetError("DDS file overflow");
     }
 
     image->mipmaps[i] = (Mipmap) { data, size, 0 };
@@ -872,7 +867,7 @@ static bool loadASTC(Blob* blob, Image** result) {
   else if (bx == 10 && by == 10 && bz == 1) { format = FORMAT_ASTC_10x10; }
   else if (bx == 12 && by == 10 && bz == 1) { format = FORMAT_ASTC_12x10; }
   else if (bx == 12 && by == 12 && bz == 1) { format = FORMAT_ASTC_12x12; }
-  else { return lovrSetError("Unsupported ASTC format %dx%dx%d", bx, by, bz), false; }
+  else { return lovrSetError("Unsupported ASTC format %dx%dx%d", bx, by, bz); }
 
   uint32_t width = header.width[0] + (header.width[1] << 8) + (header.width[2] << 16);
   uint32_t height = header.height[0] + (header.height[1] << 8) + (header.height[2] << 16);
@@ -880,8 +875,7 @@ static bool loadASTC(Blob* blob, Image** result) {
   size_t imageSize = ((width + bx - 1) / bx) * ((height + by - 1) / by) * (128 / 8);
 
   if (imageSize > blob->size - sizeof(header)) {
-    lovrSetError("ASTC size overflows file size");
-    return false;
+    return lovrSetError("ASTC size overflows file size");
   }
 
   Image* image = lovrCalloc(sizeof(Image));
@@ -935,8 +929,7 @@ static bool loadKTX1(Blob* blob, Image** result) {
   length -= sizeof(header);
 
   if (length < header.bytesOfKeyValueData) {
-    lovrSetError("Invalid KTX file");
-    return false;
+    return lovrSetError("Invalid KTX file");
   }
 
   data += header.bytesOfKeyValueData;
@@ -1029,9 +1022,8 @@ static bool loadKTX1(Blob* blob, Image** result) {
   }
 
   if (image->format == ~0u) {
-    lovrSetError("KTX1 file uses an unsupported image format (glType = %d, glFormat = %d, glInternalFormat = %d)", header.glType, header.glFormat, header.glInternalFormat);
     lovrFree(image);
-    return false;
+    return lovrSetError("KTX1 file uses an unsupported image format (glType = 0x%x, glFormat = 0x%x, glInternalFormat = 0x%x)", header.glType, header.glFormat, header.glInternalFormat);
   }
 
   // Mipmaps
@@ -1043,9 +1035,8 @@ static bool loadKTX1(Blob* blob, Image** result) {
     memcpy(&levelSize, data, 4);
     size_t size = measure(width, height, image->format);
     if (levelSize / divisor != size) {
-      lovrSetError("KTX size mismatch");
       lovrFree(image);
-      return false;
+      return lovrSetError("KTX size mismatch");
     }
 
     length -= 4;
@@ -1053,9 +1044,8 @@ static bool loadKTX1(Blob* blob, Image** result) {
 
     size_t totalSize = size * image->layers;
     if (length < totalSize) {
-      lovrSetError("KTX file overflow");
       lovrFree(image);
-      return false;
+      return lovrSetError("KTX file overflow");
     }
 
     image->mipmaps[i] = (Mipmap) { data, size, size };
@@ -1176,9 +1166,8 @@ static bool loadKTX2(Blob* blob, Image** result) {
     case 182: image->flags |= IMAGE_SRGB; /* fallthrough */ case 181: image->format = FORMAT_ASTC_12x10; break;
     case 184: image->flags |= IMAGE_SRGB; /* fallthrough */ case 183: image->format = FORMAT_ASTC_12x12; break;
     default:
-      lovrSetError("KTX file uses an unsupported image format");
       lovrFree(image);
-      return false;
+      return lovrSetError("KTX file uses an unsupported image format");
   }
 
   // Mipmaps
@@ -1190,15 +1179,13 @@ static bool loadKTX2(Blob* blob, Image** result) {
     size_t stride = size / image->layers;
 
     if (offset + size > blob->size) {
-      lovrSetError("KTX file overflow");
       lovrFree(image);
-      return false;
+      return lovrSetError("KTX file overflow");
     }
 
     if (measure(width, height, image->format) != size) {
-      lovrSetError("KTX size mismatch");
       lovrFree(image);
-      return false;
+      return lovrSetError("KTX size mismatch");
     }
 
     image->mipmaps[i] = (Mipmap) { data + offset, stride, stride };
@@ -1222,7 +1209,7 @@ static bool loadSTB(Blob* blob, Image** result) {
       case 1: format = FORMAT_R16; break;
       case 2: format = FORMAT_RG16; break;
       case 4: format = FORMAT_RGBA16; break;
-      default: return lovrSetError("Unsupported channel count for 16 bit image: %d", channels), false;
+      default: return lovrSetError("Unsupported channel count for 16 bit image: %d", channels);
     }
     flags = IMAGE_SRGB;
   } else if (stbi_is_hdr_from_memory(blob->data, (int) blob->size)) {

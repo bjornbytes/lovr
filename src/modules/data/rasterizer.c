@@ -310,20 +310,12 @@ static bool lovrRasterizerCreateBMF(Rasterizer** result, Blob* blob, RasterizerI
 
   size_t atlasSize;
   void* atlasData = io(fullpath, &atlasSize);
-
-  if (!atlasData) {
-    lovrSetError("Failed to read BMFont image from %s", fullpath);
-    goto fail;
-  }
+  lovrAssertGoto(fail, atlasData, "Failed to read BMFont image from %s", fullpath);
 
   Blob* atlasBlob = lovrBlobCreate(atlasData, atlasSize, "BMFont atlas");
   rasterizer->atlas = lovrImageCreateFromFile(atlasBlob);
   lovrRelease(atlasBlob, lovrBlobDestroy);
-
-  if (!rasterizer->atlas) {
-    lovrSetError("Failed to load BMFont atlas image: %s", lovrGetError());
-    goto fail;
-  }
+  lovrAssertGoto(fail, rasterizer->atlas, "Failed to load BMfont atlas image: %s", lovrGetError());
 
   *result = rasterizer;
   return true;

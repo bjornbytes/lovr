@@ -686,8 +686,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     os_window_message_box(string);
     lovrFree(string);
 #endif
-    lovrSetError("Failed to initialize GPU: %s", gpu_get_error());
-    return false;
+    return lovrSetError("Failed to initialize GPU: %s", gpu_get_error());
   }
 
   state.config = *config;
@@ -696,17 +695,11 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   // Temporary frame memory uses a large 1GiB virtual memory allocation, committing pages as needed
   state.allocator.length = 1 << 14;
   state.allocator.limit = 1 << 30;
-  if (!(state.allocator.memory = os_vm_init(state.allocator.limit)) || !os_vm_commit(state.allocator.memory, state.allocator.length)) {
-    lovrSetError("Failed to allocate memory for temp allocator");
-    lovrGraphicsDestroy();
-    return false;
-  }
+  state.allocator.memory = os_vm_init(state.allocator.limit);
+  lovrAssertGoto(fail, state.allocator.memory && os_vm_commit(state.allocator.memory, state.allocator.length), "Failed to initialize temp allocator");
 
-  if (!(state.pipelines = os_vm_init(MAX_PIPELINES * gpu_sizeof_pipeline()))) {
-    lovrSetError("Failed to allocate memory for pipelines");
-    lovrGraphicsDestroy();
-    return false;
-  }
+  state.pipelines = os_vm_init(MAX_PIPELINES * gpu_sizeof_pipeline());
+  lovrAssertGoto(fail, state.pipelines, "Failed to allocate memory for pipelines");
 
   map_init(&state.passLookup, 4);
   map_init(&state.pipelineLookup, 64);
@@ -738,34 +731,17 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   state.builtinLayout = getLayout(builtinSlots, COUNTOF(builtinSlots));
   state.materialLayout = getLayout(materialSlots, COUNTOF(materialSlots));
   state.uniformLayout = getLayout(uniformSlots, COUNTOF(uniformSlots));
-
-  if (!state.builtinLayout || !state.materialLayout || !state.uniformLayout) {
-    lovrSetError("Failed to create GPU layouts: %s", gpu_get_error());
-    lovrGraphicsDestroy();
-    return false;
-  }
+  lovrAssertGoto(fail, state.builtinLayout && state.materialLayout && state.uniformLayout, "Failed to create GPU layouts: %s", gpu_get_error());
 
   // Default Buffer
 
   float defaultBufferData[] = { 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f };
   state.defaultBuffer = lovrBufferCreate(&(BufferInfo) { .size = sizeof(defaultBufferData), }, NULL);
-
-  if (!state.defaultBuffer) {
-    lovrGraphicsDestroy();
-    return false;
-  }
-
-  if (!beginFrame()) {
-    lovrGraphicsDestroy();
-    return false;
-  }
+  if (!state.defaultBuffer) goto fail;
+  if (!beginFrame()) goto fail;
 
   BufferView view = getBuffer(GPU_BUFFER_UPLOAD, sizeof(defaultBufferData), 4);
-
-  if (!view.buffer) {
-    lovrGraphicsDestroy();
-    return false;
-  }
+  if (!view.buffer) goto fail;
 
   memcpy(view.pointer, defaultBufferData, sizeof(defaultBufferData));
   gpu_copy_buffers(state.stream, view.buffer, state.defaultBuffer->gpu, view.offset, state.defaultBuffer->base, sizeof(defaultBufferData));
@@ -773,11 +749,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   // Default Texture
 
   Image* image = lovrImageCreateRaw(4, 4, FORMAT_RGBA8, false);
-
-  if (!image) {
-    lovrGraphicsDestroy();
-    return false;
-  }
+  if (!image) goto fail;
 
   float white[4] = { 1.f, 1.f, 1.f, 1.f };
   for (uint32_t y = 0; y < 4; y++) {
@@ -801,11 +773,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   });
 
   lovrRelease(image, lovrImageDestroy);
-
-  if (!state.defaultTexture) {
-    lovrGraphicsDestroy();
-    return false;
-  }
+  if (!state.defaultTexture) goto fail;
 
   // Default Samplers
 
@@ -819,8 +787,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     });
 
     if (!state.defaultSamplers[i]) {
-      lovrGraphicsDestroy();
-      return false;
+      goto fail;
     }
   }
 
@@ -889,10 +856,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .texture = state.defaultTexture
   });
 
-  if (!state.defaultMaterial) {
-    lovrGraphicsDestroy();
-    return false;
-  }
+  if (!state.defaultMaterial) goto fail;
 
   float16Init();
 #ifdef LOVR_USE_GLSLANG
@@ -900,6 +864,9 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   state.glslang = true;
 #endif
   return true;
+fail:
+  lovrGraphicsDestroy();
+  return false;
 }
 
 void lovrGraphicsDestroy(void) {
@@ -1794,11 +1761,7 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         .count = timestampCount
       };
 
-      if (!gpu_tally_init(state.timestamps, &info)) {
-        lovrSetError("Failed to create timestamp tally: %s", gpu_get_error());
-        return false;
-      }
-
+      lovrAssert(gpu_tally_init(state.timestamps, &info), "Failed to create timestamp tally: %s", gpu_get_error());
       state.timestampCount = timestampCount;
     }
 
@@ -1807,10 +1770,7 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
   gpu_sync(state.stream, &state.barrier, 1);
 
-  if (!gpu_stream_end(state.stream)) {
-    lovrSetError("Failed to end GPU command buffer: %s", gpu_get_error());
-    return false;
-  }
+  lovrAssert(gpu_stream_end(state.stream), "Failed to end GPU command buffer: %s", gpu_get_error());
 
   for (uint32_t i = 0; i < count; i++) {
     gpu_stream* stream = streams[streamCount++] = gpu_stream_begin(passes[i]->label);
@@ -1837,17 +1797,12 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       gpu_tally_mark(stream, state.timestamps, 2 * i + 1);
     }
 
-    if (!gpu_stream_end(stream)) {
-      lovrSetError("Failed to end GPU command buffer: %s", gpu_get_error());
-    }
+    lovrAssert(gpu_stream_end(stream), "Failed to end GPU command buffer: %s", gpu_get_error());
   }
 
   if (xrCanvas || (state.timingEnabled && count > 0)) {
     gpu_stream* stream = streams[streamCount++] = gpu_stream_begin(NULL);
-
-    if (!stream) {
-      lovrSetError("Failed to begin command buffer: %s", gpu_get_error());
-    }
+    lovrAssert(stream, "Failed to begin command buffer: %s", gpu_get_error());
 
     // Timestamp Readback
     if (state.timingEnabled) {
@@ -1880,9 +1835,7 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       }
     }
 
-    if (!gpu_stream_end(stream)) {
-      lovrSetError("Failed to end GPU command buffer: %s", gpu_get_error());
-    }
+    lovrAssert(gpu_stream_end(stream), "Failed to end GPU command buffer: %s", gpu_get_error());
   }
 
   // Cleanup
@@ -1912,10 +1865,7 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     }
   }
 
-  if (!gpu_submit(streams, streamCount)) {
-    lovrSetError("Failed to submit GPU command buffers: %s", gpu_get_error());
-    return false;
-  }
+  lovrAssert(gpu_submit(streams, streamCount), "Failed to submit GPU command buffers: %s", gpu_get_error());
 
   state.active = false;
   state.stream = NULL;
@@ -2277,9 +2227,8 @@ bool lovrGraphicsGetWindowTexture(Texture** texture) {
     };
 
     if (!gpu_surface_init(&info)) {
-      lovrSetError("Failed to create window surface: %s", gpu_get_error());
       lovrFree(state.window);
-      return false;
+      return lovrSetError("Failed to create window surface: %s", gpu_get_error());
     }
 
     os_on_resize(onResize);
@@ -2296,19 +2245,11 @@ bool lovrGraphicsGetWindowTexture(Texture** texture) {
     }
 
     if (state.resized) {
-      if (!gpu_surface_resize(state.window->info.width, state.window->info.height)) {
-        lovrSetError("Failed to resize window: %s", gpu_get_error());
-        return false;
-      }
-
+      lovrAssert(gpu_surface_resize(state.window->info.width, state.window->info.height), "Failed to resize window: %s", gpu_get_error());
       state.resized = false;
     }
 
-    if (!gpu_surface_acquire(&state.window->gpu)) {
-      lovrSetError("Failed to get window texture: %s", gpu_get_error());
-      return false;
-    }
-
+    lovrAssert(gpu_surface_acquire(&state.window->gpu), "Failed to get window texture: %s", gpu_get_error());
     state.window->renderView = state.window->gpu;
 
     // Window texture may be unavailable during a resize
@@ -3106,8 +3047,7 @@ bool lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint
   glslang_program_delete(program);
   return true;
 #else
-  lovrSetError("Could not compile shader: No shader compiler available");
-  return false;
+  return lovrSetError("Could not compile shader: No shader compiler available");
 #endif
 }
 
@@ -8256,8 +8196,8 @@ static Layout* getLayout(gpu_slot* slots, uint32_t count) {
   };
 
   if (!gpu_layout_init(layout->gpu, &info)) {
-    lovrFree(layout);
     lovrSetError("Failed to create GPU layout: %s", gpu_get_error());
+    lovrFree(layout);
     return NULL;
   }
 
