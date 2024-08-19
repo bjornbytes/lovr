@@ -221,10 +221,8 @@ bool lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
     case FORMAT_R32F: getPixelR32F(p, pixel); return true;
     case FORMAT_RG32F: getPixelRG32F(p, pixel); return true;
     case FORMAT_RGBA32F: getPixelRGBA32F(p, pixel); return true;
-    default: break;
+    default: return lovrSetError("Unsupported format for Image:getPixel");
   }
-  lovrSetError("Unsupported format for Image:getPixel");
-  return false;
 }
 
 bool lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
@@ -233,19 +231,17 @@ bool lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   size_t offset = measure(y * image->width + x, 1, image->format);
   ImagePointer p = { .u8 = (uint8_t*) image->mipmaps[0].data + offset };
   switch (image->format) {
-    case FORMAT_R8: setPixelR8(pixel, p); break;
-    case FORMAT_RG8: setPixelRG8(pixel, p); break;
-    case FORMAT_RGBA8: setPixelRGBA8(pixel, p); break;
-    case FORMAT_R16: setPixelR16(pixel, p); break;
-    case FORMAT_RG16: setPixelRG16(pixel, p); break;
-    case FORMAT_RGBA16: setPixelRGBA16(pixel, p); break;
-    case FORMAT_R32F: setPixelR32F(pixel, p); break;
-    case FORMAT_RG32F: setPixelRG32F(pixel, p); break;
-    case FORMAT_RGBA32F: setPixelRGBA32F(pixel, p); break;
-    default: break;
+    case FORMAT_R8: setPixelR8(pixel, p); return true;
+    case FORMAT_RG8: setPixelRG8(pixel, p); return true;
+    case FORMAT_RGBA8: setPixelRGBA8(pixel, p); return true;
+    case FORMAT_R16: setPixelR16(pixel, p); return true;
+    case FORMAT_RG16: setPixelRG16(pixel, p); return true;
+    case FORMAT_RGBA16: setPixelRGBA16(pixel, p); return true;
+    case FORMAT_R32F: setPixelR32F(pixel, p); return true;
+    case FORMAT_RG32F: setPixelRG32F(pixel, p); return true;
+    case FORMAT_RGBA32F: setPixelRGBA32F(pixel, p); return true;
+    default: return lovrSetError("Unsupported format for Image:setPixel");
   }
-  lovrSetError("Unsupported format for Image:setPixel");
-  return false;
 }
 
 bool lovrImageMapPixel(Image* image, uint32_t x0, uint32_t y0, uint32_t w, uint32_t h, MapPixelCallback* callback, void* userdata) {

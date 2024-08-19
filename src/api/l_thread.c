@@ -22,6 +22,7 @@ static char* threadRunner(Thread* thread, Blob* body, Variant* arguments, uint32
     }
 
     if (!lua_pcall(L, argumentCount, 0, errhandler)) {
+      lua_close(L);
       return NULL;
     }
   }

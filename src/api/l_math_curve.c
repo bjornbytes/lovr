@@ -53,6 +53,7 @@ static int l_lovrCurveSlice(lua_State* L) {
   Curve* subcurve = lovrCurveSlice(curve, t1, t2);
   luax_assert(L, subcurve);
   luax_pushtype(L, Curve, subcurve);
+  lovrRelease(subcurve, lovrCurveDestroy);
   return 1;
 }
 

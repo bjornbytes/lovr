@@ -155,8 +155,7 @@ bool lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount)
   if (thrd_create(&thread->handle, threadFunction, thread) != thrd_success) {
     mtx_unlock(&thread->lock);
     lovrRelease(thread, lovrThreadDestroy);
-    lovrSetError("Could not create thread...sorry");
-    return false;
+    return lovrSetError("Could not create thread...sorry");
   }
 
   thread->running = true;
