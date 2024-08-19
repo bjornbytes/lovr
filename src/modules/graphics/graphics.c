@@ -6850,7 +6850,7 @@ bool lovrPassPlane(Pass* pass, float* transform, DrawStyle style, uint32_t cols,
 
   DrawInfo draw = {
     .hash = hash64(key, sizeof(key)),
-    .mode = DRAW_TRIANGLES,
+    .mode = style == STYLE_LINE ? DRAW_LINES : DRAW_TRIANGLES,
     .transform = transform,
     .bounds = (float[6]) { 0.f, 0.f, 0.f, .5f, .5f, 0.f },
     .vertex.pointer = (void**) &vertices,
