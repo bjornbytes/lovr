@@ -33,8 +33,7 @@ static int l_lovrColliderIsEnabled(lua_State* L) {
 static int l_lovrColliderSetEnabled(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   bool enable = lua_toboolean(L, 2);
-  bool success = lovrColliderSetEnabled(collider, enable);
-  luax_assert(L, success);
+  luax_assert(L, lovrColliderSetEnabled(collider, enable));
   return 1;
 }
 

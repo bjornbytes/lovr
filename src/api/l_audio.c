@@ -93,10 +93,7 @@ static int l_lovrAudioSetDevice(lua_State *L) {
   size_t size = id ? luax_len(L, 2) : 0;
   Sound* sink = lua_isnoneornil(L, 3) ? NULL : luax_checktype(L, 3, Sound);
   AudioShareMode shareMode = luax_checkenum(L, 4, AudioShareMode, "shared");
-  bool success = lovrAudioSetDevice(type, id, size, sink, shareMode);
-  lua_pushboolean(L, success);
-  lua_pushstring(L, success ? NULL : lovrGetError());
-  return 2;
+  return luax_pushsuccess(L, lovrAudioSetDevice(type, id, size, sink, shareMode));
 }
 
 static int l_lovrAudioStart(lua_State* L) {
@@ -344,10 +341,7 @@ int luaopen_lovr_audio(lua_State* L) {
   }
   lua_pop(L, 1);
 
-  if (!lovrAudioInit(spatializer, sampleRate)) {
-    luax_throw(L);
-  }
-
+  luax_assert(L, lovrAudioInit(spatializer, sampleRate));
   luax_atexit(L, lovrAudioDestroy);
 
   if (start) {

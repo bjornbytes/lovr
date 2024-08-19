@@ -52,8 +52,7 @@ static int l_lovrSourceIsLooping(lua_State* L) {
 
 static int l_lovrSourceSetLooping(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  bool success = lovrSourceSetLooping(source, lua_toboolean(L, 2));
-  luax_assert(L, success);
+  luax_assert(L, lovrSourceSetLooping(source, lua_toboolean(L, 2)));
   return 0;
 }
 
@@ -65,8 +64,7 @@ static int l_lovrSourceGetPitch(lua_State* L) {
 
 static int l_lovrSourceSetPitch(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
-  bool success = lovrSourceSetPitch(source, luax_checkfloat(L, 2));
-  luax_assert(L, success);
+  luax_assert(L, lovrSourceSetPitch(source, luax_checkfloat(L, 2)));
   return 0;
 }
 
@@ -215,8 +213,7 @@ static int l_lovrSourceSetEffectEnabled(lua_State* L) {
   Source* source = luax_checktype(L, 1, Source);
   Effect effect = luax_checkenum(L, 2, Effect, NULL);
   bool enabled = lua_isnoneornil(L, -1) ? true : lua_toboolean(L, -1);
-  bool success = lovrSourceSetEffectEnabled(source, effect, enabled);
-  luax_assert(L, success);
+  luax_assert(L, lovrSourceSetEffectEnabled(source, effect, enabled));
   return 0;
 }
 

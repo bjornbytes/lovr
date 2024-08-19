@@ -383,6 +383,17 @@ int luax_getstack(lua_State *L) {
   return 1;
 }
 
+int luax_pushsuccess(lua_State* L, bool success) {
+  if (success) {
+    lua_pushboolean(L, true);
+    return 1;
+  } else {
+    lua_pushboolean(L, false);
+    lua_pushstring(L, lovrGetError());
+    return 2;
+  }
+}
+
 void luax_pushconf(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrconf");
 }

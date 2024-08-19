@@ -5,8 +5,7 @@ static int l_lovrCurveEvaluate(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   float t = luax_checkfloat(L, 2);
   float point[4];
-  bool success = lovrCurveEvaluate(curve, t, point);
-  luax_assert(L, success);
+  luax_assert(L, lovrCurveEvaluate(curve, t, point));
   lua_pushnumber(L, point[0]);
   lua_pushnumber(L, point[1]);
   lua_pushnumber(L, point[2]);

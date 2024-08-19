@@ -115,11 +115,7 @@ static void _luax_checkvariant(lua_State* L, int index, Variant* variant, int de
 
     case LUA_TTABLE:
       if (index < 0) { index += lua_gettop(L) + 1; }
-
-      if (!lua_checkstack(L, 2)) {
-        luaL_error(L, "Out of memory (maybe a table contains a cycle?)");
-        return;
-      }
+      luaL_checkstack(L, 2, "Lua stack overflow when serializing table (maybe it contains a cycle?)");
 
       lua_pushnil(L);
       size_t length = 0;

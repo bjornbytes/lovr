@@ -149,7 +149,7 @@ static int l_lovrFontGetVertices(lua_State* L) {
 
   if (!success) {
     lovrFree(vertices);
-    luax_throw(L);
+    luax_assert(L, false);
   }
 
   int vertexCount = glyphCount * 4;

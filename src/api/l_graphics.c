@@ -1055,7 +1055,7 @@ static ShaderSource luax_checkshadersource(lua_State* L, int index, ShaderStage 
 }
 
 static int l_lovrGraphicsCompileShader(lua_State* L) {
-  ShaderSource inputs[2], outputs[2];
+  ShaderSource inputs[2], outputs[2] = { 0 };
   bool shouldFree[2];
   uint32_t count;
 
@@ -1068,16 +1068,15 @@ static int l_lovrGraphicsCompileShader(lua_State* L) {
     count = 2;
   }
 
-  if (!lovrGraphicsCompileShader(inputs, outputs, count, luax_readfile, false)) {
-    for (uint32_t i = 0; i < count; i++) {
-      if (shouldFree[i]) lovrFree((void*) inputs[i].code);
-    }
-    luax_throw(L);
-    return 0;
-  }
+  bool success = lovrGraphicsCompileShader(inputs, outputs, count, luax_readfile, false);
 
   for (uint32_t i = 0; i < count; i++) {
     if (shouldFree[i] && outputs[i].code != inputs[i].code) lovrFree((void*) inputs[i].code);
+  }
+
+  luax_assert(L, success);
+
+  for (uint32_t i = 0; i < count; i++) {
     Blob* blob = lovrBlobCreate((void*) outputs[i].code, outputs[i].size, "Shader code");
     luax_pushtype(L, Blob, blob);
     lovrRelease(blob, lovrBlobDestroy);
@@ -1156,7 +1155,7 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
       if (shouldFree[i]) lovrFree((void*) source[i].code);
     }
     arr_free(&flags);
-    luax_throw(L);
+    luax_assert(L, false);
     return 0;
   }
 

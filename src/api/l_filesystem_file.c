@@ -59,9 +59,7 @@ static int l_lovrFileRead(lua_State* L) {
     return 2;
   } else {
     lovrFree(data);
-    lua_pushnil(L);
-    lua_pushstring(L, lovrGetError());
-    return 2;
+    return luax_pushnilerror(L);
   }
 }
 
@@ -86,29 +84,14 @@ static int l_lovrFileWrite(lua_State* L) {
     size = (size_t) n;
   }
   size_t count;
-  bool success = lovrFileWrite(file, data, size, &count);
-  if (success) {
-    lua_pushboolean(L, true);
-    return 1;
-  } else {
-    lua_pushboolean(L, false);
-    lua_pushstring(L, lovrGetError());
-    return 2;
-  }
+  return luax_pushsuccess(L, lovrFileWrite(file, data, size, &count));
 }
 
 static int l_lovrFileSeek(lua_State* L) {
   File* file = luax_checktype(L, 1, File);
   lua_Number offset = luaL_checknumber(L, 2);
   luax_check(L, offset >= 0 && offset < 9007199254740992.0, "Invalid seek position");
-  if (lovrFileSeek(file, offset)) {
-    lua_pushboolean(L, true);
-    return 1;
-  } else {
-    lua_pushboolean(L, false);
-    lua_pushstring(L, lovrGetError());
-    return 2;
-  }
+  return luax_pushsuccess(L, lovrFileSeek(file, offset));
 }
 
 static int l_lovrFileTell(lua_State* L) {

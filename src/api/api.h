@@ -110,8 +110,8 @@ typedef struct {
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
 #define luax_tofloat(L, i) (float) lua_tonumber(L, i)
-#define luax_throw(L) luaL_error(L, lovrGetError())
-#define luax_assert(L, c) if (!(c)) { luax_throw(L); }
+#define luax_assert(L, c) if (!(c)) { luaL_error(L, lovrGetError()); }
+#define luax_pushnilerror(L) lua_pushnil(L), lua_pushstring(L, lovrGetError()), 2
 
 void luax_preload(lua_State* L);
 void _luax_registertype(lua_State* L, const char* name, const luaL_Reg* functions, void (*destructor)(void*));
@@ -127,6 +127,7 @@ void luax_vthrow(void* L, const char* format, va_list args);
 void luax_vlog(void* context, int level, const char* tag, const char* format, va_list args);
 void luax_traceback(lua_State* L, lua_State* T, const char* message, int level);
 int luax_getstack(lua_State* L);
+int luax_pushsuccess(lua_State* L, bool success);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 void luax_pushstash(lua_State* L, const char* name);

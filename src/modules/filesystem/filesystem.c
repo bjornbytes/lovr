@@ -54,7 +54,7 @@ struct Archive {
   bool (*read)(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count);
   bool (*seek)(Archive* archive, Handle* handle, uint64_t offset);
   bool (*fsize)(Archive* archive, Handle* handle, uint64_t* size);
-  bool (*stat)(Archive* archive, const char* path, FileInfo* info, bool needTime);
+  bool (*stat)(Archive* archive, const char* path, fs_info* info, bool needTime);
   void (*list)(Archive* archive, const char* path, fs_list_cb callback, void* context);
   char* path;
   char* mountpoint;
@@ -246,7 +246,7 @@ void lovrFilesystemWatch(void) {
 #else
   const char* path = state.source;
 #endif
-  FileInfo info;
+  fs_info info;
   if (!watcher.id && fs_stat(path, &info) == FS_OK && info.type == FILE_DIRECTORY) {
     dmon_init();
     watcher = dmon_watch(path, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
@@ -314,7 +314,7 @@ static bool mountpointContains(Archive* archive, const char* path, size_t length
   return length < archive->mountLength && archive->mountpoint[length] == '/' && !memcmp(path, archive->mountpoint, length);
 }
 
-static Archive* archiveStat(const char* p, FileInfo* info, bool needTime) {
+static Archive* archiveStat(const char* p, fs_info* info, bool needTime) {
   char path[1024];
   size_t length = sizeof(path);
   if (!sanitize(p, path, &length)) {
@@ -340,23 +340,23 @@ static Archive* archiveStat(const char* p, FileInfo* info, bool needTime) {
 }
 
 const char* lovrFilesystemGetRealDirectory(const char* path) {
-  FileInfo info;
+  fs_info info;
   Archive* archive = archiveStat(path, &info, false);
   return archive ? archive->path : NULL;
 }
 
 bool lovrFilesystemIsFile(const char* path) {
-  FileInfo info;
+  fs_info info;
   return archiveStat(path, &info, false) && info.type == FILE_REGULAR;
 }
 
 bool lovrFilesystemIsDirectory(const char* path) {
-  FileInfo info;
+  fs_info info;
   return archiveStat(path, &info, false) && info.type == FILE_DIRECTORY;
 }
 
 bool lovrFilesystemGetSize(const char* path, uint64_t* size) {
-  FileInfo info;
+  fs_info info;
   if (archiveStat(path, &info, false)) {
     if (info.type == FILE_REGULAR) {
       *size = info.size;
@@ -370,7 +370,7 @@ bool lovrFilesystemGetSize(const char* path, uint64_t* size) {
 }
 
 bool lovrFilesystemGetLastModified(const char* path, uint64_t* modtime) {
-  FileInfo info;
+  fs_info info;
   if (archiveStat(path, &info, true)) {
     *modtime = info.lastModified;
     return true;
@@ -489,7 +489,7 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
   state.savePathLength = cursor;
 
   // mkdir -p
-  FileInfo info;
+  fs_info info;
   if (fs_stat(state.savePath, &info) != FS_OK) {
     for (char* slash = strchr(state.savePath, SLASH); slash; slash = strchr(slash + 1, SLASH)) {
       *slash = '\0';
@@ -639,7 +639,7 @@ static bool dir_seek(Archive* archive, Handle* handle, uint64_t offset) {
 }
 
 static bool dir_fsize(Archive* archive, Handle* handle, uint64_t* size) {
-  FileInfo info;
+  fs_info info;
   if (checkfs(fs_fstat(handle->file, &info))) {
     *size = info.size;
     return true;
@@ -648,7 +648,7 @@ static bool dir_fsize(Archive* archive, Handle* handle, uint64_t* size) {
   }
 }
 
-static bool dir_stat(Archive* archive, const char* path, FileInfo* info, bool needTime) {
+static bool dir_stat(Archive* archive, const char* path, fs_info* info, bool needTime) {
   char resolved[LOVR_PATH_MAX];
   return dir_resolve(archive, path, resolved) && checkfs(fs_stat(resolved, info));
 }
@@ -988,7 +988,7 @@ static bool zip_fsize(Archive* archive, Handle* handle, uint64_t* size) {
   return true;
 }
 
-static bool zip_stat(Archive* archive, const char* path, FileInfo* info, bool needTime) {
+static bool zip_stat(Archive* archive, const char* path, fs_info* info, bool needTime) {
   zip_node* node = zip_resolve(archive, path);
   if (!node) return lovrSetError("File not found");
 
@@ -1026,7 +1026,7 @@ static void zip_list(Archive* archive, const char* path, fs_list_cb callback, vo
 // Archive
 
 Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char* root) {
-  FileInfo info;
+  fs_info info;
   if (!checkfs(fs_stat(path, &info))) {
     return NULL;
   }

@@ -200,11 +200,7 @@ bool lovrAudioInit(const char* spatializer, uint32_t sampleRate) {
   if (atomic_fetch_add(&state.ref, 1)) return true;
 
   ma_result result = ma_context_init(NULL, 0, NULL, &state.context);
-
-  if (result != MA_SUCCESS) {
-    lovrSetError("Failed to initialize miniaudio context: %s", ma_result_description(result));
-    return false;
-  }
+  lovrAssert(result == MA_SUCCESS, "Failed to initialize miniaudio context: %s", ma_result_description(result));
 
   result = ma_mutex_init(&state.lock);
 
@@ -345,10 +341,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
       converterConfig.sampleRateOut = lovrSoundGetSampleRate(sink);
       ma_data_converter_uninit(&state.playbackConverter, NULL);
       result = ma_data_converter_init(&converterConfig, NULL, &state.playbackConverter);
-      if (result != MA_SUCCESS) {
-        lovrSetError("Failed to create sink data converter: %s", ma_result_description(result));
-        goto fail;
-      }
+      lovrAssertGoto(fail, result == MA_SUCCESS, "Failed to create sink data converter: %s", ma_result_description(result));
     }
   } else {
     config = ma_device_config_init(ma_device_type_capture);
@@ -363,12 +356,7 @@ bool lovrAudioSetDevice(AudioType type, void* id, size_t size, Sound* sink, Audi
   config.dataCallback = callbacks[type];
 
   result = ma_device_init(&state.context, &config, &state.devices[type]);
-
-  if (result != MA_SUCCESS) {
-    lovrSetError("Failed to initialize device: %s", ma_result_description(result));
-    goto fail;
-  }
-
+  lovrAssertGoto(fail, result == MA_SUCCESS, "Failed to initialize device: %s", ma_result_description(result));
   return true;
 fail:
   lovrRelease(sink, lovrSoundDestroy);
