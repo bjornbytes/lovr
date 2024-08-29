@@ -2054,6 +2054,7 @@ bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hi
     quat_rotate(shape->rotation, vec3_fromJolt(hit->normal, &normal));
     quat_rotate(shape->rotation, hit->position);
     vec3_add(hit->position, shape->translation);
+    vec3_add(hit->position, center);
     return true;
   }
 
