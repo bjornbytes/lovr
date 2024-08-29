@@ -282,7 +282,7 @@ static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
 
 bool lovrPhysicsInit(void (*freeUserData)(void* object, uintptr_t userdata)) {
   if (state.initialized) return true;
-  JPH_Init(32 * 1024 * 1024);
+  JPH_Init();
   state.sphere = lovrSphereShapeCreate(.001f);
   state.freeUserData = freeUserData;
   return state.initialized = true;
