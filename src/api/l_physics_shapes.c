@@ -338,6 +338,34 @@ static int l_lovrShapeGetAABB(lua_State* L) {
   return 6;
 }
 
+static int l_lovrShapeContainsPoint(lua_State* L) {
+  Shape* shape = luax_checkshape(L, 1);
+  float point[3];
+  luax_readvec3(L, 2, point, NULL);
+  bool hit = lovrShapeContainsPoint(shape, point);
+  lua_pushboolean(L, hit);
+  return 1;
+}
+
+static int l_lovrShapeRaycast(lua_State* L) {
+  Shape* shape = luax_checkshape(L, 1);
+  int index = 2;
+  float start[3], end[3];
+  index = luax_readvec3(L, index, start, NULL);
+  index = luax_readvec3(L, index, end, NULL);
+  CastResult hit;
+  if (lovrShapeRaycast(shape, start, end, &hit)) {
+    lua_pushnumber(L, hit.position[0]);
+    lua_pushnumber(L, hit.position[1]);
+    lua_pushnumber(L, hit.position[2]);
+    lua_pushnumber(L, hit.normal[0]);
+    lua_pushnumber(L, hit.normal[1]);
+    lua_pushnumber(L, hit.normal[2]);
+    return 6;
+  }
+  return 0;
+}
+
 #define lovrShape \
   { "destroy", l_lovrShapeDestroy }, \
   { "isDestroyed", l_lovrShapeIsDestroyed }, \
@@ -356,7 +384,9 @@ static int l_lovrShapeGetAABB(lua_State* L) {
   { "getPosition", l_lovrShapeGetPosition }, \
   { "getOrientation", l_lovrShapeGetOrientation }, \
   { "getPose", l_lovrShapeGetPose }, \
-  { "getAABB", l_lovrShapeGetAABB }
+  { "getAABB", l_lovrShapeGetAABB }, \
+  { "containsPoint", l_lovrShapeContainsPoint }, \
+  { "raycast", l_lovrShapeRaycast }
 
 static int l_lovrBoxShapeGetDimensions(lua_State* L) {
   BoxShape* box = luax_checktype(L, 1, BoxShape);

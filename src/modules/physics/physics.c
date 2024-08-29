@@ -2015,6 +2015,51 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   aabb[5] = box.max.z;
 }
 
+bool lovrShapeContainsPoint(Shape* shape, float point[3]) {
+  float inverseRotation[4];
+  quat_init(inverseRotation, shape->rotation);
+  quat_conjugate(inverseRotation);
+  quat_rotate(inverseRotation, point);
+  vec3_sub(point, shape->translation);
+  float center[3];
+  JPH_Vec3 centerOfMass;
+  JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
+  vec3_sub(point, vec3_fromJolt(center, &centerOfMass));
+  return JPH_Shape_CollidePoint(shape->handle, vec3_toJolt(point));
+}
+
+bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hit) {
+  float direction[3];
+  vec3_init(direction, end);
+  vec3_sub(direction, start);
+
+  float inverseRotation[4];
+  quat_init(inverseRotation, shape->rotation);
+  quat_conjugate(inverseRotation);
+  quat_rotate(inverseRotation, start);
+  quat_rotate(inverseRotation, direction);
+  vec3_sub(start, shape->translation);
+  float center[3];
+  JPH_Vec3 centerOfMass;
+  JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
+  vec3_sub(start, vec3_fromJolt(center, &centerOfMass));
+
+  JPH_RayCastResult result;
+  if (JPH_Shape_CastRay(shape->handle, vec3_toJolt(start), vec3_toJolt(direction), &result)) {
+    vec3_init(hit->position, direction);
+    vec3_scale(hit->position, result.fraction);
+    vec3_add(hit->position, start);
+    JPH_Vec3 normal;
+    JPH_Shape_GetSurfaceNormal(shape->handle, result.subShapeID2, vec3_toJolt(hit->position), &normal);
+    quat_rotate(shape->rotation, vec3_fromJolt(hit->normal, &normal));
+    quat_rotate(shape->rotation, hit->position);
+    vec3_add(hit->position, shape->translation);
+    return true;
+  }
+
+  return false;
+}
+
 static bool lovrShapeReplace(Shape* shape, JPH_Shape* new) {
   if (shape->collider && !lovrColliderReplaceShape(shape->collider, shape, new)) return false;
   JPH_Shape_SetUserData(new, (uint64_t) (uintptr_t) shape);
