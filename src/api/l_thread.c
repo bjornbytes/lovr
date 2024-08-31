@@ -8,34 +8,26 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void threadRun(void* L) {
-  int top = lua_gettop(L);
-  int status = lua_pcall(L, top - 2, 0, 1);
-  lua_pushinteger(L, status);
-}
-
 static char* threadRunner(Thread* thread, Blob* body, Variant* arguments, uint32_t argumentCount) {
   lua_State* L = luaL_newstate();
   luaL_openlibs(L);
   luax_preload(L);
 
   lua_pushcfunction(L, luax_getstack);
+  int errhandler = lua_gettop(L);
 
   if (!luaL_loadbuffer(L, body->data, body->size, "thread")) {
     for (uint32_t i = 0; i < argumentCount; i++) {
       luax_pushvariant(L, &arguments[i]);
     }
 
-    lovrTry(threadRun, L, luax_vthrow, L);
-
-    if (lua_tointeger(L, -1) == 0) {
+    if (!lua_pcall(L, argumentCount, 0, errhandler)) {
       lua_close(L);
       return NULL;
-    } else {
-      lua_pop(L, 1);
     }
   }
 
+  // Error handling
   size_t length;
   const char* message = lua_tolstring(L, -1, &length);
 
@@ -51,7 +43,6 @@ static char* threadRunner(Thread* thread, Blob* body, Variant* arguments, uint32
 }
 
 static int l_lovrThreadNewThread(lua_State* L) {
-  uint32_t defer = lovrDeferPush();
   Blob* blob = luax_totype(L, 1, Blob);
   if (!blob) {
     size_t length;
@@ -62,15 +53,16 @@ static int l_lovrThreadNewThread(lua_State* L) {
       blob = lovrBlobCreate(data, length, "thread code");
     } else {
       void* code = luax_readfile(str, &length);
-      lovrAssert(code, "Could not read thread code from file '%s'", str);
+      if (!code) luaL_error(L, "Could not read thread code from file '%s'", str);
       blob = lovrBlobCreate(code, length, str);
     }
-    lovrDeferRelease(blob, lovrBlobDestroy);
+  } else {
+    lovrRetain(blob);
   }
   Thread* thread = lovrThreadCreate(threadRunner, blob);
   luax_pushtype(L, Thread, thread);
   lovrRelease(thread, lovrThreadDestroy);
-  lovrDeferPop(defer);
+  lovrRelease(blob, lovrBlobDestroy);
   return 1;
 }
 

@@ -166,6 +166,7 @@ var webxr = {
 
   webxr_start: function() {
     // Session is handled asynchronously
+    return true;
   },
 
   webxr_stop: function() {
@@ -416,16 +417,18 @@ var webxr = {
     return false;
   },
 
-  webxr_getTexture: function() {
-    return 0; /* NULL */
+  webxr_getTexture: function(texture) {
+    HEAPU32[texture >> 2] = 0; // TODO
+    return true;
   },
 
-  webxr_getPass: function() {
-    return 0; /* NULL */
+  webxr_getPass: function(pass) {
+    HEAPU32[pass >> 2] = 0; // TODO
+    return true;
   },
 
   webxr_submit: function() {
-    //
+    return true;
   },
 
   webxr_isVisible: function() {
@@ -440,8 +443,9 @@ var webxr = {
     return true;
   },
 
-  webxr_update: function() {
-    return (state.displayTime - state.lastDisplayTime) / 1000.0;
+  webxr_update: function(dt) {
+    setValue(dt, 'double', (state.displayTime - state.lastDisplayTime) / 1000.0);
+    return true;
   }
 };
 

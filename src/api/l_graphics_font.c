@@ -12,7 +12,7 @@ ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count
       lua_rawgeti(L, index, i * 2 + 1);
       lua_rawgeti(L, index, i * 2 + 2);
       luax_optcolor(L, -2, strings[i].color);
-      lovrCheck(lua_isstring(L, -1), "Expected a string to print");
+      luax_check(L, lua_isstring(L, -1), "Expected a string to print");
       strings[i].string = luaL_checklstring(L, -1, &strings[i].length);
       lua_pop(L, 2);
     }
@@ -139,10 +139,19 @@ static int l_lovrFontGetVertices(lua_State* L) {
   for (uint32_t i = 0; i < count; i++) {
     totalLength += strings[i].length;
   }
+
   GlyphVertex* vertices = lovrMalloc(totalLength * 4 * sizeof(GlyphVertex));
   uint32_t glyphCount, lineCount;
   Material* material;
-  lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, &glyphCount, &lineCount, &material, false);
+
+  bool success = lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, &glyphCount, &lineCount, &material, false);
+  if (strings != &stack) lovrFree(strings);
+
+  if (!success) {
+    lovrFree(vertices);
+    luax_assert(L, false);
+  }
+
   int vertexCount = glyphCount * 4;
   lua_createtable(L, vertexCount, 0);
   for (int i = 0; i < vertexCount; i++) {
@@ -158,7 +167,6 @@ static int l_lovrFontGetVertices(lua_State* L) {
     lua_rawseti(L, -2, i + 1);
   }
   luax_pushtype(L, Material, material);
-  if (strings != &stack) lovrFree(strings);
   lovrFree(vertices);
   return 2;
 }

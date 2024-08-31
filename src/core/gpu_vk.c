@@ -2,9 +2,11 @@
 #include <string.h>
 
 #ifdef _WIN32
+#define THREAD_LOCAL __declspec(thread)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
+#define THREAD_LOCAL __thread
 #include <dlfcn.h>
 #endif
 
@@ -21,19 +23,22 @@
 
 // Objects
 
+typedef struct gpu_memory gpu_memory;
+
 struct gpu_buffer {
   VkBuffer handle;
-  uint32_t memory;
+  gpu_memory* memory;
 };
 
 struct gpu_texture {
   VkImage handle;
   VkImageView view;
+  gpu_memory* memory;
   VkImageAspectFlagBits aspect;
   VkImageLayout layout;
-  uint32_t memory;
   uint32_t layers;
   uint8_t format;
+  bool imported;
   bool srgb;
 };
 
@@ -93,11 +98,11 @@ size_t gpu_sizeof_tally(void) { return sizeof(gpu_tally); }
 
 // Internals
 
-typedef struct {
+struct gpu_memory {
   VkDeviceMemory handle;
   void* pointer;
   uint32_t refs;
-} gpu_memory;
+};
 
 typedef enum {
   GPU_MEMORY_BUFFER_STATIC,
@@ -168,9 +173,15 @@ typedef struct {
   bool colorspace;
   bool depthResolve;
   bool formatList;
+  bool renderPass2;
+  bool synchronization2;
 } gpu_extensions;
 
 // State
+
+static THREAD_LOCAL struct {
+  char error[256];
+} thread;
 
 static struct {
   void* library;
@@ -202,14 +213,14 @@ enum { LINEAR, SRGB };
 #define MAX(a, b) (a > b ? a : b)
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 #define ALIGN(p, n) (((uintptr_t) (p) + (n - 1)) & ~(n - 1))
-#define LOG(s) if (state.config.fnLog) state.config.fnLog(state.config.userdata, s, false)
-#define VK(f, s) if (!vcheck(f, s))
-#define CHECK(c, s) if (!check(c, s))
+#define LOG(s) if (state.config.fnLog) state.config.fnLog(state.config.userdata, s)
+#define VK(f, s) if (!vkcheck(f, s))
+#define ASSERT(c, s) if (!(c) && (error(s), true))
 #define TICK_MASK (COUNTOF(state.ticks) - 1)
 #define MORGUE_MASK (COUNTOF(state.morgue.data) - 1)
 
-static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info, VkDeviceSize* offset);
-static void gpu_release(gpu_memory* memory);
+static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkDeviceSize* offset);
+static void release(gpu_memory* memory);
 static void condemn(void* handle, VkObjectType type);
 static void expunge(void);
 static bool hasLayer(VkLayerProperties* layers, uint32_t count, const char* layer);
@@ -222,8 +233,9 @@ static VkPipelineStageFlags2 convertPhase(gpu_phase phase, bool dst);
 static VkAccessFlags2 convertCache(gpu_cache cache);
 static VkBool32 relay(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT flags, const VkDebugUtilsMessengerCallbackDataEXT* data, void* userdata);
 static void nickname(void* object, VkObjectType type, const char* name);
-static bool vcheck(VkResult result, const char* message);
-static bool check(bool condition, const char* message);
+static bool vkcheck(VkResult result, const char* function);
+static void vkerror(VkResult result, const char* function);
+static void error(const char* message);
 
 // Loader
 
@@ -363,7 +375,7 @@ GPU_FOREACH_DEVICE(GPU_DECLARE)
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   if (info->handle) {
     buffer->handle = (VkBuffer) info->handle;
-    buffer->memory = ~0u;
+    buffer->memory = NULL;
     nickname(buffer->handle, VK_OBJECT_TYPE_BUFFER, info->label);
     return true;
   }
@@ -374,32 +386,38 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
     .usage = getBufferUsage(info->type)
   };
 
-  VK(vkCreateBuffer(state.device, &createInfo, NULL, &buffer->handle), "Could not create buffer") return false;
+  VK(vkCreateBuffer(state.device, &createInfo, NULL, &buffer->handle), "vkCreateBuffer") {
+    return false;
+  }
+
   nickname(buffer->handle, VK_OBJECT_TYPE_BUFFER, info->label);
 
   VkDeviceSize offset;
   VkMemoryRequirements requirements;
   vkGetBufferMemoryRequirements(state.device, buffer->handle, &requirements);
-  gpu_memory* memory = gpu_allocate((gpu_memory_type) info->type, requirements, &offset);
 
-  VK(vkBindBufferMemory(state.device, buffer->handle, memory->handle, offset), "Could not bind buffer memory") {
+  if ((buffer->memory = allocate((gpu_memory_type) info->type, requirements, &offset)) == NULL) {
     vkDestroyBuffer(state.device, buffer->handle, NULL);
-    gpu_release(memory);
+    return false;
+  }
+
+  VK(vkBindBufferMemory(state.device, buffer->handle, buffer->memory->handle, offset), "vkBindBufferMemory") {
+    vkDestroyBuffer(state.device, buffer->handle, NULL);
+    release(buffer->memory);
     return false;
   }
 
   if (info->pointer) {
-    *info->pointer = memory->pointer ? (char*) memory->pointer + offset : NULL;
+    *info->pointer = buffer->memory->pointer ? (char*) buffer->memory->pointer + offset : NULL;
   }
 
-  buffer->memory = memory - state.memory;
   return true;
 }
 
 void gpu_buffer_destroy(gpu_buffer* buffer) {
-  if (buffer->memory == ~0u) return;
+  if (!buffer->memory) return;
   condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER);
-  gpu_release(&state.memory[buffer->memory]);
+  release(buffer->memory);
 }
 
 // Texture
@@ -433,10 +451,13 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   };
 
   if (info->handle) {
-    texture->memory = ~0u;
+    texture->memory = NULL;
+    texture->imported = true;
     texture->handle = (VkImage) info->handle;
     nickname(texture->handle, VK_OBJECT_TYPE_IMAGE, info->label);
     return gpu_texture_init_view(texture, &viewInfo);
+  } else {
+    texture->imported = false;
   }
 
   bool mutableFormat = info->srgb && (info->usage & GPU_TEXTURE_STORAGE);
@@ -482,7 +503,10 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     imageInfo.pNext = &imageFormatList;
   }
 
-  VK(vkCreateImage(state.device, &imageInfo, NULL, &texture->handle), "Could not create texture") return false;
+  VK(vkCreateImage(state.device, &imageInfo, NULL, &texture->handle), "vkCreateImage") {
+    return false;
+  }
+
   nickname(texture->handle, VK_OBJECT_TYPE_IMAGE, info->label);
 
   gpu_memory_type memoryType;
@@ -500,19 +524,21 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   VkDeviceSize offset;
   VkMemoryRequirements requirements;
   vkGetImageMemoryRequirements(state.device, texture->handle, &requirements);
-  gpu_memory* memory = gpu_allocate(memoryType, requirements, &offset);
 
-  VK(vkBindImageMemory(state.device, texture->handle, memory->handle, offset), "Could not bind texture memory") {
+  if ((texture->memory = allocate(memoryType, requirements, &offset)) == NULL) {
     vkDestroyImage(state.device, texture->handle, NULL);
-    gpu_release(memory);
     return false;
   }
 
-  bool needsView = info->usage & (GPU_TEXTURE_RENDER | GPU_TEXTURE_SAMPLE | GPU_TEXTURE_STORAGE);
-
-  if (needsView && !gpu_texture_init_view(texture, &viewInfo)) {
+  VK(vkBindImageMemory(state.device, texture->handle, texture->memory->handle, offset), "vkBindImageMemory") {
     vkDestroyImage(state.device, texture->handle, NULL);
-    gpu_release(memory);
+    release(texture->memory);
+    return false;
+  }
+
+  if (!gpu_texture_init_view(texture, &viewInfo)) {
+    vkDestroyImage(state.device, texture->handle, NULL);
+    release(texture->memory);
     return false;
   }
 
@@ -619,15 +645,13 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     vkCmdPipelineBarrier2KHR(commands, &barrier);
   }
 
-  texture->memory = memory - state.memory;
-
   return true;
 }
 
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
   if (texture != info->source) {
     texture->handle = info->source->handle;
-    texture->memory = ~0u;
+    texture->memory = NULL;
     texture->layout = info->source->layout;
     texture->layers = info->layerCount ? info->layerCount : (info->source->layers - info->layerIndex);
     texture->format = info->source->format;
@@ -651,7 +675,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     case GPU_TEXTURE_ARRAY: type = VK_IMAGE_VIEW_TYPE_2D_ARRAY; break;
   }
 
-  VkImageViewUsageCreateInfo usage = {
+  VkImageViewUsageCreateInfo viewUsage = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,
     .usage =
       ((info->usage & GPU_TEXTURE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
@@ -660,14 +684,14 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
       ((info->usage & GPU_TEXTURE_STORAGE) && !texture->srgb ? VK_IMAGE_USAGE_STORAGE_BIT : 0)
   };
 
-  if (usage.usage == 0) {
+  if (viewUsage.usage == 0) {
     texture->view = VK_NULL_HANDLE;
     return true;
   }
 
   VkImageViewCreateInfo createInfo = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-    .pNext = &usage,
+    .pNext = &viewUsage,
     .image = info->source->handle,
     .viewType = type,
     .format = convertFormat(texture->format, texture->srgb),
@@ -680,7 +704,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     }
   };
 
-  VK(vkCreateImageView(state.device, &createInfo, NULL, &texture->view), "Could not create texture view") {
+  VK(vkCreateImageView(state.device, &createInfo, NULL, &texture->view), "vkCreateImageView") {
     return false;
   }
 
@@ -691,18 +715,17 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
 
 void gpu_texture_destroy(gpu_texture* texture) {
   condemn(texture->view, VK_OBJECT_TYPE_IMAGE_VIEW);
-  if (texture->memory == ~0u) return;
+  if (texture->imported) return;
   condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
-  gpu_release(state.memory + texture->memory);
+  release(texture->memory);
 }
 
 // Surface
 
 bool gpu_surface_init(gpu_surface_info* info) {
-  if (!state.extensions.surface || !state.extensions.surfaceOS || !state.extensions.swapchain) {
-    LOG("Surface unavailable because a required extension is not supported by the GPU");
-    return false;
-  }
+  ASSERT(state.extensions.surface, "GPU does not support VK_KHR_surface extension") return false;
+  ASSERT(state.extensions.surfaceOS, "GPU does not support OS surface extension") return false;
+  ASSERT(state.extensions.swapchain, "GPU does not support VK_KHR_swapchain extension") return false;
 
   gpu_surface* surface = &state.surface;
 
@@ -714,7 +737,9 @@ bool gpu_surface_init(gpu_surface_info* info) {
   };
   GPU_DECLARE(vkCreateWin32SurfaceKHR);
   GPU_LOAD_INSTANCE(vkCreateWin32SurfaceKHR);
-  VK(vkCreateWin32SurfaceKHR(state.instance, &surfaceInfo, NULL, &surface->handle), "Failed to create surface") return false;
+  VK(vkCreateWin32SurfaceKHR(state.instance, &surfaceInfo, NULL, &surface->handle), "vkCreateWin32SurfaceKHR") {
+    return false;
+  }
 #elif defined(__APPLE__)
   VkMetalSurfaceCreateInfoEXT surfaceInfo = {
     .sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
@@ -722,7 +747,9 @@ bool gpu_surface_init(gpu_surface_info* info) {
   };
   GPU_DECLARE(vkCreateMetalSurfaceEXT);
   GPU_LOAD_INSTANCE(vkCreateMetalSurfaceEXT);
-  VK(vkCreateMetalSurfaceEXT(state.instance, &surfaceInfo, NULL, &surface->handle), "Failed to create surface") return false;
+  VK(vkCreateMetalSurfaceEXT(state.instance, &surfaceInfo, NULL, &surface->handle), "vkCreateMetalSurfaceEXT") {
+    return false;
+  }
 #elif defined(__linux__) && !defined(__ANDROID__)
   VkXcbSurfaceCreateInfoKHR surfaceInfo = {
     .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
@@ -731,7 +758,9 @@ bool gpu_surface_init(gpu_surface_info* info) {
   };
   GPU_DECLARE(vkCreateXcbSurfaceKHR);
   GPU_LOAD_INSTANCE(vkCreateXcbSurfaceKHR);
-  VK(vkCreateXcbSurfaceKHR(state.instance, &surfaceInfo, NULL, &surface->handle), "Failed to create surface") return false;
+  VK(vkCreateXcbSurfaceKHR(state.instance, &surfaceInfo, NULL, &surface->handle), "vkCreateXcbSurfaceKHR") {
+    return false;
+  }
 #endif
 
   VkBool32 presentable;
@@ -742,8 +771,7 @@ bool gpu_surface_init(gpu_surface_info* info) {
   // deliberately, because A) it's more complicated, B) in normal circumstances OpenXR picks the
   // physical device, not us, and C) we don't support multiple GPUs or multiple queues, so we
   // aren't able to support the tricky case and would just end up failing/erroring anyway.
-  if (!presentable) {
-    LOG("Surface unavailable because the GPU used for rendering does not support presenting to the surface");
+  ASSERT(presentable, "Surface unavailable because the GPU used for rendering does not support presentation") {
     vkDestroySurfaceKHR(state.instance, surface->handle, NULL);
     return false;
   }
@@ -761,11 +789,13 @@ bool gpu_surface_init(gpu_surface_info* info) {
     }
   }
 
-  if (surface->format.format == VK_FORMAT_UNDEFINED) {
+  ASSERT(surface->format.format != VK_FORMAT_UNDEFINED, "No supported swapchain texture format is available") {
     LOG("Surface unavailable because no supported texture format is available");
     vkDestroySurfaceKHR(state.instance, surface->handle, NULL);
     return false;
   }
+
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(state.adapter, surface->handle, &surface->capabilities);
 
   surface->imageIndex = ~0u;
   surface->vsync = info->vsync;
@@ -774,10 +804,10 @@ bool gpu_surface_init(gpu_surface_info* info) {
   return true;
 }
 
-void gpu_surface_resize(uint32_t width, uint32_t height) {
+bool gpu_surface_resize(uint32_t width, uint32_t height) {
   if (width == 0 || height == 0) {
     state.surface.valid = false;
-    return;
+    return true;
   }
 
   gpu_surface* surface = &state.surface;
@@ -785,6 +815,7 @@ void gpu_surface_resize(uint32_t width, uint32_t height) {
 
   if (oldSwapchain) {
     vkDeviceWaitIdle(state.device);
+    surface->swapchain = VK_NULL_HANDLE;
   }
 
   VkSwapchainCreateInfoKHR swapchainInfo = {
@@ -803,7 +834,9 @@ void gpu_surface_resize(uint32_t width, uint32_t height) {
     .oldSwapchain = oldSwapchain
   };
 
-  VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &surface->swapchain), "Failed to create swapchain") return;
+  VK(vkCreateSwapchainKHR(state.device, &swapchainInfo, NULL, &surface->swapchain), "vkCreateSwapchainKHR") {
+    return false;
+  }
 
   if (oldSwapchain) {
     for (uint32_t i = 0; i < COUNTOF(surface->images); i++) {
@@ -818,9 +851,23 @@ void gpu_surface_resize(uint32_t width, uint32_t height) {
 
   uint32_t imageCount;
   VkImage images[COUNTOF(surface->images)];
-  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, NULL), "Failed to get swapchain images") return;
-  VK(imageCount > COUNTOF(images) ? VK_ERROR_TOO_MANY_OBJECTS : VK_SUCCESS, "Failed to get swapchain images") return;
-  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, images), "Failed to get swapchain images") return;
+  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, NULL), "vkGetSwapchainImagesKHR") {
+    vkDestroySwapchainKHR(state.device, oldSwapchain, NULL);
+    surface->swapchain = VK_NULL_HANDLE;
+    return false;
+  }
+
+  ASSERT(imageCount <= COUNTOF(images), "Too many swapchain images!") {
+    vkDestroySwapchainKHR(state.device, oldSwapchain, NULL);
+    surface->swapchain = VK_NULL_HANDLE;
+    return false;
+  }
+
+  VK(vkGetSwapchainImagesKHR(state.device, surface->swapchain, &imageCount, images), "vkGetSwapchainImagesKHR") {
+    vkDestroySwapchainKHR(state.device, oldSwapchain, NULL);
+    surface->swapchain = VK_NULL_HANDLE;
+    return false;
+  }
 
   for (uint32_t i = 0; i < imageCount; i++) {
     gpu_texture* texture = &surface->images[i];
@@ -828,7 +875,7 @@ void gpu_surface_resize(uint32_t width, uint32_t height) {
     texture->handle = images[i];
     texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
     texture->layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    texture->memory = ~0u;
+    texture->memory = NULL;
     texture->layers = 1;
     texture->format = GPU_FORMAT_SURFACE;
     texture->srgb = true;
@@ -839,15 +886,21 @@ void gpu_surface_resize(uint32_t width, uint32_t height) {
       .usage = GPU_TEXTURE_RENDER
     };
 
-    CHECK(gpu_texture_init_view(texture, &view), "Failed to create swapchain texture views") return;
+    if (!gpu_texture_init_view(texture, &view)) {
+      vkDestroySwapchainKHR(state.device, surface->swapchain, NULL);
+      surface->swapchain = VK_NULL_HANDLE;
+      return false;
+    }
   }
 
   surface->valid = true;
+  return true;
 }
 
-gpu_texture* gpu_surface_acquire(void) {
+bool gpu_surface_acquire(gpu_texture** texture) {
   if (!state.surface.valid) {
-    return NULL;
+    *texture = NULL;
+    return true;
   }
 
   gpu_surface* surface = &state.surface;
@@ -857,16 +910,19 @@ gpu_texture* gpu_surface_acquire(void) {
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     surface->imageIndex = ~0u;
     surface->valid = false;
-    return NULL;
-  } else {
-    vcheck(result, "Failed to acquire swapchain");
+    *texture = NULL;
+    return true;
+  } else if (result < 0) {
+    vkerror(result, "vkAcquireNextImageKHR");
+    return false;
   }
 
   surface->semaphore = tick->semaphores[0];
-  return &surface->images[surface->imageIndex];
+  *texture = &surface->images[surface->imageIndex];
+  return true;
 }
 
-void gpu_surface_present(void) {
+bool gpu_surface_present(void) {
   VkSemaphore semaphore = state.ticks[state.tick[CPU] & TICK_MASK].semaphores[1];
 
   VkSubmitInfo submit = {
@@ -875,7 +931,9 @@ void gpu_surface_present(void) {
     .pSignalSemaphores = &semaphore
   };
 
-  VK(vkQueueSubmit(state.queue, 1, &submit, VK_NULL_HANDLE), "Queue submit failed") {}
+  VK(vkQueueSubmit(state.queue, 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
+    return false;
+  }
 
   VkPresentInfoKHR present = {
     .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -890,11 +948,14 @@ void gpu_surface_present(void) {
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
     state.surface.valid = false;
-  } else {
-    vcheck(result, "Queue present failed");
+  } else if (result < 0) {
+    // TODO wait on semaphore, for errors that don't wait on it
+    vkerror(result, "vkQueuePresentKHR");
+    return false;
   }
 
   state.surface.imageIndex = ~0u;
+  return true;
 }
 
 // Sampler
@@ -943,7 +1004,7 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
     .maxLod = info->lodClamp[1] < 0.f ? VK_LOD_CLAMP_NONE : info->lodClamp[1]
   };
 
-  VK(vkCreateSampler(state.device, &samplerInfo, NULL, &sampler->handle), "Could not create sampler") {
+  VK(vkCreateSampler(state.device, &samplerInfo, NULL, &sampler->handle), "vkCreateSampler") {
     return false;
   }
 
@@ -987,7 +1048,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     .pBindings = bindings
   };
 
-  VK(vkCreateDescriptorSetLayout(state.device, &layoutInfo, NULL, &layout->handle), "Failed to create layout") {
+  VK(vkCreateDescriptorSetLayout(state.device, &layoutInfo, NULL, &layout->handle), "vkCreateDescriptorSetLayout") {
     return false;
   }
 
@@ -1017,6 +1078,10 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     }
   }
 
+  shader->handles[0] = VK_NULL_HANDLE;
+  shader->handles[1] = VK_NULL_HANDLE;
+  shader->pipelineLayout = VK_NULL_HANDLE;
+
   for (uint32_t i = 0; i < info->stageCount; i++) {
     VkShaderModuleCreateInfo moduleInfo = {
       .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -1024,7 +1089,8 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
       .pCode = info->stages[i].code
     };
 
-    VK(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i]), "Failed to load shader") {
+    VK(vkCreateShaderModule(state.device, &moduleInfo, NULL, &shader->handles[i]), "vkCreateShaderModule") {
+      gpu_shader_destroy(shader);
       return false;
     }
 
@@ -1048,7 +1114,7 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     pipelineLayoutInfo.setLayoutCount++;
   }
 
-  VK(vkCreatePipelineLayout(state.device, &pipelineLayoutInfo, NULL, &shader->pipelineLayout), "Failed to create pipeline layout") {
+  VK(vkCreatePipelineLayout(state.device, &pipelineLayoutInfo, NULL, &shader->pipelineLayout), "vkCreatePipelineLayout") {
     gpu_shader_destroy(shader);
     return false;
   }
@@ -1108,7 +1174,7 @@ bool gpu_bundle_pool_init(gpu_bundle_pool* pool, gpu_bundle_pool_info* info) {
     .pPoolSizes = sizes
   };
 
-  VK(vkCreateDescriptorPool(state.device, &poolInfo, NULL, &pool->handle), "Could not create bundle pool") {
+  VK(vkCreateDescriptorPool(state.device, &poolInfo, NULL, &pool->handle), "vkCreateDescriptorPool") {
     return false;
   }
 
@@ -1127,8 +1193,8 @@ bool gpu_bundle_pool_init(gpu_bundle_pool* pool, gpu_bundle_pool_info* info) {
       .pSetLayouts = layouts
     };
 
-    VK(vkAllocateDescriptorSets(state.device, &allocateInfo, &info->bundles[i].handle), "Could not allocate descriptor sets") {
-      gpu_bundle_pool_destroy(pool);
+    VK(vkAllocateDescriptorSets(state.device, &allocateInfo, &info->bundles[i].handle), "vkAllocateDescriptorSets") {
+      vkDestroyDescriptorPool(state.device, pool->handle, NULL);
       return false;
     }
   }
@@ -1343,7 +1409,7 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     .pSubpasses = &subpass
   };
 
-  VK(vkCreateRenderPass2KHR(state.device, &createInfo, NULL, &pass->handle), "Could not create render pass") {
+  VK(vkCreateRenderPass2KHR(state.device, &createInfo, NULL, &pass->handle), "vkCreateRenderPass2KHR") {
     return false;
   }
 
@@ -1572,9 +1638,17 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .pDynamicStates = dynamicStates
   };
 
-  uint32_t constants[32];
-  VkSpecializationMapEntry entries[32];
-  CHECK(info->flagCount <= COUNTOF(constants), "Too many specialization constants") return false;
+  uint32_t stackConstants[32];
+  VkSpecializationMapEntry stackEntries[32];
+  uint32_t* constants = stackConstants;
+  VkSpecializationMapEntry* entries = stackEntries;
+
+  if (info->flagCount > COUNTOF(stackConstants)) {
+    constants = state.config.fnAlloc(info->flagCount * sizeof(uint32_t));
+    ASSERT(constants, "Out of memory") return false;
+    entries = state.config.fnAlloc(info->flagCount * sizeof(VkSpecializationMapEntry));
+    ASSERT(entries, "Out of memory") return state.config.fnFree(constants), false;
+  }
 
   for (uint32_t i = 0; i < info->flagCount; i++) {
     gpu_shader_flag* flag = &info->flags[i];
@@ -1636,18 +1710,30 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .renderPass = info->pass->handle
   };
 
-  VK(vkCreateGraphicsPipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle), "Could not create pipeline") {
+  VK(vkCreateGraphicsPipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle), "vkCreateGraphicsPipelines") {
+    if (constants != stackConstants) state.config.fnFree(constants);
+    if (entries != stackEntries) state.config.fnFree(entries);
     return false;
   }
 
   nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, info->label);
+  if (constants != stackConstants) state.config.fnFree(constants);
+  if (entries != stackEntries) state.config.fnFree(entries);
   return true;
 }
 
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info) {
-  uint32_t constants[32];
-  VkSpecializationMapEntry entries[32];
-  CHECK(info->flagCount <= COUNTOF(constants), "Too many specialization constants") return false;
+  uint32_t stackConstants[32];
+  VkSpecializationMapEntry stackEntries[32];
+  uint32_t* constants = stackConstants;
+  VkSpecializationMapEntry* entries = stackEntries;
+
+  if (info->flagCount > COUNTOF(stackConstants)) {
+    constants = state.config.fnAlloc(info->flagCount * sizeof(uint32_t));
+    ASSERT(constants, "Out of memory") return false;
+    entries = state.config.fnAlloc(info->flagCount * sizeof(VkSpecializationMapEntry));
+    ASSERT(entries, "Out of memory") return state.config.fnFree(constants), false;
+  }
 
   for (uint32_t i = 0; i < info->flagCount; i++) {
     gpu_shader_flag* flag = &info->flags[i];
@@ -1687,11 +1773,15 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info
     .layout = info->shader->pipelineLayout
   };
 
-  VK(vkCreateComputePipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle), "Could not create compute pipeline") {
+  VK(vkCreateComputePipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle), "vkCreateComputePipelines") {
+    if (constants != stackConstants) state.config.fnFree(constants);
+    if (entries != stackEntries) state.config.fnFree(entries);
     return false;
   }
 
   nickname(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, info->label);
+  if (constants != stackConstants) state.config.fnFree(constants);
+  if (entries != stackEntries) state.config.fnFree(entries);
   return true;
 }
 
@@ -1719,7 +1809,7 @@ bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
     .queryCount = info->count
   };
 
-  VK(vkCreateQueryPool(state.device, &createInfo, NULL, &tally->handle), "Could not create query pool") {
+  VK(vkCreateQueryPool(state.device, &createInfo, NULL, &tally->handle), "vkCreateQueryPool") {
     return false;
   }
 
@@ -1734,7 +1824,7 @@ void gpu_tally_destroy(gpu_tally* tally) {
 
 gpu_stream* gpu_stream_begin(const char* label) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
-  CHECK(state.streamCount < COUNTOF(tick->streams), "Too many passes") return NULL;
+  ASSERT(state.streamCount < COUNTOF(tick->streams), "Too many passes") return NULL;
   gpu_stream* stream = &tick->streams[state.streamCount];
   nickname(stream->commands, VK_OBJECT_TYPE_COMMAND_BUFFER, label);
 
@@ -1743,13 +1833,14 @@ gpu_stream* gpu_stream_begin(const char* label) {
     .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
   };
 
-  VK(vkBeginCommandBuffer(stream->commands, &beginfo), "Failed to begin stream") return NULL;
+  VK(vkBeginCommandBuffer(stream->commands, &beginfo), "vkBeginCommandBuffer") return NULL;
   state.streamCount++;
   return stream;
 }
 
-void gpu_stream_end(gpu_stream* stream) {
-  VK(vkEndCommandBuffer(stream->commands), "Failed to end stream") return;
+bool gpu_stream_end(gpu_stream* stream) {
+  VK(vkEndCommandBuffer(stream->commands), "vkEndCommandBuffer") return false;
+  return true;
 }
 
 void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
@@ -1795,11 +1886,8 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   };
 
   VkFramebuffer framebuffer;
-  VK(vkCreateFramebuffer(state.device, &info, NULL, &framebuffer), "Failed to create framebuffer") {
-    return;
-  }
-
-  condemn(framebuffer, VK_OBJECT_TYPE_FRAMEBUFFER); // Framebuffers are cheap and useless
+  VK(vkCreateFramebuffer(state.device, &info, NULL, &framebuffer), "vkCreateFramebuffer") {} // Ignoring error
+  condemn(framebuffer, VK_OBJECT_TYPE_FRAMEBUFFER);
 
   // Layout transitions
 
@@ -2155,57 +2243,44 @@ bool gpu_init(gpu_config* config) {
   // Load
 #ifdef _WIN32
   state.library = LoadLibraryA("vulkan-1.dll");
-  CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
+  ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
 #elif __APPLE__
   state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("libMoltenVK.dylib", RTLD_NOW | RTLD_LOCAL);
-  CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
+  ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #else
   state.library = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
-  CHECK(state.library, "Failed to load vulkan library") return gpu_destroy(), false;
+  ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #endif
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
-  {
-    // Layers
-
-    uint32_t layerCount = 0;
-    VK(vkEnumerateInstanceLayerProperties(&layerCount, NULL), "Failed to enumerate instance layers") return gpu_destroy(), false;
-    VkLayerProperties* layerInfo = config->fnAlloc(layerCount * sizeof(*layerInfo));
-    CHECK(layerInfo, "Out of memory") return gpu_destroy(), false;
-    VK(vkEnumerateInstanceLayerProperties(&layerCount, layerInfo), "Failed to enumerate instance layers") return gpu_destroy(), false;
-
+  { // Layers
     struct { const char* name; bool shouldEnable; bool* flag; } layers[] = {
       { "VK_LAYER_KHRONOS_validation", config->debug, &state.extensions.validation }
     };
 
+    uint32_t layerCount = 0;
+    VK(vkEnumerateInstanceLayerProperties(&layerCount, NULL), "vkEnumerateInstanceLayerProperties") goto fail;
+    VkLayerProperties* layerInfo = config->fnAlloc(layerCount * sizeof(*layerInfo));
+    ASSERT(layerInfo, "Out of memory") goto fail;
+    VK(vkEnumerateInstanceLayerProperties(&layerCount, layerInfo), "vkEnumerateInstanceLayerProperties") goto fail;
+
     uint32_t enabledLayerCount = 0;
     const char* enabledLayers[COUNTOF(layers)];
     for (uint32_t i = 0; i < COUNTOF(layers); i++) {
-      if (!layers[i].shouldEnable) continue;
-      if (hasLayer(layerInfo, layerCount, layers[i].name)) {
-        CHECK(enabledLayerCount < COUNTOF(enabledLayers), "Too many layers") return gpu_destroy(), false;
-        if (layers[i].flag) *layers[i].flag = true;
+      if (layers[i].shouldEnable && hasLayer(layerInfo, layerCount, layers[i].name)) {
         enabledLayers[enabledLayerCount++] = layers[i].name;
-      } else if (!layers[i].flag) {
-        vcheck(VK_ERROR_LAYER_NOT_PRESENT, layers[i].name);
-        return gpu_destroy(), false;
+        *layers[i].flag = true;
       }
     }
 
     config->fnFree(layerInfo);
 
-    // Extensions
-
-    uint32_t extensionCount = 0;
-    VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL), "Failed to enumerate instance extensions") return gpu_destroy(), false;
-    VkExtensionProperties* extensionInfo = config->fnAlloc(extensionCount * sizeof(*extensionInfo));
-    CHECK(extensionInfo, "Out of memory") return gpu_destroy(), false;
-    VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensionInfo), "Failed to enumerate instance extensions") return gpu_destroy(), false;
+    // Instance Extensions
 
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
       { "VK_KHR_portability_enumeration", true, &state.extensions.portability },
@@ -2221,17 +2296,18 @@ bool gpu_init(gpu_config* config) {
 #endif
     };
 
+    uint32_t extensionCount = 0;
+    VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL), "vkEnumerateInstanceExtensionProperties") goto fail;
+    VkExtensionProperties* extensionInfo = config->fnAlloc(extensionCount * sizeof(*extensionInfo));
+    ASSERT(extensionInfo, "Out of memory") goto fail;
+    VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensionInfo), "vkEnumerateInstanceExtensionProperties") goto fail;
+
     uint32_t enabledExtensionCount = 0;
     const char* enabledExtensions[COUNTOF(extensions)];
     for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
-      if (!extensions[i].shouldEnable) continue;
-      if (hasExtension(extensionInfo, extensionCount, extensions[i].name)) {
-        CHECK(enabledExtensionCount < COUNTOF(enabledExtensions), "Too many instance extensions") return gpu_destroy(), false;
-        if (extensions[i].flag) *extensions[i].flag = true;
+      if (extensions[i].shouldEnable && hasExtension(extensionInfo, extensionCount, extensions[i].name)) {
         enabledExtensions[enabledExtensionCount++] = extensions[i].name;
-      } else if (!extensions[i].flag) {
-        vcheck(VK_ERROR_EXTENSION_NOT_PRESENT, extensions[i].name);
-        return gpu_destroy(), false;
+        *extensions[i].flag = true;
       }
     }
 
@@ -2255,9 +2331,9 @@ bool gpu_init(gpu_config* config) {
     };
 
     if (config->vk.createInstance) {
-      VK(config->vk.createInstance(&instanceInfo, NULL, (uintptr_t) &state.instance, (void*) vkGetInstanceProcAddr), "Instance creation failed") return gpu_destroy(), false;
+      VK(config->vk.createInstance(&instanceInfo, NULL, (uintptr_t) &state.instance, (void*) vkGetInstanceProcAddr), "vkCreateInstance") goto fail;
     } else {
-      VK(vkCreateInstance(&instanceInfo, NULL, &state.instance), "Instance creation failed") return gpu_destroy(), false;
+      VK(vkCreateInstance(&instanceInfo, NULL, &state.instance), "vkCreateInstance") goto fail;
     }
 
     GPU_FOREACH_INSTANCE(GPU_LOAD_INSTANCE);
@@ -2271,7 +2347,7 @@ bool gpu_init(gpu_config* config) {
           .pfnUserCallback = relay
         };
 
-        VK(vkCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, NULL, &state.messenger), "Debug hook setup failed") return gpu_destroy(), false;
+        VK(vkCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, NULL, &state.messenger), "vkCreateDebugUtilsMessengerEXT") goto fail;
 
         if (!state.extensions.validation) {
           LOG("Warning: GPU debugging is enabled, but validation layer is not installed");
@@ -2287,8 +2363,42 @@ bool gpu_init(gpu_config* config) {
       config->vk.getPhysicalDevice(state.instance, (uintptr_t) &state.adapter);
     } else {
       uint32_t deviceCount = 1;
-      VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "Physical device enumeration failed") return gpu_destroy(), false;
+      VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "vkEnumeratePhysicalDevices") goto fail;
     }
+
+    // Device Extensions
+
+    struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
+      { "VK_KHR_create_renderpass2", true, &state.extensions.renderPass2 },
+      { "VK_KHR_swapchain", true, &state.extensions.swapchain },
+      { "VK_KHR_portability_subset", true, &state.extensions.portability },
+      { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve },
+      { "VK_KHR_shader_non_semantic_info", config->debug, &state.extensions.shaderDebug },
+      { "VK_KHR_image_format_list", true, &state.extensions.formatList },
+      { "VK_KHR_synchronization2", true, &state.extensions.synchronization2 }
+    };
+
+    uint32_t extensionCount = 0;
+    VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &extensionCount, NULL), "vkEnumerateDeviceExtensionProperties") goto fail;
+    VkExtensionProperties* extensionInfo = config->fnAlloc(extensionCount * sizeof(*extensionInfo));
+    ASSERT(extensionInfo, "Out of memory") goto fail;
+    VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &extensionCount, extensionInfo), "vkEnumerateDeviceExtensionProperties") goto fail;
+
+    uint32_t enabledExtensionCount = 0;
+    const char* enabledExtensions[COUNTOF(extensions)];
+    for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
+      if (extensions[i].shouldEnable && hasExtension(extensionInfo, extensionCount, extensions[i].name)) {
+        enabledExtensions[enabledExtensionCount++] = extensions[i].name;
+        *extensions[i].flag = true;
+      }
+    }
+
+    ASSERT(state.extensions.renderPass2, "GPU driver is missing required Vulkan extension VK_KHR_render_pass2") goto fail;
+    ASSERT(state.extensions.synchronization2, "GPU driver is missing required Vulkan extension VK_KHR_synchronization2") goto fail;
+
+    config->fnFree(extensionInfo);
+
+    // Device Info
 
     VkPhysicalDeviceMultiviewProperties multiviewProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES };
     VkPhysicalDeviceSubgroupProperties subgroupProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, .pNext = &multiviewProperties };
@@ -2304,6 +2414,8 @@ bool gpu_init(gpu_config* config) {
       config->device->subgroupSize = subgroupProperties.subgroupSize;
       config->device->discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
     }
+
+    // Limits
 
     if (config->limits) {
       VkPhysicalDeviceLimits* limits = &properties2.properties.limits;
@@ -2345,6 +2457,8 @@ bool gpu_init(gpu_config* config) {
       config->limits->anisotropy = limits->maxSamplerAnisotropy;
       config->limits->pointSize = limits->pointSizeRange[1];
     }
+
+    // Features
 
     VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features = {
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
@@ -2397,6 +2511,12 @@ bool gpu_init(gpu_config* config) {
       config->features->int64 = (enable->shaderInt64 = supports->shaderInt64);
       config->features->int16 = (enable->shaderInt16 = supports->shaderInt16);
 
+      // Extension "features"
+      if (config->features) {
+        config->features->depthResolve = state.extensions.depthResolve;
+        config->features->shaderDebug = state.extensions.shaderDebug;
+      }
+
       // Formats
       for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
         for (int j = 0; j < 2; j++) {
@@ -2421,11 +2541,13 @@ bool gpu_init(gpu_config* config) {
       }
     }
 
+    // Queue Family
+
     state.queueFamilyIndex = ~0u;
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(state.adapter, &queueFamilyCount, NULL);
     VkQueueFamilyProperties* queueFamilies = config->fnAlloc(queueFamilyCount * sizeof(*queueFamilies));
-    CHECK(queueFamilies, "Out of memory") return gpu_destroy(), false;
+    ASSERT(queueFamilies, "Out of memory") goto fail;
     vkGetPhysicalDeviceQueueFamilyProperties(state.adapter, &queueFamilyCount, queueFamilies);
     uint32_t mask = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
 
@@ -2437,44 +2559,9 @@ bool gpu_init(gpu_config* config) {
     }
 
     config->fnFree(queueFamilies);
-    CHECK(state.queueFamilyIndex != ~0u, "Queue selection failed") return gpu_destroy(), false;
+    ASSERT(state.queueFamilyIndex != ~0u, "No GPU queue families available") goto fail;
 
-    struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
-      { "VK_KHR_create_renderpass2", true, NULL },
-      { "VK_KHR_swapchain", true, &state.extensions.swapchain },
-      { "VK_KHR_portability_subset", true, &state.extensions.portability },
-      { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve },
-      { "VK_KHR_shader_non_semantic_info", config->debug, &state.extensions.shaderDebug },
-      { "VK_KHR_image_format_list", true, &state.extensions.formatList },
-      { "VK_KHR_synchronization2", true, NULL }
-    };
-
-    uint32_t extensionCount = 0;
-    VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &extensionCount, NULL), "Failed to enumerate device extensions") return gpu_destroy(), false;
-    VkExtensionProperties* extensionInfo = config->fnAlloc(extensionCount * sizeof(*extensionInfo));
-    CHECK(extensionInfo, "Out of memory") return gpu_destroy(), false;
-    VK(vkEnumerateDeviceExtensionProperties(state.adapter, NULL, &extensionCount, extensionInfo), "Failed to enumerate device extensions") return gpu_destroy(), false;
-
-    uint32_t enabledExtensionCount = 0;
-    const char* enabledExtensions[COUNTOF(extensions)];
-    for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
-      if (!extensions[i].shouldEnable) continue;
-      if (hasExtension(extensionInfo, extensionCount, extensions[i].name)) {
-        CHECK(enabledExtensionCount < COUNTOF(enabledExtensions), "Too many device extensions") return gpu_destroy(), false;
-        if (extensions[i].flag) *extensions[i].flag = true;
-        enabledExtensions[enabledExtensionCount++] = extensions[i].name;
-      } else if (!extensions[i].flag) {
-        vcheck(VK_ERROR_EXTENSION_NOT_PRESENT, extensions[i].name);
-        return gpu_destroy(), false;
-      }
-    }
-
-    config->fnFree(extensionInfo);
-
-    if (config->features) {
-      config->features->depthResolve = state.extensions.depthResolve;
-      config->features->shaderDebug = state.extensions.shaderDebug;
-    }
+    // Device
 
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -2491,9 +2578,9 @@ bool gpu_init(gpu_config* config) {
     };
 
     if (config->vk.createDevice) {
-      VK(config->vk.createDevice(state.instance, &deviceInfo, NULL, (uintptr_t) &state.device, (void*) vkGetInstanceProcAddr), "Device creation failed") return gpu_destroy(), false;
+      VK(config->vk.createDevice(state.instance, &deviceInfo, NULL, (uintptr_t) &state.device, (void*) vkGetInstanceProcAddr), "vkCreateDevice") goto fail;
     } else {
-      VK(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "Device creation failed") return gpu_destroy(), false;
+      VK(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "vkCreateDevice") goto fail;
     }
 
     vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
@@ -2648,7 +2735,7 @@ bool gpu_init(gpu_config* config) {
       .queueFamilyIndex = state.queueFamilyIndex
     };
 
-    VK(vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool), "Command pool creation failed") return gpu_destroy(), false;
+    VK(vkCreateCommandPool(state.device, &poolInfo, NULL, &state.ticks[i].pool), "vkCreateCommandPool") goto fail;
 
     VkCommandBufferAllocateInfo allocateInfo = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -2658,21 +2745,21 @@ bool gpu_init(gpu_config* config) {
     };
 
     VkCommandBuffer* commandBuffers = &state.ticks[i].streams[0].commands;
-    VK(vkAllocateCommandBuffers(state.device, &allocateInfo, commandBuffers), "Commmand buffer allocation failed") return gpu_destroy(), false;
+    VK(vkAllocateCommandBuffers(state.device, &allocateInfo, commandBuffers), "vkAllocateCommandBuffers") goto fail;
 
     VkSemaphoreCreateInfo semaphoreInfo = {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
     };
 
-    VK(vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[0]), "Semaphore creation failed") return gpu_destroy(), false;
-    VK(vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[1]), "Semaphore creation failed") return gpu_destroy(), false;
+    VK(vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[0]), "vkCreateSemaphore") goto fail;
+    VK(vkCreateSemaphore(state.device, &semaphoreInfo, NULL, &state.ticks[i].semaphores[1]), "vkCreateSemaphore") goto fail;
 
     VkFenceCreateInfo fenceInfo = {
       .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
       .flags = VK_FENCE_CREATE_SIGNALED_BIT
     };
 
-    VK(vkCreateFence(state.device, &fenceInfo, NULL, &state.ticks[i].fence), "Fence creation failed") return gpu_destroy(), false;
+    VK(vkCreateFence(state.device, &fenceInfo, NULL, &state.ticks[i].fence), "vkCreateFence") goto fail;
   }
 
   // Pipeline cache
@@ -2692,10 +2779,14 @@ bool gpu_init(gpu_config* config) {
     }
   }
 
-  VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "Pipeline cache creation failed") return gpu_destroy(), false;
+  VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "vkCreatePipelineCache") goto fail;
 
   state.tick[CPU] = COUNTOF(state.ticks) - 1;
   return true;
+
+fail:
+  gpu_destroy();
+  return false;
 }
 
 void gpu_destroy(void) {
@@ -2729,17 +2820,28 @@ void gpu_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-uint32_t gpu_begin(void) {
-  gpu_wait_tick(++state.tick[CPU] - COUNTOF(state.ticks));
-  gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
-  VK(vkResetFences(state.device, 1, &tick->fence), "Fence reset failed") return 0;
-  VK(vkResetCommandPool(state.device, tick->pool, 0), "Command pool reset failed") return 0;
-  state.streamCount = 0;
-  expunge();
-  return state.tick[CPU];
+const char* gpu_get_error(void) {
+  return thread.error;
 }
 
-void gpu_submit(gpu_stream** streams, uint32_t count) {
+bool gpu_begin(uint32_t* t) {
+  uint32_t nextTick = state.tick[CPU] + 1;
+  if (!gpu_wait_tick(nextTick - COUNTOF(state.ticks), NULL)) {
+    return false;
+  }
+
+  gpu_tick* tick = &state.ticks[nextTick & TICK_MASK];
+  VK(vkResetFences(state.device, 1, &tick->fence), "vkResetFences") return false;
+  VK(vkResetCommandPool(state.device, tick->pool, 0), "vkResetCommandPool") return false;
+  state.streamCount = 0;
+  expunge();
+
+  state.tick[CPU] = nextTick;
+  if (t) *t = nextTick;
+  return true;
+}
+
+bool gpu_submit(gpu_stream** streams, uint32_t count) {
   gpu_tick* tick = &state.ticks[state.tick[CPU] & TICK_MASK];
 
   VkCommandBuffer commands[COUNTOF(tick->streams)];
@@ -2758,28 +2860,32 @@ void gpu_submit(gpu_stream** streams, uint32_t count) {
     .pCommandBuffers = commands
   };
 
-  VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "Queue submit failed") {}
+  VK(vkQueueSubmit(state.queue, 1, &submit, tick->fence), "vkQueueSubmit") return false;
   state.surface.semaphore = VK_NULL_HANDLE;
+  return true;
 }
 
 bool gpu_is_complete(uint32_t tick) {
   return state.tick[GPU] >= tick;
 }
 
-bool gpu_wait_tick(uint32_t tick) {
+bool gpu_wait_tick(uint32_t tick, bool* waited) {
   if (state.tick[GPU] < tick) {
     VkFence fence = state.ticks[tick & TICK_MASK].fence;
-    VK(vkWaitForFences(state.device, 1, &fence, VK_FALSE, ~0ull), "Fence wait failed") return false;
+    VK(vkWaitForFences(state.device, 1, &fence, VK_FALSE, ~0ull), "vkWaitForFences") return false;
+    if (waited) *waited = true;
     state.tick[GPU] = tick;
     return true;
   } else {
-    return false;
+    if (waited) *waited = false;
+    return true;
   }
 }
 
-void gpu_wait_idle(void) {
-  vkDeviceWaitIdle(state.device);
+bool gpu_wait_idle(void) {
+  VK(vkDeviceWaitIdle(state.device), "vkDeviceWaitIdle") return false;
   state.tick[GPU] = state.tick[CPU];
+  return true;
 }
 
 uintptr_t gpu_vk_get_instance(void) {
@@ -2800,7 +2906,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex) {
 
 // Helpers
 
-static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info, VkDeviceSize* offset) {
+static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkDeviceSize* offset) {
   gpu_allocator* allocator = &state.allocators[state.allocatorLookup[type]];
 
   static const uint32_t blockSizes[] = {
@@ -2866,11 +2972,11 @@ static gpu_memory* gpu_allocate(gpu_memory_type type, VkMemoryRequirements info,
     }
   }
 
-  check(false, "Out of GPU memory");
+  error("Out of GPU memory blocks");
   return NULL;
 }
 
-static void gpu_release(gpu_memory* memory) {
+static void release(gpu_memory* memory) {
   if (memory && --memory->refs == 0) {
     condemn(memory->handle, VK_OBJECT_TYPE_DEVICE_MEMORY);
     memory->handle = NULL;
@@ -2894,12 +3000,12 @@ static void condemn(void* handle, VkObjectType type) {
 
     // If that didn't work, wait for the GPU to be done with the oldest victim and retry
     if (morgue->head - morgue->tail >= COUNTOF(morgue->data)) {
-      gpu_wait_tick(morgue->data[morgue->tail & MORGUE_MASK].tick);
+      gpu_wait_tick(morgue->data[morgue->tail & MORGUE_MASK].tick, NULL);
       expunge();
     }
 
     // The following should be unreachable
-    check(morgue->head - morgue->tail < COUNTOF(morgue->data), "Morgue overflow!");
+    ASSERT(morgue->head - morgue->tail < COUNTOF(morgue->data), "Morgue overflow!") return;
   }
 
   morgue->data[morgue->head++ & MORGUE_MASK] = (gpu_victim) { handle, type, state.tick[CPU] };
@@ -2922,7 +3028,7 @@ static void expunge(void) {
       case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
       case VK_OBJECT_TYPE_DEVICE_MEMORY: vkFreeMemory(state.device, victim->handle, NULL); break;
-      default: check(false, "Unreachable"); break;
+      default: LOG("Trying to destroy invalid Vulkan object type!"); break;
     }
   }
 }
@@ -3136,17 +3242,24 @@ static void nickname(void* handle, VkObjectType type, const char* name) {
       .pObjectName = name
     };
 
-    VK(vkSetDebugUtilsObjectNameEXT(state.device, &info), "Nickname failed") {}
+    // Success is optional
+    vkSetDebugUtilsObjectNameEXT(state.device, &info);
   }
 }
 
-static bool vcheck(VkResult result, const char* message) {
-  if (result >= 0) return true;
-  if (!state.config.fnLog) return false;
+static bool vkcheck(VkResult result, const char* function) {
+  if (result >= VK_SUCCESS) {
+    return true;
+  } else {
+    vkerror(result, function);
+    return false;
+  }
+}
 
-  const char* errorCode = "";
-#define CASE(x) case x: errorCode = " (" #x ")"; break;
+static void vkerror(VkResult result, const char* function) {
+  const char* suffix = "";
   switch (result) {
+#define CASE(x) case x: suffix = " failed with " #x; break;
     CASE(VK_ERROR_OUT_OF_HOST_MEMORY);
     CASE(VK_ERROR_OUT_OF_DEVICE_MEMORY);
     CASE(VK_ERROR_INITIALIZATION_FAILED);
@@ -3160,29 +3273,28 @@ static bool vcheck(VkResult result, const char* message) {
     CASE(VK_ERROR_FORMAT_NOT_SUPPORTED);
     CASE(VK_ERROR_FRAGMENTED_POOL);
     CASE(VK_ERROR_OUT_OF_POOL_MEMORY);
-    default: break;
-  }
+    default: suffix = " failed with unknown error"; break;
 #undef CASE
+  }
 
-  char string[128];
-  size_t length1 = strlen(message);
-  size_t length2 = strlen(errorCode);
+  size_t length1 = strlen(function);
+  size_t length2 = strlen(suffix);
 
-  if (length1 + length2 >= sizeof(string)) {
-    state.config.fnLog(state.config.userdata, message, true);
-    return false;
+  if (length1 < sizeof(thread.error)) {
+    memcpy(thread.error, function, length1 + 1);
+    if (length1 + length2 < sizeof(thread.error)) {
+      memcpy(thread.error + length1, suffix, length2 + 1);
+    }
   } else {
-    memcpy(string, message, length1);
-    memcpy(string + length1, errorCode, length2);
-    string[length1 + length2] = '\0';
-    state.config.fnLog(state.config.userdata, string, true);
-    return false;
+    size_t length = sizeof(thread.error) - 1;
+    memcpy(thread.error, function, length);
+    thread.error[length] = '\0';
   }
 }
 
-static bool check(bool condition, const char* message) {
-  if (!condition && state.config.fnLog) {
-    state.config.fnLog(state.config.userdata, message, true);
-  }
-  return condition;
+static void error(const char* error) {
+  size_t length = strlen(error);
+  length = MIN(length, sizeof(thread.error));
+  memcpy(thread.error, error, length);
+  thread.error[length] = '\0';
 }

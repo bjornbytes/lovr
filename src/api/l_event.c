@@ -32,7 +32,8 @@ StringEntry lovrEventType[] = {
 static thread_local int pollRef;
 
 static void _luax_checkvariant(lua_State* L, int index, Variant* variant, int depth) {
-  lovrAssert(depth <= 128, "Table contains cycles!");
+  luax_check(L, depth <= 128, "Table contains cycles!");
+
   int type = lua_type(L, index);
   switch (type) {
     case LUA_TNIL:
@@ -109,13 +110,12 @@ static void _luax_checkvariant(lua_State* L, int index, Variant* variant, int de
         variant->value.pointer = lua_touserdata(L, index);
         break;
       }
-      lovrThrow("Bad userdata variant for argument %d (expected object, vector, or lightuserdata)", index);
+      luaL_error(L, "Bad userdata variant for argument %d (expected object, vector, or lightuserdata)", index);
     }
 
     case LUA_TTABLE:
       if (index < 0) { index += lua_gettop(L) + 1; }
-
-      lovrAssert(lua_checkstack(L, 2), "Out of memory (maybe a table contains a cycle?)");
+      luaL_checkstack(L, 2, "Lua stack overflow when serializing table (maybe it contains a cycle?)");
 
       lua_pushnil(L);
       size_t length = 0;
@@ -147,7 +147,7 @@ static void _luax_checkvariant(lua_State* L, int index, Variant* variant, int de
       break;
 
     default:
-      lovrThrow("Bad variant type for argument %d: %s", index, lua_typename(L, type));
+      luaL_error(L, "Bad variant type for argument %d: %s", index, lua_typename(L, type));
       return;
   }
 }
@@ -340,7 +340,7 @@ int luaopen_lovr_event(lua_State* L) {
   lua_pushcfunction(L, nextEvent);
   pollRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
-  lovrEventInit();
+  luax_assert(L, lovrEventInit());
   luax_atexit(L, lovrEventDestroy);
   return 1;
 }

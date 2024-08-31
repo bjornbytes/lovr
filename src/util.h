@@ -37,22 +37,20 @@ void lovrFree(void* data);
 void lovrRetain(void* ref);
 void lovrRelease(void* ref, void (*destructor)(void*));
 
-// Defer
-uint32_t lovrDeferPush(void);
-void lovrDeferPop(uint32_t base);
-void lovrDefer(void (*fn)(void*), void* arg);
-void lovrErrDefer(void (*fn)(void*), void* arg);
-void lovrDeferRelease(void* ref, void (*destructor)(void*));
+// Errors
 
-// Exceptions
-void lovrTry(void (*fn)(void*), void* arg, void (*catch)(void*, const char*, va_list), void* catchArg);
-LOVR_NORETURN void lovrThrow(const char* format, ...);
-#define lovrAssert(c, ...) do { if (!(c)) { lovrThrow(__VA_ARGS__); } } while(0)
-#define lovrUnreachable() lovrThrow("Unreachable")
+const char* lovrGetError(void);
+int lovrSetError(const char* format, ...);
+
+#define lovrUnreachable() abort()
+#define lovrAssert(c, ...) do { if (!(c)) { lovrSetError(__VA_ARGS__); return 0; } } while (0)
+#define lovrAssertGoto(label, c, ...) do { if (!(c)) { lovrSetError(__VA_ARGS__); goto label; } } while (0)
 #ifdef LOVR_UNCHECKED
 #define lovrCheck(c, ...) ((void) 0)
+#define lovrCheckGoto(c, label, ...) ((void) 0)
 #else
 #define lovrCheck lovrAssert
+#define lovrCheckGoto lovrAssertGoto
 #endif
 
 // Logging

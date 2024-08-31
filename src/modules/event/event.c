@@ -31,7 +31,7 @@ void lovrVariantDestroy(Variant* variant) {
 }
 
 bool lovrEventInit(void) {
-  if (atomic_fetch_add(&state.ref, 1)) return false;
+  if (atomic_fetch_add(&state.ref, 1)) return true;
   arr_init(&state.events);
   mtx_init(&state.lock, mtx_plain);
   return true;

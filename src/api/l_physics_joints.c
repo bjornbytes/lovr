@@ -2,6 +2,7 @@
 #include "physics/physics.h"
 #include "util.h"
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 void luax_pushjoint(lua_State* L, Joint* joint) {
@@ -42,7 +43,7 @@ static Joint* luax_tojoint(lua_State* L, int index) {
 Joint* luax_checkjoint(lua_State* L, int index) {
   Joint* joint = luax_tojoint(L, index);
   if (joint) {
-    lovrCheck(!lovrJointIsDestroyed(joint), "Attempt to use a destroyed Joint");
+    luax_check(L, !lovrJointIsDestroyed(joint), "Attempt to use a destroyed Joint");
     return joint;
   } else {
     luax_typeerror(L, index, "Joint");
@@ -195,7 +196,7 @@ static int l_lovrConeJointGetLimit(lua_State* L) {
 static int l_lovrConeJointSetLimit(lua_State* L) {
   ConeJoint* joint = luax_checktype(L, 1, ConeJoint);
   float limit = luax_checkfloat(L, 2);
-  lovrConeJointSetLimit(joint, limit);
+  luax_assert(L, lovrConeJointSetLimit(joint, limit));
   return 0;
 }
 
@@ -220,7 +221,7 @@ static int l_lovrDistanceJointSetLimits(lua_State* L) {
   DistanceJoint* joint = luax_checktype(L, 1, DistanceJoint);
   float min = luax_optfloat(L, 2, 0.f);
   float max = luax_optfloat(L, 3, lua_type(L, 2) == LUA_TNUMBER ? min : HUGE_VALF);
-  lovrDistanceJointSetLimits(joint, min, max);
+  luax_assert(L, lovrDistanceJointSetLimits(joint, min, max));
   return 0;
 }
 
@@ -278,11 +279,11 @@ static int l_lovrHingeJointGetLimits(lua_State* L) {
 static int l_lovrHingeJointSetLimits(lua_State* L) {
   HingeJoint* joint = luax_checktype(L, 1, HingeJoint);
   if (lua_isnoneornil(L, 2)) {
-    lovrHingeJointSetLimits(joint, (float) -M_PI, (float) M_PI);
+    luax_assert(L, lovrHingeJointSetLimits(joint, (float) -M_PI, (float) M_PI));
   } else {
     float min = luax_checkfloat(L, 2);
     float max = luax_checkfloat(L, 3);
-    lovrHingeJointSetLimits(joint, min, max);
+    luax_assert(L, lovrHingeJointSetLimits(joint, min, max));
   }
   return 0;
 }
@@ -445,11 +446,11 @@ static int l_lovrSliderJointGetLimits(lua_State* L) {
 static int l_lovrSliderJointSetLimits(lua_State* L) {
   SliderJoint* joint = luax_checktype(L, 1, SliderJoint);
   if (lua_isnoneornil(L, 2)) {
-    lovrSliderJointSetLimits(joint, (float) -HUGE_VALF, (float) HUGE_VALF);
+    luax_assert(L, lovrSliderJointSetLimits(joint, (float) -HUGE_VALF, (float) HUGE_VALF));
   } else {
     float min = luax_checkfloat(L, 2);
     float max = luax_checkfloat(L, 3);
-    lovrSliderJointSetLimits(joint, min, max);
+    luax_assert(L, lovrSliderJointSetLimits(joint, min, max));
   }
   return 0;
 }

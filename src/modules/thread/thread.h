@@ -24,7 +24,7 @@ typedef char* ThreadFunction(Thread* thread, struct Blob* body, struct Variant* 
 
 Thread* lovrThreadCreate(ThreadFunction* function, struct Blob* body);
 void lovrThreadDestroy(void* ref);
-void lovrThreadStart(Thread* thread, struct Variant* arguments, uint32_t argumentCount);
+bool lovrThreadStart(Thread* thread, struct Variant* arguments, uint32_t argumentCount);
 void lovrThreadWait(Thread* thread);
 bool lovrThreadIsRunning(Thread* thread);
 const char* lovrThreadGetError(Thread* thread);

@@ -5,20 +5,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-static ModelData* lovrModelDataInitStlAscii(ModelData* model, Blob* source, ModelDataIO* io) {
-  lovrThrow("ASCII STL files are not supported yet");
-  return NULL;
+static bool lovrModelDataInitStlAscii(ModelData** result, Blob* source, ModelDataIO* io) {
+  return lovrSetError("ASCII STL files are not supported yet");
 }
 
 // The binary format has an 80 byte header, followed by a u32 triangle count, followed by 50 byte
 // triangles.  Each triangle has a vec3 normal, 3 vec3 vertices, and 2 bytes of padding.
-static ModelData* lovrModelDataInitStlBinary(ModelData* model, Blob* source, ModelDataIO* io, uint32_t triangleCount) {
+static bool lovrModelDataInitStlBinary(ModelData** result, Blob* source, ModelDataIO* io, uint32_t triangleCount) {
   char* data = (char*) source->data + 84;
 
   uint32_t vertexCount = triangleCount * 3;
   size_t vertexBufferSize = vertexCount * 6 * sizeof(float);
   float* vertices = lovrMalloc(vertexBufferSize);
 
+  ModelData* model = lovrCalloc(sizeof(ModelData));
+  model->ref = 1;
   model->blobCount = 1;
   model->bufferCount = 1;
   model->attributeCount = 2;
@@ -57,19 +58,20 @@ static ModelData* lovrModelDataInitStlBinary(ModelData* model, Blob* source, Mod
     data += 2;
   }
 
-  return model;
+  *result = model;
+  return true;
 }
 
-ModelData* lovrModelDataInitStl(ModelData* model, Blob* source, ModelDataIO* io) {
+bool lovrModelDataInitStl(ModelData** result, Blob* source, ModelDataIO* io) {
   if (source->size > strlen("solid ") && !memcmp(source->data, "solid ", strlen("solid "))) {
-    return lovrModelDataInitStlAscii(model, source, io);
+    return lovrModelDataInitStlAscii(result, source, io);
   } else if (source->size > 84) {
     uint32_t triangleCount;
     memcpy(&triangleCount, (char*) source->data + 80, sizeof(triangleCount));
     if (source->size == 84 + 50 * triangleCount) {
-      return lovrModelDataInitStlBinary(model, source, io, triangleCount);
+      return lovrModelDataInitStlBinary(result, source, io, triangleCount);
     }
   }
 
-  return NULL;
+  return true;
 }

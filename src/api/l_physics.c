@@ -88,8 +88,8 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
 
     lua_getfield(L, 1, "tags");
     if (!lua_isnil(L, -1)) {
-      lovrCheck(lua_istable(L, -1), "World tag list should be a table");
-      lovrCheck(info.tagCount <= MAX_TAGS, "Max number of world tags is %d", MAX_TAGS);
+      luax_check(L, lua_istable(L, -1), "World tag list should be a table");
+      luax_check(L, info.tagCount <= MAX_TAGS, "Max number of world tags is %d", MAX_TAGS);
       info.tagCount = luax_len(L, -1);
       for (uint32_t i = 0; i < info.tagCount; i++) {
         lua_rawgeti(L, -1, (int) i + 1);
@@ -106,18 +106,18 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
 
     lua_getfield(L, 1, "staticTags");
     if (!lua_isnil(L, -1)) {
-      lovrCheck(lua_istable(L,  -1), "World static tag list should be a table");
+      luax_check(L, lua_istable(L,  -1), "World static tag list should be a table");
       int length = luax_len(L, -1);
       for (int i = 0; i < length; i++) {
         lua_rawgeti(L, -1, i + 1);
         const char* string = lua_tostring(L, -1);
-        lovrCheck(string, "Static tag list must be a table of strings");
+        luax_check(L, string, "Static tag list must be a table of strings");
         for (uint32_t j = 0; j < info.tagCount; j++) {
           if (!strcmp(string, info.tags[j])) {
             info.staticTagMask |= (1 << j);
             break;
           }
-          lovrCheck(j < info.tagCount - 1, "Static tag '%s' does not exist", string);
+          luax_check(L, j < info.tagCount - 1, "Static tag '%s' does not exist", string);
         }
         lua_pop(L, 1);
       }
@@ -127,7 +127,7 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     info.allowSleep = lua_gettop(L) < 4 || lua_toboolean(L, 4);
     if (lua_type(L, 5) == LUA_TTABLE) {
       info.tagCount = luax_len(L, 5);
-      lovrCheck(info.tagCount <= MAX_TAGS, "Max number of world tags is %d", MAX_TAGS);
+      luax_check(L, info.tagCount <= MAX_TAGS, "Max number of world tags is %d", MAX_TAGS);
       for (uint32_t i = 0; i < info.tagCount; i++) {
         lua_rawgeti(L, -1, (int) i + 1);
         if (lua_isstring(L, -1)) {
@@ -211,6 +211,7 @@ static int l_lovrPhysicsNewWeldJoint(lua_State* L) {
   Collider* a = luax_totype(L, 1, Collider);
   Collider* b = luax_checktype(L, 2, Collider);
   WeldJoint* joint = lovrWeldJointCreate(a, b);
+  luax_assert(L, joint);
   luax_pushtype(L, WeldJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;
@@ -226,6 +227,7 @@ static int l_lovrPhysicsNewBallJoint(lua_State* L) {
     luax_readvec3(L, 3, anchor, NULL);
   }
   BallJoint* joint = lovrBallJointCreate(a, b, anchor);
+  luax_assert(L, joint);
   luax_pushtype(L, BallJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;
@@ -253,6 +255,7 @@ static int l_lovrPhysicsNewConeJoint(lua_State* L) {
   }
 
   ConeJoint* joint = lovrConeJointCreate(a, b, anchor, axis);
+  luax_assert(L, joint);
   luax_pushtype(L, ConeJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;
@@ -270,6 +273,7 @@ static int l_lovrPhysicsNewDistanceJoint(lua_State* L) {
     luax_readvec3(L, index, anchor2, NULL);
   }
   DistanceJoint* joint = lovrDistanceJointCreate(a, b, anchor1, anchor2);
+  luax_assert(L, joint);
   luax_pushtype(L, DistanceJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;
@@ -297,6 +301,7 @@ static int l_lovrPhysicsNewHingeJoint(lua_State* L) {
   }
 
   HingeJoint* joint = lovrHingeJointCreate(a, b, anchor, axis);
+  luax_assert(L, joint);
   luax_pushtype(L, HingeJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;
@@ -308,6 +313,7 @@ static int l_lovrPhysicsNewSliderJoint(lua_State* L) {
   float axis[3];
   luax_readvec3(L, 3, axis, NULL);
   SliderJoint* joint = lovrSliderJointCreate(a, b, axis);
+  luax_assert(L, joint);
   luax_pushtype(L, SliderJoint, joint);
   lovrRelease(joint, lovrJointDestroy);
   return 1;

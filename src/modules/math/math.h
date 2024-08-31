@@ -22,7 +22,7 @@ RandomGenerator* lovrMathGetRandomGenerator(void);
 
 Curve* lovrCurveCreate(void);
 void lovrCurveDestroy(void* ref);
-void lovrCurveEvaluate(Curve* curve, float t, float* point);
+bool lovrCurveEvaluate(Curve* curve, float t, float* point);
 void lovrCurveGetTangent(Curve* curve, float t, float* point);
 Curve* lovrCurveSlice(Curve* curve, float t1, float t2);
 size_t lovrCurveGetPointCount(Curve* curve);
@@ -55,7 +55,7 @@ typedef union {
 
 Pool* lovrPoolCreate(void);
 void lovrPoolDestroy(void* ref);
-void lovrPoolGrow(Pool* pool, size_t count);
+bool lovrPoolGrow(Pool* pool, size_t count);
 Vector lovrPoolAllocate(Pool* pool, VectorType type, float** data);
 float* lovrPoolResolve(Pool* pool, Vector vector);
 void lovrPoolDrain(Pool* pool);

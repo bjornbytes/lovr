@@ -54,7 +54,7 @@ struct Archive {
   bool (*read)(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count);
   bool (*seek)(Archive* archive, Handle* handle, uint64_t offset);
   bool (*fsize)(Archive* archive, Handle* handle, uint64_t* size);
-  bool (*stat)(Archive* archive, const char* path, FileInfo* info, bool needTime);
+  bool (*stat)(Archive* archive, const char* path, fs_info* info, bool needTime);
   void (*list)(Archive* archive, const char* path, fs_list_cb callback, void* context);
   char* path;
   char* mountpoint;
@@ -80,14 +80,34 @@ static struct {
   size_t savePathLength;
   char savePath[1024];
   char source[1024];
-  char requirePath[1024];
+  char* requirePath;
   char identity[64];
 } state;
+
+static bool checkfs(int result) {
+  switch (result) {
+    case FS_OK: return true;
+    case FS_UNKNOWN_ERROR: return lovrSetError("Unknown error");
+    case FS_PERMISSION: return lovrSetError("Permission denied");
+    case FS_READ_ONLY: return lovrSetError("Read only");
+    case FS_TOO_LONG: return lovrSetError("Path is too long");
+    case FS_NOT_FOUND: return lovrSetError("Not found");
+    case FS_EXISTS: return lovrSetError("Already exists");
+    case FS_IS_DIR: return lovrSetError("Is directory");
+    case FS_NOT_DIR: return lovrSetError("Not a directory");
+    case FS_NOT_EMPTY: return lovrSetError("Not empty");
+    case FS_LOOP: return lovrSetError("Symlink loop");
+    case FS_FULL: return lovrSetError("Out of space");
+    case FS_BUSY: return lovrSetError("Busy");
+    case FS_IO: return lovrSetError("IO error");
+    default: lovrUnreachable();
+  }
+}
 
 // Rejects any path component that would escape the virtual filesystem (./, ../, :, and \)
 static bool valid(const char* path) {
   if (path[0] == '.' && (path[1] == '\0' || path[1] == '.')) {
-    return false;
+    return lovrSetError("Invalid path");
   }
 
   do {
@@ -97,7 +117,7 @@ static bool valid(const char* path) {
       (*path == '/' && path[1] == '.' &&
       (path[2] == '.' ? (path[3] == '/' || path[3] == '\0') : (path[2] == '/' || path[2] == '\0')))
     ) {
-      return false;
+      return lovrSetError("Invalid path");
     }
   } while (*path++ != '\0');
 
@@ -106,7 +126,7 @@ static bool valid(const char* path) {
 
 // Does not work with empty strings
 static bool concat(char* buffer, const char* p1, size_t length1, const char* p2, size_t length2) {
-  if (length1 + 1 + length2 >= LOVR_PATH_MAX) return false;
+  if (length1 + 1 + length2 >= LOVR_PATH_MAX) return lovrSetError("Path is too long");
   memcpy(buffer + length1 + 1, p2, length2);
   buffer[length1 + 1 + length2] = '\0';
   memcpy(buffer, p1, length1);
@@ -133,13 +153,13 @@ static size_t normalize(const char* path, size_t length, char* buffer) {
 static bool sanitize(const char* path, char* buffer, size_t* length) {
   if (!valid(path)) return false;
   size_t pathLength = strlen(path);
-  if (pathLength >= *length) return false;
+  if (pathLength >= *length) return lovrSetError("Path is too long");
   *length = normalize(path, pathLength, buffer);
   return true;
 }
 
 bool lovrFilesystemInit(void) {
-  if (atomic_fetch_add(&state.ref, 1)) return false;
+  if (atomic_fetch_add(&state.ref, 1)) return true;
 
   lovrFilesystemSetRequirePath("?.lua;?/init.lua");
 
@@ -177,15 +197,17 @@ void lovrFilesystemDestroy(void) {
     archive = next;
   }
   lovrFilesystemUnwatch();
+  lovrFree(state.requirePath);
   memset(&state, 0, sizeof(state));
 }
 
-void lovrFilesystemSetSource(const char* source) {
+bool lovrFilesystemSetSource(const char* source) {
   lovrCheck(!state.source[0], "Source is already set!");
   size_t length = strlen(source);
   lovrCheck(sizeof(state.source) > length, "Source is too long!");
   memcpy(state.source, source, length);
   state.source[length] = '\0';
+  return true;
 }
 
 const char* lovrFilesystemGetSource(void) {
@@ -224,8 +246,8 @@ void lovrFilesystemWatch(void) {
 #else
   const char* path = state.source;
 #endif
-  FileInfo info;
-  if (!watcher.id && fs_stat(path, &info) && info.type == FILE_DIRECTORY) {
+  fs_info info;
+  if (!watcher.id && fs_stat(path, &info) == FS_OK && info.type == FILE_DIRECTORY) {
     dmon_init();
     watcher = dmon_watch(path, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
   }
@@ -250,7 +272,7 @@ bool lovrFilesystemIsFused(void) {
 bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char* root) {
   FOREACH_ARCHIVE(archive) {
     if (!strcmp(archive->path, path)) {
-      return false;
+      return lovrSetError("Already mounted");
     }
   }
 
@@ -292,50 +314,69 @@ static bool mountpointContains(Archive* archive, const char* path, size_t length
   return length < archive->mountLength && archive->mountpoint[length] == '/' && !memcmp(path, archive->mountpoint, length);
 }
 
-static Archive* archiveStat(const char* p, FileInfo* info, bool needTime) {
+static Archive* archiveStat(const char* p, fs_info* info, bool needTime) {
   char path[1024];
   size_t length = sizeof(path);
-  if (sanitize(p, path, &length)) {
-    FOREACH_ARCHIVE(archive) {
-      if (archiveContains(archive, path, length)) {
-        if (archive->stat(archive, path, info, needTime)) {
-          return archive;
-        }
-      } else if (mountpointContains(archive, path, length)) {
-        info->type = FILE_DIRECTORY;
-        info->lastModified = ~0ull;
-        info->size = 0;
+  if (!sanitize(p, path, &length)) {
+    return NULL;
+  }
+
+  FOREACH_ARCHIVE(archive) {
+    if (archiveContains(archive, path, length)) {
+      if (archive->stat(archive, path, info, needTime)) {
         return archive;
       }
+    } else if (mountpointContains(archive, path, length)) {
+      // Virtual directory
+      info->type = FILE_DIRECTORY;
+      info->lastModified = ~0ull;
+      info->size = 0;
+      return archive;
     }
   }
+
+  lovrSetError("File not found");
   return NULL;
 }
 
 const char* lovrFilesystemGetRealDirectory(const char* path) {
-  FileInfo info;
+  fs_info info;
   Archive* archive = archiveStat(path, &info, false);
   return archive ? archive->path : NULL;
 }
 
 bool lovrFilesystemIsFile(const char* path) {
-  FileInfo info;
+  fs_info info;
   return archiveStat(path, &info, false) && info.type == FILE_REGULAR;
 }
 
 bool lovrFilesystemIsDirectory(const char* path) {
-  FileInfo info;
+  fs_info info;
   return archiveStat(path, &info, false) && info.type == FILE_DIRECTORY;
 }
 
-uint64_t lovrFilesystemGetSize(const char* path) {
-  FileInfo info;
-  return archiveStat(path, &info, false) && info.type == FILE_REGULAR ? info.size : 0;
+bool lovrFilesystemGetSize(const char* path, uint64_t* size) {
+  fs_info info;
+  if (archiveStat(path, &info, false)) {
+    if (info.type == FILE_REGULAR) {
+      *size = info.size;
+      return true;
+    } else {
+      return lovrSetError("Is directory");
+    }
+  } else {
+    return false;
+  }
 }
 
-uint64_t lovrFilesystemGetLastModified(const char* path) {
-  FileInfo info;
-  return archiveStat(path, &info, true) ? info.lastModified : ~0ull;
+bool lovrFilesystemGetLastModified(const char* path, uint64_t* modtime) {
+  fs_info info;
+  if (archiveStat(path, &info, true)) {
+    *modtime = info.lastModified;
+    return true;
+  } else {
+    return false;
+  }
 }
 
 void* lovrFilesystemRead(const char* p, size_t* size) {
@@ -353,9 +394,15 @@ void* lovrFilesystemRead(const char* p, size_t* size) {
       }
 
       uint64_t bytes;
-      if (!archive->fsize(archive, &handle, &bytes) || bytes > SIZE_MAX) {
+      if (!archive->fsize(archive, &handle, &bytes)) {
         archive->close(archive, &handle);
-        continue;
+        return NULL;
+      }
+
+      if (bytes > SIZE_MAX) {
+        archive->close(archive, &handle);
+        lovrSetError("File is too big");
+        return NULL;
       }
 
       *size = (size_t) bytes;
@@ -364,10 +411,14 @@ void* lovrFilesystemRead(const char* p, size_t* size) {
       if (archive->read(archive, &handle, data, *size, size)) {
         archive->close(archive, &handle);
         return data;
+      } else {
+        archive->close(archive, &handle);
+        lovrFree(data);
+        return NULL;
       }
-
-      archive->close(archive, &handle);
     }
+
+    lovrSetError("File not found");
   }
   return NULL;
 }
@@ -401,9 +452,12 @@ const char* lovrFilesystemGetIdentity(void) {
 bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
   size_t length = strlen(identity);
 
-  // Identity can only be set once, and can't be empty
-  if (state.identity[0] != '\0' || length == 0) {
-    return false;
+  if (state.identity[0] != '\0') {
+    return lovrSetError("Identity is already set");
+  }
+
+  if (length == 0) {
+    return lovrSetError("Identity can not be empty");
   }
 
   // Initialize the save path to the data path
@@ -411,14 +465,14 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
 
   // If the data path was too long or unavailable, fail
   if (cursor == 0) {
-    return false;
+    return lovrSetError("Could not get appdata path");
   }
 
   bool fused = lovrFilesystemIsFused();
 
   // Make sure there is enough room to tack on /LOVR/<identity>
   if (cursor + (fused ? 0 : 1 + strlen("LOVR")) + 1 + length >= sizeof(state.savePath)) {
-    return false;
+    return lovrSetError("Identity path is too long");
   }
 
   if (!fused) {
@@ -435,16 +489,16 @@ bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
   state.savePathLength = cursor;
 
   // mkdir -p
-  FileInfo info;
-  if (!fs_stat(state.savePath, &info)) {
+  fs_info info;
+  if (fs_stat(state.savePath, &info) != FS_OK) {
     for (char* slash = strchr(state.savePath, SLASH); slash; slash = strchr(slash + 1, SLASH)) {
       *slash = '\0';
       fs_mkdir(state.savePath);
       *slash = SLASH;
     }
 
-    if (!fs_mkdir(state.savePath)) {
-      return false;
+    if (!checkfs(fs_mkdir(state.savePath))) {
+      return lovrSetError("Failed to create identity folder: %s", lovrGetError());
     }
   }
 
@@ -466,7 +520,6 @@ const char* lovrFilesystemGetSaveDirectory(void) {
 
 bool lovrFilesystemCreateDirectory(const char* path) {
   char resolved[LOVR_PATH_MAX];
-
   if (!valid(path) || !concat(resolved, state.savePath, state.savePathLength, path, strlen(path))) {
     return false;
   }
@@ -483,12 +536,16 @@ bool lovrFilesystemCreateDirectory(const char* path) {
     cursor++;
   }
 
-  return fs_mkdir(resolved);
+  return checkfs(fs_mkdir(resolved));
 }
 
 bool lovrFilesystemRemove(const char* path) {
   char resolved[LOVR_PATH_MAX];
-  return valid(path) && concat(resolved, state.savePath, state.savePathLength, path, strlen(path)) && fs_remove(resolved);
+  if (!valid(path) || !concat(resolved, state.savePath, state.savePathLength, path, strlen(path))) {
+    return false;
+  }
+
+  return checkfs(fs_remove(resolved));
 }
 
 bool lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append) {
@@ -498,16 +555,20 @@ bool lovrFilesystemWrite(const char* path, const char* content, size_t size, boo
   }
 
   fs_handle file;
-  if (!fs_open(resolved, append ? 'a' : 'w', &file)) {
+  if (!checkfs(fs_open(resolved, append ? 'a' : 'w', &file))) {
     return false;
   }
 
   size_t count;
-  if (!fs_write(file, content, size, &count) || count != size) {
+  if (!checkfs(fs_write(file, content, size, &count))) {
     return false;
   }
 
-  return fs_close(file);
+  if (count != size) {
+    return lovrSetError("Incomplete write");
+  }
+
+  return checkfs(fs_close(file));
 }
 
 // Paths
@@ -538,9 +599,9 @@ const char* lovrFilesystemGetRequirePath(void) {
 
 void lovrFilesystemSetRequirePath(const char* requirePath) {
   size_t length = strlen(requirePath);
-  lovrCheck(length < sizeof(state.requirePath), "Require path is too long");
-  memcpy(state.requirePath, requirePath, length);
-  state.requirePath[length] = '\0';
+  lovrFree(state.requirePath);
+  state.requirePath = lovrMalloc(length + 1);
+  memcpy(state.requirePath, requirePath, length + 1);
 }
 
 // Archive: dir
@@ -550,50 +611,46 @@ static bool dir_resolve(Archive* archive, const char* fullpath, char* buffer) {
   return concat(buffer, archive->path, archive->pathLength, path, strlen(path));
 }
 
-static bool dir_init(Archive* archive, const char* path, const char* root) {
-  FileInfo info;
-  return fs_stat(path, &info) && info.type == FILE_DIRECTORY;
-}
-
 static bool dir_open(Archive* archive, const char* path, Handle* handle) {
   char resolved[LOVR_PATH_MAX];
-  return dir_resolve(archive, path, resolved) && fs_open(resolved, 'r', &handle->file);
+  return dir_resolve(archive, path, resolved) && checkfs(fs_open(resolved, 'r', &handle->file));
 }
 
 static bool dir_close(Archive* archive, Handle* handle) {
-  return fs_close(handle->file);
+  return checkfs(fs_close(handle->file));
 }
 
 static bool dir_read(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count) {
-  if (!fs_read(handle->file, data, size, count)) {
-    return false;
-  } else {
+  if (checkfs(fs_read(handle->file, data, size, count))) {
     handle->offset += *count;
     return true;
+  } else {
+    return false;
   }
 }
 
 static bool dir_seek(Archive* archive, Handle* handle, uint64_t offset) {
-  if (fs_seek(handle->file, offset)) {
+  if (checkfs(fs_seek(handle->file, offset))) {
     handle->offset = offset;
     return true;
+  } else {
+    return false;
   }
-  return false;
 }
 
 static bool dir_fsize(Archive* archive, Handle* handle, uint64_t* size) {
-  FileInfo info;
-  if (!fs_fstat(handle->file, &info)) {
-    return false;
-  } else {
+  fs_info info;
+  if (checkfs(fs_fstat(handle->file, &info))) {
     *size = info.size;
     return true;
+  } else {
+    return false;
   }
 }
 
-static bool dir_stat(Archive* archive, const char* path, FileInfo* info, bool needTime) {
+static bool dir_stat(Archive* archive, const char* path, fs_info* info, bool needTime) {
   char resolved[LOVR_PATH_MAX];
-  return dir_resolve(archive, path, resolved) && fs_stat(resolved, info);
+  return dir_resolve(archive, path, resolved) && checkfs(fs_stat(resolved, info));
 }
 
 static void dir_list(Archive* archive, const char* path, fs_list_cb callback, void* context) {
@@ -616,17 +673,15 @@ static void zip_free(Archive* archive) {
 
 static bool zip_init(Archive* archive, const char* filename, const char* root) {
   // Map the zip file into memory
-  archive->data = fs_map(filename, &archive->size);
-  if (!archive->data) {
-    zip_free(archive);
+  if (!checkfs(fs_map(filename, (void**) &archive->data, &archive->size))) {
     return false;
   }
 
   // Check the end of the file for the magic zip footer
   const uint8_t* p = archive->data + archive->size - 22;
   if (archive->size < 22 || readu32(p) != 0x06054b50) {
-    zip_free(archive);
-    return false;
+    fs_unmap(archive->data, archive->size);
+    return lovrSetError("End of central directory signature not found (note: zip files with comments are not supported)");
   }
 
   // Parse the number of file entries and reserve memory
@@ -643,7 +698,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
   uint64_t cursor = readu32(p + 16);
   if (cursor + 4 > archive->size) {
     zip_free(archive);
-    return false;
+    return lovrSetError("Corrupt ZIP: central directory is located past the end of the file");
   }
 
   // See if the central directory starts where the endOfCentralDirectory said it would.
@@ -660,7 +715,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
 
     if (sizeOfCentralDirectory > offsetOfEndOfCentralDirectory || centralDirectoryOffset + 4 > archive->size) {
       zip_free(archive);
-      return false;
+      return lovrSetError("Corrupt ZIP: central directory is located past the end of the file or overlaps other zip data");
     }
 
     base = centralDirectoryOffset - cursor;
@@ -669,7 +724,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
     // And if that didn't work, just give up
     if (readu32(archive->data + cursor) != 0x02014b50) {
       zip_free(archive);
-      return false;
+      return lovrSetError("Corrupt ZIP: Unable to find central directory");
     }
   }
 
@@ -683,7 +738,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
     p = archive->data + cursor;
     if (cursor + 46 > archive->size || readu32(p) != 0x02014b50) {
       zip_free(archive);
-      return false;
+      return lovrSetError("Corrupt ZIP: invalid file signature");
     }
 
     zip_node node;
@@ -704,7 +759,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
     uint8_t* header = archive->data + headerOffset;
     if (headerOffset > archive->size - 30 || readu32(header) != 0x04034b50) {
       zip_free(archive);
-      return false;
+      return lovrSetError("Corrupt ZIP: invalid local file header");
     }
 
     // Filename and extra data are 30 bytes after the header, then the data starts
@@ -714,7 +769,7 @@ static bool zip_init(Archive* archive, const char* filename, const char* root) {
     // Make sure data is actually contained in the zip
     if (dataOffset + node.compressedSize > archive->size) {
       zip_free(archive);
-      return false;
+      return lovrSetError("Corrupt ZIP: zip file data is not contained in the zip");
     }
 
     // Strip leading slashes
@@ -794,8 +849,12 @@ static zip_node* zip_resolve(Archive* archive, const char* fulpathLength) {
 static bool zip_open(Archive* archive, const char* path, Handle* handle) {
   handle->node = zip_resolve(archive, path);
 
-  if (!handle->node || handle->node->directory) {
-    return false;
+  if (!handle->node) {
+    return lovrSetError("File not found");
+  }
+
+  if (handle->node->directory) {
+    return lovrSetError("Is directory");
   }
 
   if (handle->node->compressed) {
@@ -829,7 +888,7 @@ static bool decompress(zip_node* node, zip_stream* stream, uint8_t* data, size_t
     size_t outSize = sizeof(stream->buffer);
     uint32_t flags = stream->outputCursor + outSize < node->uncompressedSize ? TINFL_FLAG_HAS_MORE_INPUT : 0;
     int status = tinfl_decompress(&stream->decompressor, input, &inSize, output, output, &outSize, flags);
-    if (status < 0) return false;
+    if (status < 0) return lovrSetError("Could not decompress file");
     size_t n = MIN(outSize, size);
     if (data) memcpy(data, stream->buffer, n), data += n;
     stream->inputCursor += inSize;
@@ -865,7 +924,7 @@ static bool zip_read(Archive* archive, Handle* handle, uint8_t* data, size_t siz
     size_t inputSize = node->compressedSize;
     uint32_t flags = TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF;
     int status = tinfl_decompress(&stream->decompressor, node->data, &inputSize, data, data, &size, flags);
-    if (status != TINFL_STATUS_DONE) return false;
+    if (status != TINFL_STATUS_DONE) return lovrSetError("Could not decompress file");
     stream->outputCursor = size;
     handle->offset = size;
     *count = size;
@@ -929,9 +988,9 @@ static bool zip_fsize(Archive* archive, Handle* handle, uint64_t* size) {
   return true;
 }
 
-static bool zip_stat(Archive* archive, const char* path, FileInfo* info, bool needTime) {
+static bool zip_stat(Archive* archive, const char* path, fs_info* info, bool needTime) {
   zip_node* node = zip_resolve(archive, path);
-  if (!node) return false;
+  if (!node) return lovrSetError("File not found");
 
   // This is slow, so it's only done when asked for
   if (needTime) {
@@ -967,10 +1026,15 @@ static void zip_list(Archive* archive, const char* path, fs_list_cb callback, vo
 // Archive
 
 Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char* root) {
+  fs_info info;
+  if (!checkfs(fs_stat(path, &info))) {
+    return NULL;
+  }
+
   Archive* archive = lovrCalloc(sizeof(Archive));
   archive->ref = 1;
 
-  if (dir_init(archive, path, root)) {
+  if (info.type == FILE_DIRECTORY) {
     archive->open = dir_open;
     archive->close = dir_close;
     archive->read = dir_read;
@@ -1014,11 +1078,11 @@ void lovrArchiveDestroy(void* ref) {
 
 // File
 
-File* lovrFileCreate(const char* p, OpenMode mode, const char** error) {
+File* lovrFileCreate(const char* p, OpenMode mode) {
   char path[1024];
   size_t length = sizeof(path);
   if (!sanitize(p, path, &length)) {
-    return *error = "File path is too long or contains invalid characters", NULL;
+    return NULL;
   }
 
   Handle handle = { 0 };
@@ -1027,24 +1091,23 @@ File* lovrFileCreate(const char* p, OpenMode mode, const char** error) {
   if (mode == OPEN_READ) {
     FOREACH_ARCHIVE(a) {
       if (archiveContains(a, path, length)) {
-        if (a->open(a, path, &handle)) {
-          archive = a;
-          break;
+        if (!a->open(a, path, &handle)) {
+          return NULL;
         }
+        archive = a;
+        break;
       }
     }
 
-    if (!archive) {
-      return *error = "File does not exist", NULL;
-    }
+    lovrAssert(archive, "File not found");
   } else {
     char fullpath[LOVR_PATH_MAX];
     if (!concat(fullpath, state.savePath, state.savePathLength, path, length)) {
-      return *error = "File path is too long", NULL;
+      return NULL;
     }
 
-    if (!fs_open(fullpath, mode == OPEN_APPEND ? 'a' : 'w', &handle.file)) {
-      return *error = "Failed to open file for writing", NULL; // TODO better errors pl0x
+    if (!checkfs(fs_open(fullpath, mode == OPEN_APPEND ? 'a' : 'w', &handle.file))) {
+      return NULL;
     }
   }
 
@@ -1053,11 +1116,9 @@ File* lovrFileCreate(const char* p, OpenMode mode, const char** error) {
   file->mode = mode;
   file->handle = handle;
   file->archive = archive;
-  lovrRetain(archive);
-
   file->path = lovrMalloc(length + 1);
   memcpy(file->path, path, length + 1);
-
+  lovrRetain(archive);
   return file;
 }
 
@@ -1077,9 +1138,8 @@ OpenMode lovrFileGetMode(File* file) {
   return file->mode;
 }
 
-uint64_t lovrFileGetSize(File* file) {
-  uint64_t size;
-  return file->archive->fsize(file->archive, &file->handle, &size) ? size : ~0ull;
+bool lovrFileGetSize(File* file, uint64_t* size) {
+  return file->archive->fsize(file->archive, &file->handle, size);
 }
 
 bool lovrFileRead(File* file, void* data, size_t size, size_t* count) {
@@ -1089,7 +1149,7 @@ bool lovrFileRead(File* file, void* data, size_t size, size_t* count) {
 
 bool lovrFileWrite(File* file, const void* data, size_t size, size_t* count) {
   lovrCheck(file->mode != OPEN_READ, "File was not opened for writing");
-  return fs_write(file->handle.file, data, size, count);
+  return checkfs(fs_write(file->handle.file, data, size, count));
 }
 
 bool lovrFileSeek(File* file, uint64_t offset) {

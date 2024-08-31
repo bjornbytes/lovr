@@ -4,21 +4,20 @@
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <threads.h>
-#include <setjmp.h>
 #include <stdio.h>
 
 // Allocation
 
 void* lovrMalloc(size_t size) {
   void* data = malloc(size);
-  lovrAssert(data, "Out of memory");
+  if (!data) abort();
   lovrProfileAlloc(data, size);
   return data;
 }
 
 void* lovrCalloc(size_t size) {
   void* data = calloc(1, size);
-  lovrAssert(data, "Out of memory");
+  if (!data) abort();
   lovrProfileAlloc(data, size);
   return data;
 }
@@ -26,7 +25,7 @@ void* lovrCalloc(size_t size) {
 void* lovrRealloc(void* old, size_t size) {
   lovrProfileFree(old);
   void* data = realloc(old, size);
-  lovrAssert(data, "Out of memory");
+  if (!data) abort();
   lovrProfileAlloc(data, size);
   return data;
 }
@@ -54,98 +53,20 @@ void lovrRelease(void* object, void (*destructor)(void*)) {
   }
 }
 
-// Defer
+// Errors
 
-typedef struct {
-  void (*fn)(void*);
-  void* arg;
-} Closure;
+static thread_local char error[1024];
 
-static thread_local struct {
-  Closure stack[16];
-  uint16_t releaseMask;
-  uint16_t errMask;
-  uint32_t top;
-} defer;
-
-uint32_t lovrDeferPush(void) {
-  return defer.top;
+const char* lovrGetError(void) {
+  return error;
 }
 
-static void deferPop(uint32_t base, bool err) {
-  while (defer.top > base) {
-    uint32_t index = --defer.top;
-    Closure c = defer.stack[index];
-    if (err || (defer.errMask & (1u << index)) == 0) {
-      if (defer.releaseMask & (1u << index)) {
-        lovrRelease(c.arg, c.fn);
-      } else {
-        c.fn(c.arg);
-      }
-    }
-  }
-}
-
-void lovrDeferPop(uint32_t base) {
-  deferPop(base, false);
-}
-
-void lovrDefer(void (*fn)(void*), void* arg) {
-  lovrAssert(defer.top < COUNTOF(defer.stack), "Defer stack overflow!");
-  defer.releaseMask &= ~(1u << defer.top);
-  defer.errMask &= ~(1u << defer.top);
-  defer.stack[defer.top++] = (Closure) { fn, arg };
-}
-
-void lovrErrDefer(void (*fn)(void*), void* arg) {
-  lovrAssert(defer.top < COUNTOF(defer.stack), "Defer stack overflow!");
-  defer.releaseMask &= ~(1u << defer.top);
-  defer.errMask |= (1u << defer.top);
-  defer.stack[defer.top++] = (Closure) { fn, arg };
-}
-
-void lovrDeferRelease(void* object, void (*destructor)(void*)) {
-  if (!object) return;
-  lovrAssert(defer.top < COUNTOF(defer.stack), "Defer stack overflow!");
-  defer.releaseMask |= (1u << defer.top);
-  defer.errMask &= ~(1u << defer.top);
-  defer.stack[defer.top++] = (Closure) { destructor, object };
-}
-
-// Exceptions
-
-typedef struct Handler {
-  struct Handler* prev;
-  uint32_t baseDefer;
-  void (*catch)(void* arg, const char* format, va_list args);
-  void* arg;
-  jmp_buf env;
-} Handler;
-
-static thread_local Handler* lovrHandler;
-
-void lovrTry(void (*fn)(void*), void* arg, void(*catch)(void*, const char*, va_list), void* catchArg) {
-  lovrHandler = &(Handler) {
-    .prev = lovrHandler,
-    .baseDefer = defer.top,
-    .catch = catch,
-    .arg = arg
-  };
-
-  if (setjmp(lovrHandler->env) == 0) {
-    fn(arg);
-  }
-
-  lovrHandler = lovrHandler->prev;
-}
-
-void lovrThrow(const char* format, ...) {
-  deferPop(lovrHandler->baseDefer, true);
+int lovrSetError(const char* format, ...) {
   va_list args;
   va_start(args, format);
-  lovrHandler->catch(lovrHandler->arg, format, args);
+  vsnprintf(error, sizeof(error), format, args);
   va_end(args);
-  longjmp(lovrHandler->env, 1);
+  return false;
 }
 
 // Logging
@@ -170,9 +91,9 @@ void lovrLog(int level, const char* tag, const char* format, ...) {
 static void map_rehash(map_t* map) {
   map_t old = *map;
   map->size <<= 1;
+  if (map->size == 0) abort();
   map->hashes = lovrMalloc(2 * map->size * sizeof(uint64_t));
   map->values = map->hashes + map->size;
-  lovrAssert(map->size && map->hashes, "Out of memory");
   memset(map->hashes, 0xff, 2 * map->size * sizeof(uint64_t));
 
   if (old.hashes) {
@@ -213,7 +134,10 @@ void map_init(map_t* map, uint32_t n) {
 }
 
 void map_free(map_t* map) {
-  lovrFree(map->hashes);
+  if (map) {
+    lovrFree(map->hashes);
+    map->hashes = NULL;
+  }
 }
 
 uint64_t map_get(map_t* map, uint64_t hash) {

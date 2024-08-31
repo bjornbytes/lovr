@@ -6,7 +6,7 @@ HeadsetInterface* lovrHeadsetInterface = NULL;
 static uint32_t ref;
 
 bool lovrHeadsetInit(HeadsetConfig* config) {
-  if (atomic_fetch_add(&ref, 1)) return false;
+  if (atomic_fetch_add(&ref, 1)) return true;
 
   for (size_t i = 0; i < config->driverCount; i++) {
     HeadsetInterface* interface = NULL;

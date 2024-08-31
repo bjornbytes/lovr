@@ -18,27 +18,26 @@ static size_t typeSizes[] = {
 };
 
 static void* nullIO(const char* path, size_t* count) {
-  lovrThrow("Can't resolve external asset reference for model loaded from memory");
+  return NULL;
 }
 
 ModelData* lovrModelDataCreate(Blob* source, ModelDataIO* io) {
-  ModelData* model = lovrCalloc(sizeof(ModelData));
-  model->ref = 1;
+  if (!io) io = &nullIO;
 
-  if (!io) {
-    io = &nullIO;
+  ModelData* model = NULL;
+  if (!model && !lovrModelDataInitGltf(&model, source, io)) return false;
+  if (!model && !lovrModelDataInitObj(&model, source, io)) return false;
+  if (!model && !lovrModelDataInitStl(&model, source, io)) return false;
+
+  if (!model) {
+    lovrSetError("Unable to load model from '%s'", source->name);
+    return NULL;
   }
 
-  if (!lovrModelDataInitGltf(model, source, io)) {
-    if (!lovrModelDataInitObj(model, source, io)) {
-      if (!lovrModelDataInitStl(model, source, io)) {
-        lovrThrow("Unable to load model from '%s'", source->name);
-        return NULL;
-      }
-    }
+  if (!lovrModelDataFinalize(model)) {
+    lovrModelDataDestroy(model);
+    return NULL;
   }
-
-  lovrModelDataFinalize(model);
 
   return model;
 }
@@ -115,7 +114,7 @@ void lovrModelDataAllocate(ModelData* model) {
   map_init(model->nodeMap, model->nodeCount);
 }
 
-void lovrModelDataFinalize(ModelData* model) {
+bool lovrModelDataFinalize(ModelData* model) {
   for (uint32_t i = 0; i < model->primitiveCount; i++) {
     model->primitives[i].skin = ~0u;
   }
@@ -189,6 +188,8 @@ void lovrModelDataFinalize(ModelData* model) {
       model->nodes[node->children[j]].parent = i;
     }
   }
+
+  return true;
 }
 
 void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char* dst, AttributeType type, uint32_t components, bool normalized, uint32_t count, size_t stride, uint8_t clear) {
@@ -539,7 +540,7 @@ static void collectVertices(ModelData* model, uint32_t nodeIndex, float** vertic
     }
 
     if (indices && index) {
-      lovrAssert(index->type == U16 || index->type == U32, "Unreachable");
+      if (index->type != U16 && index->type != U32) lovrUnreachable();
 
       char* data = (char*) model->buffers[index->buffer].data + index->offset;
       size_t stride = index->stride == 0 ? (index->type == U16 ? 2 : 4) : index->stride;

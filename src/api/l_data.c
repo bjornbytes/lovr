@@ -64,10 +64,9 @@ Image* luax_checkimage(lua_State* L, int index) {
     lovrRetain(image);
   } else {
     Blob* blob = luax_readblob(L, index, "Image");
-    uint32_t defer = lovrDeferPush();
-    lovrDeferRelease(blob, lovrBlobDestroy);
     image = lovrImageCreateFromFile(blob);
-    lovrDeferPop(defer);
+    lovrRelease(blob, lovrBlobDestroy);
+    luax_assert(L, image);
   }
 
   return image;
@@ -79,7 +78,7 @@ static int l_lovrDataNewBlob(lua_State* L) {
   int type = lua_type(L, 1);
   if (type == LUA_TNUMBER) {
     int isize = lua_tonumber(L, 1);
-    lovrCheck(isize > 0, "Blob size must be positive");
+    luax_check(L, isize > 0, "Blob size must be positive");
     size = (size_t) isize;
     data = lovrCalloc(size);
   } else if (type == LUA_TSTRING) {
@@ -107,11 +106,12 @@ static int l_lovrDataNewImage(lua_State* L) {
     uint32_t height = luax_checku32(L, 2);
     TextureFormat format = luax_checkenum(L, 3, TextureFormat, "rgba8");
     image = lovrImageCreateRaw(width, height, format, true);
+    luax_assert(L, image);
     size_t size = lovrImageGetLayerSize(image, 0);
     void* data = lovrImageGetLayerData(image, 0, 0);
     if (lua_gettop(L) >= 4) {
       Blob* blob = luax_checktype(L, 4, Blob);
-      lovrCheck(blob->size == size, "Blob size (%d) does not match the Image size (%d)", blob->size, size);
+      luax_check(L, blob->size == size, "Blob size (%d) does not match the Image size (%d)", blob->size, size);
       memcpy(data, blob->data, size);
     } else {
       memset(data, 0, size);
@@ -123,11 +123,13 @@ static int l_lovrDataNewImage(lua_State* L) {
       uint32_t height = lovrImageGetHeight(source, 0);
       TextureFormat format = lovrImageGetFormat(source);
       image = lovrImageCreateRaw(width, height, format, true);
+      luax_assert(L, image);
       memcpy(lovrImageGetLayerData(image, 0, 0), lovrImageGetLayerData(source, 0, 0), lovrImageGetLayerSize(image, 0));
     } else {
       Blob* blob = luax_readblob(L, 1, "Texture");
       image = lovrImageCreateFromFile(blob);
       lovrRelease(blob, lovrBlobDestroy);
+      luax_assert(L, image);
     }
   }
 
@@ -138,12 +140,11 @@ static int l_lovrDataNewImage(lua_State* L) {
 
 static int l_lovrDataNewModelData(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Model");
-  uint32_t defer = lovrDeferPush();
-  lovrDeferRelease(blob, lovrBlobDestroy);
   ModelData* modelData = lovrModelDataCreate(blob, luax_readfile);
+  lovrRelease(blob, lovrBlobDestroy);
+  luax_assert(L, modelData);
   luax_pushtype(L, ModelData, modelData);
   lovrRelease(modelData, lovrModelDataDestroy);
-  lovrDeferPop(defer);
   return 1;
 }
 
@@ -151,20 +152,18 @@ static int l_lovrDataNewRasterizer(lua_State* L) {
   Blob* blob = NULL;
   float size;
 
-  uint32_t defer = lovrDeferPush();
-
   if (lua_type(L, 1) == LUA_TNUMBER || lua_isnoneornil(L, 1)) {
     size = luax_optfloat(L, 1, 32.f);
   } else {
     blob = luax_readblob(L, 1, "Font");
     size = luax_optfloat(L, 2, 32.f);
-    lovrDeferRelease(blob, lovrBlobDestroy);
   }
 
   Rasterizer* rasterizer = lovrRasterizerCreate(blob, size, luax_readfile);
+  lovrRelease(blob, lovrBlobDestroy);
+  luax_assert(L, rasterizer);
   luax_pushtype(L, Rasterizer, rasterizer);
   lovrRelease(rasterizer, lovrRasterizerDestroy);
-  lovrDeferPop(defer);
   return 1;
 }
 
@@ -182,6 +181,7 @@ static int l_lovrDataNewSound(lua_State* L) {
     Sound* sound = stream ?
       lovrSoundCreateStream(frames, format, layout, sampleRate) :
       lovrSoundCreateRaw(frames, format, layout, sampleRate, blob);
+    luax_assert(L, sound);
     luax_pushtype(L, Sound, sound);
     lovrRelease(sound, lovrSoundDestroy);
     return 1;
@@ -192,12 +192,11 @@ static int l_lovrDataNewSound(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Sound");
   bool decode = lua_toboolean(L, 2);
 
-  uint32_t defer = lovrDeferPush();
-  lovrDeferRelease(blob, lovrBlobDestroy);
   Sound* sound = lovrSoundCreateFromFile(blob, decode);
+  lovrRelease(blob, lovrBlobDestroy);
+  luax_assert(L, sound);
   luax_pushtype(L, Sound, sound);
   lovrRelease(sound, lovrSoundDestroy);
-  lovrDeferPop(defer);
   return 1;
 }
 

@@ -86,7 +86,7 @@ static bool simulator_init(HeadsetConfig* config) {
   return true;
 }
 
-static void simulator_start(void) {
+static bool simulator_start(void) {
 #ifdef LOVR_DISABLE_GRAPHICS
   bool hasGraphics = false;
 #else
@@ -95,6 +95,7 @@ static void simulator_start(void) {
 
   if (hasGraphics) {
     state.pass = lovrPassCreate("Headset");
+    if (!state.pass) return false;
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
     if (!lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
       state.depthFormat = state.config.stencil ? FORMAT_D24S8 : FORMAT_D24;
@@ -103,6 +104,7 @@ static void simulator_start(void) {
 
   state.epoch = os_get_time();
   state.time = 0.;
+  return true;
 }
 
 static void simulator_stop(void) {
@@ -149,7 +151,7 @@ static float simulator_getRefreshRate(void) {
 }
 
 static bool simulator_setRefreshRate(float refreshRate) {
-  return false;
+  return lovrSetError("Device does not support setting refresh rate");
 }
 
 static const float* simulator_getRefreshRates(uint32_t* count) {
@@ -291,7 +293,7 @@ static Layer** simulator_getLayers(uint32_t* count) {
   return state.layers;
 }
 
-static void simulator_setLayers(Layer** layers, uint32_t count) {
+static bool simulator_setLayers(Layer** layers, uint32_t count) {
   lovrCheck(count <= MAX_LAYERS, "Too many layers");
 
   for (uint32_t i = 0; i < state.layerCount; i++) {
@@ -303,6 +305,8 @@ static void simulator_setLayers(Layer** layers, uint32_t count) {
     lovrRetain(layers[i]);
     state.layers[i] = layers[i];
   }
+
+  return true;
 }
 
 static void simulator_getLayerPose(Layer* layer, float* position, float* orientation) {
@@ -359,13 +363,15 @@ static struct Pass* simulator_getLayerPass(Layer* layer) {
   return NULL; // TODO
 }
 
-static Texture* simulator_getTexture(void) {
-  return state.texture;
+static bool simulator_getTexture(Texture** texture) {
+  *texture = state.texture;
+  return true;
 }
 
-static Pass* simulator_getPass(void) {
+static bool simulator_getPass(Pass** pass) {
   if (!state.pass || !os_window_is_open()) {
-    return NULL;
+    *pass = NULL;
+    return true;
   }
 
   lovrPassReset(state.pass);
@@ -387,8 +393,14 @@ static Pass* simulator_getPass(void) {
       .usage = TEXTURE_RENDER | TEXTURE_SAMPLE
     });
 
+    if (!state.texture) {
+      return false;
+    }
+
     Texture* textures[4] = { state.texture };
-    lovrPassSetCanvas(state.pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1);
+    if (!lovrPassSetCanvas(state.pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1)) {
+      return false;
+    }
   }
 
   float background[4][4];
@@ -409,11 +421,12 @@ static Pass* simulator_getPass(void) {
   lovrPassSetViewMatrix(state.pass, 0, viewMatrix);
   lovrPassSetProjection(state.pass, 0, projection);
 
-  return state.pass;
+  *pass = state.pass;
+  return true;
 }
 
-static void simulator_submit(void) {
-  //
+static bool simulator_submit(void) {
+  return true;
 }
 
 static bool simulator_isFocused(void) {
@@ -424,7 +437,7 @@ static bool simulator_isMounted(void) {
   return true;
 }
 
-static double simulator_update(void) {
+static bool simulator_update(double* dt) {
   double t = os_get_time() - state.epoch;
   state.dt = t - state.time;
   state.time = t;
@@ -509,7 +522,8 @@ static double simulator_update(void) {
   mat4_target(basis, zero, ray, y);
   quat_fromMat4(state.handOrientation, basis);
 
-  return state.dt;
+  *dt = state.dt;
+  return true;
 }
 
 HeadsetInterface lovrHeadsetSimulatorDriver = {

@@ -151,7 +151,7 @@ typedef struct HeadsetInterface {
   uintptr_t (*getOpenXRInstanceHandle)(void);
   uintptr_t (*getOpenXRSessionHandle)(void);
   bool (*init)(HeadsetConfig* config);
-  void (*start)(void);
+  bool (*start)(void);
   void (*stop)(void);
   void (*destroy)(void);
   bool (*getDriverName)(char* name, size_t length);
@@ -184,7 +184,7 @@ typedef struct HeadsetInterface {
   struct ModelData* (*newModelData)(Device device, bool animated);
   bool (*animate)(struct Model* model);
   Layer** (*getLayers)(uint32_t* count);
-  void (*setLayers)(Layer** layers, uint32_t count);
+  bool (*setLayers)(Layer** layers, uint32_t count);
   Layer* (*newLayer)(uint32_t width, uint32_t height);
   void (*destroyLayer)(void* ref);
   void (*getLayerPose)(Layer* layer, float* position, float* orientation);
@@ -199,13 +199,13 @@ typedef struct HeadsetInterface {
   void (*setLayerFlag)(Layer* layer, LayerFlag flag, bool enable);
   struct Texture* (*getLayerTexture)(Layer* layer);
   struct Pass* (*getLayerPass)(Layer* layer);
-  struct Texture* (*getTexture)(void);
-  struct Pass* (*getPass)(void);
-  void (*submit)(void);
+  bool (*getTexture)(struct Texture** texture);
+  bool (*getPass)(struct Pass** pass);
+  bool (*submit)(void);
   bool (*isVisible)(void);
   bool (*isFocused)(void);
   bool (*isMounted)(void);
-  double (*update)(void);
+  bool (*update)(double* dt);
 } HeadsetInterface;
 
 // Available drivers

@@ -6,7 +6,7 @@
 
 static Collider* luax_checkcollider(lua_State* L, int index) {
   Collider* collider = luax_checktype(L, index, Collider);
-  lovrCheck(!lovrColliderIsDestroyed(collider), "Attempt to use a destroyed Collider");
+  luax_check(L, !lovrColliderIsDestroyed(collider), "Attempt to use a destroyed Collider");
   return collider;
 }
 
@@ -33,7 +33,7 @@ static int l_lovrColliderIsEnabled(lua_State* L) {
 static int l_lovrColliderSetEnabled(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   bool enable = lua_toboolean(L, 2);
-  lovrColliderSetEnabled(collider, enable);
+  luax_assert(L, lovrColliderSetEnabled(collider, enable));
   return 1;
 }
 
@@ -82,7 +82,7 @@ static int l_lovrColliderGetShape(lua_State* L) {
 static int l_lovrColliderAddShape(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   Shape* shape = luax_checkshape(L, 2);
-  lovrColliderAddShape(collider, shape);
+  luax_assert(L, lovrColliderAddShape(collider, shape));
   lua_settop(L, 2);
   return 1;
 }
@@ -90,8 +90,9 @@ static int l_lovrColliderAddShape(lua_State* L) {
 static int l_lovrColliderRemoveShape(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   Shape* shape = luax_checkshape(L, 2);
-  lovrColliderRemoveShape(collider, shape);
-  return 0;
+  luax_assert(L, lovrColliderRemoveShape(collider, shape));
+  lua_settop(L, 2);
+  return 1;
 }
 
 static int l_lovrColliderGetUserData(lua_State* L) {
@@ -120,7 +121,7 @@ static int l_lovrColliderIsKinematic(lua_State* L) {
 static int l_lovrColliderSetKinematic(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   bool kinematic = lua_toboolean(L, 2);
-  lovrColliderSetKinematic(collider, kinematic);
+  luax_assert(L, lovrColliderSetKinematic(collider, kinematic));
   return 0;
 }
 
@@ -147,7 +148,7 @@ static int l_lovrColliderIsContinuous(lua_State* L) {
 static int l_lovrColliderSetContinuous(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   bool continuous = lua_toboolean(L, 2);
-  lovrColliderSetContinuous(collider, continuous);
+  luax_assert(L, lovrColliderSetContinuous(collider, continuous));
   return 0;
 }
 
@@ -161,7 +162,7 @@ static int l_lovrColliderGetGravityScale(lua_State* L) {
 static int l_lovrColliderSetGravityScale(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float scale = luax_checkfloat(L, 2);
-  lovrColliderSetGravityScale(collider, scale);
+  luax_assert(L, lovrColliderSetGravityScale(collider, scale));
   return 0;
 }
 
@@ -174,7 +175,7 @@ static int l_lovrColliderIsAwake(lua_State* L) {
 static int l_lovrColliderSetAwake(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   bool awake = lua_toboolean(L, 2);
-  lovrColliderSetAwake(collider, awake);
+  luax_assert(L, lovrColliderSetAwake(collider, awake));
   return 0;
 }
 
@@ -200,7 +201,7 @@ static int l_lovrColliderGetMass(lua_State* L) {
 static int l_lovrColliderSetMass(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float mass = luax_checkfloat(L, 2);
-  lovrColliderSetMass(collider, mass);
+  luax_assert(L, lovrColliderSetMass(collider, mass));
   return 0;
 }
 
@@ -242,7 +243,7 @@ static int l_lovrColliderSetCenterOfMass(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float center[3];
   luax_readvec3(L, 2, center, NULL);
-  lovrColliderSetCenterOfMass(collider, center);
+  luax_assert(L, lovrColliderSetCenterOfMass(collider, center));
   return 0;
 }
 
@@ -262,7 +263,7 @@ static int l_lovrColliderSetAutomaticMass(lua_State* L) {
 
 static int l_lovrColliderResetMassData(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
-  lovrColliderResetMassData(collider);
+  luax_assert(L, lovrColliderResetMassData(collider));
   return 0;
 }
 
@@ -333,7 +334,7 @@ static int l_lovrColliderSetPosition(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float position[3];
   luax_readvec3(L, 2, position, NULL);
-  lovrColliderSetPosition(collider, position);
+  luax_assert(L, lovrColliderSetPosition(collider, position));
   return 0;
 }
 
@@ -353,7 +354,7 @@ static int l_lovrColliderSetOrientation(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float orientation[4];
   luax_readquat(L, 2, orientation, NULL);
-  lovrColliderSetOrientation(collider, orientation);
+  luax_assert(L, lovrColliderSetOrientation(collider, orientation));
   return 0;
 }
 
@@ -377,7 +378,7 @@ static int l_lovrColliderSetPose(lua_State* L) {
   float position[3], orientation[4];
   int index = luax_readvec3(L, 2, position, NULL);
   luax_readquat(L, index, orientation, NULL);
-  lovrColliderSetPose(collider, position, orientation);
+  luax_assert(L, lovrColliderSetPose(collider, position, orientation));
   return 0;
 }
 
@@ -387,7 +388,7 @@ static int l_lovrColliderMoveKinematic(lua_State* L) {
   int index = luax_readvec3(L, 2, position, NULL);
   index = luax_readquat(L, index, orientation, NULL);
   float dt = luax_checkfloat(L, index);
-  lovrColliderMoveKinematic(collider, position, orientation, dt);
+  luax_assert(L, lovrColliderMoveKinematic(collider, position, orientation, dt));
   return 0;
 }
 
@@ -501,9 +502,9 @@ static int l_lovrColliderApplyForce(lua_State* L) {
   if (lua_gettop(L) >= index) {
     float position[3];
     luax_readvec3(L, index, position, NULL);
-    lovrColliderApplyForceAtPosition(collider, force, position);
+    luax_assert(L, lovrColliderApplyForceAtPosition(collider, force, position));
   } else {
-    lovrColliderApplyForce(collider, force);
+    luax_assert(L, lovrColliderApplyForce(collider, force));
   }
 
   return 0;
@@ -513,7 +514,7 @@ static int l_lovrColliderApplyTorque(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float torque[3];
   luax_readvec3(L, 2, torque, NULL);
-  lovrColliderApplyTorque(collider, torque);
+  luax_assert(L, lovrColliderApplyTorque(collider, torque));
   return 0;
 }
 
@@ -524,9 +525,9 @@ static int l_lovrColliderApplyLinearImpulse(lua_State* L) {
   if (lua_gettop(L) >= index) {
     float position[3];
     luax_readvec3(L, index, position, NULL);
-    lovrColliderApplyLinearImpulseAtPosition(collider, impulse, position);
+    luax_assert(L, lovrColliderApplyLinearImpulseAtPosition(collider, impulse, position));
   } else {
-    lovrColliderApplyLinearImpulse(collider, impulse);
+    luax_assert(L, lovrColliderApplyLinearImpulse(collider, impulse));
   }
   return 0;
 }
@@ -535,7 +536,7 @@ static int l_lovrColliderApplyAngularImpulse(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float impulse[3];
   luax_readvec3(L, 2, impulse, NULL);
-  lovrColliderApplyAngularImpulse(collider, impulse);
+  luax_assert(L, lovrColliderApplyAngularImpulse(collider, impulse));
   return 0;
 }
 
@@ -624,7 +625,7 @@ static int l_lovrColliderGetFriction(lua_State* L) {
 static int l_lovrColliderSetFriction(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float friction = luax_checkfloat(L, 2);
-  lovrColliderSetFriction(collider, friction);
+  luax_assert(L, lovrColliderSetFriction(collider, friction));
   return 0;
 }
 
@@ -637,7 +638,7 @@ static int l_lovrColliderGetRestitution(lua_State* L) {
 static int l_lovrColliderSetRestitution(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
   float restitution = luax_checkfloat(L, 2);
-  lovrColliderSetRestitution(collider, restitution);
+  luax_assert(L, lovrColliderSetRestitution(collider, restitution));
   return 0;
 }
 
@@ -649,7 +650,7 @@ static int l_lovrColliderGetTag(lua_State* L) {
 
 static int l_lovrColliderSetTag(lua_State* L) {
   Collider* collider = luax_checkcollider(L, 1);
-  lovrColliderSetTag(collider, lua_tostring(L, 2));
+  luax_assert(L, lovrColliderSetTag(collider, lua_tostring(L, 2)));
   return 0;
 }
 
