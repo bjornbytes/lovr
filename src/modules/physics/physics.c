@@ -2017,14 +2017,24 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
 
 bool lovrShapeContainsPoint(Shape* shape, float point[3]) {
   float inverseRotation[4];
-  quat_init(inverseRotation, shape->rotation);
-  quat_conjugate(inverseRotation);
+
+  if (shape->collider) {
+    float position[3], orientation[4];
+    lovrColliderGetPose(shape->collider, position, orientation);
+    quat_conjugate(quat_init(inverseRotation, orientation));
+    quat_rotate(inverseRotation, point);
+    vec3_sub(point, position);
+  }
+
+  quat_conjugate(quat_init(inverseRotation, shape->rotation));
   quat_rotate(inverseRotation, point);
   vec3_sub(point, shape->translation);
+
   float center[3];
   JPH_Vec3 centerOfMass;
   JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
   vec3_sub(point, vec3_fromJolt(center, &centerOfMass));
+
   return JPH_Shape_CollidePoint(shape->handle, vec3_toJolt(point));
 }
 
@@ -2034,11 +2044,22 @@ bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hi
   vec3_sub(direction, start);
 
   float inverseRotation[4];
+
+  if (shape->collider) {
+    float position[3], orientation[4];
+    lovrColliderGetPose(shape->collider, position, orientation);
+    quat_conjugate(quat_init(inverseRotation, orientation));
+    quat_rotate(inverseRotation, direction);
+    quat_rotate(inverseRotation, start);
+    vec3_sub(start, position);
+  }
+
   quat_init(inverseRotation, shape->rotation);
   quat_conjugate(inverseRotation);
-  quat_rotate(inverseRotation, start);
   quat_rotate(inverseRotation, direction);
+  quat_rotate(inverseRotation, start);
   vec3_sub(start, shape->translation);
+
   float center[3];
   JPH_Vec3 centerOfMass;
   JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
