@@ -2015,20 +2015,31 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   aabb[5] = box.max.z;
 }
 
+static void inverseTransformPoint(float* point, float* position, float* orientation) {
+  float inverse[4];
+  quat_conjugate(quat_init(inverse, orientation));
+  quat_rotate(inverse, point);
+  vec3_sub(point, position);
+}
+
+static void inverseTransformRay(float* origin, float* direction, float* position, float* orientation) {
+  float inverse[4];
+  quat_conjugate(quat_init(inverse, orientation));
+  quat_rotate(inverse, direction);
+  quat_rotate(inverse, origin);
+  vec3_sub(origin, position);
+}
+
 bool lovrShapeContainsPoint(Shape* shape, float point[3]) {
   float inverseRotation[4];
 
   if (shape->collider) {
     float position[3], orientation[4];
     lovrColliderGetPose(shape->collider, position, orientation);
-    quat_conjugate(quat_init(inverseRotation, orientation));
-    quat_rotate(inverseRotation, point);
-    vec3_sub(point, position);
+    inverseTransformPoint(point, position, orientation);
   }
 
-  quat_conjugate(quat_init(inverseRotation, shape->rotation));
-  quat_rotate(inverseRotation, point);
-  vec3_sub(point, shape->translation);
+  inverseTransformPoint(point, shape->translation, shape->rotation);
 
   float center[3];
   JPH_Vec3 centerOfMass;
@@ -2048,17 +2059,10 @@ bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hi
   if (shape->collider) {
     float position[3], orientation[4];
     lovrColliderGetPose(shape->collider, position, orientation);
-    quat_conjugate(quat_init(inverseRotation, orientation));
-    quat_rotate(inverseRotation, direction);
-    quat_rotate(inverseRotation, start);
-    vec3_sub(start, position);
+    inverseTransformRay(start, direction, position, orientation);
   }
 
-  quat_init(inverseRotation, shape->rotation);
-  quat_conjugate(inverseRotation);
-  quat_rotate(inverseRotation, direction);
-  quat_rotate(inverseRotation, start);
-  vec3_sub(start, shape->translation);
+  inverseTransformRay(start, direction, shape->translation, shape->rotation);
 
   float center[3];
   JPH_Vec3 centerOfMass;
