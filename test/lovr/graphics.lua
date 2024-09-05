@@ -457,6 +457,32 @@ group('graphics', function()
   end)
 
   group('Shader', function()
+    test('lots of flags', function()
+      computer = lovr.graphics.newShader([[
+        layout(constant_id = 0) const int x = 0;
+        layout(constant_id = 1) const int y = 1;
+        layout(constant_id = 2) const int z = 2;
+        layout(constant_id = 3) const int w = 3;
+        buffer Buffer { vec4 v; };
+        void lovrmain() { v = vec4(x, y, z, w); }
+      ]], {
+        flags = {
+          x = 4,
+          y = 5,
+          z = 6,
+          w = 7
+        }
+      })
+
+      buffer = lovr.graphics.newBuffer('vec4')
+      pass = lovr.graphics.newPass()
+      pass:setShader(computer)
+      pass:send('Buffer', buffer)
+      pass:compute()
+      lovr.graphics.submit(pass)
+      expect({ buffer:getData() }).to.equal({ 4, 5, 6, 7 })
+    end)
+
     test(':hasVariable', function()
       shader = lovr.graphics.newShader([[
         uniform vec3 position;

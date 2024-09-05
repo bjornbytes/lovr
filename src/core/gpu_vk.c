@@ -1657,8 +1657,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
       case GPU_FLAG_B32: constants[i] = flag->value == 0. ? VK_FALSE : VK_TRUE; break;
       case GPU_FLAG_I32: constants[i] = (uint32_t) flag->value; break;
       case GPU_FLAG_U32: constants[i] = (uint32_t) flag->value; break;
-      case GPU_FLAG_F32: memcpy(&constants[i], &(float) { flag->value }, sizeof(float)); break;
-      default: flag->value = 0;
+      case GPU_FLAG_F32: constants[i] = (float) flag->value; break;
     }
 
     entries[i] = (VkSpecializationMapEntry) {
@@ -1671,7 +1670,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   VkSpecializationInfo specialization = {
     .mapEntryCount = info->flagCount,
     .pMapEntries = entries,
-    .dataSize = sizeof(constants),
+    .dataSize = info->flagCount * sizeof(uint32_t),
     .pData = (const void*) constants
   };
 
@@ -1739,7 +1738,7 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info
     gpu_shader_flag* flag = &info->flags[i];
 
     switch (flag->type) {
-      case GPU_FLAG_B32: default: constants[i] = flag->value == 0. ? VK_FALSE : VK_TRUE; break;
+      case GPU_FLAG_B32: constants[i] = flag->value == 0. ? VK_FALSE : VK_TRUE; break;
       case GPU_FLAG_I32: constants[i] = (uint32_t) flag->value; break;
       case GPU_FLAG_U32: constants[i] = (uint32_t) flag->value; break;
       case GPU_FLAG_F32: constants[i] = (float) flag->value; break;
@@ -1755,7 +1754,7 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info
   VkSpecializationInfo specialization = {
     .mapEntryCount = info->flagCount,
     .pMapEntries = entries,
-    .dataSize = sizeof(constants),
+    .dataSize = info->flagCount * sizeof(uint32_t),
     .pData = (const void*) constants
   };
 
