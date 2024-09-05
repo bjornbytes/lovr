@@ -2054,10 +2054,9 @@ bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hi
   vec3_init(direction, end);
   vec3_sub(direction, start);
 
-  float inverseRotation[4];
+  float position[3], orientation[4], inverseRotation[4];
 
   if (shape->collider) {
-    float position[3], orientation[4];
     lovrColliderGetPose(shape->collider, position, orientation);
     inverseTransformRay(start, direction, position, orientation);
   }
@@ -2074,12 +2073,22 @@ bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hi
     vec3_init(hit->position, direction);
     vec3_scale(hit->position, result.fraction);
     vec3_add(hit->position, start);
+
     JPH_Vec3 normal;
     JPH_Shape_GetSurfaceNormal(shape->handle, result.subShapeID2, vec3_toJolt(hit->position), &normal);
-    quat_rotate(shape->rotation, vec3_fromJolt(hit->normal, &normal));
+    vec3_fromJolt(hit->normal, &normal);
+
+    quat_rotate(shape->rotation, hit->normal);
     quat_rotate(shape->rotation, hit->position);
     vec3_add(hit->position, shape->translation);
     vec3_add(hit->position, center);
+
+    if (shape->collider) {
+      quat_rotate(orientation, hit->position);
+      quat_rotate(orientation, hit->normal);
+      vec3_add(hit->position, position);
+    }
+
     return true;
   }
 
