@@ -550,14 +550,15 @@ static uint32_t openxr_createVulkanInstance(void* instanceCreateInfo, void* allo
     .vulkanAllocator = allocator
   };
 
-  VkResult result = xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &result);
+  VkResult vkResult;
+  XrResult result = xrCreateVulkanInstanceKHR(state.instance, &info, (VkInstance*) instance, &vkResult);
 
   if (XR_FAILED(result)) {
     lovrLog(LOG_ERROR, "XR", "OpenXR failed to create Vulkan instance (%d)", result);
     return VK_ERROR_INITIALIZATION_FAILED;
   }
 
-  return result;
+  return vkResult;
 }
 
 static uint32_t openxr_createVulkanDevice(void* instance, void* deviceCreateInfo, void* allocator, uintptr_t device, void* getInstanceProcAddr) {
