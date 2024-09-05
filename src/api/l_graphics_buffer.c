@@ -374,7 +374,7 @@ int luax_pushbufferdata(lua_State* L, const DataField* format, uint32_t count, c
       for (uint32_t i = 0; i < count; i++, data += format->stride) {
         luax_pushfieldn(L, format->type, data);
         for (int c = 0; c < n; c++) {
-          lua_rawseti(L, -1 - n + c, i * n + c + 1);
+          lua_rawseti(L, -1 - n + c, i * n + n - c);
         }
       }
     }
