@@ -232,6 +232,8 @@ void lovrShapeGetOffset(Shape* shape, float position[3], float orientation[4]);
 bool lovrShapeSetOffset(Shape* shape, float position[3], float orientation[4]);
 void lovrShapeGetPose(Shape* shape, float position[3], float orientation[4]);
 void lovrShapeGetAABB(Shape* shape, float aabb[6]);
+bool lovrShapeContainsPoint(Shape* shape, float point[3]);
+bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hit);
 
 BoxShape* lovrBoxShapeCreate(float dimensions[3]);
 void lovrBoxShapeGetDimensions(BoxShape* shape, float dimensions[3]);

@@ -282,7 +282,7 @@ static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
 
 bool lovrPhysicsInit(void (*freeUserData)(void* object, uintptr_t userdata)) {
   if (state.initialized) return true;
-  JPH_Init(32 * 1024 * 1024);
+  JPH_Init();
   state.sphere = lovrSphereShapeCreate(.001f);
   state.freeUserData = freeUserData;
   return state.initialized = true;
@@ -2013,6 +2013,86 @@ void lovrShapeGetAABB(Shape* shape, float aabb[6]) {
   aabb[3] = box.max.y;
   aabb[4] = box.min.z;
   aabb[5] = box.max.z;
+}
+
+static void inverseTransformPoint(float* point, float* position, float* orientation) {
+  float inverse[4];
+  quat_conjugate(quat_init(inverse, orientation));
+  quat_rotate(inverse, point);
+  vec3_sub(point, position);
+}
+
+static void inverseTransformRay(float* origin, float* direction, float* position, float* orientation) {
+  float inverse[4];
+  quat_conjugate(quat_init(inverse, orientation));
+  quat_rotate(inverse, direction);
+  quat_rotate(inverse, origin);
+  vec3_sub(origin, position);
+}
+
+bool lovrShapeContainsPoint(Shape* shape, float point[3]) {
+  float inverseRotation[4];
+
+  if (shape->collider) {
+    float position[3], orientation[4];
+    lovrColliderGetPose(shape->collider, position, orientation);
+    inverseTransformPoint(point, position, orientation);
+  }
+
+  inverseTransformPoint(point, shape->translation, shape->rotation);
+
+  float center[3];
+  JPH_Vec3 centerOfMass;
+  JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
+  vec3_sub(point, vec3_fromJolt(center, &centerOfMass));
+
+  return JPH_Shape_CollidePoint(shape->handle, vec3_toJolt(point));
+}
+
+bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hit) {
+  float direction[3];
+  vec3_init(direction, end);
+  vec3_sub(direction, start);
+
+  float position[3], orientation[4], inverseRotation[4];
+
+  if (shape->collider) {
+    lovrColliderGetPose(shape->collider, position, orientation);
+    inverseTransformRay(start, direction, position, orientation);
+  }
+
+  inverseTransformRay(start, direction, shape->translation, shape->rotation);
+
+  float center[3];
+  JPH_Vec3 centerOfMass;
+  JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
+  vec3_sub(start, vec3_fromJolt(center, &centerOfMass));
+
+  JPH_RayCastResult result;
+  if (JPH_Shape_CastRay(shape->handle, vec3_toJolt(start), vec3_toJolt(direction), &result)) {
+    vec3_init(hit->position, direction);
+    vec3_scale(hit->position, result.fraction);
+    vec3_add(hit->position, start);
+
+    JPH_Vec3 normal;
+    JPH_Shape_GetSurfaceNormal(shape->handle, result.subShapeID2, vec3_toJolt(hit->position), &normal);
+    vec3_fromJolt(hit->normal, &normal);
+
+    quat_rotate(shape->rotation, hit->normal);
+    quat_rotate(shape->rotation, hit->position);
+    vec3_add(hit->position, shape->translation);
+    vec3_add(hit->position, center);
+
+    if (shape->collider) {
+      quat_rotate(orientation, hit->position);
+      quat_rotate(orientation, hit->normal);
+      vec3_add(hit->position, position);
+    }
+
+    return true;
+  }
+
+  return false;
 }
 
 static bool lovrShapeReplace(Shape* shape, JPH_Shape* new) {

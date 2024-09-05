@@ -66,17 +66,34 @@ group('physics', function()
     end)
   end)
 
-  group('MeshShape', function()
-    if lovr.graphics then
-      test('from Mesh', function()
-        mesh = lovr.graphics.newMesh({
-          {   0,  .4, 0 },
-          { -.5, -.4, 0 },
-          {  .5, -.4, 0 }
-        })
+  group('Shape', function()
+    test(':raycast', function()
+      shape = lovr.physics.newBoxShape(2, 10, 2)
+      expect(shape:raycast(-10, 10, 0,  10, 10, 0)).to_not.be.truthy()
+      expect({ shape:raycast(-10, 0, 0,  10, 0, 0) }).to.equal({ -1, 0, 0, -1, 0, 0 }, 1e-6)
+      expect({ shape:raycast(-10, 4, 0,  10, 4, 0) }).to.equal({ -1, 4, 0, -1, 0, 0 }, 1e-6)
+      shape:setOffset(0, 0, 0, math.pi / 2, 0, 0, 1)
+      expect({ shape:raycast(-10, 0, 0,  10, 0, 0) }).to.equal({ -5, 0, 0, -1, 0, 0 }, 1e-6)
+      expect(shape:raycast(-10, 4, 0,  10, 4, 0)).to.equal(nil)
 
-        shape = lovr.physics.newMeshShape(mesh)
-      end)
-    end
+      collider = world:newCollider(100, 100, 100)
+      collider:addShape(shape)
+      expect(shape:raycast(-10, 0, 0, 10, 0, 0)).to.equal(nil)
+      expect({ shape:raycast(-500, 100, 100, 500, 100, 100) }).to.equal({ 95, 100, 100, -1, 0, 0 }, 1e-6)
+    end)
+
+    group('MeshShape', function()
+      if lovr.graphics then
+        test('from Mesh', function()
+          mesh = lovr.graphics.newMesh({
+            {   0,  .4, 0 },
+            { -.5, -.4, 0 },
+            {  .5, -.4, 0 }
+          })
+
+          shape = lovr.physics.newMeshShape(mesh)
+        end)
+      end
+    end)
   end)
 end)
