@@ -102,14 +102,15 @@ local function has(t, x)
   return false
 end
 
-local function strict_eq(t1, t2)
+local function eq(t1, t2, eps)
   if type(t1) ~= type(t2) then return false end
+  if type(t1) == 'number' then return math.abs(t1 - t2) <= (eps or 0) end
   if type(t1) ~= 'table' then return t1 == t2 end
   for k, _ in pairs(t1) do
-    if not strict_eq(t1[k], t2[k]) then return false end
+    if not eq(t1[k], t2[k], eps) then return false end
   end
   for k, _ in pairs(t2) do
-    if not strict_eq(t2[k], t1[k]) then return false end
+    if not eq(t2[k], t1[k], eps) then return false end
   end
   return true
 end
@@ -123,8 +124,8 @@ local paths = {
   be = { 'a', 'an', 'truthy',
     test = function(v, x)
       return v == x,
-        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to be equal',
-        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to not be equal'
+        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to be the same',
+        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to not be the same'
     end
   },
   exist = {
@@ -142,10 +143,10 @@ local paths = {
     end
   },
   equal = {
-    test = function(v, x)
-      return strict_eq(v, x),
-        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to be exactly equal',
-        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to not be exactly equal'
+    test = function(v, x, eps)
+      return eq(v, x, eps),
+        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to be equal',
+        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to not be equal'
     end
   },
   have = {
