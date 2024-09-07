@@ -450,6 +450,10 @@ const char* lovrFilesystemGetIdentity(void) {
 }
 
 bool lovrFilesystemSetIdentity(const char* identity, bool precedence) {
+#ifdef __ANDROID__
+  return true; // Android sets identity at startup
+#endif
+
   size_t length = strlen(identity);
 
   if (state.identity[0] != '\0') {
