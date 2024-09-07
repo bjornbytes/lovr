@@ -6499,6 +6499,8 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
     pipeline->dirty = true;
 
     const DataField* format = info->vertex.buffer->info.format;
+    const DataField* fields = format->fieldCount > 0 ? format->fields : format;
+    uint32_t fieldCount = MAX(format->fieldCount, 1);
 
     pipeline->info.vertex.bufferCount = 2;
     pipeline->info.vertex.attributeCount = shader->attributeCount;
@@ -6509,14 +6511,13 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
       ShaderAttribute* attribute = &shader->attributes[i];
       bool found = false;
 
-      for (uint32_t j = 0; j < MAX(format->fieldCount, 1); j++) {
-        const DataField* field = format->fieldCount > 0 ? &format->fields[j] : format;
-        if (field->hash == attribute->hash) {
+      for (uint32_t j = 0; j < fieldCount; j++) {
+        if (fields[j].hash == attribute->hash) {
           pipeline->info.vertex.attributes[i] = (gpu_attribute) {
             .buffer = 0,
             .location = attribute->location,
-            .offset = field->offset,
-            .type = field->type
+            .offset = fields[j].offset,
+            .type = fields[j].type
           };
           found = true;
           break;
