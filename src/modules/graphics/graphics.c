@@ -2082,7 +2082,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
     } else {
       BufferView staging = getBuffer(GPU_BUFFER_UPLOAD, size, 4);
       if (!staging.buffer) return lovrFree(buffer), NULL;
-      gpu_copy_buffers(state.stream, staging.buffer, buffer->gpu, staging.offset, buffer->base, buffer->info.size);
+      gpu_copy_buffers(state.stream, staging.buffer, buffer->gpu, staging.offset, buffer->base, size);
       buffer->sync.writePhase = GPU_PHASE_COPY;
       buffer->sync.pendingWrite = GPU_CACHE_TRANSFER_WRITE;
       buffer->sync.lastTransferWrite = state.tick;
@@ -4416,8 +4416,14 @@ Mesh* lovrMeshCreate(const MeshInfo* info, void** vertices) {
     buffer = lovrBufferCreate(&bufferInfo, info->storage == MESH_GPU ? vertices : NULL);
     mesh->vertexBuffer = buffer;
 
-    if (!buffer || !lovrBufferClear(buffer, 0, ~0u, 0)) {
+    if (!buffer) {
       lovrSetError("Failed to create Mesh vertex buffer: %s", lovrGetError());
+      lovrMeshDestroy(mesh);
+      return NULL;
+    }
+
+    if (!vertices && !lovrBufferClear(buffer, 0, ~0u, 0)) {
+      lovrSetError("Failed to clear Mesh vertex buffer: %s", lovrGetError());
       lovrMeshDestroy(mesh);
       return NULL;
     }
