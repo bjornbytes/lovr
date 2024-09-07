@@ -2744,6 +2744,11 @@ static bool openxr_getPass(Pass** pass) {
     return false;
   }
 
+  if (!textures[0]) {
+    *pass = NULL;
+    return true;
+  }
+
   if (!lovrPassSetCanvas(state.pass, textures, depth, state.depthFormat, state.config.antialias ? 4 : 1)) {
     return false;
   }
