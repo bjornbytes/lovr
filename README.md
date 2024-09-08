@@ -35,7 +35,7 @@ Features
 Getting Started
 ---
 
-It's really easy to get started making things with LÖVR.  Grab a copy of the executable from <https://lovr.org/download>,
+It's really easy to get started making things with LÖVR.  Grab a copy of the executable from <https://lovr.org/downloads>,
 then write a `main.lua` script and drag it onto the executable.  Here are some example projects to try:
 
 #### Hello World
