@@ -3727,7 +3727,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
 
       for (uint32_t i = 0; i < MATERIALS_PER_BLOCK; i++) {
         block->list[i].next = i + 1;
-        block->list[i].tick = state.tick - 4;
+        block->list[i].tick = 0;
         block->list[i].block = (uint16_t) blockIndex;
         block->list[i].index = i;
         block->list[i].bundle = (gpu_bundle*) ((char*) block->bundles + i * gpu_sizeof_bundle());
@@ -3769,7 +3769,6 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
   }
 
   Material* material = &block->list[block->head];
-  material->next = ~0u;
   material->ref = 1;
   material->info = *info;
 
@@ -3822,6 +3821,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
   gpu_bundle_write(&material->bundle, &bundleInfo, 1);
 
   block->head = material->next;
+  material->next = ~0u;
   return material;
 }
 
