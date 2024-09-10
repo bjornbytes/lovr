@@ -915,33 +915,38 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
 static int l_lovrGraphicsNewTextureView(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   const TextureInfo* base = lovrTextureGetInfo(texture);
-  luaL_checktype(L, 2, LUA_TTABLE);
 
-  TextureViewInfo info = { 0 };
+  TextureViewInfo info = {
+    .type = base->type,
+    .layerCount = ~0u,
+    .levelCount = ~0u
+  };
 
-  lua_getfield(L, 2, "type");
-  info.type = lua_isnil(L, -1) ? base->type : luax_checkenum(L, -1, TextureType, NULL);
-  lua_pop(L, 1);
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "type");
+    info.type = lua_isnil(L, -1) ? base->type : luax_checkenum(L, -1, TextureType, NULL);
+    lua_pop(L, 1);
 
-  lua_getfield(L, 2, "layer");
-  info.layerIndex = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1) - 1;
-  lua_pop(L, 1);
+    lua_getfield(L, 2, "layer");
+    info.layerIndex = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1) - 1;
+    lua_pop(L, 1);
 
-  lua_getfield(L, 2, "layercount");
-  info.layerCount = lua_isnil(L, -1) ? ~0u : luax_checku32(L, -1);
-  lua_pop(L, 1);
+    lua_getfield(L, 2, "layercount");
+    info.layerCount = lua_isnil(L, -1) ? ~0u : luax_checku32(L, -1);
+    lua_pop(L, 1);
 
-  lua_getfield(L, 2, "mipmap");
-  info.levelIndex = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1) - 1;
-  lua_pop(L, 1);
+    lua_getfield(L, 2, "mipmap");
+    info.levelIndex = lua_isnil(L, -1) ? 0 : luax_checku32(L, -1) - 1;
+    lua_pop(L, 1);
 
-  lua_getfield(L, 2, "mipmapcount");
-  info.levelCount = lua_isnil(L, -1) ? ~0u : luax_checku32(L, -1);
-  lua_pop(L, 1);
+    lua_getfield(L, 2, "mipmapcount");
+    info.levelCount = lua_isnil(L, -1) ? ~0u : luax_checku32(L, -1);
+    lua_pop(L, 1);
 
-  lua_getfield(L, 2, "label");
-  info.label = lua_tostring(L, -1);
-  lua_pop(L, 1);
+    lua_getfield(L, 2, "label");
+    info.label = lua_tostring(L, -1);
+    lua_pop(L, 1);
+  }
 
   Texture* view = lovrTextureCreateView(texture, &info);
   luax_assert(L, view);
