@@ -652,6 +652,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
   if (texture != info->source) {
     texture->handle = info->source->handle;
     texture->memory = NULL;
+    texture->imported = false;
     texture->layout = info->source->layout;
     texture->layers = info->layerCount ? info->layerCount : (info->source->layers - info->layerIndex);
     texture->format = info->source->format;
