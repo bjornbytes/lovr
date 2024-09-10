@@ -2611,8 +2611,8 @@ void lovrTextureDestroy(void* ref) {
     lovrRelease(texture->material, lovrMaterialDestroy);
     if (texture->root != texture) lovrRelease(texture->root, lovrTextureDestroy);
     if (texture->sampleView && texture->sampleView != texture->gpu) gpu_texture_destroy(texture->sampleView), lovrFree(texture->sampleView);
-    if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView);
-    if (texture->storageView && texture->storageView != texture->gpu) gpu_texture_destroy(texture->storageView);
+    if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView), lovrFree(texture->renderView);
+    if (texture->storageView && texture->storageView != texture->gpu) gpu_texture_destroy(texture->storageView), lovrFree(texture->storageView);
     if (texture->gpu) gpu_texture_destroy(texture->gpu);
   }
   lovrFree((char*) texture->info.label);
