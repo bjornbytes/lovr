@@ -4323,7 +4323,7 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
         continue;
       }
 
-      bool resized;
+      bool resized = false;
       Glyph* glyph = lovrFontGetGlyph(font, codepoint, &resized);
 
       if (!glyph) {
