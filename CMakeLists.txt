@@ -818,13 +818,8 @@ elseif(ANDROID)
       add_custom_command(TARGET move_files POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_SONAME_FILE:${LOVR_OPENXR}>
-        raw/lib/${ANDROID_ABI}/libopenxr_loader_generic.so
+        raw/lib/${ANDROID_ABI}/libopenxr_loader.so
       )
-
-      set(PICO_LOADER "${CMAKE_CURRENT_SOURCE_DIR}/deps/pico-openxr/libs/android.${ANDROID_ABI}/libopenxr_loader.so")
-      if(EXISTS ${PICO_LOADER})
-        configure_file(${PICO_LOADER} "raw/lib/${ANDROID_ABI}/libopenxr_loader_pico.so" COPYONLY)
-      endif()
 
       configure_file("${ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_HOST_TAG}/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "raw/lib/${ANDROID_ABI}/libc++_shared.so" COPYONLY)
     endif()
