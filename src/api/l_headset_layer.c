@@ -120,34 +120,6 @@ static int l_lovrLayerSetViewport(lua_State* L) {
   return 0;
 }
 
-static int l_lovrLayerGetSupersample(lua_State* L) {
-  Layer* layer = luax_checktype(L, 1, Layer);
-  bool supersample = lovrHeadsetInterface->getLayerFlag(layer, LAYER_SUPERSAMPLE);
-  lua_pushboolean(L, supersample);
-  return 1;
-}
-
-static int l_lovrLayerSetSupersample(lua_State* L) {
-  Layer* layer = luax_checktype(L, 1, Layer);
-  bool supersample = lua_toboolean(L, 2);
-  lovrHeadsetInterface->setLayerFlag(layer, LAYER_SUPERSAMPLE, supersample);
-  return 0;
-}
-
-static int l_lovrLayerGetSharpen(lua_State* L) {
-  Layer* layer = luax_checktype(L, 1, Layer);
-  bool sharpen = lovrHeadsetInterface->getLayerFlag(layer, LAYER_SHARPEN);
-  lua_pushboolean(L, sharpen);
-  return 1;
-}
-
-static int l_lovrLayerSetSharpen(lua_State* L) {
-  Layer* layer = luax_checktype(L, 1, Layer);
-  bool sharpen = lua_toboolean(L, 2);
-  lovrHeadsetInterface->setLayerFlag(layer, LAYER_SHARPEN, sharpen);
-  return 0;
-}
-
 static int l_lovrLayerGetTexture(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
   struct Texture* texture = lovrHeadsetInterface->getLayerTexture(layer);
@@ -177,10 +149,6 @@ const luaL_Reg lovrLayer[] = {
   { "setViewMask", l_lovrLayerSetViewMask },
   { "getViewport", l_lovrLayerGetViewport },
   { "setViewport", l_lovrLayerSetViewport },
-  { "getSupersample", l_lovrLayerGetSupersample },
-  { "setSupersample", l_lovrLayerSetSupersample },
-  { "getSharpen", l_lovrLayerGetSharpen },
-  { "setSharpen", l_lovrLayerSetSharpen },
   { "getTexture", l_lovrLayerGetTexture },
   { "getPass", l_lovrLayerGetPass },
   { NULL, NULL }

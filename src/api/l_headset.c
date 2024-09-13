@@ -624,7 +624,13 @@ static int l_lovrHeadsetSetLayers(lua_State* L) {
 static int l_lovrHeadsetNewLayer(lua_State* L) {
   uint32_t width = luax_checku32(L, 1);
   uint32_t height = luax_checku32(L, 2);
-  Layer* layer = lovrHeadsetInterface->newLayer(width, height);
+  LayerInfo info = { .filter = true };
+  if (lua_istable(L, 3)) {
+    lua_getfield(L, 3, "filter");
+    info.filter = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+  Layer* layer = lovrHeadsetInterface->newLayer(width, height, &info);
   luax_assert(L, layer);
   luax_pushtype(L, Layer, layer);
   lovrRelease(layer, lovrLayerDestroy);

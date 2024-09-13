@@ -235,6 +235,7 @@ static struct {
     bool keyboardTracking;
     bool layerDepthTest;
     bool layerSettings;
+    bool layerAutoFilter;
     bool localFloor;
     bool ml2Controller;
     bool overlay;
@@ -657,6 +658,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
       { "XR_FB_passthrough", &state.features.questPassthrough, true },
+      { "XR_META_automatic_layer_filter", &state.features.layerAutoFilter, true },
       { "XR_ML_ml2_controller_interaction", &state.features.ml2Controller, true },
       { "XR_MND_headless", &state.features.headless, true },
       { "XR_MSFT_controller_model", &state.features.controllerModel, true },
@@ -2521,15 +2523,17 @@ static bool openxr_animate(Model* model) {
   }
 }
 
-static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
+static Layer* openxr_newLayer(uint32_t width, uint32_t height, const LayerInfo* settings) {
   Layer* layer = lovrCalloc(sizeof(Layer));
   layer->ref = 1;
   layer->width = width;
   layer->height = height;
+
   if (!swapchain_init(&layer->swapchain, width, height, false, false)) {
     lovrLayerDestroy(layer);
     return NULL;
   }
+
   layer->info.type = XR_TYPE_COMPOSITION_LAYER_QUAD;
   layer->info.layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
   layer->info.layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
@@ -2540,6 +2544,7 @@ static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
   layer->info.pose.orientation.w = 1.f;
   layer->info.size.width = 1.f;
   layer->info.size.height = 1.f;
+
   if (state.features.layerDepthTest) {
     layer->depthTest.type = XR_TYPE_COMPOSITION_LAYER_DEPTH_TEST_FB;
     layer->depthTest.next = layer->info.next;
@@ -2547,9 +2552,15 @@ static Layer* openxr_newLayer(uint32_t width, uint32_t height) {
     layer->depthTest.compareOp = XR_COMPARE_OP_LESS_OR_EQUAL_FB;
     layer->info.next = &layer->depthTest;
   }
-  if (state.features.layerSettings) {
+
+  if (settings->filter && state.features.layerSettings && state.features.layerAutoFilter) {
     layer->settings.type = XR_TYPE_COMPOSITION_LAYER_SETTINGS_FB;
     layer->settings.next = layer->info.next;
+    layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_NORMAL_SUPER_SAMPLING_BIT_FB;
+    layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB;
+    layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_NORMAL_SHARPENING_BIT_FB;
+    layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB;
+    layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_AUTO_LAYER_FILTER_BIT_META;
     layer->info.next = &layer->settings;
   }
 
@@ -2635,30 +2646,6 @@ static void openxr_setLayerViewport(Layer* layer, int32_t* viewport) {
   layer->info.subImage.imageRect.offset.y = viewport[1];
   layer->info.subImage.imageRect.extent.width = viewport[2] ? viewport[2] : layer->width - viewport[0];
   layer->info.subImage.imageRect.extent.height = viewport[3] ? viewport[3] : layer->height - viewport[1];
-}
-
-static bool openxr_getLayerFlag(Layer* layer, LayerFlag flag) {
-  switch (flag) {
-    case LAYER_SUPERSAMPLE: return layer->settings.layerFlags & XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB;
-    case LAYER_SHARPEN: return layer->settings.layerFlags & XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB;
-    default: lovrUnreachable();
-  }
-}
-
-static void openxr_setLayerFlag(Layer* layer, LayerFlag flag, bool enable) {
-  XrCompositionLayerSettingsFlagsFB bit;
-
-  switch (flag) {
-    case LAYER_SUPERSAMPLE: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB; break;
-    case LAYER_SHARPEN: bit = XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB; break;
-    default: lovrUnreachable();
-  }
-
-  if (enable) {
-    layer->settings.layerFlags |= bit;
-  } else {
-    layer->settings.layerFlags &= ~bit;
-  }
 }
 
 static Texture* openxr_getLayerTexture(Layer* layer) {
@@ -3036,8 +3023,6 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .setLayerViewMask = openxr_setLayerViewMask,
   .getLayerViewport = openxr_getLayerViewport,
   .setLayerViewport = openxr_setLayerViewport,
-  .getLayerFlag = openxr_getLayerFlag,
-  .setLayerFlag = openxr_setLayerFlag,
   .getLayerTexture = openxr_getLayerTexture,
   .getLayerPass = openxr_getLayerPass,
   .getTexture = openxr_getTexture,

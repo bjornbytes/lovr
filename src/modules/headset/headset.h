@@ -129,10 +129,9 @@ typedef enum {
   EYE_RIGHT
 } ViewMask;
 
-typedef enum {
-  LAYER_SUPERSAMPLE,
-  LAYER_SHARPEN
-} LayerFlag;
+typedef struct {
+  bool filter;
+} LayerInfo;
 
 // Notes:
 // - init is called immediately, the graphics module may not exist yet
@@ -185,7 +184,7 @@ typedef struct HeadsetInterface {
   bool (*animate)(struct Model* model);
   Layer** (*getLayers)(uint32_t* count);
   bool (*setLayers)(Layer** layers, uint32_t count);
-  Layer* (*newLayer)(uint32_t width, uint32_t height);
+  Layer* (*newLayer)(uint32_t width, uint32_t height, const LayerInfo* settings);
   void (*destroyLayer)(void* ref);
   void (*getLayerPose)(Layer* layer, float* position, float* orientation);
   void (*setLayerPose)(Layer* layer, float* position, float* orientation);
@@ -195,8 +194,6 @@ typedef struct HeadsetInterface {
   void (*setLayerViewMask)(Layer* layer, ViewMask mask);
   void (*getLayerViewport)(Layer* layer, int32_t* viewport);
   void (*setLayerViewport)(Layer* layer, int32_t* viewport);
-  bool (*getLayerFlag)(Layer* layer, LayerFlag flag);
-  void (*setLayerFlag)(Layer* layer, LayerFlag flag, bool enable);
   struct Texture* (*getLayerTexture)(Layer* layer);
   struct Pass* (*getLayerPass)(Layer* layer);
   bool (*getTexture)(struct Texture** texture);

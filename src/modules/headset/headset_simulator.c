@@ -275,7 +275,7 @@ static bool simulator_animate(struct Model* model) {
   return false;
 }
 
-static Layer* simulator_newLayer(uint32_t width, uint32_t height) {
+static Layer* simulator_newLayer(uint32_t width, uint32_t height, const LayerInfo* settings) {
   Layer* layer = lovrCalloc(sizeof(Layer));
   layer->ref = 1;
   layer->textureWidth = width;
@@ -345,14 +345,6 @@ static void simulator_setLayerViewport(Layer* layer, int32_t viewport[4]) {
   memcpy(layer->viewport, viewport, 4 * sizeof(int32_t));
   if (layer->viewport[2] == 0) layer->viewport[2] = layer->width - layer->viewport[0];
   if (layer->viewport[3] == 0) layer->viewport[3] = layer->height - layer->viewport[1];
-}
-
-static bool simulator_getLayerFlag(Layer* layer, LayerFlag flag) {
-  return false;
-}
-
-static void simulator_setLayerFlag(Layer* layer, LayerFlag flag, bool enable) {
-  //
 }
 
 static struct Texture* simulator_getLayerTexture(Layer* layer) {
@@ -573,8 +565,6 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .setLayerViewMask = simulator_setLayerViewMask,
   .getLayerViewport = simulator_getLayerViewport,
   .setLayerViewport = simulator_setLayerViewport,
-  .getLayerFlag = simulator_getLayerFlag,
-  .setLayerFlag = simulator_setLayerFlag,
   .getLayerTexture = simulator_getLayerTexture,
   .getLayerPass = simulator_getLayerPass,
   .getTexture = simulator_getTexture,
