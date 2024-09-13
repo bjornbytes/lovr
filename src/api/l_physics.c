@@ -33,8 +33,6 @@ StringEntry lovrMotorMode[] = {
 
 static int l_lovrPhysicsNewWorld(lua_State* L) {
   WorldInfo info = {
-    .timestep = 1.f / 60.f,
-    .maxSteps = 0,
     .maxColliders = 16384,
     .threadSafe = true,
     .allowSleep = true,
@@ -46,14 +44,6 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
   };
 
   if (lua_istable(L, 1)) {
-    lua_getfield(L, 1, "timestep");
-    if (!lua_isnil(L, -1)) info.timestep = luax_checkfloat(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 1, "maxSteps");
-    if (!lua_isnil(L, -1)) info.maxSteps = luax_checku32(L, -1);
-    lua_pop(L, 1);
-
     lua_getfield(L, 1, "maxColliders");
     if (!lua_isnil(L, -1)) info.maxColliders = luax_checku32(L, -1);
     lua_pop(L, 1);

@@ -41,8 +41,6 @@ typedef struct {
 } WorldCallbacks;
 
 typedef struct {
-  float timestep;
-  uint32_t maxSteps;
   uint32_t maxColliders;
   bool threadSafe;
   bool allowSleep;
@@ -83,6 +81,7 @@ Joint* lovrWorldGetJoints(World* world, Joint* joint);
 void lovrWorldGetGravity(World* world, float gravity[3]);
 void lovrWorldSetGravity(World* world, float gravity[3]);
 void lovrWorldUpdate(World* world, float dt);
+void lovrWorldInterpolate(World* world, float alpha);
 bool lovrWorldRaycast(World* world, float start[3], float end[3], uint32_t filter, CastCallback* callback, void* userdata);
 bool lovrWorldShapecast(World* world, Shape* shape, float pose[7], float end[3], uint32_t filter, CastCallback* callback, void* userdata);
 bool lovrWorldOverlapShape(World* world, Shape* shape, float pose[7], uint32_t filter, OverlapCallback* callback, void* userdata);
@@ -153,10 +152,9 @@ void lovrColliderGetDegreesOfFreedom(Collider* collider, bool translation[3], bo
 void lovrColliderSetDegreesOfFreedom(Collider* collider, bool translation[3], bool rotation[3]);
 void lovrColliderGetPosition(Collider* collider, float position[3]);
 bool lovrColliderSetPosition(Collider* collider, float position[3]);
+void lovrColliderGetRawPosition(Collider* collider, float position[3]);
 void lovrColliderGetOrientation(Collider* collider, float orientation[4]);
 bool lovrColliderSetOrientation(Collider* collider, float orientation[4]);
-void lovrColliderGetRawPosition(Collider* collider, float position[3]);
-void lovrColliderGetRawOrientation(Collider* collider, float orientation[4]);
 void lovrColliderGetPose(Collider* collider, float position[3], float orientation[4]);
 bool lovrColliderSetPose(Collider* collider, float position[3], float orientation[4]);
 bool lovrColliderMoveKinematic(Collider* collider, float position[3], float orientation[4], float dt);

@@ -329,6 +329,13 @@ static int l_lovrWorldUpdate(lua_State* L) {
   return 0;
 }
 
+static int l_lovrWorldInterpolate(lua_State* L) {
+  World* world = luax_checkworld(L, 1);
+  float alpha = luax_checkfloat(L, 2);
+  lovrWorldInterpolate(world, alpha);
+  return 0;
+}
+
 static uint32_t luax_checktagmask(lua_State* L, int index, World* world) {
   if (lua_isnoneornil(L, index)) {
     return ~0u;
@@ -660,6 +667,7 @@ const luaL_Reg lovrWorld[] = {
   { "getColliders", l_lovrWorldGetColliders },
   { "getJoints", l_lovrWorldGetJoints },
   { "update", l_lovrWorldUpdate },
+  { "interpolate", l_lovrWorldInterpolate },
   { "raycast", l_lovrWorldRaycast },
   { "shapecast", l_lovrWorldShapecast },
   { "overlapShape", l_lovrWorldOverlapShape },

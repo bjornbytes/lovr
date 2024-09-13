@@ -31,9 +31,6 @@ struct World {
   float defaultLinearDamping;
   float defaultAngularDamping;
   bool defaultIsSleepingAllowed;
-  uint32_t maxSteps;
-  float time;
-  float timestep;
   float inverseDelta;
   float interpolation;
   uint32_t tagCount;
@@ -363,20 +360,15 @@ World* lovrWorldCreate(WorldInfo* info) {
     JPH_PhysicsSystem_GetBodyInterface(world->system) :
     world->bodyInterfaceNoLock;
 
-  world->timestep = info->timestep;
-  world->maxSteps = info->maxSteps;
+  world->activeColliders = lovrMalloc(info->maxColliders * sizeof(Collider*));
+  world->activationListener = JPH_BodyActivationListener_Create();
 
-  if (world->timestep > 0.f) {
-    world->activeColliders = lovrMalloc(info->maxColliders * sizeof(Collider*));
-    world->activationListener = JPH_BodyActivationListener_Create();
+  JPH_BodyActivationListener_SetProcs(world->activationListener, (JPH_BodyActivationListener_Procs) {
+    .OnBodyActivated = onAwake,
+    .OnBodyDeactivated = onSleep
+  }, world);
 
-    JPH_BodyActivationListener_SetProcs(world->activationListener, (JPH_BodyActivationListener_Procs) {
-      .OnBodyActivated = onAwake,
-      .OnBodyDeactivated = onSleep
-    }, world);
-
-    JPH_PhysicsSystem_SetBodyActivationListener(world->system, world->activationListener);
-  }
+  JPH_PhysicsSystem_SetBodyActivationListener(world->system, world->activationListener);
 
   return world;
 }
@@ -474,40 +466,25 @@ void lovrWorldSetGravity(World* world, float gravity[3]) {
 }
 
 void lovrWorldUpdate(World* world, float dt) {
-  if (world->timestep == 0.f) {
-    JPH_PhysicsSystem_Step(world->system, dt, 1);
-    world->inverseDelta = 1.f / dt;
-    return;
+  for (uint32_t i = 0; i < world->activeColliderCount; i++) {
+    Collider* collider = world->activeColliders[i];
+
+    JPH_RVec3 position;
+    JPH_Body_GetPosition(collider->body, &position);
+    vec3_fromJolt(collider->lastPosition, &position);
+
+    JPH_Quat orientation;
+    JPH_Body_GetRotation(collider->body, &orientation);
+    quat_fromJolt(collider->lastOrientation, &orientation);
   }
 
-  world->time += dt;
+  JPH_PhysicsSystem_Step(world->system, dt, 1);
+  world->inverseDelta = 1.f / dt;
+  world->interpolation = 0.f;
+}
 
-  uint32_t step = 0;
-  uint32_t lastStep = world->maxSteps - 1;
-
-  while (world->time >= world->timestep && step <= lastStep) {
-    world->time -= world->timestep;
-
-    if (world->time < world->timestep || step == lastStep) {
-      for (uint32_t i = 0; i < world->activeColliderCount; i++) {
-        Collider* collider = world->activeColliders[i];
-
-        JPH_RVec3 position;
-        JPH_Body_GetPosition(collider->body, &position);
-        vec3_fromJolt(collider->lastPosition, &position);
-
-        JPH_Quat orientation;
-        JPH_Body_GetRotation(collider->body, &orientation);
-        quat_fromJolt(collider->lastOrientation, &orientation);
-      }
-    }
-
-    JPH_PhysicsSystem_Step(world->system, world->timestep, 1);
-    world->inverseDelta = 1.f / world->timestep;
-    step++;
-  }
-
-  world->interpolation = 1.f - fmodf(world->time, world->timestep) / world->timestep;
+void lovrWorldInterpolate(World* world, float alpha) {
+  world->interpolation = 1.f - alpha;
 }
 
 typedef struct {
@@ -1567,7 +1544,7 @@ void lovrColliderGetPosition(Collider* collider, float position[3]) {
   JPH_RVec3 p;
   JPH_BodyInterface_GetPosition(getBodyInterface(collider, READ), collider->id, &p);
   vec3_fromJolt(position, &p);
-  if (collider->world->timestep > 0.f && collider->activeIndex != ~0u) {
+  if (collider->activeIndex != ~0u && collider->world->interpolation != 0.f) {
     vec3_lerp(position, collider->lastPosition, collider->world->interpolation);
   }
 }
@@ -1581,11 +1558,17 @@ bool lovrColliderSetPosition(Collider* collider, float position[3]) {
   return true;
 }
 
+void lovrColliderGetRawPosition(Collider* collider, float position[3]) {
+  JPH_RVec3 p;
+  JPH_BodyInterface_GetPosition(getBodyInterface(collider, READ), collider->id, &p);
+  vec3_fromJolt(position, &p);
+}
+
 void lovrColliderGetOrientation(Collider* collider, float orientation[4]) {
   JPH_Quat q;
   JPH_BodyInterface_GetRotation(getBodyInterface(collider, READ), collider->id, &q);
   quat_fromJolt(orientation, &q);
-  if (collider->world->timestep > 0.f && collider->activeIndex != ~0u) {
+  if (collider->activeIndex != ~0u && collider->world->interpolation != 0.f) {
     quat_slerp(orientation, collider->lastOrientation, collider->world->interpolation);
   }
 }
@@ -1599,25 +1582,13 @@ bool lovrColliderSetOrientation(Collider* collider, float orientation[4]) {
   return true;
 }
 
-void lovrColliderGetRawPosition(Collider* collider, float position[3]) {
-  JPH_RVec3 p;
-  JPH_BodyInterface_GetPosition(getBodyInterface(collider, READ), collider->id, &p);
-  vec3_fromJolt(position, &p);
-}
-
-void lovrColliderGetRawOrientation(Collider* collider, float orientation[4]) {
-  JPH_Quat q;
-  JPH_BodyInterface_GetRotation(getBodyInterface(collider, READ), collider->id, &q);
-  quat_fromJolt(orientation, &q);
-}
-
 void lovrColliderGetPose(Collider* collider, float position[3], float orientation[4]) {
   JPH_RVec3 p;
   JPH_Quat q;
   JPH_BodyInterface_GetPositionAndRotation(getBodyInterface(collider, READ), collider->id, &p, &q);
   vec3_fromJolt(position, &p);
   quat_fromJolt(orientation, &q);
-  if (collider->world->timestep > 0.f && collider->activeIndex != ~0u) {
+  if (collider->activeIndex != ~0u && collider->world->interpolation != 0.f) {
     vec3_lerp(position, collider->lastPosition, collider->world->interpolation);
     quat_slerp(orientation, collider->lastOrientation, collider->world->interpolation);
   }
