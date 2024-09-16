@@ -31,6 +31,7 @@ dev
 - Add `t.thread.workers` to configure number of worker threads.
 - Add support for declaring objects as to-be-closed variables in Lua 5.4.
 - Add variant of `lovr.physics.newWorld` that takes a table of settings.
+- Add `World:interpolate`.
 - Add `World:get/setCallbacks` and `Contact` object.
 - Add `World:getColliderCount`.
 - Add `World:getJointCount` and `World:getJoints`.
@@ -41,7 +42,6 @@ dev
 - Add `Collider:get/setDegreesOfFreedom`.
 - Add `Collider:applyLinearImpulse` and `Collider:applyAngularImpulse`.
 - Add `Collider:moveKinematic`.
-- Add `Collider:getRawPosition`, `Collider:getRawOrientation`, and `Collider:getRawPose`.
 - Add `Collider:getShape`.
 - Add `Collider:is/setSensor` (replaces `Shape:is/setSensor`).
 - Add `Collider:get/setInertia`.
@@ -59,6 +59,7 @@ dev
 - Add `:get/setSpring` to `DistanceJoint`, `HingeJoint`, and `SliderJoint`.
 - Add `HingeJoint:get/setFriction` and `SliderJoint:get/setFriction`.
 - Add `SliderJoint:getAnchors`.
+- Add `Shape:raycast` and `Shape:containsPoint`.
 - Add `Shape:get/setDensity`.
 - Add `Shape:getMass/Volume/Inertia/CenterOfMass`.
 - Add `Shape:get/setOffset`.
@@ -72,7 +73,6 @@ dev
 
 ### Change
 
-- Change `lovr.physics` to use a fixed timestep by default, with automatic Collider interpolation.
 - Change nogame screen to be bundled as a fused zip archive.
 - Change `Mesh:setMaterial` to also take a `Texture`.
 - Change shader syntax to no longer require set/binding numbers for buffer/texture variables.
@@ -98,6 +98,7 @@ dev
 - Change `tostring` on objects to also include their pointers.
 - Change `desktop` HeadsetDriver to be named `simulator`.
 - Change `--graphics-debug` CLI flag to be named `--debug`.
+- Change `--version` and `lovr.getVersion` to also return the git commit hash.
 
 ### Fix
 
