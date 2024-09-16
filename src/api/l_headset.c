@@ -13,6 +13,13 @@ StringEntry lovrHeadsetDriver[] = {
   { 0 }
 };
 
+StringEntry lovrControllerSkeletonMode[] = {
+  [SKELETON_NONE] = ENTRY("none"),
+  [SKELETON_CONTROLLER] = ENTRY("controller"),
+  [SKELETON_NATURAL] = ENTRY("natural"),
+  { 0 }
+};
+
 StringEntry lovrPassthroughMode[] = {
   [PASSTHROUGH_OPAQUE] = ENTRY("opaque"),
   [PASSTHROUGH_BLEND] = ENTRY("blend"),
@@ -498,7 +505,8 @@ static int l_lovrHeadsetGetAxis(lua_State* L) {
 static int l_lovrHeadsetGetSkeleton(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float poses[HAND_JOINT_COUNT * 8];
-  if (lovrHeadsetInterface->getSkeleton(device, poses)) {
+  bool controller = false;
+  if (lovrHeadsetInterface->getSkeleton(device, poses, &controller)) {
     if (!lua_istable(L, 2)) {
       lua_createtable(L, HAND_JOINT_COUNT, 0);
     } else {
@@ -533,6 +541,9 @@ static int l_lovrHeadsetGetSkeleton(lua_State* L) {
 
       lua_rawseti(L, -2, i + 1);
     }
+
+    lua_pushboolean(L, controller);
+    lua_setfield(L, -2, "controller");
 
     return 1;
   }
@@ -800,7 +811,8 @@ int luaopen_lovr_headset(lua_State* L) {
     .antialias = true,
     .submitDepth = true,
     .overlay = false,
-    .overlayOrder = 0
+    .overlayOrder = 0,
+    .controllerSkeleton = SKELETON_CONTROLLER
   };
 
   luax_pushconf(L);
@@ -851,6 +863,10 @@ int luaopen_lovr_headset(lua_State* L) {
       lua_getfield(L, -1, "overlay");
       config.overlay = lua_toboolean(L, -1);
       config.overlayOrder = lua_type(L, -1) == LUA_TNUMBER ? luax_optu32(L, -1, 0) : 0;
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "controllerskeleton");
+      if (!lua_isnil(L, -1)) config.controllerSkeleton = luax_checkenum(L, -1, ControllerSkeletonMode, NULL);
       lua_pop(L, 1);
     }
     lua_pop(L, 1);

@@ -229,8 +229,10 @@ static struct {
     bool handInteraction;
     bool handTracking;
     bool handTrackingAim;
+    bool handTrackingDataSource;
     bool handTrackingElbow;
     bool handTrackingMesh;
+    bool handTrackingMotionRange;
     bool headless;
     bool keyboardTracking;
     bool layerDepthTest;
@@ -393,6 +395,19 @@ static XrHandTrackerEXT getHandTracker(Device device) {
         XR_HAND_JOINT_SET_DEFAULT_EXT,
       .hand = device == DEVICE_HAND_RIGHT ? XR_HAND_RIGHT_EXT : XR_HAND_LEFT_EXT
     };
+
+    XrHandTrackingDataSourceInfoEXT sourceInfo = {
+      .type = XR_TYPE_HAND_TRACKING_DATA_SOURCE_INFO_EXT,
+      .requestedDataSourceCount = 1,
+      .requestedDataSources = (XrHandTrackingDataSourceEXT[1]) {
+        XR_HAND_TRACKING_DATA_SOURCE_UNOBSTRUCTED_EXT
+      }
+    };
+
+    if (state.features.handTrackingDataSource && state.config.controllerSkeleton == SKELETON_NONE) {
+      sourceInfo.next = info.next;
+      info.next = &sourceInfo;
+    }
 
     if (XR_FAILED(xrCreateHandTrackerEXT(state.session, &info, tracker))) {
       return XR_NULL_HANDLE;
@@ -647,7 +662,9 @@ static bool openxr_init(HeadsetConfig* config) {
 #endif
       { "XR_EXT_eye_gaze_interaction", &state.features.gaze, true },
       { "XR_EXT_hand_interaction", &state.features.handInteraction, true },
+      { "XR_EXT_hand_joints_motion_range", &state.features.handTrackingMotionRange, true },
       { "XR_EXT_hand_tracking", &state.features.handTracking, true },
+      { "XR_EXT_hand_tracking_data_source", &state.features.handTrackingDataSource, true },
       { "XR_EXT_local_floor", &state.features.localFloor, true },
       { "XR_EXT_user_presence", &state.features.presence, true },
       { "XR_BD_controller_interaction", &state.features.picoController, true },
@@ -2066,7 +2083,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
   }
 }
 
-static bool openxr_getSkeleton(Device device, float* poses) {
+static bool openxr_getSkeleton(Device device, float* poses, bool* controller) {
   XrHandTrackerEXT tracker = getHandTracker(device);
 
   if (!tracker || state.frameState.predictedDisplayTime <= 0) {
@@ -2079,12 +2096,33 @@ static bool openxr_getSkeleton(Device device, float* poses) {
     .time = state.frameState.predictedDisplayTime
   };
 
+  XrHandJointsMotionRangeInfoEXT motionRange = {
+    .type = XR_TYPE_HAND_JOINTS_MOTION_RANGE_INFO_EXT,
+    .handJointsMotionRange = state.config.controllerSkeleton == SKELETON_CONTROLLER ?
+      XR_HAND_JOINTS_MOTION_RANGE_CONFORMING_TO_CONTROLLER_EXT :
+      XR_HAND_JOINTS_MOTION_RANGE_UNOBSTRUCTED_EXT
+  };
+
+  if (state.features.handTrackingMotionRange) {
+    motionRange.next = info.next;
+    info.next = &motionRange;
+  }
+
   XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
   XrHandJointLocationsEXT hand = {
     .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
     .jointCount = 26 + state.features.handTrackingElbow,
     .jointLocations = joints
   };
+
+  XrHandTrackingDataSourceStateEXT source = {
+    .type = XR_TYPE_HAND_TRACKING_DATA_SOURCE_STATE_EXT
+  };
+
+  if (state.features.handTrackingDataSource) {
+    source.next = hand.next;
+    hand.next = &source;
+  }
 
   if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
     return false;
@@ -2096,6 +2134,12 @@ static bool openxr_getSkeleton(Device device, float* poses) {
     pose[3] = joints[i].radius;
     memcpy(pose + 4, &joints[i].pose.orientation.x, 4 * sizeof(float));
     pose += 8;
+  }
+
+  if (state.features.handTrackingDataSource) {
+    *controller = source.dataSource == XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT;
+  } else {
+    *controller = false;
   }
 
   return true;
