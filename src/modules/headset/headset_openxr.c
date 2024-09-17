@@ -398,13 +398,14 @@ static XrHandTrackerEXT getHandTracker(Device device) {
 
     XrHandTrackingDataSourceInfoEXT sourceInfo = {
       .type = XR_TYPE_HAND_TRACKING_DATA_SOURCE_INFO_EXT,
-      .requestedDataSourceCount = 1,
-      .requestedDataSources = (XrHandTrackingDataSourceEXT[1]) {
-        XR_HAND_TRACKING_DATA_SOURCE_UNOBSTRUCTED_EXT
+      .requestedDataSourceCount = state.config.controllerSkeleton == SKELETON_NONE ? 1 : 2,
+      .requestedDataSources = (XrHandTrackingDataSourceEXT[2]) {
+        XR_HAND_TRACKING_DATA_SOURCE_UNOBSTRUCTED_EXT,
+        XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT
       }
     };
 
-    if (state.features.handTrackingDataSource && state.config.controllerSkeleton == SKELETON_NONE) {
+    if (state.features.handTrackingDataSource) {
       sourceInfo.next = info.next;
       info.next = &sourceInfo;
     }
