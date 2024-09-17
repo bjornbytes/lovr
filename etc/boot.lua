@@ -36,7 +36,8 @@ local conf = {
     stencil = false,
     antialias = true,
     submitdepth = true,
-    overlay = false
+    overlay = false,
+    controllerSkeleton = 'controller'
   },
   math = {
     globals = true
