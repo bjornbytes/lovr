@@ -37,7 +37,7 @@ local conf = {
     antialias = true,
     submitdepth = true,
     overlay = false,
-    controllerSkeleton = 'controller'
+    controllerskeleton = 'controller'
   },
   math = {
     globals = true
