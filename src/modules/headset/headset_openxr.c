@@ -2616,12 +2616,12 @@ static void openxr_setLayerPose(Layer* layer, float position[3], float orientati
   memcpy(&layer->info.pose.orientation.x, orientation, 4 * sizeof(float));
 }
 
-static void openxr_getLayerSize(Layer* layer, float* width, float* height) {
+static void openxr_getLayerDimensions(Layer* layer, float* width, float* height) {
   *width = layer->info.size.width;
   *height = layer->info.size.height;
 }
 
-static void openxr_setLayerSize(Layer* layer, float width, float height) {
+static void openxr_setLayerDimensions(Layer* layer, float width, float height) {
   layer->info.size.width = width;
   layer->info.size.height = height;
 }
@@ -3017,8 +3017,8 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .setLayers = openxr_setLayers,
   .getLayerPose = openxr_getLayerPose,
   .setLayerPose = openxr_setLayerPose,
-  .getLayerSize = openxr_getLayerSize,
-  .setLayerSize = openxr_setLayerSize,
+  .getLayerDimensions = openxr_getLayerDimensions,
+  .setLayerDimensions = openxr_setLayerDimensions,
   .getLayerViewMask = openxr_getLayerViewMask,
   .setLayerViewMask = openxr_setLayerViewMask,
   .getLayerViewport = openxr_getLayerViewport,

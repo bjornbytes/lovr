@@ -319,12 +319,12 @@ static void simulator_setLayerPose(Layer* layer, float* position, float* orienta
   memcpy(layer->orientation, orientation, 4 * sizeof(float));
 }
 
-static void simulator_getLayerSize(Layer* layer, float* width, float* height) {
+static void simulator_getLayerDimensions(Layer* layer, float* width, float* height) {
   *width = layer->width;
   *height = layer->height;
 }
 
-static void simulator_setLayerSize(Layer* layer, float width, float height) {
+static void simulator_setLayerDimensions(Layer* layer, float width, float height) {
   layer->width = width;
   layer->height = height;
 }
@@ -559,8 +559,8 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .setLayers = simulator_setLayers,
   .getLayerPose = simulator_getLayerPose,
   .setLayerPose = simulator_setLayerPose,
-  .getLayerSize = simulator_getLayerSize,
-  .setLayerSize = simulator_setLayerSize,
+  .getLayerDimensions = simulator_getLayerDimensions,
+  .setLayerDimensions = simulator_setLayerDimensions,
   .getLayerViewMask = simulator_getLayerViewMask,
   .setLayerViewMask = simulator_setLayerViewMask,
   .getLayerViewport = simulator_getLayerViewport,

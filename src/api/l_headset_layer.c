@@ -67,20 +67,20 @@ static int l_lovrLayerSetPose(lua_State* L) {
   return 0;
 }
 
-static int l_lovrLayerGetSize(lua_State* L) {
+static int l_lovrLayerGetDimensions(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
   float width, height;
-  lovrHeadsetInterface->getLayerSize(layer, &width, &height);
+  lovrHeadsetInterface->getLayerDimensions(layer, &width, &height);
   lua_pushnumber(L, width);
   lua_pushnumber(L, height);
   return 2;
 }
 
-static int l_lovrLayerSetSize(lua_State* L) {
+static int l_lovrLayerSetDimensions(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
   float width = luax_checkfloat(L, 2);
   float height = luax_checkfloat(L, 3);
-  lovrHeadsetInterface->setLayerSize(layer, width, height);
+  lovrHeadsetInterface->setLayerDimensions(layer, width, height);
   return 0;
 }
 
@@ -143,8 +143,8 @@ const luaL_Reg lovrLayer[] = {
   { "setOrientation", l_lovrLayerSetOrientation },
   { "getPose", l_lovrLayerGetPose },
   { "setPose", l_lovrLayerSetPose },
-  { "getSize", l_lovrLayerGetSize },
-  { "setSize", l_lovrLayerSetSize },
+  { "getDimensions", l_lovrLayerGetDimensions },
+  { "setDimensions", l_lovrLayerSetDimensions },
   { "getViewMask", l_lovrLayerGetViewMask },
   { "setViewMask", l_lovrLayerSetViewMask },
   { "getViewport", l_lovrLayerGetViewport },
