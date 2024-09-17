@@ -28,7 +28,7 @@ extern bool webxr_getVelocity(Device device, float* velocity, float* angularVelo
 extern bool webxr_isDown(Device device, DeviceButton button, bool* down, bool* changed);
 extern bool webxr_isTouched(Device device, DeviceButton button, bool* touched);
 extern bool webxr_getAxis(Device device, DeviceAxis axis, float* value);
-extern bool webxr_getSkeleton(Device device, float* poses, bool* controller);
+extern bool webxr_getSkeleton(Device device, float* poses, SkeletonSource* source);
 extern bool webxr_vibrate(Device device, float strength, float duration, float frequency);
 extern void webxr_stopVibration(Device device);
 extern struct ModelData* webxr_newModelData(Device device, bool animated);

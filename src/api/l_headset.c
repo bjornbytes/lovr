@@ -505,8 +505,8 @@ static int l_lovrHeadsetGetAxis(lua_State* L) {
 static int l_lovrHeadsetGetSkeleton(lua_State* L) {
   Device device = luax_optdevice(L, 1);
   float poses[HAND_JOINT_COUNT * 8];
-  bool controller = false;
-  if (lovrHeadsetInterface->getSkeleton(device, poses, &controller)) {
+  SkeletonSource source = SOURCE_UNKNOWN;
+  if (lovrHeadsetInterface->getSkeleton(device, poses, &source)) {
     if (!lua_istable(L, 2)) {
       lua_createtable(L, HAND_JOINT_COUNT, 0);
     } else {
@@ -542,8 +542,10 @@ static int l_lovrHeadsetGetSkeleton(lua_State* L) {
       lua_rawseti(L, -2, i + 1);
     }
 
-    lua_pushboolean(L, controller);
-    lua_setfield(L, -2, "controller");
+    if (source != SOURCE_UNKNOWN) {
+      lua_pushboolean(L, source == SOURCE_CONTROLLER);
+      lua_setfield(L, -2, "controller");
+    }
 
     return 1;
   }

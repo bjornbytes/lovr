@@ -2084,7 +2084,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
   }
 }
 
-static bool openxr_getSkeleton(Device device, float* poses, bool* controller) {
+static bool openxr_getSkeleton(Device device, float* poses, SkeletonSource* source) {
   XrHandTrackerEXT tracker = getHandTracker(device);
 
   if (!tracker || state.frameState.predictedDisplayTime <= 0) {
@@ -2116,13 +2116,13 @@ static bool openxr_getSkeleton(Device device, float* poses, bool* controller) {
     .jointLocations = joints
   };
 
-  XrHandTrackingDataSourceStateEXT source = {
+  XrHandTrackingDataSourceStateEXT sourceState = {
     .type = XR_TYPE_HAND_TRACKING_DATA_SOURCE_STATE_EXT
   };
 
   if (state.features.handTrackingDataSource) {
-    source.next = hand.next;
-    hand.next = &source;
+    sourceState.next = hand.next;
+    hand.next = &sourceState;
   }
 
   if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand)) || !hand.isActive) {
@@ -2138,9 +2138,9 @@ static bool openxr_getSkeleton(Device device, float* poses, bool* controller) {
   }
 
   if (state.features.handTrackingDataSource) {
-    *controller = source.dataSource == XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT;
+    *source = sourceState.dataSource == XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT ? SOURCE_CONTROLLER : SOURCE_HAND;
   } else {
-    *controller = false;
+    *source = SOURCE_UNKNOWN;
   }
 
   return true;

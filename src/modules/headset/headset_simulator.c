@@ -255,7 +255,7 @@ static bool simulator_getAxis(Device device, DeviceAxis axis, vec3 value) {
   return false;
 }
 
-static bool simulator_getSkeleton(Device device, float* poses, bool* controller) {
+static bool simulator_getSkeleton(Device device, float* poses, SkeletonSource* source) {
   return false;
 }
 
