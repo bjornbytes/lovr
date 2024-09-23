@@ -20,6 +20,12 @@ typedef enum {
   DRIVER_WEBXR
 } HeadsetDriver;
 
+typedef enum {
+  SKELETON_NONE,
+  SKELETON_CONTROLLER,
+  SKELETON_NATURAL
+} ControllerSkeletonMode;
+
 typedef struct {
   HeadsetDriver* drivers;
   size_t driverCount;
@@ -30,6 +36,7 @@ typedef struct {
   bool submitDepth;
   bool overlay;
   uint32_t overlayOrder;
+  ControllerSkeletonMode controllerSkeleton;
 } HeadsetConfig;
 
 typedef enum {
@@ -124,6 +131,12 @@ typedef enum {
 } HandJoint;
 
 typedef enum {
+  SOURCE_UNKNOWN,
+  SOURCE_CONTROLLER,
+  SOURCE_HAND
+} SkeletonSource;
+
+typedef enum {
   EYE_BOTH,
   EYE_LEFT,
   EYE_RIGHT
@@ -177,7 +190,7 @@ typedef struct HeadsetInterface {
   bool (*isDown)(Device device, DeviceButton button, bool* down, bool* changed);
   bool (*isTouched)(Device device, DeviceButton button, bool* touched);
   bool (*getAxis)(Device device, DeviceAxis axis, float* value);
-  bool (*getSkeleton)(Device device, float* poses);
+  bool (*getSkeleton)(Device device, float* poses, SkeletonSource* source);
   bool (*vibrate)(Device device, float strength, float duration, float frequency);
   void (*stopVibration)(Device device);
   struct ModelData* (*newModelData)(Device device, bool animated);

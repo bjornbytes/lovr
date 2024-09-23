@@ -374,7 +374,7 @@ var webxr = {
   },
 
   webxr_getSkeleton__deps: ['$writePose'],
-  webxr_getSkeleton: function(device, poses) {
+  webxr_getSkeleton: function(device, poses, source) {
     var inputSource = state.hands[device];
 
     if (!inputSource || !inputSource.hand) {
