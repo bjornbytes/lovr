@@ -115,7 +115,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrPassthroughStartFB)\
   X(xrPassthroughPauseFB)\
   X(xrCreatePassthroughLayerFB)\
-  X(xrDestroyPassthroughLayerFB)
+  X(xrDestroyPassthroughLayerFB)\
+  X(xrGetPassthroughPreferencesMETA)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -241,6 +242,7 @@ static struct {
     bool localFloor;
     bool ml2Controller;
     bool overlay;
+    bool passthroughPreferences;
     bool picoController;
     bool presence;
     bool questPassthrough;
@@ -677,6 +679,7 @@ static bool openxr_init(HeadsetConfig* config) {
       { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
       { "XR_FB_passthrough", &state.features.questPassthrough, true },
       { "XR_META_automatic_layer_filter", &state.features.layerAutoFilter, true },
+      { "XR_META_passthrough_preferences", &state.features.passthroughPreferences, true },
       { "XR_ML_ml2_controller_interaction", &state.features.ml2Controller, true },
       { "XR_MND_headless", &state.features.headless, true },
       { "XR_MSFT_controller_model", &state.features.controllerModel, true },
@@ -1548,6 +1551,12 @@ static bool openxr_start(void) {
     }
   }
 
+  // On Quest, ask for the default passthrough mode at startup (will check preference and enable
+  // passthrough if needed)
+  if (state.features.passthroughPreferences && state.features.questPassthrough) {
+    lovrHeadsetInterface->setPassthrough(PASSTHROUGH_DEFAULT);
+  }
+
   if (state.features.refreshRate) {
     XRG(xrEnumerateDisplayRefreshRatesFB(state.session, 0, &state.refreshRateCount, NULL), "xrEnumerateDisplayRefreshRatesFB", stop);
     state.refreshRates = lovrMalloc(state.refreshRateCount * sizeof(float));
@@ -1654,6 +1663,10 @@ static XrEnvironmentBlendMode convertPassthroughMode(PassthroughMode mode) {
 }
 
 static PassthroughMode openxr_getPassthrough(void) {
+  if (state.features.questPassthrough) {
+    return state.passthroughActive ? PASSTHROUGH_BLEND : PASSTHROUGH_OPAQUE;
+  }
+
   switch (state.blendMode) {
     case XR_ENVIRONMENT_BLEND_MODE_OPAQUE: return PASSTHROUGH_OPAQUE;
     case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND: return PASSTHROUGH_BLEND;
@@ -1666,6 +1679,26 @@ static bool openxr_setPassthrough(PassthroughMode mode) {
   if (state.features.questPassthrough) {
     if (mode == PASSTHROUGH_ADD) {
       return false;
+    }
+
+    if (mode == PASSTHROUGH_DEFAULT && state.features.passthroughPreferences) {
+      XrPassthroughPreferencesMETA preferences = {
+        .type = XR_TYPE_PASSTHROUGH_PREFERENCES_META
+      };
+
+      xrGetPassthroughPreferencesMETA(state.session, &preferences);
+
+      if (preferences.flags & XR_PASSTHROUGH_PREFERENCE_DEFAULT_TO_ACTIVE_BIT_META) {
+        mode = PASSTHROUGH_BLEND;
+      } else {
+        mode = PASSTHROUGH_OPAQUE;
+      }
+    }
+
+    bool enable = mode == PASSTHROUGH_BLEND || mode == PASSTHROUGH_TRANSPARENT;
+
+    if (state.passthroughActive == enable) {
+      return true;
     }
 
     if (!state.passthrough) {
@@ -1692,12 +1725,6 @@ static bool openxr_setPassthrough(PassthroughMode mode) {
         .type = XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB,
         .layerHandle = state.passthroughLayerHandle
       };
-    }
-
-    bool enable = mode == PASSTHROUGH_BLEND || mode == PASSTHROUGH_TRANSPARENT;
-
-    if (state.passthroughActive == enable) {
-      return true;
     }
 
     if (enable) {
