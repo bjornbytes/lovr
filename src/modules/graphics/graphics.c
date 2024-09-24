@@ -4187,7 +4187,6 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     totalLength += strings[i].length;
   }
 
-  beginFrame();
   size_t stack = tempPush(&state.allocator);
   char* string = tempAlloc(&state.allocator, totalLength + 1);
   string[totalLength] = '\0';
@@ -7578,6 +7577,10 @@ bool lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
   size_t totalLength = 0;
   for (uint32_t i = 0; i < count; i++) {
     totalLength += strings[i].length;
+  }
+
+  if (!beginFrame()) {
+    return false;
   }
 
   size_t stack = tempPush(&state.allocator);
