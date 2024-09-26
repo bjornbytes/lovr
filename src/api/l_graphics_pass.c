@@ -880,7 +880,7 @@ static int l_lovrPassCylinder(lua_State* L) {
   float angle1 = luax_optfloat(L, index++, 0.f);
   float angle2 = luax_optfloat(L, index++, 2.f * (float) M_PI);
   uint32_t segments = luax_optu32(L, index++, 64);
-  lovrPassCylinder(pass, transform, capped, angle1, angle2, segments);
+  luax_assert(L, lovrPassCylinder(pass, transform, capped, angle1, angle2, segments));
   return 0;
 }
 
@@ -889,7 +889,7 @@ static int l_lovrPassCone(lua_State* L) {
   float transform[16];
   int index = luax_checkendpoints(L, 2, transform, false) ? 5 : luax_readmat4(L, 2, transform, -2);
   uint32_t segments = luax_optu32(L, index, 64);
-  lovrPassCone(pass, transform, segments);
+  luax_assert(L, lovrPassCone(pass, transform, segments));
   return 0;
 }
 
@@ -898,7 +898,7 @@ static int l_lovrPassCapsule(lua_State* L) {
   float transform[16];
   int index = luax_checkendpoints(L, 2, transform, true) ? 5 : luax_readmat4(L, 2, transform, -2);
   uint32_t segments = luax_optu32(L, index, 32);
-  lovrPassCapsule(pass, transform, segments);
+  luax_assert(L, lovrPassCapsule(pass, transform, segments));
   return 0;
 }
 
@@ -908,7 +908,7 @@ static int l_lovrPassTorus(lua_State* L) {
   int index = luax_readmat4(L, 2, transform, -2);
   uint32_t segmentsT = luax_optu32(L, index++, 64);
   uint32_t segmentsP = luax_optu32(L, index++, segmentsT / 2);
-  lovrPassTorus(pass, transform, segmentsT, segmentsP);
+  luax_assert(L, lovrPassTorus(pass, transform, segmentsT, segmentsP));
   return 0;
 }
 
@@ -922,7 +922,7 @@ static int l_lovrPassText(lua_State* L) {
   float wrap = luax_optfloat(L, index++, 0.);
   HorizontalAlign halign = luax_checkenum(L, index++, HorizontalAlign, "center");
   VerticalAlign valign = luax_checkenum(L, index++, VerticalAlign, "middle");
-  lovrPassText(pass, strings, count, transform, wrap, halign, valign);
+  luax_assert(L, lovrPassText(pass, strings, count, transform, wrap, halign, valign));
   if (strings != &stack) lovrFree(strings);
   return 0;
 }
@@ -930,14 +930,14 @@ static int l_lovrPassText(lua_State* L) {
 static int l_lovrPassSkybox(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Texture* texture = luax_totype(L, 2, Texture);
-  lovrPassSkybox(pass, texture);
+  luax_assert(L, lovrPassSkybox(pass, texture));
   return 0;
 }
 
 static int l_lovrPassFill(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Texture* texture = luax_totype(L, 2, Texture);
-  lovrPassFill(pass, texture);
+  luax_assert(L, lovrPassFill(pass, texture));
   return 0;
 }
 
@@ -945,7 +945,7 @@ static int l_lovrPassMonkey(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   float transform[16];
   luax_readmat4(L, 2, transform, 1);
-  lovrPassMonkey(pass, transform);
+  luax_assert(L, lovrPassMonkey(pass, transform));
   return 0;
 }
 
@@ -958,7 +958,7 @@ static int l_lovrPassDraw(lua_State* L) {
   if (model) {
     int index = luax_readmat4(L, 3, transform, 1);
     uint32_t instances = luax_optu32(L, index, 1);
-    lovrPassDrawModel(pass, model, transform, instances);
+    luax_assert(L, lovrPassDrawModel(pass, model, transform, instances));
     return 0;
   }
 
@@ -967,7 +967,7 @@ static int l_lovrPassDraw(lua_State* L) {
   if (mesh) {
     int index = luax_readmat4(L, 3, transform, 1);
     uint32_t instances = luax_optu32(L, index, 1);
-    lovrPassDrawMesh(pass, mesh, transform, instances);
+    luax_assert(L, lovrPassDrawMesh(pass, mesh, transform, instances));
     return 0;
   }
 
@@ -976,7 +976,7 @@ static int l_lovrPassDraw(lua_State* L) {
   if (texture) {
     float transform[16];
     luax_readmat4(L, 3, transform, 1);
-    lovrPassDrawTexture(pass, texture, transform);
+    luax_assert(L, lovrPassDrawTexture(pass, texture, transform));
     return 0;
   }
 
@@ -992,7 +992,7 @@ static int l_lovrPassMesh(lua_State* L) {
     uint32_t count = luax_optu32(L, 5, 1);
     uint32_t offset = luax_optu32(L, 6, 0);
     uint32_t stride = luax_optu32(L, 7, 0);
-    lovrPassMeshIndirect(pass, vertices, indices, indirect, count, offset, stride);
+    luax_assert(L, lovrPassMeshIndirect(pass, vertices, indices, indirect, count, offset, stride));
   } else {
     float transform[16];
     int index = luax_readmat4(L, indices ? 4 : 3, transform, 1);
@@ -1003,7 +1003,7 @@ static int l_lovrPassMesh(lua_State* L) {
     if (count == ~0u && lua_type(L, 2) == LUA_TNUMBER) {
       count = lua_tointeger(L, 2);
     }
-    lovrPassMesh(pass, vertices, indices, transform, start, count, instances, baseVertex);
+    luax_assert(L, lovrPassMesh(pass, vertices, indices, transform, start, count, instances, baseVertex));
   }
   return 0;
 }
