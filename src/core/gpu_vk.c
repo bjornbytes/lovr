@@ -606,6 +606,16 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
         vkCmdPipelineBarrier2KHR(commands, &barrier);
 
         for (uint32_t i = levelCount; i < info->mipmaps; i++) {
+          transition.srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR;
+          transition.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
+          transition.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
+          transition.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
+          transition.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+          transition.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+          transition.subresourceRange.baseMipLevel = i;
+          transition.subresourceRange.levelCount = 1;
+          vkCmdPipelineBarrier2KHR(commands, &barrier);
+
           VkImageBlit region = {
             .srcSubresource = {
               .aspectMask = texture->aspect,
@@ -620,6 +630,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
             .srcOffsets[1] = { MAX(info->size[0] >> (i - 1), 1), MAX(info->size[1] >> (i - 1), 1), 1 },
             .dstOffsets[1] = { MAX(info->size[0] >> i, 1), MAX(info->size[1] >> i, 1), 1 }
           };
+
           vkCmdBlitImage(commands, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_LINEAR);
 
           transition.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
