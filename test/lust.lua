@@ -115,6 +115,21 @@ local function eq(t1, t2, eps)
   return true
 end
 
+local function stringify(t)
+  if type(t) == 'string' then return "'" .. tostring(t) .. "'" end
+  if type(t) ~= 'table' or getmetatable(t) and getmetatable(t).__tostring then return tostring(t) end
+  local strings = {}
+  for i, v in ipairs(t) do
+    strings[#strings + 1] = stringify(v)
+  end
+  for k, v in pairs(t) do
+    if type(k) ~= 'number' or k > #t or k < 1 then
+      strings[#strings + 1] = ('[%s] = %s'):format(stringify(k), stringify(v))
+    end
+  end
+  return '{ ' .. table.concat(strings, ', ') .. ' }'
+end
+
 local paths = {
   [''] = { 'to', 'to_not' },
   to = { 'have', 'equal', 'be', 'exist', 'fail', 'match' },
@@ -144,8 +159,16 @@ local paths = {
   },
   equal = {
     test = function(v, x, eps)
-      return eq(v, x, eps),
-        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to be equal',
+      local comparison = ''
+      local equal = eq(v, x, eps)
+
+      if not equal and (type(v) == 'table' or type(x) == 'table') then
+        comparison = comparison .. '\n' .. indent(lust.level + 1) .. 'LHS: ' .. stringify(v)
+        comparison = comparison .. '\n' .. indent(lust.level + 1) .. 'RHS: ' .. stringify(x)
+      end
+
+      return equal,
+        'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to be equal' .. comparison,
         'expected ' .. tostring(v) .. ' and ' .. tostring(x) .. ' to not be equal'
     end
   },
