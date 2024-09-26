@@ -746,6 +746,11 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   memcpy(view.pointer, defaultBufferData, sizeof(defaultBufferData));
   gpu_copy_buffers(state.stream, view.buffer, state.defaultBuffer->gpu, view.offset, state.defaultBuffer->base, sizeof(defaultBufferData));
 
+  state.barrier.prev |= GPU_PHASE_COPY;
+  state.barrier.next |= GPU_PHASE_INPUT_VERTEX | GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
+  state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
+  state.barrier.clear |= GPU_CACHE_VERTEX | GPU_CACHE_UNIFORM | GPU_CACHE_STORAGE_READ;
+
   // Default Texture
 
   Image* image = lovrImageCreateRaw(4, 4, FORMAT_RGBA8, false);
