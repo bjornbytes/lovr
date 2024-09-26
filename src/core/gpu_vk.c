@@ -37,6 +37,7 @@ struct gpu_texture {
   VkImageAspectFlagBits aspect;
   VkImageLayout layout;
   uint32_t layers;
+  uint8_t baseLevel;
   uint8_t format;
   bool imported;
   bool srgb;
@@ -441,6 +442,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   texture->layout = getNaturalLayout(info->usage, texture->aspect);
   texture->layers = info->type == GPU_TEXTURE_3D ? 0 : info->size[2];
+  texture->baseLevel = 0;
   texture->format = info->format;
   texture->srgb = info->srgb;
 
@@ -655,6 +657,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     texture->imported = false;
     texture->layout = info->source->layout;
     texture->layers = info->layerCount ? info->layerCount : (info->source->layers - info->layerIndex);
+    texture->baseLevel = info->levelIndex;
     texture->format = info->source->format;
     texture->srgb = info->srgb;
 
@@ -3103,7 +3106,8 @@ static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve,
       .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
       .image = texture->handle,
       .subresourceRange.aspectMask = texture->aspect,
-      .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
+      .subresourceRange.baseMipLevel = texture->baseLevel,
+      .subresourceRange.levelCount = 1,
       .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
     };
   } else {
@@ -3117,7 +3121,8 @@ static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve,
       .newLayout = texture->layout,
       .image = texture->handle,
       .subresourceRange.aspectMask = texture->aspect,
-      .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
+      .subresourceRange.baseMipLevel = texture->baseLevel,
+      .subresourceRange.levelCount = 1,
       .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
     };
   }
