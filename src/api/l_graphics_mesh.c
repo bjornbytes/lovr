@@ -268,7 +268,7 @@ static int l_lovrMeshSetDrawRange(lua_State* L) {
   } else {
     uint32_t start = luax_checku32(L, 2) - 1;
     uint32_t count = luax_checku32(L, 3);
-    uint32_t offset = luax_optu32(L, 3, 0);
+    uint32_t offset = luax_optu32(L, 4, 0);
     luax_assert(L, lovrMeshSetDrawRange(mesh, start, count, offset));
   }
 

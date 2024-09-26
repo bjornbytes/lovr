@@ -373,6 +373,12 @@ group('graphics', function()
         expect(mesh:getVertexBuffer():getData()).to.equal({{ x = 42 }})
       end)
     end)
+
+    test(':setDrawRange', function()
+      mesh = lovr.graphics.newMesh({{ 1, 2, 3 }, { 4, 5, 6 }, { 7, 8, 9 }})
+      mesh:setDrawRange(1, 3, 2)
+      expect({ mesh:getDrawRange() }).to.equal({ 1, 3, 2 })
+    end)
   end)
 
   group('Pass', function()
