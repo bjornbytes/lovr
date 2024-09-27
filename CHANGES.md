@@ -99,6 +99,7 @@ dev
 - Change `desktop` HeadsetDriver to be named `simulator`.
 - Change `--graphics-debug` CLI flag to be named `--debug`.
 - Change `--version` and `lovr.getVersion` to also return the git commit hash.
+- Change `Pass:setViewport/Scissor` to be per-draw state instead of per-pass.
 
 ### Fix
 
@@ -159,6 +160,7 @@ dev
 - Remove `Collider:getLocalCenter` (renamed to `Collider:getCenterOfMass`).
 - Remove `Shape:getMassData` (split into separate getters).
 - Remove `shaderConstantSize` limit from `lovr.graphics.getLimits`.
+- Remove `Pass:getViewport` and `Pass:getScissor`.
 
 v0.17.1 - 2024-03-12
 ---

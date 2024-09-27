@@ -25,7 +25,7 @@
 #endif
 
 #define MAX_PIPELINES 65536
-#define MAX_TALLIES 256
+#define MAX_TALLIES 255
 #define TRANSFORM_STACK_SIZE 16
 #define PIPELINE_STACK_SIZE 4
 #define MAX_SHADER_RESOURCES 32
@@ -374,7 +374,9 @@ enum {
   DIRTY_BINDINGS = (1 << 0),
   DIRTY_UNIFORMS = (1 << 1),
   DIRTY_CAMERA = (1 << 2),
-  NEEDS_VIEW_CULL = (1 << 3)
+  DIRTY_VIEWPORT = (1 << 3),
+  DIRTY_SCISSOR = (1 << 4),
+  NEEDS_VIEW_CULL = (1 << 5)
 };
 
 typedef struct {
@@ -483,9 +485,11 @@ enum {
 };
 
 typedef struct {
-  uint16_t flags;
+  uint8_t flags;
+  uint8_t tally;
   uint16_t camera;
-  uint32_t tally;
+  uint16_t viewport;
+  uint16_t scissor;
   Shader* shader;
   Material* material;
   gpu_pipeline_info* pipelineInfo;
@@ -536,9 +540,11 @@ struct Pass {
   Tally tally;
   Canvas canvas;
   Camera* cameras;
+  float* viewports;
+  uint32_t* scissors;
   uint32_t cameraCount;
-  float viewport[6];
-  uint32_t scissor[4];
+  uint32_t viewportCount;
+  uint32_t scissorCount;
   Sampler* sampler;
   float* transform;
   Pipeline* pipeline;
@@ -1438,18 +1444,10 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream) {
 
   // Do the thing!
 
-  gpu_render_begin(stream, &target);
-
-  float defaultViewport[6] = { 0.f, 0.f, (float) canvas->width, (float) canvas->height, 0.f, 1.f };
-  uint32_t defaultScissor[4] = { 0, 0, canvas->width, canvas->height };
-  float* viewport = pass->viewport[2] == 0.f && pass->viewport[3] == 0.f ? defaultViewport : pass->viewport;
-  uint32_t* scissor = pass->scissor[2] == 0 && pass->scissor[3] == 0 ? defaultScissor : pass->scissor;
-
-  gpu_set_viewport(stream, viewport, viewport + 4);
-  gpu_set_scissor(stream, scissor);
-
+  uint8_t tally = 0xff;
   uint16_t cameraIndex = 0xffff;
-  uint32_t tally = ~0u;
+  uint16_t viewport = 0xffff;
+  uint16_t scissor = 0xffff;
   gpu_pipeline* pipeline = NULL;
   gpu_bundle* bundle = NULL;
   Material* material = NULL;
@@ -1462,15 +1460,27 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream) {
   uint32_t uniformSize = 0;
   gpu_bundle* uniformBundle = NULL;
 
+  gpu_render_begin(stream, &target);
   gpu_bind_vertex_buffers(stream, &state.defaultBuffer->gpu, &state.defaultBuffer->base, 1, 1);
 
   for (uint32_t i = 0; i < activeDrawCount; i++) {
     Draw* draw = &pass->draws[activeDraws[i]];
 
     if (pass->tally.buffer && draw->tally != tally) {
-      if (tally != ~0u) gpu_tally_finish(stream, pass->tally.gpu, tally * canvas->views);
-      if (draw->tally != ~0u) gpu_tally_begin(stream, pass->tally.gpu, draw->tally * canvas->views);
+      if (tally != 0xff) gpu_tally_finish(stream, pass->tally.gpu, tally * canvas->views);
+      if (draw->tally != 0xff) gpu_tally_begin(stream, pass->tally.gpu, draw->tally * canvas->views);
       tally = draw->tally;
+    }
+
+    if (draw->viewport != viewport) {
+      float* v = pass->viewports + draw->viewport * 6;
+      gpu_set_viewport(stream, v, v + 4);
+      viewport = draw->viewport;
+    }
+
+    if (draw->scissor != scissor) {
+      gpu_set_scissor(stream, pass->scissors + draw->scissor * 4);
+      scissor = draw->scissor;
     }
 
     if (draw->pipeline != pipeline) {
@@ -1548,7 +1558,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream) {
     }
   }
 
-  if (tally != ~0u) {
+  if (tally != 0xff) {
     gpu_tally_finish(stream, pass->tally.gpu, tally * canvas->views);
   }
 
@@ -5809,20 +5819,25 @@ void lovrPassReset(Pass* pass) {
     pass->pipeline->info.colorMask[i] = 0xf;
   }
 
+  Canvas* canvas = &pass->canvas;
+
   pass->cameraCount = 0;
-  if (pass->canvas.views > 0) {
+  pass->viewportCount = 0;
+  pass->scissorCount = 0;
+
+  if (canvas->views > 0) {
     float viewMatrix[16];
     float projection[16];
     mat4_identity(viewMatrix);
-    mat4_perspective(projection, 1.2f, (float) pass->canvas.width / pass->canvas.height, .01f, 0.f);
-    for (uint32_t i = 0; i < pass->canvas.views; i++) {
+    mat4_perspective(projection, 1.2f, (float) canvas->width / canvas->height, .01f, 0.f);
+    for (uint32_t i = 0; i < canvas->views; i++) {
       lovrPassSetViewMatrix(pass, i, viewMatrix);
       lovrPassSetProjection(pass, i, projection);
     }
   }
 
-  memset(pass->viewport, 0, sizeof(pass->viewport));
-  memset(pass->scissor, 0, sizeof(pass->scissor));
+  lovrPassSetViewport(pass, (float[6]) { 0.f, 0.f, (float) canvas->width, (float) canvas->height, 0.f, 1.f });
+  lovrPassSetScissor(pass, (uint32_t[4]) { 0, 0, canvas->width, canvas->height });
 
   pass->sampler = NULL;
 }
@@ -6025,22 +6040,6 @@ bool lovrPassSetProjection(Pass* pass, uint32_t index, float projection[16]) {
   return true;
 }
 
-void lovrPassGetViewport(Pass* pass, float viewport[6]) {
-  memcpy(viewport, pass->viewport, 6 * sizeof(float));
-}
-
-void lovrPassSetViewport(Pass* pass, float viewport[6]) {
-  memcpy(pass->viewport, viewport, 6 * sizeof(float));
-}
-
-void lovrPassGetScissor(Pass* pass, uint32_t scissor[4]) {
-  memcpy(scissor, pass->scissor, 4 * sizeof(uint32_t));
-}
-
-void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]) {
-  memcpy(pass->scissor, scissor, 4 * sizeof(uint32_t));
-}
-
 bool lovrPassPush(Pass* pass, StackType stack) {
   switch (stack) {
     case STACK_TRANSFORM:
@@ -6224,6 +6223,27 @@ void lovrPassSetSampler(Pass* pass, Sampler* sampler) {
   }
 }
 
+void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]) {
+  if (~pass->flags & DIRTY_SCISSOR) {
+    uint32_t* scissors = lovrPassAllocate(pass, (pass->scissorCount + 1) * 4 * sizeof(uint32_t));
+    if (pass->scissors) memcpy(scissors, pass->scissors, pass->scissorCount * 4 * sizeof(uint32_t));
+    pass->flags |= DIRTY_SCISSOR;
+    pass->scissors = scissors;
+    pass->scissorCount++;
+  }
+
+  uint32_t* s = pass->scissors + (pass->scissorCount - 1) * 4;
+
+  if (scissor) {
+    memcpy(s, scissor, 4 * sizeof(uint32_t));
+  } else {
+    s[0] = 0;
+    s[1] = 0;
+    s[2] = pass->canvas.width;
+    s[3] = pass->canvas.height;
+  }
+}
+
 void lovrPassSetShader(Pass* pass, Shader* shader) {
   Shader* old = pass->pipeline->shader;
 
@@ -6359,6 +6379,29 @@ bool lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
 
 void lovrPassSetViewCull(Pass* pass, bool enable) {
   pass->pipeline->viewCull = enable;
+}
+
+void lovrPassSetViewport(Pass* pass, float viewport[6]) {
+  if (~pass->flags & DIRTY_VIEWPORT) {
+    float* viewports = lovrPassAllocate(pass, (pass->viewportCount + 1) * 6 * sizeof(float));
+    if (pass->viewports) memcpy(viewports, pass->viewports, pass->viewportCount * 6 * sizeof(float));
+    pass->flags |= DIRTY_VIEWPORT;
+    pass->viewports = viewports;
+    pass->viewportCount++;
+  }
+
+  float* v = pass->viewports + (pass->viewportCount - 1) * 6;
+
+  if (viewport) {
+    memcpy(v, viewport, 6 * sizeof(float));
+  } else {
+    v[0] = 0;
+    v[1] = 0;
+    v[2] = (float) pass->canvas.width;
+    v[3] = (float) pass->canvas.height;
+    v[4] = 0.f;
+    v[5] = 1.f;
+  }
 }
 
 void lovrPassSetWinding(Pass* pass, Winding winding) {
@@ -6693,9 +6736,11 @@ bool lovrPassDraw(Pass* pass, DrawInfo* info) {
   Draw* draw = &pass->draws[pass->drawCount];
 
   draw->flags = 0;
-  draw->tally = pass->tally.active ? pass->tally.count : ~0u;
+  draw->tally = pass->tally.active ? pass->tally.count : 0xff;
   draw->camera = pass->cameraCount - 1;
-  pass->flags &= ~DIRTY_CAMERA;
+  draw->viewport = pass->viewportCount - 1;
+  draw->scissor = pass->scissorCount - 1;
+  pass->flags &= ~DIRTY_CAMERA & ~DIRTY_VIEWPORT & ~DIRTY_SCISSOR;
 
   draw->shader = pass->pipeline->shader ? pass->pipeline->shader : lovrGraphicsGetDefaultShader(info->shader);
   if (!draw->shader) return false;
@@ -7866,9 +7911,11 @@ bool lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
   Draw* draw = &pass->draws[pass->drawCount++];
 
   draw->flags = DRAW_INDIRECT;
-  draw->tally = pass->tally.active ? pass->tally.count : ~0u;
+  draw->tally = pass->tally.active ? pass->tally.count : 0xff;
   draw->camera = pass->cameraCount - 1;
-  pass->flags &= ~DIRTY_CAMERA;
+  draw->viewport = pass->viewportCount - 1;
+  draw->scissor = pass->scissorCount - 1;
+  pass->flags &= ~DIRTY_CAMERA & ~DIRTY_VIEWPORT & ~DIRTY_SCISSOR;
 
   draw->shader = shader;
   draw->material = pass->pipeline->material;

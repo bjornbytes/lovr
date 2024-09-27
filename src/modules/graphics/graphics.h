@@ -584,10 +584,6 @@ bool lovrPassGetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
 bool lovrPassSetViewMatrix(Pass* pass, uint32_t index, float viewMatrix[16]);
 bool lovrPassGetProjection(Pass* pass, uint32_t index, float projection[16]);
 bool lovrPassSetProjection(Pass* pass, uint32_t index, float projection[16]);
-void lovrPassGetViewport(Pass* pass, float viewport[6]);
-void lovrPassSetViewport(Pass* pass, float viewport[6]);
-void lovrPassGetScissor(Pass* pass, uint32_t scissor[4]);
-void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 
 bool lovrPassPush(Pass* pass, StackType stack);
 bool lovrPassPop(Pass* pass, StackType stack);
@@ -610,10 +606,12 @@ void lovrPassSetFont(Pass* pass, Font* font);
 void lovrPassSetMaterial(Pass* pass, Material* material);
 void lovrPassSetMeshMode(Pass* pass, DrawMode mode);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);
+void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 void lovrPassSetShader(Pass* pass, Shader* shader);
 bool lovrPassSetStencilTest(Pass* pass, CompareMode test, uint8_t value, uint8_t mask);
 bool lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value, uint8_t mask);
 void lovrPassSetViewCull(Pass* pass, bool enable);
+void lovrPassSetViewport(Pass* pass, float viewport[6]);
 void lovrPassSetWinding(Pass* pass, Winding winding);
 void lovrPassSetWireframe(Pass* pass, bool wireframe);
 
