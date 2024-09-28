@@ -182,6 +182,7 @@ static int l_lovrMeshSetIndices(lua_State* L) {
       void* data = lovrMeshSetIndices(mesh, count, type);
       luax_assert(L, data);
       memcpy(data, blob->data, count * stride);
+      break;
     }
     default: return luax_typeerror(L, 2, "nil, table, or Blob");
   }
