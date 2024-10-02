@@ -90,6 +90,7 @@ static float* luax_newvector(lua_State* L, VectorType type, size_t components) {
 float* luax_newtempvector(lua_State* L, VectorType type) {
   float* data;
   Vector vector = lovrPoolAllocate(pool, type, &data);
+  luax_assert(L, vector.handle.type != V_NONE);
   lua_pushlightuserdata(L, vector.pointer);
   return data;
 }
