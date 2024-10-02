@@ -16,4 +16,12 @@ group('math', function()
       end
     end)
   end)
+
+  group('vectors', function()
+    test('temporary vector generation errors', function()
+      local v = vec3()
+      lovr.math.drain()
+      expect(function() v:length() end).to.fail.with('Attempt to use a temporary vector from a previous frame')
+    end)
+  end)
 end)
