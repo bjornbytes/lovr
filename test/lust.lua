@@ -183,11 +183,19 @@ local paths = {
         'expected ' .. tostring(v) .. ' to not contain ' .. tostring(x)
     end
   },
-  fail = {
+  fail = { 'with',
     test = function(v)
       return not pcall(v),
         'expected ' .. tostring(v) .. ' to fail',
         'expected ' .. tostring(v) .. ' to not fail'
+    end
+  },
+  with = {
+    test = function(v, pattern)
+      local ok, message = pcall(v)
+      return not ok and message:match(pattern),
+        'expected ' .. tostring(v) .. ' to fail with error matching "' .. pattern .. '"',
+        'expected ' .. tostring(v) .. ' to not fail with error matching "' .. pattern .. '"'
     end
   },
   match = {
@@ -198,7 +206,7 @@ local paths = {
         'expected ' .. v .. ' to match pattern [[' .. p .. ']]',
         'expected ' .. v .. ' to not match pattern [[' .. p .. ']]'
     end
-  },
+  }
 }
 
 function lust.expect(v)
