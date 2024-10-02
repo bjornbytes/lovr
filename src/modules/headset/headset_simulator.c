@@ -421,6 +421,10 @@ static bool simulator_submit(void) {
   return true;
 }
 
+static bool simulator_isVisible(void) {
+  return true;
+}
+
 static bool simulator_isFocused(void) {
   return state.focused;
 }
@@ -570,6 +574,7 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .getTexture = simulator_getTexture,
   .getPass = simulator_getPass,
   .submit = simulator_submit,
+  .isVisible = simulator_isVisible,
   .isFocused = simulator_isFocused,
   .isMounted = simulator_isMounted,
   .update = simulator_update

@@ -1,0 +1,5 @@
+group('headset', function()
+  test('isVisible', function()
+    expect(lovr.headset.isVisible()).to.be.a('boolean')
+  end)
+end)
