@@ -55,7 +55,9 @@ float* luax_tovector(lua_State* L, int index, VectorType* type) {
       Vector v = { .pointer = p };
       if (v.handle.type > V_NONE && v.handle.type < MAX_VECTOR_TYPES) {
         if (type) *type = v.handle.type;
-        return lovrPoolResolve(pool, v);
+        float* pointer = lovrPoolResolve(pool, v);
+        luax_assert(L, pointer);
+        return pointer;
       }
     } else {
       VectorType* t = p;
