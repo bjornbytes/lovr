@@ -1539,7 +1539,7 @@ static bool openxr_start(void) {
     XrKeyboardTrackingDescriptionFB keyboard;
     XrResult result = xrQuerySystemTrackedKeyboardFB(state.session, &queryInfo, &keyboard);
 
-    if (result == XR_SUCCESS) {
+    if (result == XR_SUCCESS && (keyboard.flags & XR_KEYBOARD_TRACKING_EXISTS_BIT_FB)) {
       XrKeyboardSpaceCreateInfoFB spaceInfo = {
         .type = XR_TYPE_KEYBOARD_SPACE_CREATE_INFO_FB,
         .trackedKeyboardId = keyboard.trackedKeyboardId
