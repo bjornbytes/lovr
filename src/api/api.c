@@ -615,7 +615,7 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
   Mesh* mesh = luax_totype(L, index, Mesh);
 
   if (mesh) {
-    lovrMeshGetTriangles(mesh, vertices, indices, vertexCount, indexCount);
+    luax_assert(L, lovrMeshGetTriangles(mesh, vertices, indices, vertexCount, indexCount));
     *shouldFree = true;
     return index + 1;
   }
