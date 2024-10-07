@@ -69,12 +69,12 @@ static int l_lovrMeshGetVertices(lua_State* L) {
   lua_createtable(L, (int) count, 0);
   for (uint32_t i = 0; i < count; i++, data += format->stride) {
     lua_newtable(L);
-    int j = 0;
+    int j = 1;
     const DataField* field = format->fields;
     for (uint32_t f = 0; f < format->fieldCount; f++, field++) {
       int n = luax_pushbufferdata(L, field, 0, data + field->offset);
       for (int c = 0; c < n; c++) {
-        lua_rawseti(L, -1 - n + c, j + c + 1);
+        lua_rawseti(L, -1 - n + c, j + n - (c + 1));
       }
       j += n;
     }

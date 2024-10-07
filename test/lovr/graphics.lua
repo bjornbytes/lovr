@@ -374,6 +374,16 @@ group('graphics', function()
       end)
     end)
 
+    test(':getVertices', function()
+      local vertices = {
+        { 1, 2, 3, 4, 5, 6, 7, 8 },
+        { 8, 7, 6, 5, 4, 3, 2, 1 }
+      }
+
+      mesh = lovr.graphics.newMesh(vertices)
+      expect(mesh:getVertices()).to.equal(vertices)
+    end)
+
     test(':setDrawRange', function()
       mesh = lovr.graphics.newMesh({{ 1, 2, 3 }, { 4, 5, 6 }, { 7, 8, 9 }})
       mesh:setDrawRange(1, 3, 2)
