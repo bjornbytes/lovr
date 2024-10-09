@@ -2491,15 +2491,17 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
 Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
   const TextureInfo* base = &parent->info;
   uint32_t maxLayers = base->type == TEXTURE_3D ? MAX(base->layers >> info->levelIndex, 1) : base->layers;
+  uint32_t layers = info->layerCount == ~0u ? base->layers - info->layerIndex : info->layerCount;
+  uint32_t levels = info->levelCount == ~0u ? base->mipmaps - info->levelIndex : info->levelCount;
 
   lovrCheck(info->type != TEXTURE_3D, "Texture views can't be 3D textures");
-  lovrCheck(info->layerCount > 0, "Texture view must have at least one layer");
-  lovrCheck(info->levelCount > 0, "Texture view must have at least one mipmap");
-  lovrCheck(info->layerCount == ~0u || info->layerIndex + info->layerCount <= maxLayers, "Texture view layer range exceeds layer count of parent texture");
-  lovrCheck(info->levelCount == ~0u || info->levelIndex + info->levelCount <= base->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
-  lovrCheck(info->layerCount == 1 || info->type != TEXTURE_2D, "2D textures can only have a single layer");
-  lovrCheck(info->levelCount == 1 || base->type != TEXTURE_3D, "Views of volume textures may only have a single mipmap level");
-  lovrCheck(info->layerCount % 6 == 0 || info->type != TEXTURE_CUBE, "Cubemap layer count must be a multiple of 6");
+  lovrCheck(layers > 0, "Texture view must have at least one layer");
+  lovrCheck(levels > 0, "Texture view must have at least one mipmap");
+  lovrCheck(info->layerIndex + layers <= maxLayers, "Texture view layer range exceeds layer count of parent texture");
+  lovrCheck(info->levelIndex + levels <= base->mipmaps, "Texture view mipmap range exceeds mipmap count of parent texture");
+  lovrCheck(layers == 1 || info->type != TEXTURE_2D, "2D textures can only have a single layer");
+  lovrCheck(levels == 1 || base->type != TEXTURE_3D, "Views of 3D textures can only have a single mipmap level");
+  lovrCheck(layers % 6 == 0 || info->type != TEXTURE_CUBE, "Cubemap layer count must be a multiple of 6");
 
   Texture* texture = lovrCalloc(sizeof(Texture) + gpu_sizeof_texture());
   texture->ref = 1;
@@ -2519,8 +2521,8 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
   texture->info.type = info->type;
   texture->info.width = MAX(base->width >> info->levelIndex, 1);
   texture->info.height = MAX(base->height >> info->levelIndex, 1);
-  texture->info.layers = info->layerCount == ~0u ? base->layers : info->layerCount;
-  texture->info.mipmaps = info->levelCount == ~0u ? base->mipmaps : info->levelCount;
+  texture->info.layers = layers;
+  texture->info.mipmaps = levels;
   texture->sampler = parent->sampler;
   lovrRetain(texture->sampler);
   lovrRetain(texture->root);
@@ -2532,9 +2534,9 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
       .usage = base->usage,
       .srgb = base->srgb,
       .layerIndex = texture->baseLayer,
-      .layerCount = info->layerCount,
+      .layerCount = layers,
       .levelIndex = texture->baseLevel,
-      .levelCount = info->levelCount,
+      .levelCount = levels,
       .label = info->label
     })) {
       lovrSetError("Failed to create texture view: %s", gpu_get_error());
@@ -2554,9 +2556,9 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
         .usage = GPU_TEXTURE_SAMPLE,
         .aspect = GPU_ASPECT_DEPTH,
         .layerIndex = texture->baseLayer,
-        .layerCount = info->layerCount,
+        .layerCount = layers,
         .levelIndex = texture->baseLevel,
-        .levelCount = info->levelCount
+        .levelCount = levels
       };
 
       texture->sampleView = lovrMalloc(gpu_sizeof_texture());
@@ -2570,8 +2572,8 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
     }
   }
 
-  if ((base->usage & TEXTURE_RENDER) && info->layerCount <= state.limits.renderSize[2]) {
-    if (info->levelCount == 1) {
+  if ((base->usage & TEXTURE_RENDER) && layers <= state.limits.renderSize[2]) {
+    if (levels == 1) {
       texture->renderView = texture->gpu;
     } else {
       gpu_texture_view_info subview = {
@@ -2579,7 +2581,7 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
         .type = GPU_TEXTURE_ARRAY,
         .usage = GPU_TEXTURE_RENDER,
         .layerIndex = texture->baseLayer,
-        .layerCount = info->layerCount,
+        .layerCount = layers,
         .levelIndex = texture->baseLevel,
         .levelCount = 1
       };
@@ -2600,9 +2602,9 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
       .usage = GPU_TEXTURE_STORAGE,
       .srgb = false,
       .layerIndex = texture->baseLayer,
-      .layerCount = info->layerCount,
+      .layerCount = layers,
       .levelIndex = texture->baseLevel,
-      .levelCount = info->levelCount
+      .levelCount = levels
     };
 
     texture->storageView = lovrMalloc(gpu_sizeof_texture());
