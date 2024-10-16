@@ -963,18 +963,20 @@ bool lovrColliderAddShape(Collider* collider, Shape* shape) {
   JPH_Vec3 newCenter;
   JPH_Shape_GetCenterOfMass(handle, &newCenter);
 
+  bool hasMass = !JPH_Shape_MustBeStatic(handle);
+
   // Adjust mass
   if (alreadyCompound) {
     if (collider->automaticMass) {
       if (offsetCenterOfMass) {
         // Set the shape to the CompoundShape, replacing the OffsetCenterOfMassShape.  This takes
         // care of recomputing the mass, center, etc.
-        JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_SetShape(interface, collider->id, handle, hasMass, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
         JPH_Shape_Destroy(offsetCenterOfMass);
       } else {
         // If the shape is already the CompoundShape, use NotifyShapeChanged to update mass/center
-        JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, hasMass, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
       }
     } else {
@@ -984,7 +986,7 @@ bool lovrColliderAddShape(Collider* collider, Shape* shape) {
   } else {
     if (collider->automaticMass) {
       // Replace the existing shape with the new shape, adjusting all the mass properties
-      JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, handle, hasMass, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
       adjustJoints(collider, &oldCenter, &newCenter);
     } else {
@@ -1045,10 +1047,12 @@ bool lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   JPH_Vec3 newCenter;
   JPH_Shape_GetCenterOfMass(handle, &newCenter);
 
+  bool hasMass = collider->automaticMass && !JPH_Shape_MustBeStatic(handle);
+
   // Adjust mass
   if (handle == state.sphere->handle) {
     if (collider->automaticMass) {
-      JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, handle, hasMass, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
       adjustJoints(collider, &oldCenter, &newCenter);
     } else {
@@ -1062,12 +1066,12 @@ bool lovrColliderRemoveShape(Collider* collider, Shape* shape) {
     if (collider->automaticMass) {
       if (offsetCenterOfMass) {
         // Replace the OffsetCenterOfMassShape with the CompoundShape
-        JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_SetShape(interface, collider->id, handle, hasMass, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
         JPH_Shape_Destroy(offsetCenterOfMass);
       } else {
         // Tell Jolt that the CompoundShape changed, recenter and recompute mass data
-        JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, hasMass, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
       }
     } else {
@@ -1138,6 +1142,8 @@ static bool lovrColliderReplaceShape(Collider* collider, Shape* shape, JPH_Shape
   JPH_Quat* rotation = quat_toJolt(shape->rotation);
   JPH_MutableCompoundShape_ModifyShape2((JPH_MutableCompoundShape*) handle, shape->index, translation, rotation, new);
 
+  bool hasMass = !JPH_Shape_MustBeStatic(handle);
+
   if (collider->automaticMass) {
     JPH_MutableCompoundShape_AdjustCenterOfMass((JPH_MutableCompoundShape*) handle);
 
@@ -1145,11 +1151,11 @@ static bool lovrColliderReplaceShape(Collider* collider, Shape* shape, JPH_Shape
     JPH_Shape_GetCenterOfMass(handle, &newCenter);
 
     if (offsetCenterOfMass) {
-      JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, handle, hasMass, JPH_Activation_DontActivate);
       adjustJoints(collider, &oldCenter, &newCenter);
       JPH_Shape_Destroy(offsetCenterOfMass);
     } else {
-      JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, hasMass, JPH_Activation_DontActivate);
       adjustJoints(collider, &oldCenter, &newCenter);
     }
   } else {
@@ -1192,14 +1198,16 @@ static bool lovrColliderMoveShape(Collider* collider, Shape* shape, float transl
   JPH_Vec3 newCenter;
   JPH_Shape_GetCenterOfMass(handle, &newCenter);
 
+  bool hasMass = !JPH_Shape_MustBeStatic(handle);
+
   if (alreadyCompound) {
     if (collider->automaticMass) {
       if (offsetCenterOfMass) {
-        JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_SetShape(interface, collider->id, handle, hasMass, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
         JPH_Shape_Destroy(offsetCenterOfMass);
       } else {
-        JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, true, JPH_Activation_DontActivate);
+        JPH_BodyInterface_NotifyShapeChanged(interface, collider->id, &oldCenter, hasMass, JPH_Activation_DontActivate);
         adjustJoints(collider, &oldCenter, &newCenter);
       }
     } else {
@@ -1208,7 +1216,7 @@ static bool lovrColliderMoveShape(Collider* collider, Shape* shape, float transl
   } else {
     if (collider->automaticMass) {
       // Replace the simple shape with the new compound shape, adjusting all the mass properties
-      JPH_BodyInterface_SetShape(interface, collider->id, handle, true, JPH_Activation_DontActivate);
+      JPH_BodyInterface_SetShape(interface, collider->id, handle, hasMass, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
       adjustJoints(collider, &oldCenter, &newCenter);
     } else {
