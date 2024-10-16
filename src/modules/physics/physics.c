@@ -1997,8 +1997,8 @@ static void inverseTransformRay(float* origin, float* direction, float* position
   float inverse[4];
   quat_conjugate(quat_init(inverse, orientation));
   quat_rotate(inverse, direction);
-  quat_rotate(inverse, origin);
   vec3_sub(origin, position);
+  quat_rotate(inverse, origin);
 }
 
 bool lovrShapeContainsPoint(Shape* shape, float point[3]) {
