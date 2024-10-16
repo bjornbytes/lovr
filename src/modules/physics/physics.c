@@ -93,7 +93,7 @@ static thread_local struct {
 
 static struct {
   bool initialized;
-  SphereShape* sphere;
+  JPH_Shape* emptyShape;
   void (*freeUserData)(void* object, uintptr_t userdata);
 } state;
 
@@ -277,14 +277,17 @@ static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
 bool lovrPhysicsInit(void (*freeUserData)(void* object, uintptr_t userdata)) {
   if (state.initialized) return true;
   JPH_Init();
-  state.sphere = lovrSphereShapeCreate(.001f);
+  float center[3] = { 0.f, 0.f, 0.f };
+  JPH_EmptyShapeSettings* settings = JPH_EmptyShapeSettings_Create(vec3_toJolt(center));
+  state.emptyShape = (JPH_Shape*) JPH_EmptyShapeSettings_CreateShape(settings);
+  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
   state.freeUserData = freeUserData;
   return state.initialized = true;
 }
 
 void lovrPhysicsDestroy(void) {
   if (!state.initialized) return;
-  lovrRelease(state.sphere, lovrSphereShapeDestroy);
+  JPH_Shape_Destroy(state.emptyShape);
   JPH_Shutdown();
   state.initialized = false;
 }
@@ -756,15 +759,13 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
     shape->collider = collider;
     shape->index = 0;
     lovrRetain(shape);
-  } else {
-    shape = state.sphere;
   }
 
   JPH_RVec3* p = vec3_toJolt(position);
   JPH_Quat q = { 0.f, 0.f, 0.f, 1.f };
-  JPH_MotionType type = JPH_Shape_MustBeStatic(shape->handle) ? JPH_MotionType_Static : JPH_MotionType_Dynamic;
-  JPH_ObjectLayer objectLayer = shape != state.sphere ? world->tagCount : world->tagCount + 1; // Untagged/shapeless layer
-  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(shape->handle, p, &q, type, objectLayer);
+  JPH_MotionType type = shape && JPH_Shape_MustBeStatic(shape->handle) ? JPH_MotionType_Static : JPH_MotionType_Dynamic;
+  JPH_ObjectLayer objectLayer = shape ? world->tagCount : world->tagCount + 1; // Untagged/shapeless layer
+  JPH_BodyCreationSettings* settings = JPH_BodyCreationSettings_Create3(shape ? shape->handle : state.emptyShape, p, &q, type, objectLayer);
   collider->body = JPH_BodyInterface_CreateBody(world->bodyInterfaceLocked, settings);
   collider->id = JPH_Body_GetID(collider->body);
   JPH_Body_SetUserData(collider->body, (uint64_t) (uintptr_t) collider);
@@ -934,7 +935,7 @@ bool lovrColliderAddShape(Collider* collider, Shape* shape) {
   if (alreadyCompound) {
     JPH_MutableCompoundShape_AddShape((JPH_MutableCompoundShape*) handle, position, rotation, shape->handle, 0);
     shape->index = JPH_CompoundShape_GetNumSubShapes((JPH_CompoundShape*) handle) - 1;
-  } else if (handle == state.sphere->handle) {
+  } else if (handle == state.emptyShape) {
     // If the shape is at the origin, use it directly, otherwise wrap in a compound shape with an offset
     if (vec3_length(shape->translation) < 1e-6 && shape->rotation[3] > .999f) {
       handle = shape->handle;
@@ -1032,7 +1033,7 @@ bool lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   if (JPH_Shape_GetSubType(handle) == JPH_ShapeSubType_MutableCompound) {
     if (JPH_CompoundShape_GetNumSubShapes((JPH_CompoundShape*) handle) == 1) {
       JPH_Shape_Destroy(handle);
-      handle = state.sphere->handle;
+      handle = state.emptyShape;
     } else {
       JPH_MutableCompoundShape_RemoveShape((JPH_MutableCompoundShape*) handle, shape->index);
 
@@ -1041,7 +1042,7 @@ bool lovrColliderRemoveShape(Collider* collider, Shape* shape) {
       }
     }
   } else {
-    handle = state.sphere->handle;
+    handle = state.emptyShape;
   }
 
   JPH_Vec3 newCenter;
@@ -1050,7 +1051,7 @@ bool lovrColliderRemoveShape(Collider* collider, Shape* shape) {
   bool hasMass = collider->automaticMass && !JPH_Shape_MustBeStatic(handle);
 
   // Adjust mass
-  if (handle == state.sphere->handle) {
+  if (handle == state.emptyShape) {
     if (collider->automaticMass) {
       JPH_BodyInterface_SetShape(interface, collider->id, handle, hasMass, JPH_Activation_DontActivate);
       if (offsetCenterOfMass) JPH_Shape_Destroy(offsetCenterOfMass);
