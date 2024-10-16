@@ -86,6 +86,8 @@ struct Joint {
 static thread_local struct {
   JPH_BroadPhaseLayerFilter* broadPhaseLayerFilter;
   JPH_ObjectLayerFilter* objectLayerFilter;
+  uint32_t broadPhaseLayerMask;
+  uint32_t objectLayerMask;
   bool locked;
 } thread;
 
@@ -144,42 +146,37 @@ static Shape* subshapeToShape(Collider* collider, JPH_SubShapeID id) {
   }
 }
 
-static JPH_Bool32 broadPhaseLayerFilter(void* mask, JPH_BroadPhaseLayer layer) {
-  return ((uint32_t) (uintptr_t) mask & (1 << layer)) != 0;
+static bool broadPhaseLayerFilter(void* userdata, JPH_BroadPhaseLayer layer) {
+  return (thread.broadPhaseLayerMask & (1 << layer)) != 0;
 }
 
-static JPH_BroadPhaseLayerFilter* getBroadPhaseLayerFilter(World* world, uint32_t tagMask) {
+static JPH_BroadPhaseLayerFilter* getBroadPhaseLayerFilter(World* world, uint32_t filter) {
   if (!thread.broadPhaseLayerFilter) {
-    thread.broadPhaseLayerFilter = JPH_BroadPhaseLayerFilter_Create();
+    thread.broadPhaseLayerFilter = JPH_BroadPhaseLayerFilter_Create((JPH_BroadPhaseLayerFilter_Procs) {
+      .ShouldCollide = broadPhaseLayerFilter
+    }, NULL);
   }
 
-  uint32_t layerMask = 0;
-  if (~world->staticTagMask & tagMask) layerMask |= 0x1;
-  if ( world->staticTagMask & tagMask) layerMask |= 0x3;
-
-  JPH_BroadPhaseLayerFilter_SetProcs(thread.broadPhaseLayerFilter, (JPH_BroadPhaseLayerFilter_Procs) {
-    .ShouldCollide = broadPhaseLayerFilter
-  }, (void*) (uintptr_t) layerMask);
+  thread.broadPhaseLayerMask = 0;
+  if (~world->staticTagMask & filter) thread.broadPhaseLayerMask |= 0x1;
+  if ( world->staticTagMask & filter) thread.broadPhaseLayerMask |= 0x3;
 
   return thread.broadPhaseLayerFilter;
 }
 
-static JPH_Bool32 objectLayerFilter(void* mask, JPH_ObjectLayer layer) {
-  return ((uint32_t) (uintptr_t) mask & (1 << layer)) != 0;
+static bool objectLayerFilter(void* userdata, JPH_ObjectLayer layer) {
+  return (thread.objectLayerMask & (1 << layer)) != 0;
 }
 
-static JPH_ObjectLayerFilter* getObjectLayerFilter(World* world, uint32_t tagMask) {
+static JPH_ObjectLayerFilter* getObjectLayerFilter(World* world, uint32_t filter) {
   if (!thread.objectLayerFilter) {
-    thread.objectLayerFilter = JPH_ObjectLayerFilter_Create();
+    thread.objectLayerFilter = JPH_ObjectLayerFilter_Create((JPH_ObjectLayerFilter_Procs) {
+      .ShouldCollide = objectLayerFilter
+    }, NULL);
   }
 
   // Never include objects on the last layer, reserved for colliders without shapes
-  tagMask &= ~(1 << (world->tagCount + 1));
-
-  JPH_ObjectLayerFilter_SetProcs(thread.objectLayerFilter, (JPH_ObjectLayerFilter_Procs) {
-    .ShouldCollide = objectLayerFilter
-  }, (void*) (uintptr_t) tagMask);
-
+  thread.objectLayerMask = filter & ~(1 << (world->tagCount + 1));
   return thread.objectLayerFilter;
 }
 
@@ -361,9 +358,7 @@ World* lovrWorldCreate(WorldInfo* info) {
     world->bodyInterfaceNoLock;
 
   world->activeColliders = lovrMalloc(info->maxColliders * sizeof(Collider*));
-  world->activationListener = JPH_BodyActivationListener_Create();
-
-  JPH_BodyActivationListener_SetProcs(world->activationListener, (JPH_BodyActivationListener_Procs) {
+  world->activationListener = JPH_BodyActivationListener_Create((JPH_BodyActivationListener_Procs) {
     .OnBodyActivated = onAwake,
     .OnBodyDeactivated = onSleep
   }, world);
@@ -495,7 +490,7 @@ typedef struct {
   void* userdata;
 } CastContext;
 
-static float raycastCallback(void* arg, JPH_RayCastResult* result) {
+static float raycastCallback(void* arg, const JPH_RayCastResult* result) {
   CastResult hit;
   CastContext* ctx = arg;
   hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, result->bodyID);
@@ -531,10 +526,10 @@ bool lovrWorldRaycast(World* world, float start[3], float end[3], uint32_t filte
   JPH_BroadPhaseLayerFilter* layerFilter = getBroadPhaseLayerFilter(world, filter);
   JPH_ObjectLayerFilter* tagFilter = getObjectLayerFilter(world, filter);
 
-  return JPH_NarrowPhaseQuery_CastRay2(query, origin, dir, raycastCallback, &context, layerFilter, tagFilter, NULL);
+  return JPH_NarrowPhaseQuery_CastRay2(query, origin, dir, NULL, raycastCallback, &context, layerFilter, tagFilter, NULL, NULL);
 }
 
-static float shapecastCallback(void* arg, JPH_ShapeCastResult* result) {
+static float shapecastCallback(void* arg, const JPH_ShapeCastResult* result) {
   CastResult hit;
   CastContext* ctx = arg;
   hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, result->bodyID2);
@@ -574,7 +569,7 @@ bool lovrWorldShapecast(World* world, Shape* shape, float pose[7], float end[3],
   JPH_BroadPhaseLayerFilter* layerFilter = getBroadPhaseLayerFilter(world, filter);
   JPH_ObjectLayerFilter* tagFilter = getObjectLayerFilter(world, filter);
 
-  return JPH_NarrowPhaseQuery_CastShape(query, shape->handle, &transform, dir, &offset, shapecastCallback, &context, layerFilter, tagFilter, NULL);
+  return JPH_NarrowPhaseQuery_CastShape(query, shape->handle, &transform, dir, NULL, &offset, shapecastCallback, &context, layerFilter, tagFilter, NULL, NULL);
 }
 
 typedef struct {
@@ -583,7 +578,7 @@ typedef struct {
   void* userdata;
 } OverlapContext;
 
-static float overlapCallback(void* arg, JPH_CollideShapeResult* result) {
+static float overlapCallback(void* arg, const JPH_CollideShapeResult* result) {
   OverlapResult hit;
   OverlapContext* ctx = arg;
   hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, result->bodyID2);
@@ -616,7 +611,7 @@ bool lovrWorldOverlapShape(World* world, Shape* shape, float pose[7], uint32_t f
   JPH_BroadPhaseLayerFilter* layerFilter = getBroadPhaseLayerFilter(world, filter);
   JPH_ObjectLayerFilter* tagFilter = getObjectLayerFilter(world, filter);
 
-  return JPH_NarrowPhaseQuery_CollideShape(query, shape->handle, &scale, &transform, &offset, overlapCallback, &context, layerFilter, tagFilter, NULL);
+  return JPH_NarrowPhaseQuery_CollideShape(query, shape->handle, &scale, &transform, NULL, &offset, overlapCallback, &context, layerFilter, tagFilter, NULL, NULL);
 }
 
 typedef struct {
@@ -698,21 +693,22 @@ bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const ch
 }
 
 void lovrWorldSetCallbacks(World* world, WorldCallbacks* callbacks) {
+  if (world->listener) {
+    JPH_ContactListener_Destroy(world->listener);
+    world->listener = NULL;
+  }
+
   if (!callbacks || (!callbacks->filter && !callbacks->enter && !callbacks->exit && !callbacks->contact)) {
     JPH_PhysicsSystem_SetContactListener(world->system, NULL);
   } else {
-    if (!world->listener) {
-      world->listener = JPH_ContactListener_Create();
-    }
-
-    JPH_ContactListener_SetProcs(world->listener, (JPH_ContactListener_Procs) {
+    world->callbacks = *callbacks;
+    world->listener = JPH_ContactListener_Create((JPH_ContactListener_Procs) {
       .OnContactValidate = callbacks->filter ? onContactValidate : NULL,
       .OnContactAdded = (callbacks->enter || callbacks->contact) ? onContactAdded : NULL,
       .OnContactPersisted = callbacks->contact ? onContactPersisted : NULL,
       .OnContactRemoved = callbacks->exit ? onContactRemoved : NULL
     }, world);
 
-    world->callbacks = *callbacks;
     JPH_PhysicsSystem_SetContactListener(world->system, world->listener);
   }
 }
