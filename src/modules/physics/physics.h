@@ -260,7 +260,7 @@ bool lovrConvexShapeGetPoint(ConvexShape* shape, uint32_t index, float point[3])
 uint32_t lovrConvexShapeGetFaceCount(ConvexShape* shape);
 uint32_t lovrConvexShapeGetFace(ConvexShape* shape, uint32_t index, uint32_t* pointIndices, uint32_t capacity);
 
-MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]);
+MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float vertices[], uint32_t indexCount, uint32_t indices[]);
 MeshShape* lovrMeshShapeClone(MeshShape* parent);
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY);

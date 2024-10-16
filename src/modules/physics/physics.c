@@ -2210,6 +2210,7 @@ ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count) {
   shape->type = SHAPE_CONVEX;
   JPH_ConvexHullShapeSettings* settings = JPH_ConvexHullShapeSettings_Create((const JPH_Vec3*) points, count, .05f);
   shape->handle = (JPH_Shape*) JPH_ConvexHullShapeSettings_CreateShape(settings);
+  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
   quat_identity(shape->rotation);
   return shape;
@@ -2245,28 +2246,28 @@ uint32_t lovrConvexShapeGetFace(ConvexShape* shape, uint32_t index, uint32_t* po
   return JPH_ConvexHullShape_GetFaceVertices((JPH_ConvexHullShape*) shape->handle, index, capacity, pointIndices);
 }
 
-MeshShape* lovrMeshShapeCreate(int vertexCount, float vertices[], int indexCount, uint32_t indices[]) {
+MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t indexCount, uint32_t* indices) {
   MeshShape* shape = lovrCalloc(sizeof(MeshShape));
   shape->ref = 1;
   shape->type = SHAPE_MESH;
   quat_identity(shape->rotation);
 
-  int triangleCount = indexCount / 3;
-  JPH_IndexedTriangle* indexedTriangles = lovrMalloc(triangleCount * sizeof(JPH_IndexedTriangle));
-  for (int i = 0; i < triangleCount; i++) {
-    indexedTriangles[i].i1 = indices[i * 3 + 0];
-    indexedTriangles[i].i2 = indices[i * 3 + 1];
-    indexedTriangles[i].i3 = indices[i * 3 + 2];
-    indexedTriangles[i].materialIndex = 0;
+  uint32_t triangleCount = indexCount / 3;
+  JPH_IndexedTriangle* triangles = lovrMalloc(triangleCount * sizeof(JPH_IndexedTriangle));
+  for (uint32_t i = 0; i < triangleCount; i++) {
+    triangles[i].i1 = indices[i * 3 + 0];
+    triangles[i].i2 = indices[i * 3 + 1];
+    triangles[i].i3 = indices[i * 3 + 2];
+    triangles[i].materialIndex = 0;
+    triangles[i].userData = i;
   }
-  JPH_MeshShapeSettings* shape_settings = JPH_MeshShapeSettings_Create2(
-    (const JPH_Vec3*) vertices,
-    vertexCount,
-    indexedTriangles,
-    triangleCount);
-  shape->handle = (JPH_Shape*) JPH_MeshShapeSettings_CreateShape(shape_settings);
-  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) shape_settings);
-  lovrFree(indexedTriangles);
+
+  JPH_MeshShapeSettings* settings = JPH_MeshShapeSettings_Create2((const JPH_Vec3*) vertices, vertexCount, triangles, triangleCount);
+  JPH_MeshShapeSettings_SetPerTriangleUserData(settings, true);
+  shape->handle = (JPH_Shape*) JPH_MeshShapeSettings_CreateShape(settings);
+  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
+  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
+  lovrFree(triangles);
   return shape;
 }
 
@@ -2299,6 +2300,7 @@ TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ,
 
   JPH_HeightFieldShapeSettings* shape_settings = JPH_HeightFieldShapeSettings_Create(vertices, &offset, &scale, n);
   shape->handle = (JPH_Shape*) JPH_HeightFieldShapeSettings_CreateShape(shape_settings);
+  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) shape_settings);
   return shape;
 }
