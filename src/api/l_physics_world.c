@@ -21,8 +21,13 @@ static int luax_pushcastresult(lua_State* L, CastResult* hit) {
   lua_pushnumber(L, hit->normal[0]);
   lua_pushnumber(L, hit->normal[1]);
   lua_pushnumber(L, hit->normal[2]);
+  if (hit->triangle == ~0u) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, hit->triangle + 1);
+  }
   lua_pushnumber(L, hit->fraction);
-  return 9;
+  return 10;
 }
 
 static int luax_pushoverlapresult(lua_State* L, OverlapResult* hit) {

@@ -123,27 +123,39 @@ static uint8_t findTag(World* world, const char* name, size_t length) {
   return 0xff;
 }
 
-static Shape* subshapeToShape(Collider* collider, JPH_SubShapeID id) {
-  if (collider->shapes && collider->shapes->next) {
-    const JPH_Shape* shape = JPH_BodyInterface_GetShape(getBodyInterface(collider, READ), collider->id);
+static Shape* subshapeToShape(Collider* collider, JPH_SubShapeID id, uint32_t* triangle) {
+  Shape* shape = collider->shapes;
 
-    if (JPH_Shape_GetSubType(shape) == JPH_ShapeSubType_OffsetCenterOfMass) {
-      shape = (JPH_Shape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) shape);
+  // If the Collider has more than one shape, we have to figure out which shape it is
+  if (shape->next) {
+    const JPH_Shape* parent = JPH_BodyInterface_GetShape(getBodyInterface(collider, READ), collider->id);
+
+    if (JPH_Shape_GetSubType(parent) == JPH_ShapeSubType_OffsetCenterOfMass) {
+      parent = (JPH_Shape*) JPH_DecoratedShape_GetInnerShape((JPH_DecoratedShape*) parent);
     }
 
-    if (JPH_Shape_GetSubType(shape) != JPH_ShapeSubType_MutableCompound) {
+    if (JPH_Shape_GetSubType(parent) != JPH_ShapeSubType_MutableCompound) {
       lovrUnreachable();
     }
 
-    JPH_SubShapeID remainder;
-    uint32_t index = JPH_CompoundShape_GetSubShapeIndexFromID((JPH_CompoundShape*) shape, id, &remainder);
+    uint32_t index = JPH_CompoundShape_GetSubShapeIndexFromID((JPH_CompoundShape*) parent, id, &id);
 
     const JPH_Shape* child;
-    JPH_CompoundShape_GetSubShape((JPH_CompoundShape*) shape, index, &child, NULL, NULL, NULL);
-    return (Shape*) (uintptr_t) JPH_Shape_GetUserData(child);
-  } else {
-    return collider->shapes;
+    JPH_CompoundShape_GetSubShape((JPH_CompoundShape*) parent, index, &child, NULL, NULL, NULL);
+    shape = (Shape*) (uintptr_t) JPH_Shape_GetUserData(child);
   }
+
+  // If it's a MeshShape, we can optionally figure out which triangle was hit as well
+  if (triangle) {
+    if (shape->type == SHAPE_MESH) {
+      const JPH_Shape* leaf = JPH_Shape_GetLeafShape(shape->handle, id, &id);
+      *triangle = JPH_MeshShape_GetTriangleUserData((JPH_MeshShape*) leaf, id);
+    } else {
+      *triangle = ~0u;
+    }
+  }
+
+  return shape;
 }
 
 static bool broadPhaseLayerFilter(void* userdata, JPH_BroadPhaseLayer layer) {
@@ -497,7 +509,7 @@ static float raycastCallback(void* arg, const JPH_RayCastResult* result) {
   CastResult hit;
   CastContext* ctx = arg;
   hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, result->bodyID);
-  hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
+  hit.shape = subshapeToShape(hit.collider, result->subShapeID2, &hit.triangle);
   vec3_init(hit.position, ctx->direction);
   vec3_scale(hit.position, result->fraction);
   vec3_add(hit.position, ctx->start);
@@ -536,7 +548,7 @@ static float shapecastCallback(void* arg, const JPH_ShapeCastResult* result) {
   CastResult hit;
   CastContext* ctx = arg;
   hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, result->bodyID2);
-  hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
+  hit.shape = subshapeToShape(hit.collider, result->subShapeID2, &hit.triangle);
   vec3_fromJolt(hit.position, &result->contactPointOn2);
   JPH_Vec3 normal;
   JPH_Body_GetWorldSpaceSurfaceNormal(hit.collider->body, result->subShapeID2, &result->contactPointOn2, &normal);
@@ -585,7 +597,8 @@ static float overlapCallback(void* arg, const JPH_CollideShapeResult* result) {
   OverlapResult hit;
   OverlapContext* ctx = arg;
   hit.collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, result->bodyID2);
-  hit.shape = subshapeToShape(hit.collider, result->subShapeID2);
+  hit.shape = subshapeToShape(hit.collider, result->subShapeID2, NULL);
+  hit.triangle = ~0u;
   vec3_fromJolt(hit.position, &result->contactPointOn2);
   vec3_fromJolt(hit.normal, &result->penetrationAxis);
   vec3_scale(vec3_normalize(hit.normal), result->penetrationDepth);
@@ -1777,11 +1790,11 @@ Collider* lovrContactGetColliderB(Contact* contact) {
 }
 
 Shape* lovrContactGetShapeA(Contact* contact) {
-  return subshapeToShape(contact->colliderA, JPH_ContactManifold_GetSubShapeID1(contact->manifold));
+  return subshapeToShape(contact->colliderA, JPH_ContactManifold_GetSubShapeID1(contact->manifold), NULL);
 }
 
 Shape* lovrContactGetShapeB(Contact* contact) {
-  return subshapeToShape(contact->colliderB, JPH_ContactManifold_GetSubShapeID2(contact->manifold));
+  return subshapeToShape(contact->colliderB, JPH_ContactManifold_GetSubShapeID2(contact->manifold), NULL);
 }
 
 void lovrContactGetNormal(Contact* contact, float normal[3]) {
@@ -2205,23 +2218,28 @@ bool lovrCylinderShapeSetLength(CylinderShape* shape, float length) {
   return lovrShapeReplace(shape, makeCylinder(radius, length));
 }
 
-ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count) {
+ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count, float scale) {
   ConvexShape* shape = lovrCalloc(sizeof(ConvexShape));
   shape->ref = 1;
   shape->type = SHAPE_CONVEX;
   JPH_ConvexHullShapeSettings* settings = JPH_ConvexHullShapeSettings_Create((const JPH_Vec3*) points, count, .05f);
-  shape->handle = (JPH_Shape*) JPH_ConvexHullShapeSettings_CreateShape(settings);
-  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
+  JPH_Shape* hull = (JPH_Shape*) JPH_ConvexHullShapeSettings_CreateShape(settings);
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
+  float scale3[3] = { scale, scale, scale };
+  shape->handle = (JPH_Shape*) JPH_ScaledShape_Create(hull, vec3_toJolt(scale3));
+  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
   quat_identity(shape->rotation);
   return shape;
 }
 
-ConvexShape* lovrConvexShapeClone(ConvexShape* parent) {
+ConvexShape* lovrConvexShapeClone(ConvexShape* parent, float scale) {
   ConvexShape* shape = lovrCalloc(sizeof(ConvexShape));
   shape->ref = 1;
   shape->type = SHAPE_CONVEX;
-  shape->handle = parent->handle;
+  float scale3[3] = { scale, scale, scale };
+  const JPH_Shape* hull = JPH_DecoratedShape_GetInnerShape((const JPH_DecoratedShape*) parent->handle);
+  shape->handle = (JPH_Shape*) JPH_ScaledShape_Create(hull, vec3_toJolt(scale3));
+  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
   quat_identity(shape->rotation);
   return shape;
 }
@@ -2247,11 +2265,16 @@ uint32_t lovrConvexShapeGetFace(ConvexShape* shape, uint32_t index, uint32_t* po
   return JPH_ConvexHullShape_GetFaceVertices((JPH_ConvexHullShape*) shape->handle, index, capacity, pointIndices);
 }
 
-MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t indexCount, uint32_t* indices) {
+float lovrConvexShapeGetScale(ConvexShape* shape) {
+  JPH_Vec3 v;
+  JPH_ScaledShape_GetScale((JPH_ScaledShape*) shape->handle, &v);
+  return v.x;
+}
+
+MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t indexCount, uint32_t* indices, float scale) {
   MeshShape* shape = lovrCalloc(sizeof(MeshShape));
   shape->ref = 1;
   shape->type = SHAPE_MESH;
-  quat_identity(shape->rotation);
 
   uint32_t triangleCount = indexCount / 3;
   JPH_IndexedTriangle* triangles = lovrMalloc(triangleCount * sizeof(JPH_IndexedTriangle));
@@ -2265,20 +2288,34 @@ MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t i
 
   JPH_MeshShapeSettings* settings = JPH_MeshShapeSettings_Create2((const JPH_Vec3*) vertices, vertexCount, triangles, triangleCount);
   JPH_MeshShapeSettings_SetPerTriangleUserData(settings, true);
-  shape->handle = (JPH_Shape*) JPH_MeshShapeSettings_CreateShape(settings);
-  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
+  JPH_MeshShape* mesh = JPH_MeshShapeSettings_CreateShape(settings);
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
   lovrFree(triangles);
+
+  // We wrap MeshShapes in ScaledShapes so that clones can have unique userdata
+  float scale3[3] = { scale, scale, scale };
+  shape->handle = (JPH_Shape*) JPH_ScaledShape_Create((JPH_Shape*) mesh, vec3_toJolt(scale3));
+  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
+  quat_identity(shape->rotation);
   return shape;
 }
 
-MeshShape* lovrMeshShapeClone(MeshShape* parent) {
+MeshShape* lovrMeshShapeClone(MeshShape* parent, float scale) {
   MeshShape* shape = lovrCalloc(sizeof(MeshShape));
   shape->ref = 1;
   shape->type = SHAPE_MESH;
-  shape->handle = parent->handle;
+  float scale3[3] = { scale, scale, scale };
+  const JPH_Shape* mesh = JPH_DecoratedShape_GetInnerShape((const JPH_DecoratedShape*) parent->handle);
+  shape->handle = (JPH_Shape*) JPH_ScaledShape_Create(mesh, vec3_toJolt(scale3));
+  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
   quat_identity(shape->rotation);
   return shape;
+}
+
+float lovrMeshShapeGetScale(MeshShape* shape) {
+  JPH_Vec3 v;
+  JPH_ScaledShape_GetScale((JPH_ScaledShape*) shape->handle, &v);
+  return v.x;
 }
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY) {

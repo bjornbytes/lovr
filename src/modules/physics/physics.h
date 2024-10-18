@@ -57,6 +57,7 @@ typedef struct {
 typedef struct {
   Collider* collider;
   Shape* shape;
+  uint32_t triangle;
   float position[3];
   float normal[3];
   float fraction;
@@ -253,15 +254,17 @@ bool lovrCylinderShapeSetRadius(CylinderShape* shape, float radius);
 float lovrCylinderShapeGetLength(CylinderShape* shape);
 bool lovrCylinderShapeSetLength(CylinderShape* shape, float length);
 
-ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count);
-ConvexShape* lovrConvexShapeClone(ConvexShape* parent);
+ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count, float scale);
+ConvexShape* lovrConvexShapeClone(ConvexShape* parent, float scale);
 uint32_t lovrConvexShapeGetPointCount(ConvexShape* shape);
 bool lovrConvexShapeGetPoint(ConvexShape* shape, uint32_t index, float point[3]);
 uint32_t lovrConvexShapeGetFaceCount(ConvexShape* shape);
 uint32_t lovrConvexShapeGetFace(ConvexShape* shape, uint32_t index, uint32_t* pointIndices, uint32_t capacity);
+float lovrConvexShapeGetScale(ConvexShape* shape);
 
-MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float vertices[], uint32_t indexCount, uint32_t indices[]);
-MeshShape* lovrMeshShapeClone(MeshShape* parent);
+MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float vertices[], uint32_t indexCount, uint32_t indices[], float scale);
+MeshShape* lovrMeshShapeClone(MeshShape* parent, float scale);
+float lovrMeshShapeGetScale(MeshShape* shape);
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY);
 
