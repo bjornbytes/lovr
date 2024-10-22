@@ -2078,6 +2078,14 @@ bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hi
       vec3_add(hit->position, position);
     }
 
+    if (shape->type == SHAPE_MESH) {
+      JPH_SubShapeID remainder;
+      const JPH_Shape* leaf = JPH_Shape_GetLeafShape(shape->handle, result.subShapeID2, &remainder);
+      hit->triangle = JPH_MeshShape_GetTriangleUserData((JPH_MeshShape*) leaf, remainder);
+    } else {
+      hit->triangle = ~0u;
+    }
+
     return true;
   }
 

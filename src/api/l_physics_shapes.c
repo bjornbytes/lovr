@@ -371,7 +371,12 @@ static int l_lovrShapeRaycast(lua_State* L) {
     lua_pushnumber(L, hit.normal[0]);
     lua_pushnumber(L, hit.normal[1]);
     lua_pushnumber(L, hit.normal[2]);
-    return 6;
+    if (hit.triangle == ~0u) {
+      lua_pushnil(L);
+    } else {
+      lua_pushinteger(L, hit.triangle + 1);
+    }
+    return 7;
   }
   return 0;
 }
