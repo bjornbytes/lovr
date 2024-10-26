@@ -1,7 +1,10 @@
 #include "physics/physics.h"
+#include "thread/thread.h"
+#include "core/job.h"
 #include "core/maf.h"
 #include "util.h"
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <threads.h>
 #include <joltc.h>
 
@@ -37,6 +40,9 @@ struct World {
   uint32_t staticTagMask;
   uint32_t tagLookup[MAX_TAGS];
   char* tags[MAX_TAGS];
+  JPH_JobSystem* jobSystem;
+  uint32_t jobCount;
+  job* jobs[1024];
   mtx_t lock;
 };
 
@@ -286,6 +292,28 @@ static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
   }
 }
 
+static void queueJob(void* context, JPH_JobFunction* function, void* arg) {
+  World* world = context;
+
+  // If there are too many jobs, fall back to single threaded
+  if (atomic_load(&world->jobCount) >= COUNTOF(world->jobs)) {
+    function(arg);
+  } else {
+    job* job = job_start(function, arg);
+
+    if (job) {
+      uint32_t index = atomic_fetch_add(&world->jobCount, 1);
+      world->jobs[index] = job;
+    }
+  }
+}
+
+static void queueJobs(void* context, JPH_JobFunction* function, void** args, uint32_t count) {
+  for (uint32_t i = 0; i < count; i++) {
+    queueJob(context, function, args[i]);
+  }
+}
+
 bool lovrPhysicsInit(void (*freeUserData)(void* object, uintptr_t userdata)) {
   if (state.initialized) return true;
   JPH_Init();
@@ -356,6 +384,14 @@ World* lovrWorldCreate(WorldInfo* info) {
   };
 
   world->system = JPH_PhysicsSystem_Create(&config);
+
+  world->jobSystem = JPH_JobSystemCallback_Create(&(JPH_JobSystemConfig) {
+    .context = world,
+    .queueJob = queueJob,
+    .queueJobs = queueJobs,
+    .maxConcurrency = lovrThreadGetWorkerCount(),
+    .maxBarriers = 1
+  });
 
   JPH_PhysicsSettings settings;
   JPH_PhysicsSystem_GetPhysicsSettings(world->system, &settings);
@@ -488,9 +524,15 @@ void lovrWorldUpdate(World* world, float dt) {
     quat_fromJolt(collider->lastOrientation, &orientation);
   }
 
-  JPH_PhysicsSystem_Step(world->system, dt, 1);
+  JPH_PhysicsSystem_Update(world->system, dt, 1, world->jobSystem);
+
+  for (uint32_t i = 0; i < world->jobCount; i++) {
+    job_wait(world->jobs[i]);
+  }
+
   world->inverseDelta = 1.f / dt;
   world->interpolation = 0.f;
+  world->jobCount = 0;
 }
 
 void lovrWorldInterpolate(World* world, float alpha) {

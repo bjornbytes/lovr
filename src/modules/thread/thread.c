@@ -35,6 +35,7 @@ struct Channel {
 
 static struct {
   uint32_t ref;
+  uint32_t workers;
   mtx_t channelLock;
   map_t channels;
 } state;
@@ -46,8 +47,8 @@ bool lovrThreadModuleInit(int32_t workers) {
 
   uint32_t cores = os_get_core_count();
   if (workers < 0) workers += cores;
-  workers = MAX(workers, 0);
-  job_init(workers);
+  state.workers = MAX(workers, 0);
+  job_init(state.workers);
 
   return true;
 }
@@ -63,6 +64,10 @@ void lovrThreadModuleDestroy(void) {
   map_free(&state.channels);
   job_destroy();
   memset(&state, 0, sizeof(state));
+}
+
+uint32_t lovrThreadGetWorkerCount(void) {
+  return state.workers;
 }
 
 Channel* lovrThreadGetChannel(const char* name) {
