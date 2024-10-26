@@ -636,10 +636,11 @@ typedef struct {
   void* userdata;
 } QueryContext;
 
-static void queryCallback(void* arg, JPH_BodyID id) {
+static float queryCallback(void* arg, const JPH_BodyID id) {
   QueryContext* ctx = arg;
   Collider* collider = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(ctx->world->bodyInterfaceNoLock, id);
   ctx->callback(ctx->userdata, collider);
+  return FLT_MAX;
 }
 
 bool lovrWorldQueryBox(World* world, float position[3], float size[3], uint32_t filter, QueryCallback* callback, void* userdata) {
@@ -2035,7 +2036,7 @@ bool lovrShapeContainsPoint(Shape* shape, float point[3]) {
   JPH_Shape_GetCenterOfMass(shape->handle, &centerOfMass);
   vec3_sub(point, vec3_fromJolt(center, &centerOfMass));
 
-  return JPH_Shape_CollidePoint(shape->handle, vec3_toJolt(point));
+  return JPH_Shape_CollidePoint(shape->handle, vec3_toJolt(point), NULL);
 }
 
 bool lovrShapeRaycast(Shape* shape, float start[3], float end[3], CastResult* hit) {
