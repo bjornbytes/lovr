@@ -2505,6 +2505,7 @@ bool gpu_init(gpu_config* config) {
       enable->fullDrawIndexUint32 = true;
       enable->imageCubeArray = true;
       enable->independentBlend = true;
+      enable->sampleRateShading = true;
       synchronization2Features.synchronization2 = true;
       multiviewFeatures.multiview = true;
       shaderDrawParameterFeatures.shaderDrawParameters = true;

@@ -8689,7 +8689,7 @@ static bool checkShaderFeatures(uint32_t* features, uint32_t count) {
       case 32: lovrCheck(state.limits.clipDistances > 0, "GPU does not support shader feature #%d: %s", features[i], "clip distance"); break;
       case 33: lovrCheck(state.limits.cullDistances > 0, "GPU does not support shader feature #%d: %s", features[i], "cull distance"); break;
       case 34: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "cubemap array textures");
-      case 35: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "sample rate shading");
+      case 35: break; // SampleRateShading
       case 36: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "rectangle textures");
       case 37: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "rectangle textures");
       case 39: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "8 bit integers");
@@ -8705,7 +8705,7 @@ static bool checkShaderFeatures(uint32_t* features, uint32_t count) {
       case 49: break; // StorageImageExtendedFormats (?)
       case 50: break; // ImageQuery
       case 51: break; // DerivativeControl
-      case 52: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "sample rate shading");
+      case 52: break; // InterpolationFunction
       case 53: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "transform feedback");
       case 54: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "geometry shading");
       case 55: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "autoformat storage textures");
