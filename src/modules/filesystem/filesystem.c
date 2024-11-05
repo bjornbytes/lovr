@@ -611,6 +611,12 @@ void lovrFilesystemSetRequirePath(const char* requirePath) {
 // Archive: dir
 
 static bool dir_resolve(Archive* archive, const char* fullpath, char* buffer) {
+  if (strlen(fullpath) == archive->mountLength) {
+    memcpy(buffer, archive->path, archive->pathLength);
+    buffer[archive->pathLength] = '\0';
+    return true;
+  }
+
   const char* path = fullpath + (archive->mountLength ? archive->mountLength + 1 : 0);
   return concat(buffer, archive->path, archive->pathLength, path, strlen(path));
 }
