@@ -45,6 +45,7 @@ typedef struct {
   bool depthClamp;
   bool depthResolve;
   bool indirectDrawFirstInstance;
+  bool packedBuffers;
   bool float64;
   bool int64;
   bool int16;

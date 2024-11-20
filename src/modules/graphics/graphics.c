@@ -999,6 +999,7 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->depthClamp = state.features.depthClamp;
   features->depthResolve = state.features.depthResolve;
   features->indirectDrawFirstInstance = state.features.indirectDrawFirstInstance;
+  features->packedBuffers = state.features.packedBuffers;
   features->float64 = state.features.float64;
   features->int64 = state.features.int64;
   features->int16 = state.features.int16;
@@ -2911,6 +2912,7 @@ bool lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint
     "#version 460\n"
     "#extension GL_EXT_multiview : require\n"
     "#extension GL_EXT_samplerless_texture_functions : require\n"
+    "#extension GL_EXT_scalar_block_layout : enable\n"
     "#extension GL_GOOGLE_include_directive : require\n";
 
   glslang_program_t* program = NULL;

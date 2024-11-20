@@ -176,6 +176,7 @@ typedef struct {
   bool formatList;
   bool renderPass2;
   bool synchronization2;
+  bool scalarBlockLayout;
 } gpu_extensions;
 
 // State
@@ -2390,7 +2391,8 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_depth_stencil_resolve", true, &state.extensions.depthResolve },
       { "VK_KHR_shader_non_semantic_info", config->debug, &state.extensions.shaderDebug },
       { "VK_KHR_image_format_list", true, &state.extensions.formatList },
-      { "VK_KHR_synchronization2", true, &state.extensions.synchronization2 }
+      { "VK_KHR_synchronization2", true, &state.extensions.synchronization2 },
+      { "VK_EXT_scalar_block_layout", true, &state.extensions.scalarBlockLayout }
     };
 
     uint32_t extensionCount = 0;
@@ -2475,9 +2477,12 @@ bool gpu_init(gpu_config* config) {
 
     // Features
 
+    VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalarBlockLayoutFeatures = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT
+    };
+
     VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features = {
-      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
-      .synchronization2 = true
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR
     };
 
     VkPhysicalDeviceShaderDrawParameterFeatures shaderDrawParameterFeatures = {
@@ -2528,9 +2533,14 @@ bool gpu_init(gpu_config* config) {
       config->features->int16 = (enable->shaderInt16 = supports->shaderInt16);
 
       // Extension "features"
-      if (config->features) {
-        config->features->depthResolve = state.extensions.depthResolve;
-        config->features->shaderDebug = state.extensions.shaderDebug;
+      config->features->depthResolve = state.extensions.depthResolve;
+      config->features->packedBuffers = state.extensions.scalarBlockLayout;
+      config->features->shaderDebug = state.extensions.shaderDebug;
+
+      if (state.extensions.scalarBlockLayout) {
+        scalarBlockLayoutFeatures.scalarBlockLayout = true;
+        scalarBlockLayoutFeatures.pNext = enabledFeatures.pNext;
+        enabledFeatures.pNext = &scalarBlockLayoutFeatures;
       }
 
       // Formats
