@@ -3080,7 +3080,9 @@ static bool lovrShaderInit(Shader* shader) {
     ShaderFlag* flag = &shader->info.flags[i];
     uint32_t hash = flag->name ? (uint32_t) hash64(flag->name, strlen(flag->name)) : 0;
 
-    for (uint32_t j = shader->overrideCount; j < shader->flagCount; j++) {
+    bool found = false;
+
+    for (uint32_t j = 0; j < shader->flagCount; j++) {
       if (hash ? (hash != shader->flagLookup[j]) : (flag->id != shader->flags[j].id)) continue;
 
       uint32_t index = shader->overrideCount++;
@@ -3102,7 +3104,16 @@ static bool lovrShaderInit(Shader* shader) {
         case GPU_FLAG_F32: shader->flags[index].value.f32 = flag->value; break;
       }
 
+      found = true;
       break;
+    }
+
+    if (!found) {
+      if (flag->name) {
+        return lovrSetError("Unknown shader flag %s", flag->name);
+      } else {
+        return lovrSetError("Unknown shader flag #%d", flag->id);
+      }
     }
   }
 
