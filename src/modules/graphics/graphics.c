@@ -3080,7 +3080,7 @@ static bool lovrShaderInit(Shader* shader) {
     ShaderFlag* flag = &shader->info.flags[i];
     uint32_t hash = flag->name ? (uint32_t) hash64(flag->name, strlen(flag->name)) : 0;
 
-    for (uint32_t j = 0; j < shader->flagCount; j++) {
+    for (uint32_t j = shader->overrideCount; j < shader->flagCount; j++) {
       if (hash ? (hash != shader->flagLookup[j]) : (flag->id != shader->flags[j].id)) continue;
 
       uint32_t index = shader->overrideCount++;
@@ -3095,7 +3095,14 @@ static bool lovrShaderInit(Shader* shader) {
         shader->flagLookup[j] = tempHash;
       }
 
-      shader->flags[index].value = flag->value;
+      switch (shader->flags[index].type) {
+        case GPU_FLAG_B32: shader->flags[index].value.b32 = flag->value != 0.; break;
+        case GPU_FLAG_I32: shader->flags[index].value.i32 = flag->value; break;
+        case GPU_FLAG_U32: shader->flags[index].value.u32 = flag->value; break;
+        case GPU_FLAG_F32: shader->flags[index].value.f32 = flag->value; break;
+      }
+
+      break;
     }
   }
 
@@ -3605,6 +3612,7 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->textureMask = parent->textureMask;
   shader->samplerMask = parent->samplerMask;
   shader->storageMask = parent->storageMask;
+  shader->pushConstantSize = parent->pushConstantSize;
   shader->uniformSize = parent->uniformSize;
   shader->uniformCount = parent->uniformCount;
   shader->resourceCount = parent->resourceCount;

@@ -1655,30 +1655,22 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
     .pDynamicStates = dynamicStates
   };
 
-  uint32_t stackConstants[32];
+  gpu_flag_value stackConstants[32];
   VkSpecializationMapEntry stackEntries[32];
-  uint32_t* constants = stackConstants;
+  gpu_flag_value* constants = stackConstants;
   VkSpecializationMapEntry* entries = stackEntries;
 
   if (info->flagCount > COUNTOF(stackConstants)) {
-    constants = state.config.fnAlloc(info->flagCount * sizeof(uint32_t));
+    constants = state.config.fnAlloc(info->flagCount * sizeof(gpu_flag_value));
     ASSERT(constants, "Out of memory") return false;
     entries = state.config.fnAlloc(info->flagCount * sizeof(VkSpecializationMapEntry));
     ASSERT(entries, "Out of memory") return state.config.fnFree(constants), false;
   }
 
   for (uint32_t i = 0; i < info->flagCount; i++) {
-    gpu_shader_flag* flag = &info->flags[i];
-
-    switch (flag->type) {
-      case GPU_FLAG_B32: constants[i] = flag->value == 0. ? VK_FALSE : VK_TRUE; break;
-      case GPU_FLAG_I32: constants[i] = (uint32_t) flag->value; break;
-      case GPU_FLAG_U32: constants[i] = (uint32_t) flag->value; break;
-      case GPU_FLAG_F32: constants[i] = (float) flag->value; break;
-    }
-
+    constants[i] = info->flags[i].value;
     entries[i] = (VkSpecializationMapEntry) {
-      .constantID = flag->id,
+      .constantID = info->flags[i].id,
       .offset = i * sizeof(uint32_t),
       .size = sizeof(uint32_t)
     };
@@ -1687,7 +1679,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
   VkSpecializationInfo specialization = {
     .mapEntryCount = info->flagCount,
     .pMapEntries = entries,
-    .dataSize = info->flagCount * sizeof(uint32_t),
+    .dataSize = info->flagCount * sizeof(gpu_flag_value),
     .pData = (const void*) constants
   };
 
@@ -1739,30 +1731,22 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info)
 }
 
 bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info* info) {
-  uint32_t stackConstants[32];
+  gpu_flag_value stackConstants[32];
   VkSpecializationMapEntry stackEntries[32];
-  uint32_t* constants = stackConstants;
+  gpu_flag_value* constants = stackConstants;
   VkSpecializationMapEntry* entries = stackEntries;
 
   if (info->flagCount > COUNTOF(stackConstants)) {
-    constants = state.config.fnAlloc(info->flagCount * sizeof(uint32_t));
+    constants = state.config.fnAlloc(info->flagCount * sizeof(gpu_flag_value));
     ASSERT(constants, "Out of memory") return false;
     entries = state.config.fnAlloc(info->flagCount * sizeof(VkSpecializationMapEntry));
     ASSERT(entries, "Out of memory") return state.config.fnFree(constants), false;
   }
 
   for (uint32_t i = 0; i < info->flagCount; i++) {
-    gpu_shader_flag* flag = &info->flags[i];
-
-    switch (flag->type) {
-      case GPU_FLAG_B32: constants[i] = flag->value == 0. ? VK_FALSE : VK_TRUE; break;
-      case GPU_FLAG_I32: constants[i] = (uint32_t) flag->value; break;
-      case GPU_FLAG_U32: constants[i] = (uint32_t) flag->value; break;
-      case GPU_FLAG_F32: constants[i] = (float) flag->value; break;
-    }
-
+    constants[i] = info->flags[i].value;
     entries[i] = (VkSpecializationMapEntry) {
-      .constantID = flag->id,
+      .constantID = info->flags[i].id,
       .offset = i * sizeof(uint32_t),
       .size = sizeof(uint32_t)
     };

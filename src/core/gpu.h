@@ -368,10 +368,17 @@ typedef enum {
   GPU_FLAG_F32
 } gpu_flag_type;
 
+typedef union {
+  uint32_t b32;
+  int32_t i32;
+  uint32_t u32;
+  float f32;
+} gpu_flag_value;
+
 typedef struct {
   uint32_t id;
   gpu_flag_type type;
-  double value;
+  gpu_flag_value value;
 } gpu_shader_flag;
 
 typedef enum {
