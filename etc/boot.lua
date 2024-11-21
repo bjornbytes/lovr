@@ -223,6 +223,7 @@ function lovr.errhand(message)
       if name == 'quit' then return a or 1
       elseif name == 'restart' then return 'restart', lovr.restart and lovr.restart()
       elseif name == 'keypressed' and a == 'f5' then lovr.event.restart()
+      elseif name == 'filechanged' then lovr.event.restart()
       elseif name == 'keypressed' and a == 'escape' then lovr.event.quit() end
     end
 
