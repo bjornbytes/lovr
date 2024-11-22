@@ -29,6 +29,8 @@ struct Layer {
   float height;
   ViewMask mask;
   int32_t viewport[4];
+  Texture* texture;
+  Pass* pass;
 };
 
 static struct {
@@ -280,11 +282,22 @@ static Layer* simulator_newLayer(uint32_t width, uint32_t height, const LayerInf
   layer->ref = 1;
   layer->textureWidth = width;
   layer->textureWeight = height;
+  layer->texture = lovrTextureCreate(&(TextureInfo) {
+    .format = FORMAT_RGBA8,
+    .width = width,
+    .height = height,
+    .layers = 1,
+    .usage = TEXTURE_RENDER,
+    .srgb = true
+  });
+  layer->pass = lovrPassCreate("Layer");
   return layer;
 }
 
 static void simulator_destroyLayer(void* ref) {
   Layer* layer = ref;
+  lovrRelease(layer->texture, lovrTextureDestroy);
+  lovrRelease(layer->pass, lovrPassDestroy);
   lovrFree(layer);
 }
 
@@ -348,11 +361,11 @@ static void simulator_setLayerViewport(Layer* layer, int32_t viewport[4]) {
 }
 
 static struct Texture* simulator_getLayerTexture(Layer* layer) {
-  return NULL; // TODO
+  return layer->texture;
 }
 
 static struct Pass* simulator_getLayerPass(Layer* layer) {
-  return NULL; // TODO
+  return layer->pass;
 }
 
 static bool simulator_getTexture(Texture** texture) {
