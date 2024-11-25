@@ -27,7 +27,7 @@
 #define MAX_PIPELINES 65536
 #define MAX_TALLIES 255
 #define TRANSFORM_STACK_SIZE 16
-#define PIPELINE_STACK_SIZE 4
+#define PIPELINE_STACK_SIZE 8
 #define MAX_SHADER_RESOURCES 32
 #define MAX_CUSTOM_ATTRIBUTES 10
 #define FLOAT_BITS(f) ((union { float f; uint32_t u; }) { f }).u
