@@ -183,6 +183,10 @@ var webxr = {
     return false;
   },
 
+  webxr_getFeatures: function(features) {
+    // TODO
+  },
+
   webxr_getName: function(name, size) {
     return false;
   },

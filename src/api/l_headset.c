@@ -114,6 +114,28 @@ static int l_lovrHeadsetGetDriver(lua_State* L) {
   return 2;
 }
 
+static int l_lovrHeadsetGetFeatures(lua_State* L) {
+  HeadsetFeatures features = { 0 };
+  lovrHeadsetInterface->getFeatures(&features);
+  lua_newtable(L);
+  lua_pushboolean(L, features.overlay), lua_setfield(L, -2, "overlay");
+  lua_pushboolean(L, features.proximity), lua_setfield(L, -2, "proximity");
+  lua_pushboolean(L, features.passthrough), lua_setfield(L, -2, "passthrough");
+  lua_pushboolean(L, features.refreshRate), lua_setfield(L, -2, "refreshRate");
+  lua_pushboolean(L, features.depthSubmission), lua_setfield(L, -2, "depthSubmission");
+  lua_pushboolean(L, features.eyeTracking), lua_setfield(L, -2, "eyeTracking");
+  lua_pushboolean(L, features.handTracking), lua_setfield(L, -2, "handTracking");
+  lua_pushboolean(L, features.handTrackingElbow), lua_setfield(L, -2, "handTrackingElbow");
+  lua_pushboolean(L, features.keyboardTracking), lua_setfield(L, -2, "keyboardTracking");
+  lua_pushboolean(L, features.viveTrackers), lua_setfield(L, -2, "viveTrackers");
+  lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
+  lua_pushboolean(L, features.controllerModel), lua_setfield(L, -2, "controllerModel");
+  lua_pushboolean(L, features.controllerSkeleton), lua_setfield(L, -2, "controllerSkeleton");
+  lua_pushboolean(L, features.layerDepthTest), lua_setfield(L, -2, "layerDepthTest");
+  lua_pushboolean(L, features.layerFilter), lua_setfield(L, -2, "layerFilter");
+  return 1;
+}
+
 static int l_lovrHeadsetGetName(lua_State* L) {
   char name[256];
   if (lovrHeadsetInterface->getName(name, sizeof(name))) {
@@ -741,6 +763,7 @@ static int l_lovrHeadsetGetHandles(lua_State* L) {
 static const luaL_Reg lovrHeadset[] = {
   { "start", l_lovrHeadsetStart },
   { "getDriver", l_lovrHeadsetGetDriver },
+  { "getFeatures", l_lovrHeadsetGetFeatures },
   { "getName", l_lovrHeadsetGetName },
   { "getDisplayWidth", l_lovrHeadsetGetDisplayWidth },
   { "getDisplayHeight", l_lovrHeadsetGetDisplayHeight },

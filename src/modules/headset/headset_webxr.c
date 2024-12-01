@@ -5,6 +5,7 @@ extern bool webxr_start(void);
 extern void webxr_stop(void);
 extern void webxr_destroy(void);
 extern bool webxr_getDriverName(char* name, size_t length);
+extern void webxr_getFeatures(HeadsetFeatures* features);
 extern bool webxr_getName(char* name, size_t length);
 extern bool webxr_isSeated(void);
 extern void webxr_getDisplayDimensions(uint32_t* width, uint32_t* height);
@@ -70,6 +71,7 @@ HeadsetInterface lovrHeadsetWebXRDriver = {
   .start = webxr_start,
   .stop = webxr_stop,
   .destroy = webxr_destroy,
+  .getFeatures = webxr_getFeatures,
   .getDriverName = webxr_getDriverName,
   .getName = webxr_getName,
   .isSeated = webxr_isSeated,

@@ -248,8 +248,18 @@ static struct {
     bool questPassthrough;
     bool refreshRate;
     bool viveTrackers;
-  } features;
+  } extensions;
 } state;
+
+// Forward declarations
+
+static void openxr_destroy();
+static void openxr_stop(void);
+static bool openxr_isPassthroughSupported(PassthroughMode mode);
+static void openxr_setClipDistance(float clipNear, float clipFar);
+static void swapchain_destroy(Swapchain* swapchain);
+
+// Helpers
 
 static bool xrwarn(XrResult result, const char* message) {
   if (XR_SUCCEEDED(result)) return true;
@@ -294,7 +304,6 @@ static XrTime getCurrentXrTime(void) {
   return time;
 }
 
-static bool openxr_getDriverName(char* name, size_t length);
 static bool createReferenceSpace(XrTime time) {
   if (time <= 0) {
     return false;
@@ -307,11 +316,11 @@ static bool createReferenceSpace(XrTime time) {
 
   // Reference space doesn't need to be recreated for seated experiences (those always use local
   // space), or when local-floor is supported.  Otherwise, vertical offset must be re-measured.
-  if (state.referenceSpace && (state.features.localFloor || state.config.seated)) {
+  if (state.referenceSpace && (state.extensions.localFloor || state.config.seated)) {
     return true;
   }
 
-  if (state.features.localFloor) {
+  if (state.extensions.localFloor) {
     info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
   } else if (state.config.seated) {
     info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
@@ -353,10 +362,10 @@ static XrAction getPoseActionForDevice(Device device) {
       return state.actions[ACTION_GRIP_POSE];
     case DEVICE_HAND_LEFT_PINCH:
     case DEVICE_HAND_RIGHT_PINCH:
-      return state.features.handInteraction ? state.actions[ACTION_PINCH_POSE] : XR_NULL_HANDLE;
+      return state.extensions.handInteraction ? state.actions[ACTION_PINCH_POSE] : XR_NULL_HANDLE;
     case DEVICE_HAND_LEFT_POKE:
     case DEVICE_HAND_RIGHT_POKE:
-      return state.features.handInteraction ? state.actions[ACTION_POKE_POSE] : XR_NULL_HANDLE;
+      return state.extensions.handInteraction ? state.actions[ACTION_POKE_POSE] : XR_NULL_HANDLE;
     case DEVICE_HAND_LEFT_POINT:
     case DEVICE_HAND_RIGHT_POINT:
       return state.actions[ACTION_POINTER_POSE];
@@ -372,7 +381,7 @@ static XrAction getPoseActionForDevice(Device device) {
     case DEVICE_FOOT_RIGHT:
     case DEVICE_CAMERA:
     case DEVICE_KEYBOARD:
-      return state.features.viveTrackers ? state.actions[ACTION_TRACKER_POSE] : XR_NULL_HANDLE;
+      return state.extensions.viveTrackers ? state.actions[ACTION_TRACKER_POSE] : XR_NULL_HANDLE;
     case DEVICE_EYE_GAZE:
       return state.actions[ACTION_GAZE_POSE];
     default:
@@ -383,7 +392,7 @@ static XrAction getPoseActionForDevice(Device device) {
 // Hand trackers are created lazily because on some implementations xrCreateHandTrackerEXT will
 // return XR_ERROR_FEATURE_UNSUPPORTED if called too early.
 static XrHandTrackerEXT getHandTracker(Device device) {
-  if (!state.features.handTracking || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) {
+  if (!state.extensions.handTracking || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) {
     return XR_NULL_HANDLE;
   }
 
@@ -392,7 +401,7 @@ static XrHandTrackerEXT getHandTracker(Device device) {
   if (!*tracker) {
     XrHandTrackerCreateInfoEXT info = {
       .type = XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT,
-      .handJointSet = state.features.handTrackingElbow ?
+      .handJointSet = state.extensions.handTrackingElbow ?
         XR_HAND_JOINT_SET_HAND_WITH_FOREARM_ULTRALEAP :
         XR_HAND_JOINT_SET_DEFAULT_EXT,
       .hand = device == DEVICE_HAND_RIGHT ? XR_HAND_RIGHT_EXT : XR_HAND_LEFT_EXT
@@ -407,7 +416,7 @@ static XrHandTrackerEXT getHandTracker(Device device) {
       }
     };
 
-    if (state.features.handTrackingDataSource) {
+    if (state.extensions.handTrackingDataSource) {
       sourceInfo.next = info.next;
       info.next = &sourceInfo;
     }
@@ -423,7 +432,7 @@ static XrHandTrackerEXT getHandTracker(Device device) {
 // Controller model keys are created lazily because the runtime is allowed to
 // return XR_NULL_CONTROLLER_MODEL_KEY_MSFT until it is ready.
 static XrControllerModelKeyMSFT getControllerModelKey(Device device) {
-  if (!state.features.controllerModel || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) {
+  if (!state.extensions.controllerModel || (device != DEVICE_HAND_LEFT && device != DEVICE_HAND_RIGHT)) {
     return XR_NULL_CONTROLLER_MODEL_KEY_MSFT;
   }
 
@@ -444,7 +453,6 @@ static XrControllerModelKeyMSFT getControllerModelKey(Device device) {
   return *modelKey;
 }
 
-static void swapchain_destroy(Swapchain* swapchain);
 static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, bool stereo, bool depth) {
   XrSwapchainCreateInfo info = {
     .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
@@ -545,6 +553,8 @@ static bool swapchain_release(Swapchain* swapchain) {
   return true;
 }
 
+// Entry
+
 static void openxr_getVulkanPhysicalDevice(void* instance, uintptr_t physicalDevice) {
   XrVulkanGraphicsDeviceGetInfoKHR info = {
     .type = XR_TYPE_VULKAN_GRAPHICS_DEVICE_GET_INFO_KHR,
@@ -603,9 +613,6 @@ static uintptr_t openxr_getOpenXRSessionHandle(void) {
   return (uintptr_t) state.session;
 }
 
-static void openxr_destroy();
-static void openxr_setClipDistance(float clipNear, float clipFar);
-
 static bool openxr_init(HeadsetConfig* config) {
   state.config = *config;
 
@@ -657,35 +664,35 @@ static bool openxr_init(HeadsetConfig* config) {
 #ifdef __ANDROID__
       { "XR_KHR_android_create_instance", NULL, true },
 #endif
-      { "XR_KHR_composition_layer_depth", &state.features.depth, config->submitDepth },
+      { "XR_KHR_composition_layer_depth", &state.extensions.depth, config->submitDepth },
 #ifdef _WIN32
       { "XR_KHR_win32_convert_performance_counter_time", NULL, true },
 #else
       { "XR_KHR_convert_timespec_time", NULL, true },
 #endif
-      { "XR_EXT_eye_gaze_interaction", &state.features.gaze, true },
-      { "XR_EXT_hand_interaction", &state.features.handInteraction, true },
-      { "XR_EXT_hand_joints_motion_range", &state.features.handTrackingMotionRange, true },
-      { "XR_EXT_hand_tracking", &state.features.handTracking, true },
-      { "XR_EXT_hand_tracking_data_source", &state.features.handTrackingDataSource, true },
-      { "XR_EXT_local_floor", &state.features.localFloor, true },
-      { "XR_EXT_user_presence", &state.features.presence, true },
-      { "XR_BD_controller_interaction", &state.features.picoController, true },
-      { "XR_FB_composition_layer_depth_test", &state.features.layerDepthTest, true },
-      { "XR_FB_composition_layer_settings", &state.features.layerSettings, true },
-      { "XR_FB_display_refresh_rate", &state.features.refreshRate, true },
-      { "XR_FB_hand_tracking_aim", &state.features.handTrackingAim, true },
-      { "XR_FB_hand_tracking_mesh", &state.features.handTrackingMesh, true },
-      { "XR_FB_keyboard_tracking", &state.features.keyboardTracking, true },
-      { "XR_FB_passthrough", &state.features.questPassthrough, true },
-      { "XR_META_automatic_layer_filter", &state.features.layerAutoFilter, true },
-      { "XR_META_passthrough_preferences", &state.features.passthroughPreferences, true },
-      { "XR_ML_ml2_controller_interaction", &state.features.ml2Controller, true },
-      { "XR_MND_headless", &state.features.headless, true },
-      { "XR_MSFT_controller_model", &state.features.controllerModel, true },
-      { "XR_ULTRALEAP_hand_tracking_forearm", &state.features.handTrackingElbow, true },
-      { "XR_EXTX_overlay", &state.features.overlay, config->overlay },
-      { "XR_HTCX_vive_tracker_interaction", &state.features.viveTrackers, true }
+      { "XR_EXT_eye_gaze_interaction", &state.extensions.gaze, true },
+      { "XR_EXT_hand_interaction", &state.extensions.handInteraction, true },
+      { "XR_EXT_hand_joints_motion_range", &state.extensions.handTrackingMotionRange, true },
+      { "XR_EXT_hand_tracking", &state.extensions.handTracking, true },
+      { "XR_EXT_hand_tracking_data_source", &state.extensions.handTrackingDataSource, true },
+      { "XR_EXT_local_floor", &state.extensions.localFloor, true },
+      { "XR_EXT_user_presence", &state.extensions.presence, true },
+      { "XR_BD_controller_interaction", &state.extensions.picoController, true },
+      { "XR_FB_composition_layer_depth_test", &state.extensions.layerDepthTest, true },
+      { "XR_FB_composition_layer_settings", &state.extensions.layerSettings, true },
+      { "XR_FB_display_refresh_rate", &state.extensions.refreshRate, true },
+      { "XR_FB_hand_tracking_aim", &state.extensions.handTrackingAim, true },
+      { "XR_FB_hand_tracking_mesh", &state.extensions.handTrackingMesh, true },
+      { "XR_FB_keyboard_tracking", &state.extensions.keyboardTracking, true },
+      { "XR_FB_passthrough", &state.extensions.questPassthrough, true },
+      { "XR_META_automatic_layer_filter", &state.extensions.layerAutoFilter, true },
+      { "XR_META_passthrough_preferences", &state.extensions.passthroughPreferences, true },
+      { "XR_ML_ml2_controller_interaction", &state.extensions.ml2Controller, true },
+      { "XR_MND_headless", &state.extensions.headless, true },
+      { "XR_MSFT_controller_model", &state.extensions.controllerModel, true },
+      { "XR_ULTRALEAP_hand_tracking_forearm", &state.extensions.handTrackingElbow, true },
+      { "XR_EXTX_overlay", &state.extensions.overlay, config->overlay },
+      { "XR_HTCX_vive_tracker_interaction", &state.extensions.viveTrackers, true }
     };
 
     uint32_t enabledExtensionCount = 0;
@@ -743,37 +750,37 @@ static bool openxr_init(HeadsetConfig* config) {
     XrSystemPassthroughProperties2FB passthroughProperties = { .type = XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB };
     XrSystemProperties properties = { .type = XR_TYPE_SYSTEM_PROPERTIES };
 
-    if (state.features.gaze) {
+    if (state.extensions.gaze) {
       eyeGazeProperties.next = properties.next;
       properties.next = &eyeGazeProperties;
     }
 
-    if (state.features.handTracking) {
+    if (state.extensions.handTracking) {
       handTrackingProperties.next = properties.next;
       properties.next = &handTrackingProperties;
     }
 
-    if (state.features.keyboardTracking) {
+    if (state.extensions.keyboardTracking) {
       keyboardTrackingProperties.next = properties.next;
       properties.next = &keyboardTrackingProperties;
     }
 
-    if (state.features.presence) {
+    if (state.extensions.presence) {
       presenceProperties.next = properties.next;
       properties.next = &presenceProperties;
     }
 
-    if (state.features.questPassthrough) {
+    if (state.extensions.questPassthrough) {
       passthroughProperties.next = properties.next;
       properties.next = &passthroughProperties;
     }
 
     XR_INIT(xrGetSystemProperties(state.instance, state.system, &properties), "Failed to query system properties");
-    state.features.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
-    state.features.handTracking = handTrackingProperties.supportsHandTracking;
-    state.features.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
-    state.features.presence = presenceProperties.supportsUserPresence;
-    state.features.questPassthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
+    state.extensions.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
+    state.extensions.handTracking = handTrackingProperties.supportsHandTracking;
+    state.extensions.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
+    state.extensions.presence = presenceProperties.supportsUserPresence;
+    state.extensions.questPassthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
 
     uint32_t viewConfigurationCount;
     XrViewConfigurationType viewConfigurations[2];
@@ -826,7 +833,7 @@ static bool openxr_init(HeadsetConfig* config) {
     state.actionFilters[DEVICE_HAND_RIGHT_PINCH] = state.actionFilters[DEVICE_HAND_RIGHT];
     state.actionFilters[DEVICE_HAND_RIGHT_POKE] = state.actionFilters[DEVICE_HAND_RIGHT];
 
-    if (state.features.viveTrackers) {
+    if (state.extensions.viveTrackers) {
       XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_elbow", &state.actionFilters[DEVICE_ELBOW_LEFT]), "Failed to create path");
       XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/right_elbow", &state.actionFilters[DEVICE_ELBOW_RIGHT]), "Failed to create path");
       XR_INIT(xrStringToPath(state.instance, "/user/vive_tracker_htcx/role/left_shoulder", &state.actionFilters[DEVICE_SHOULDER_LEFT]), "Failed to create path");
@@ -898,11 +905,11 @@ static bool openxr_init(HeadsetConfig* config) {
 
     static_assert(COUNTOF(actionInfo) == MAX_ACTIONS, "Unbalanced action table!");
 
-    if (!state.features.viveTrackers) {
+    if (!state.extensions.viveTrackers) {
       actionInfo[ACTION_TRACKER_POSE].countSubactionPaths = 0;
     }
 
-    if (!state.features.gaze) {
+    if (!state.extensions.gaze) {
       actionInfo[ACTION_GAZE_POSE].countSubactionPaths = 0;
     }
 
@@ -1277,34 +1284,34 @@ static bool openxr_init(HeadsetConfig* config) {
     };
 
     // Don't suggest bindings for unsupported input profiles
-    if (!state.features.ml2Controller) {
+    if (!state.extensions.ml2Controller) {
       bindings[PROFILE_ML2][0].path = NULL;
     }
 
-    if (!state.features.picoController) {
+    if (!state.extensions.picoController) {
       bindings[PROFILE_PICO_NEO3][0].path = NULL;
       bindings[PROFILE_PICO4][0].path = NULL;
     }
 
-    if (!state.features.viveTrackers) {
+    if (!state.extensions.viveTrackers) {
       bindings[PROFILE_TRACKER][0].path = NULL;
     }
 
-    if (!state.features.gaze) {
+    if (!state.extensions.gaze) {
       bindings[PROFILE_GAZE][0].path = NULL;
     }
 
     // For this to work, pinch/poke need to be the first paths in the interaction profile
-    if (!state.features.handInteraction) {
+    if (!state.extensions.handInteraction) {
       bindings[PROFILE_SIMPLE] += 4;
       bindings[PROFILE_VIVE] += 4;
       bindings[PROFILE_TOUCH] += 4;
       bindings[PROFILE_GO] += 4;
       bindings[PROFILE_INDEX] += 4;
       bindings[PROFILE_WMR] += 4;
-      if (state.features.ml2Controller) bindings[PROFILE_ML2] += 4;
-      if (state.features.picoController) bindings[PROFILE_PICO_NEO3] += 4;
-      if (state.features.picoController) bindings[PROFILE_PICO4] += 4;
+      if (state.extensions.ml2Controller) bindings[PROFILE_ML2] += 4;
+      if (state.extensions.picoController) bindings[PROFILE_PICO_NEO3] += 4;
+      if (state.extensions.picoController) bindings[PROFILE_PICO4] += 4;
     }
 
     XrPath path;
@@ -1337,7 +1344,6 @@ static bool openxr_init(HeadsetConfig* config) {
   return true;
 }
 
-static void openxr_stop(void);
 static bool openxr_start(void) {
 #ifdef LOVR_DISABLE_GRAPHICS
   bool hasGraphics = false;
@@ -1378,7 +1384,7 @@ static bool openxr_start(void) {
     }
 #endif
 
-    lovrAssert(hasGraphics || state.features.headless, "Graphics module is not available, and headless headset is not supported");
+    lovrAssert(hasGraphics || state.extensions.headless, "Graphics module is not available, and headless headset is not supported");
 
 #ifdef XR_EXTX_overlay
     XrSessionCreateInfoOverlayEXTX overlayInfo = {
@@ -1387,7 +1393,7 @@ static bool openxr_start(void) {
       .sessionLayersPlacement = state.config.overlayOrder
     };
 
-    if (state.features.overlay) {
+    if (state.extensions.overlay) {
       info.next = &overlayInfo;
     }
 #endif
@@ -1489,12 +1495,12 @@ static bool openxr_start(void) {
 
     GraphicsFeatures features;
     lovrGraphicsGetFeatures(&features);
-    if (state.features.depth && supportsDepth && features.depthResolve) {
+    if (state.extensions.depth && supportsDepth && features.depthResolve) {
       if (!swapchain_init(&state.swapchains[DEPTH], state.width, state.height, true, true)) {
         goto stop;
       }
     } else {
-      state.features.depth = false;
+      state.extensions.depth = false;
     }
 
     // Pre-init composition layer
@@ -1515,7 +1521,7 @@ static bool openxr_start(void) {
       .subImage = { state.swapchains[COLOR].handle, { { 0, 0 }, { state.width, state.height } }, 1 }
     };
 
-    if (state.features.depth) {
+    if (state.extensions.depth) {
       for (uint32_t i = 0; i < 2; i++) {
         state.layerViews[i].next = &state.depthInfo[i];
         state.depthInfo[i] = (XrCompositionLayerDepthInfoKHR) {
@@ -1530,7 +1536,7 @@ static bool openxr_start(void) {
     }
   }
 
-  if (state.features.keyboardTracking) {
+  if (state.extensions.keyboardTracking) {
     XrKeyboardTrackingQueryFB queryInfo = {
       .type = XR_TYPE_KEYBOARD_TRACKING_QUERY_FB,
       .flags = XR_KEYBOARD_TRACKING_QUERY_LOCAL_BIT_FB
@@ -1547,17 +1553,17 @@ static bool openxr_start(void) {
 
       XRG(xrCreateKeyboardSpaceFB(state.session, &spaceInfo, &state.spaces[DEVICE_KEYBOARD]), "xrCreateKeyboardSpaceFB", stop);
     } else {
-      state.features.keyboardTracking = false;
+      state.extensions.keyboardTracking = false;
     }
   }
 
   // On Quest, ask for the default passthrough mode at startup (will check preference and enable
   // passthrough if needed)
-  if (state.features.passthroughPreferences && state.features.questPassthrough) {
+  if (state.extensions.passthroughPreferences && state.extensions.questPassthrough) {
     lovrHeadsetInterface->setPassthrough(PASSTHROUGH_DEFAULT);
   }
 
-  if (state.features.refreshRate) {
+  if (state.extensions.refreshRate) {
     XRG(xrEnumerateDisplayRefreshRatesFB(state.session, 0, &state.refreshRateCount, NULL), "xrEnumerateDisplayRefreshRatesFB", stop);
     state.refreshRates = lovrMalloc(state.refreshRateCount * sizeof(float));
     XRG(xrEnumerateDisplayRefreshRatesFB(state.session, state.refreshRateCount, &state.refreshRateCount, state.refreshRates), "xrEnumerateDisplayRefreshRatesFB", stop);
@@ -1618,6 +1624,24 @@ static bool openxr_getDriverName(char* name, size_t length) {
   return true;
 }
 
+static void openxr_getFeatures(HeadsetFeatures* features) {
+  features->overlay = state.extensions.overlay;
+  features->proximity = state.extensions.presence;
+  features->passthrough = openxr_isPassthroughSupported(PASSTHROUGH_BLEND) || openxr_isPassthroughSupported(PASSTHROUGH_ADD);
+  features->refreshRate = state.extensions.refreshRate;
+  features->depthSubmission = state.extensions.depth;
+  features->eyeTracking = state.extensions.gaze;
+  features->handTracking = state.extensions.handTracking;
+  features->handTrackingElbow = state.extensions.handTrackingElbow;
+  features->keyboardTracking = state.extensions.keyboardTracking;
+  features->viveTrackers = state.extensions.viveTrackers;
+  features->handModel = state.extensions.handTrackingMesh;
+  features->controllerModel = state.extensions.controllerModel;
+  features->controllerSkeleton = state.extensions.handTrackingDataSource && state.extensions.handTrackingMotionRange;
+  features->layerDepthTest = state.extensions.layerDepthTest;
+  features->layerFilter = state.extensions.layerSettings && state.extensions.layerAutoFilter;
+}
+
 static bool openxr_getName(char* name, size_t length) {
   XrSystemProperties properties = { .type = XR_TYPE_SYSTEM_PROPERTIES };
   if (XR_FAILED(xrGetSystemProperties(state.instance, state.system, &properties))) return false;
@@ -1637,14 +1661,14 @@ static void openxr_getDisplayDimensions(uint32_t* width, uint32_t* height) {
 
 static float openxr_getRefreshRate(void) {
   float refreshRate;
-  if (state.features.refreshRate && XR_SUCCEEDED(xrGetDisplayRefreshRateFB(state.session, &refreshRate))) {
+  if (state.extensions.refreshRate && XR_SUCCEEDED(xrGetDisplayRefreshRateFB(state.session, &refreshRate))) {
     return refreshRate;
   }
   return 0.f;
 }
 
 static bool openxr_setRefreshRate(float refreshRate) {
-  if (!state.features.refreshRate) return false;
+  if (!state.extensions.refreshRate) return false;
   return XR_SUCCEEDED(xrRequestDisplayRefreshRateFB(state.session, refreshRate));
 }
 
@@ -1663,7 +1687,7 @@ static XrEnvironmentBlendMode convertPassthroughMode(PassthroughMode mode) {
 }
 
 static PassthroughMode openxr_getPassthrough(void) {
-  if (state.features.questPassthrough) {
+  if (state.extensions.questPassthrough) {
     return state.passthroughActive ? PASSTHROUGH_BLEND : PASSTHROUGH_OPAQUE;
   }
 
@@ -1676,12 +1700,12 @@ static PassthroughMode openxr_getPassthrough(void) {
 }
 
 static bool openxr_setPassthrough(PassthroughMode mode) {
-  if (state.features.questPassthrough) {
+  if (state.extensions.questPassthrough) {
     if (mode == PASSTHROUGH_ADD) {
       return false;
     }
 
-    if (mode == PASSTHROUGH_DEFAULT && state.features.passthroughPreferences) {
+    if (mode == PASSTHROUGH_DEFAULT && state.extensions.passthroughPreferences) {
       XrPassthroughPreferencesMETA preferences = {
         .type = XR_TYPE_PASSTHROUGH_PREFERENCES_META
       };
@@ -1769,7 +1793,7 @@ static bool openxr_setPassthrough(PassthroughMode mode) {
 }
 
 static bool openxr_isPassthroughSupported(PassthroughMode mode) {
-  if (state.features.questPassthrough && mode == PASSTHROUGH_BLEND) {
+  if (state.extensions.questPassthrough && mode == PASSTHROUGH_BLEND) {
     return true;
   }
 
@@ -1914,12 +1938,12 @@ static bool openxr_getPose(Device device, float* position, float* orientation) {
     bool point = false;
     bool elbow = false;
 
-    if (state.features.handTrackingAim && (device == DEVICE_HAND_LEFT_POINT || device == DEVICE_HAND_RIGHT_POINT)) {
+    if (state.extensions.handTrackingAim && (device == DEVICE_HAND_LEFT_POINT || device == DEVICE_HAND_RIGHT_POINT)) {
       device = DEVICE_HAND_LEFT + (device == DEVICE_HAND_RIGHT_POINT);
       point = true;
     }
 
-    if (state.features.handTrackingElbow && (device == DEVICE_ELBOW_LEFT || device == DEVICE_ELBOW_RIGHT)) {
+    if (state.extensions.handTrackingElbow && (device == DEVICE_ELBOW_LEFT || device == DEVICE_ELBOW_RIGHT)) {
       device = DEVICE_HAND_LEFT + (device == DEVICE_ELBOW_RIGHT);
       elbow = true;
     }
@@ -1939,7 +1963,7 @@ static bool openxr_getPose(Device device, float* position, float* orientation) {
     XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
     XrHandJointLocationsEXT hand = {
       .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-      .jointCount = 26 + state.features.handTrackingElbow,
+      .jointCount = 26 + state.extensions.handTrackingElbow,
       .jointLocations = joints
     };
 
@@ -2070,7 +2094,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
       }
 
       // FB extension for pinch
-      if (!state.features.handTrackingAim) {
+      if (!state.extensions.handTrackingAim) {
         return false;
       }
 
@@ -2094,7 +2118,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
       XrHandJointLocationsEXT hand = {
         .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
         .next = &aimState,
-        .jointCount = 26 + state.features.handTrackingElbow,
+        .jointCount = 26 + state.extensions.handTrackingElbow,
         .jointLocations = joints
       };
 
@@ -2131,7 +2155,7 @@ static bool openxr_getSkeleton(Device device, float* poses, SkeletonSource* sour
       XR_HAND_JOINTS_MOTION_RANGE_UNOBSTRUCTED_EXT
   };
 
-  if (state.features.handTrackingMotionRange) {
+  if (state.extensions.handTrackingMotionRange) {
     motionRange.next = info.next;
     info.next = &motionRange;
   }
@@ -2139,7 +2163,7 @@ static bool openxr_getSkeleton(Device device, float* poses, SkeletonSource* sour
   XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
   XrHandJointLocationsEXT hand = {
     .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-    .jointCount = 26 + state.features.handTrackingElbow,
+    .jointCount = 26 + state.extensions.handTrackingElbow,
     .jointLocations = joints
   };
 
@@ -2147,7 +2171,7 @@ static bool openxr_getSkeleton(Device device, float* poses, SkeletonSource* sour
     .type = XR_TYPE_HAND_TRACKING_DATA_SOURCE_STATE_EXT
   };
 
-  if (state.features.handTrackingDataSource) {
+  if (state.extensions.handTrackingDataSource) {
     sourceState.next = hand.next;
     hand.next = &sourceState;
   }
@@ -2164,7 +2188,7 @@ static bool openxr_getSkeleton(Device device, float* poses, SkeletonSource* sour
     pose += 8;
   }
 
-  if (state.features.handTrackingDataSource) {
+  if (state.extensions.handTrackingDataSource) {
     *source = sourceState.dataSource == XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT ? SOURCE_CONTROLLER : SOURCE_HAND;
   } else {
     *source = SOURCE_UNKNOWN;
@@ -2207,7 +2231,7 @@ static void openxr_stopVibration(Device device) {
 }
 
 static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated) {
-  if (!state.features.handTrackingMesh) {
+  if (!state.extensions.handTrackingMesh) {
     return NULL;
   }
 
@@ -2490,7 +2514,7 @@ static bool openxr_animateFB(Model* model, const ModelInfo* info) {
   XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
   XrHandJointLocationsEXT hand = {
     .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-    .jointCount = 26 + state.features.handTrackingElbow,
+    .jointCount = 26 + state.extensions.handTrackingElbow,
     .jointLocations = joints
   };
 
@@ -2617,7 +2641,7 @@ static Layer* openxr_newLayer(uint32_t width, uint32_t height, const LayerInfo* 
   layer->info.size.width = 1.f;
   layer->info.size.height = 1.f;
 
-  if (state.features.layerDepthTest) {
+  if (state.extensions.layerDepthTest) {
     layer->depthTest.type = XR_TYPE_COMPOSITION_LAYER_DEPTH_TEST_FB;
     layer->depthTest.next = layer->info.next;
     layer->depthTest.depthMask = XR_TRUE;
@@ -2625,7 +2649,7 @@ static Layer* openxr_newLayer(uint32_t width, uint32_t height, const LayerInfo* 
     layer->info.next = &layer->depthTest;
   }
 
-  if (settings->filter && state.features.layerSettings && state.features.layerAutoFilter) {
+  if (settings->filter && state.extensions.layerSettings && state.extensions.layerAutoFilter) {
     layer->settings.type = XR_TYPE_COMPOSITION_LAYER_SETTINGS_FB;
     layer->settings.next = layer->info.next;
     layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_NORMAL_SUPER_SAMPLING_BIT_FB;
@@ -2770,7 +2794,7 @@ static bool openxr_getTexture(Texture** texture) {
 }
 
 static bool openxr_getDepthTexture(Texture** texture) {
-  if (!SESSION_ACTIVE(state.sessionState) || !state.features.depth) {
+  if (!SESSION_ACTIVE(state.sessionState) || !state.extensions.depth) {
     *texture = NULL;
     return true;
   }
@@ -2889,12 +2913,12 @@ static bool openxr_submit(void) {
 
     state.layer.next = NULL;
 
-    if (state.features.layerDepthTest && state.features.depth && state.layerCount > 0) {
+    if (state.extensions.layerDepthTest && state.extensions.depth && state.layerCount > 0) {
       depthTestInfo.next = state.layer.next;
       state.layer.next = &depthTestInfo;
     }
 
-    if (state.features.depth) {
+    if (state.extensions.depth) {
       if (state.clipFar == 0.f) {
         state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = +INFINITY;
         state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipNear;
@@ -2904,7 +2928,7 @@ static bool openxr_submit(void) {
       }
     }
 
-    if (state.features.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE) {
+    if (state.extensions.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE) {
       state.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
     } else {
       state.layer.layerFlags = 0;
@@ -2936,7 +2960,7 @@ static bool openxr_isFocused(void) {
 }
 
 static bool openxr_isMounted(void) {
-  return state.features.presence ? state.mounted : true;
+  return state.extensions.presence ? state.mounted : true;
 }
 
 static bool openxr_update(double* dt) {
@@ -3055,6 +3079,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .stop = openxr_stop,
   .destroy = openxr_destroy,
   .getDriverName = openxr_getDriverName,
+  .getFeatures = openxr_getFeatures,
   .getName = openxr_getName,
   .isSeated = openxr_isSeated,
   .getDisplayDimensions = openxr_getDisplayDimensions,

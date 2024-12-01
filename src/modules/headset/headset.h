@@ -39,6 +39,24 @@ typedef struct {
   ControllerSkeletonMode controllerSkeleton;
 } HeadsetConfig;
 
+typedef struct {
+  bool overlay;
+  bool proximity;
+  bool passthrough;
+  bool refreshRate;
+  bool depthSubmission;
+  bool eyeTracking;
+  bool handTracking;
+  bool handTrackingElbow;
+  bool keyboardTracking;
+  bool viveTrackers;
+  bool handModel;
+  bool controllerModel;
+  bool controllerSkeleton;
+  bool layerDepthTest;
+  bool layerFilter;
+} HeadsetFeatures;
+
 typedef enum {
   PASSTHROUGH_OPAQUE,
   PASSTHROUGH_BLEND,
@@ -167,6 +185,7 @@ typedef struct HeadsetInterface {
   void (*stop)(void);
   void (*destroy)(void);
   bool (*getDriverName)(char* name, size_t length);
+  void (*getFeatures)(HeadsetFeatures* features);
   bool (*getName)(char* name, size_t length);
   bool (*isSeated)(void);
   void (*getDisplayDimensions)(uint32_t* width, uint32_t* height);
