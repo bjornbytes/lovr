@@ -1256,8 +1256,6 @@ static bool openxr_init(HeadsetConfig* config) {
         { ACTION_X_TOUCH, "/user/hand/left/input/x/touch" },
         { ACTION_Y_DOWN, "/user/hand/left/input/y/click" },
         { ACTION_Y_TOUCH, "/user/hand/left/input/y/touch" },
-        { ACTION_THUMBREST_TOUCH, "/user/hand/left/input/thumbrest/touch" },
-        { ACTION_THUMBREST_TOUCH, "/user/hand/right/input/thumbrest/touch" },
         { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
         { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
         { 0, NULL }
