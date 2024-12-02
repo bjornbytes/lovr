@@ -3618,6 +3618,7 @@ Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   shader->info.flags = flags;
   shader->info.flagCount = count;
   shader->layout = parent->layout;
+  memcpy(shader->workgroupSize, parent->workgroupSize, sizeof(shader->workgroupSize));
   shader->stageMask = parent->stageMask;
   shader->bufferMask = parent->bufferMask;
   shader->textureMask = parent->textureMask;

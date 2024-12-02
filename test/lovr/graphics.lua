@@ -509,6 +509,17 @@ group('graphics', function()
       expect({ buffer:getData() }).to.equal({ 4, 5, 6, 7 })
     end)
 
+    group(':clone', function()
+      test('workgroup size', function()
+        shader = lovr.graphics.newShader([[
+          layout(local_size_x = 1, local_size_y = 2, local_size_z = 3) in;
+          void lovrmain(){}
+        ]])
+        expect({ shader:getWorkgroupSize() }).to.equal({ 1, 2, 3 })
+        expect({ shader:clone({}):getWorkgroupSize() }).to.equal({ 1, 2, 3 })
+      end)
+    end)
+
     test(':hasVariable', function()
       shader = lovr.graphics.newShader([[
         uniform vec3 position;
