@@ -654,9 +654,11 @@ static bool openxr_init(HeadsetConfig* config) {
     return false;
   }
 #elif defined(__linux__) || defined(__APPLE__)
-  setenv("XR_LOADER_DEBUG", "none", 0);
+  if (!config->debug) {
+    setenv("XR_LOADER_DEBUG", "none", 0);
+  }
 #elif defined(_WIN32)
-  if (GetEnvironmentVariable("XR_LOADER_DEBUG", NULL, 0) == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
+  if (!config->debug && GetEnvironmentVariable("XR_LOADER_DEBUG", NULL, 0) == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
     SetEnvironmentVariable("XR_LOADER_DEBUG", "none");
   }
 #endif
