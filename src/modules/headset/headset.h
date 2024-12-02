@@ -30,6 +30,7 @@ typedef struct {
   HeadsetDriver* drivers;
   size_t driverCount;
   float supersample;
+  bool debug;
   bool seated;
   bool stencil;
   bool antialias;

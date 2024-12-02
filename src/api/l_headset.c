@@ -869,6 +869,10 @@ int luaopen_lovr_headset(lua_State* L) {
       }
       lua_pop(L, 1);
 
+      lua_getfield(L, -1, "debug");
+      config.debug = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
       lua_getfield(L, -1, "seated");
       config.seated = lua_toboolean(L, -1);
       lua_pop(L, 1);

@@ -32,6 +32,7 @@ local conf = {
   headset = {
     drivers = { 'openxr', 'webxr', 'simulator' },
     supersample = false,
+    debug = false,
     seated = false,
     stencil = false,
     antialias = true,

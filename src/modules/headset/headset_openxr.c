@@ -53,6 +53,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 #define XR_FOREACH(X)\
   X(xrDestroyInstance)\
   X(xrGetInstanceProperties)\
+  X(xrCreateDebugUtilsMessengerEXT)\
+  X(xrDestroyDebugUtilsMessengerEXT)\
   X(xrPollEvent)\
   X(xrResultToString)\
   X(xrGetSystem)\
@@ -121,6 +123,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
 XRAPI_ATTR XrResult XRAPI_CALL xrGetInstanceProcAddr(XrInstance instance, const char* name, PFN_xrVoidFunction* function);
+XRAPI_ATTR XrResult XRAPI_CALL xrEnumerateApiLayerProperties(uint32_t propertyCapacityInput, uint32_t* propertyCountOutput, XrApiLayerProperties* properties);
 XRAPI_ATTR XrResult XRAPI_CALL xrEnumerateInstanceExtensionProperties(const char* layerName, uint32_t propertyCapacityInput, uint32_t* propertyCountOutput, XrExtensionProperties* properties);
 XRAPI_ATTR XrResult XRAPI_CALL xrCreateInstance(const XrInstanceCreateInfo* createInfo, XrInstance* instance);
 XR_FOREACH(XR_DECLARE)
@@ -223,7 +226,9 @@ static struct {
   XrPassthroughLayerFB passthroughLayerHandle;
   bool passthroughActive;
   bool mounted;
+  XrDebugUtilsMessengerEXT messenger;
   struct {
+    bool debug;
     bool controllerModel;
     bool depth;
     bool gaze;
@@ -278,6 +283,19 @@ static void xrthrow(XrResult result, const char* symbol) {
     lovrSetError("OpenXR Error: %s returned %s", symbol, name);
   } else {
     lovrSetError("OpenXR Error: %s returned %d", symbol, result);
+  }
+}
+
+static XrBool32 onMessage(XrDebugUtilsMessageSeverityFlagsEXT severity, XrDebugUtilsMessageTypeFlagsEXT type, const XrDebugUtilsMessengerCallbackDataEXT* data, void* userdata) {
+  int level = LOG_DEBUG;
+  if (severity & XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) level = LOG_DEBUG;
+  if (severity & XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) level = LOG_INFO;
+  if (severity & XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) level = LOG_WARN;
+  if (severity & XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) level = LOG_ERROR;
+  if (data->functionName) {
+    lovrLog(level, "XR", "%s: %s", data->functionName, data->message);
+  } else {
+    lovrLog(level, "XR", "%s", data->message);
   }
 }
 
@@ -642,7 +660,7 @@ static bool openxr_init(HeadsetConfig* config) {
 #endif
 
   { // Instance
-    uint32_t extensionCount;
+    uint32_t extensionCount = 0;
     XrResult result = xrEnumerateInstanceExtensionProperties(NULL, 0, &extensionCount, NULL);
 
     if (result == XR_ERROR_RUNTIME_UNAVAILABLE) {
@@ -670,6 +688,7 @@ static bool openxr_init(HeadsetConfig* config) {
 #else
       { "XR_KHR_convert_timespec_time", NULL, true },
 #endif
+      { "XR_EXT_debug_utils", &state.extensions.debug, true },
       { "XR_EXT_eye_gaze_interaction", &state.extensions.gaze, true },
       { "XR_EXT_hand_interaction", &state.extensions.handInteraction, true },
       { "XR_EXT_hand_joints_motion_range", &state.extensions.handTrackingMotionRange, true },
@@ -733,6 +752,25 @@ static bool openxr_init(HeadsetConfig* config) {
     XR_INIT(xrCreateInstance(&info, &state.instance), "Failed to create instance");
     XR_FOREACH(XR_LOAD)
     XR_FOREACH_PLATFORM(XR_LOAD)
+
+    if (state.extensions.debug) {
+      XrDebugUtilsMessengerCreateInfoEXT messengerInfo = {
+        .type = XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        .messageSeverities =
+          (config->debug ? XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT : 0) |
+          (config->debug ? XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT : 0 ) |
+          XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+          XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+        .messageTypes =
+          XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+          (config->debug ? XR_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT : 0) |
+          XR_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT |
+          XR_DEBUG_UTILS_MESSAGE_TYPE_CONFORMANCE_BIT_EXT,
+        .userCallback = onMessage
+      };
+
+      xrCreateDebugUtilsMessengerEXT(state.instance, &messengerInfo, &state.messenger);
+    }
   }
 
   { // System
@@ -1610,6 +1648,7 @@ static void openxr_destroy(void) {
   openxr_stop();
 
   if (state.actionSet) xrDestroyActionSet(state.actionSet);
+  if (state.messenger) xrDestroyDebugUtilsMessengerEXT(state.messenger);
   if (state.instance) xrDestroyInstance(state.instance);
   memset(&state, 0, sizeof(state));
 }
