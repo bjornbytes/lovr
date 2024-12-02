@@ -511,10 +511,7 @@ group('graphics', function()
 
     group(':clone', function()
       test('workgroup size', function()
-        shader = lovr.graphics.newShader([[
-          layout(local_size_x = 1, local_size_y = 2, local_size_z = 3) in;
-          void lovrmain(){}
-        ]])
+        shader = lovr.graphics.newShader('layout(local_size_x = 1, local_size_y = 2, local_size_z = 3) in;void lovrmain(){}\n')
         expect({ shader:getWorkgroupSize() }).to.equal({ 1, 2, 3 })
         expect({ shader:clone({}):getWorkgroupSize() }).to.equal({ 1, 2, 3 })
       end)
