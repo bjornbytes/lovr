@@ -518,6 +518,12 @@ group('graphics', function()
         expect({ shader:getWorkgroupSize() }).to.equal({ 1, 2, 3 })
         expect({ shader:clone({}):getWorkgroupSize() }).to.equal({ 1, 2, 3 })
       end)
+
+      test('attributes', function()
+        shader = lovr.graphics.newShader('in vec4 x;vec4 lovrmain(){return vec4(1.);}\n', 'unlit')
+        expect(shader:hasAttribute('x')).to.equal(true)
+        expect(shader:clone({}):hasAttribute('x')).to.equal(true)
+      end)
     end)
 
     test(':hasVariable', function()
