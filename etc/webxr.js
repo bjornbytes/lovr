@@ -435,6 +435,10 @@ var webxr = {
     return true;
   },
 
+  webxr_isActive: Function() {
+    return !!state.session;
+  },
+
   webxr_isVisible: function() {
     return state.session.visibilityState != 'hidden';
   },

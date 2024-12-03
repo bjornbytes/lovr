@@ -35,6 +35,7 @@ struct Layer {
 
 static struct {
   bool initialized;
+  bool active;
   HeadsetConfig config;
   TextureFormat depthFormat;
   Texture* texture;
@@ -89,6 +90,10 @@ static bool simulator_init(HeadsetConfig* config) {
 }
 
 static bool simulator_start(void) {
+  if (state.active) {
+    return true;
+  }
+
 #ifdef LOVR_DISABLE_GRAPHICS
   bool hasGraphics = false;
 #else
@@ -106,10 +111,12 @@ static bool simulator_start(void) {
 
   state.epoch = os_get_time();
   state.time = 0.;
+  state.active = true;
   return true;
 }
 
 static void simulator_stop(void) {
+  if (!state.active) return;
   for (uint32_t i = 0; i < state.layerCount; i++) {
     lovrRelease(state.layers[i], lovrLayerDestroy);
   }
@@ -117,6 +124,7 @@ static void simulator_stop(void) {
   lovrRelease(state.pass, lovrPassDestroy);
   state.texture = NULL;
   state.pass = NULL;
+  state.active = false;
 }
 
 static void simulator_destroy(void) {
@@ -452,6 +460,10 @@ static bool simulator_submit(void) {
   return true;
 }
 
+static bool simulator_isActive(void) {
+  return state.active;
+}
+
 static bool simulator_isVisible(void) {
   return true;
 }
@@ -465,6 +477,11 @@ static bool simulator_isMounted(void) {
 }
 
 static bool simulator_update(double* dt) {
+  if (!state.active) {
+    *dt = 0.;
+    return true;
+  }
+
   double t = os_get_time() - state.epoch;
   state.dt = t - state.time;
   state.time = t;
@@ -606,6 +623,7 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .getTexture = simulator_getTexture,
   .getPass = simulator_getPass,
   .submit = simulator_submit,
+  .isActive = simulator_isActive,
   .isVisible = simulator_isVisible,
   .isFocused = simulator_isFocused,
   .isMounted = simulator_isMounted,

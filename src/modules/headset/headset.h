@@ -168,7 +168,7 @@ typedef struct {
 // Notes:
 // - init is called immediately, the graphics module may not exist yet
 // - start is called after the graphics module is initialized, can be used to set up textures etc.
-// - graphics module currently calls stop when it's destroyed, which is hacky and should be improved
+// - when the graphics module is destroyed, it stops the headset session, so graphics objects can be destroyed
 // - getRefreshRate may return 0.f if the information is unavailable.
 // - For isDown, changed can be set to false if change information is unavailable or inconvenient.
 // - getAxis may write 4 floats to the output value.  The expected number is a constant (see axisCounts in l_headset).
@@ -232,6 +232,7 @@ typedef struct HeadsetInterface {
   bool (*getTexture)(struct Texture** texture);
   bool (*getPass)(struct Pass** pass);
   bool (*submit)(void);
+  bool (*isActive)(void);
   bool (*isVisible)(void);
   bool (*isFocused)(void);
   bool (*isMounted)(void);

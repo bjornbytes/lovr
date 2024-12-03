@@ -12,6 +12,7 @@ dev
 - Add `--watch` CLI flag, `lovr.filechanged` event, and `lovr.filesystem.watch/unwatch`.
 - Add `--simulator` CLI flag to force use of simulator headset driver.
 - Add back `lovr.headset.isMounted` and the `lovr.mount` callback.
+- Add `lovr.headset.stop`, `lovr.headset.isActive`, and `t.headset.start`.
 - Add `Model:resetBlendShapes`.
 - Add `lovr.system.wasMousePressed` and `lovr.system.wasMouseReleased`.
 - Add `lovr.system.get/setClipboardText`.

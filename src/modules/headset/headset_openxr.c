@@ -81,7 +81,6 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrWaitSwapchainImage)\
   X(xrReleaseSwapchainImage)\
   X(xrBeginSession)\
-  X(xrEndSession)\
   X(xrWaitFrame)\
   X(xrBeginFrame)\
   X(xrEndFrame)\
@@ -228,8 +227,8 @@ static struct {
   bool mounted;
   XrDebugUtilsMessengerEXT messenger;
   struct {
-    bool debug;
     bool controllerModel;
+    bool debug;
     bool depth;
     bool gaze;
     bool handInteraction;
@@ -540,6 +539,7 @@ static void swapchain_destroy(Swapchain* swapchain) {
   for (uint32_t i = 0; i < swapchain->textureCount; i++) {
     lovrRelease(swapchain->textures[i], lovrTextureDestroy);
   }
+  swapchain->textureCount = 0;
   xrDestroySwapchain(swapchain->handle);
   swapchain->handle = XR_NULL_HANDLE;
 }
@@ -1626,30 +1626,49 @@ static void openxr_stop(void) {
     return;
   }
 
+  state.began = false;
+  state.waited = false;
+  state.mounted = false;
+  state.frameState.predictedDisplayTime = 0;
+  state.frameState.predictedDisplayPeriod = 0;
+  state.frameState.shouldRender = XR_FALSE;
+  state.lastDisplayTime = 0;
+  state.epoch = 0;
+
   lovrFree(state.refreshRates);
+  state.refreshRateCount = 0;
+  state.refreshRates = NULL;
 
   for (uint32_t i = 0; i < state.layerCount; i++) {
     lovrRelease(state.layers[i], lovrLayerDestroy);
+    state.layers[i] = NULL;
   }
+  state.layerCount = 0;
 
   swapchain_destroy(&state.swapchains[0]);
   swapchain_destroy(&state.swapchains[1]);
   lovrRelease(state.pass, lovrPassDestroy);
+  state.pass = NULL;
 
   if (state.handTrackers[0]) xrDestroyHandTrackerEXT(state.handTrackers[0]);
   if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
 
   if (state.passthrough) xrDestroyPassthroughFB(state.passthrough);
   if (state.passthroughLayerHandle) xrDestroyPassthroughLayerFB(state.passthroughLayerHandle);
+  state.passthroughActive = false;
 
   for (size_t i = 0; i < MAX_DEVICES; i++) {
     if (state.spaces[i]) {
       xrDestroySpace(state.spaces[i]);
+      state.spaces[i] = XR_NULL_HANDLE;
     }
   }
 
   if (state.referenceSpace) xrDestroySpace(state.referenceSpace);
+  state.referenceSpace = XR_NULL_HANDLE;
+
   if (state.session) xrDestroySession(state.session);
+  state.sessionState = XR_SESSION_STATE_UNKNOWN;
   state.session = NULL;
 }
 
@@ -1908,7 +1927,7 @@ static bool openxr_getViewPose(uint32_t view, float* position, float* orientatio
   if (flags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
     memcpy(orientation, &views[view].pose.orientation.x, 4 * sizeof(float));
   } else {
-    memset(orientation, 0, 4 * sizeof(float));
+    quat_identity(orientation);
   }
 
   return true;
@@ -2997,6 +3016,10 @@ static bool openxr_submit(void) {
   return true;
 }
 
+static bool openxr_isActive(void) {
+  return state.session && SESSION_ACTIVE(state.sessionState);
+}
+
 static bool openxr_isVisible(void) {
   return state.sessionState >= XR_SESSION_STATE_VISIBLE;
 }
@@ -3033,8 +3056,7 @@ static bool openxr_update(double* dt) {
             break;
 
           case XR_SESSION_STATE_STOPPING:
-            XR(xrEndSession(state.session), "xrEndSession");
-            state.mounted = false;
+            openxr_stop();
             break;
 
           case XR_SESSION_STATE_EXITING:
@@ -3171,6 +3193,7 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getTexture = openxr_getTexture,
   .getPass = openxr_getPass,
   .submit = openxr_submit,
+  .isActive = openxr_isActive,
   .isVisible = openxr_isVisible,
   .isFocused = openxr_isFocused,
   .isMounted = openxr_isMounted,

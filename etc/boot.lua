@@ -31,11 +31,12 @@ local conf = {
   },
   headset = {
     drivers = { 'openxr', 'webxr', 'simulator' },
-    supersample = false,
+    start = true,
     debug = false,
     seated = false,
     stencil = false,
     antialias = true,
+    supersample = false,
     submitdepth = true,
     overlay = false,
     controllerskeleton = 'controller'
@@ -141,8 +142,8 @@ function lovr.boot()
     lovr.system.openWindow(conf.window)
   end
 
-  if lovr.headset then
-    lovr.headset.start()
+  if lovr.headset and conf.headset.start then
+    assert(lovr.headset.start())
   end
 
   if not ok and failure then
@@ -168,7 +169,7 @@ function lovr.run()
     end
     local dt = 0
     if lovr.timer then dt = lovr.timer.step() end
-    if lovr.headset then dt = lovr.headset.update() end
+    if lovr.headset and lovr.headset.isActive() then dt = lovr.headset.update() end
     if lovr.update then lovr.update(dt) end
     if lovr.graphics then
       local headset = lovr.headset and lovr.headset.getPass()
@@ -184,7 +185,7 @@ function lovr.run()
 end
 
 function lovr.mirror(pass)
-  if lovr.headset then
+  if lovr.headset and lovr.headset.isActive() then
     local texture = lovr.headset.getTexture()
     if texture then
       pass:fill(texture)

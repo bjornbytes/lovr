@@ -99,7 +99,11 @@ static Device luax_optdevice(lua_State* L, int index) {
 }
 
 static int l_lovrHeadsetStart(lua_State* L) {
-  luax_assert(L, lovrHeadsetInterface->start());
+  return luax_pushsuccess(L, lovrHeadsetInterface->start());
+}
+
+static int l_lovrHeadsetStop(lua_State* L) {
+  lovrHeadsetInterface->stop();
   return 0;
 }
 
@@ -693,6 +697,11 @@ static int l_lovrHeadsetSubmit(lua_State* L) {
   return 0;
 }
 
+static int l_lovrHeadsetIsActive(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetInterface->isActive());
+  return 1;
+}
+
 static int l_lovrHeadsetIsVisible(lua_State* L) {
   lua_pushboolean(L, lovrHeadsetInterface->isVisible());
   return 1;
@@ -762,6 +771,7 @@ static int l_lovrHeadsetGetHandles(lua_State* L) {
 
 static const luaL_Reg lovrHeadset[] = {
   { "start", l_lovrHeadsetStart },
+  { "stop", l_lovrHeadsetStop },
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getFeatures", l_lovrHeadsetGetFeatures },
   { "getName", l_lovrHeadsetGetName },
@@ -807,6 +817,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getTexture", l_lovrHeadsetGetTexture },
   { "getPass", l_lovrHeadsetGetPass },
   { "submit", l_lovrHeadsetSubmit },
+  { "isActive", l_lovrHeadsetIsActive },
   { "isVisible", l_lovrHeadsetIsVisible },
   { "isFocused", l_lovrHeadsetIsFocused },
   { "isMounted", l_lovrHeadsetIsMounted },

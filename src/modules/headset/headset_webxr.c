@@ -37,6 +37,7 @@ extern bool webxr_animate(struct Model* model);
 extern bool webxr_getTexture(Texture** texture);
 extern bool webxr_getPass(Pass** pass);
 extern bool webxr_submit(void);
+extern bool webxr_isActive(void);
 extern bool webxr_isVisible(void);
 extern bool webxr_isFocused(void);
 extern bool webxr_isMounted(void);
