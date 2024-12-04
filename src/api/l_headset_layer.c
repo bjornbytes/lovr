@@ -84,17 +84,17 @@ static int l_lovrLayerSetDimensions(lua_State* L) {
   return 0;
 }
 
-static int l_lovrLayerGetViewMask(lua_State* L) {
+static int l_lovrLayerGetCurve(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
-  ViewMask mask = lovrHeadsetInterface->getLayerViewMask(layer);
-  luax_pushenum(L, ViewMask, mask);
+  float curve = lovrHeadsetInterface->getLayerCurve(layer);
+  lua_pushnumber(L, curve);
   return 1;
 }
 
-static int l_lovrLayerSetViewMask(lua_State* L) {
+static int l_lovrLayerSetCurve(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
-  ViewMask mask = luax_checkenum(L, 2, ViewMask, "both");
-  lovrHeadsetInterface->setLayerViewMask(layer, mask);
+  float curve = luax_optfloat(L, 2, 0.f);
+  luax_assert(L, lovrHeadsetInterface->setLayerCurve(layer, curve));
   return 0;
 }
 
@@ -145,8 +145,8 @@ const luaL_Reg lovrLayer[] = {
   { "setPose", l_lovrLayerSetPose },
   { "getDimensions", l_lovrLayerGetDimensions },
   { "setDimensions", l_lovrLayerSetDimensions },
-  { "getViewMask", l_lovrLayerGetViewMask },
-  { "setViewMask", l_lovrLayerSetViewMask },
+  { "getCurve", l_lovrLayerGetCurve },
+  { "setCurve", l_lovrLayerSetCurve },
   { "getViewport", l_lovrLayerGetViewport },
   { "setViewport", l_lovrLayerSetViewport },
   { "getTexture", l_lovrLayerGetTexture },

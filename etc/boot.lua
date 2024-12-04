@@ -216,6 +216,10 @@ function lovr.errhand(message)
     lovr.graphics.setBackgroundColor(0, 0, 0, 0)
   end
 
+  if lovr.headset then
+    lovr.headset.setLayers()
+  end
+
   local font = lovr.graphics.getDefaultFont()
 
   return function()

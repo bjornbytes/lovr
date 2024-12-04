@@ -169,18 +169,26 @@ typedef struct {
   uint32_t textureIndex;
   uint32_t textureCount;
   Texture* textures[MAX_IMAGES];
+  bool immutable;
   bool acquired;
 } Swapchain;
 
 struct Layer {
   uint32_t ref;
-  uint32_t width;
-  uint32_t height;
+  LayerInfo info;
   Swapchain swapchain;
-  XrCompositionLayerQuad info;
+  float curve;
+  Pass* pass;
+  union {
+    XrCompositionLayerBaseHeader header;
+    XrCompositionLayerQuad quad;
+    XrCompositionLayerCubeKHR cube;
+    XrCompositionLayerEquirectKHR equirect;
+    XrCompositionLayerEquirect2KHR equirect2;
+    XrCompositionLayerCylinderKHR cylinder;
+  };
   XrCompositionLayerDepthTestFB depthTest;
   XrCompositionLayerSettingsFB settings;
-  Pass* pass;
 };
 
 enum { COLOR, DEPTH };
@@ -207,6 +215,7 @@ static struct {
   XrCompositionLayerPassthroughFB passthroughLayer;
   Layer* layers[MAX_LAYERS];
   uint32_t layerCount;
+  bool showMainLayer;
   XrFrameState frameState;
   XrTime lastDisplayTime;
   XrTime epoch;
@@ -240,9 +249,13 @@ static struct {
     bool handTrackingMotionRange;
     bool headless;
     bool keyboardTracking;
-    bool layerDepthTest;
-    bool layerSettings;
     bool layerAutoFilter;
+    bool layerCube;
+    bool layerCurve;
+    bool layerDepthTest;
+    bool layerEquirect;
+    bool layerEquirect2;
+    bool layerSettings;
     bool localFloor;
     bool ml2Controller;
     bool overlay;
@@ -471,13 +484,14 @@ static XrControllerModelKeyMSFT getControllerModelKey(Device device) {
   return *modelKey;
 }
 
-static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, bool stereo, bool depth) {
+static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, bool stereo, bool depth, bool cube, bool immutable) {
   XrSwapchainCreateInfo info = {
     .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
+    .createFlags = immutable ? XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT : 0,
     .width = width,
     .height = height,
     .sampleCount = 1,
-    .faceCount = 1,
+    .faceCount = cube ? 6 : 1,
     .arraySize = 1 << stereo,
     .mipCount = 1
   };
@@ -492,7 +506,9 @@ static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
       default: lovrUnreachable();
     }
   } else {
-    info.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
+    info.usageFlags |= XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+    info.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
+    info.usageFlags |= XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
     info.format = VK_FORMAT_R8G8B8A8_SRGB;
   }
 
@@ -513,14 +529,14 @@ static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
 
   for (uint32_t i = 0; i < textureCount; i++, swapchain->textureCount++) {
     swapchain->textures[i] = lovrTextureCreate(&(TextureInfo) {
-      .type = stereo ? TEXTURE_ARRAY : TEXTURE_2D,
+      .type = cube ? TEXTURE_CUBE : (stereo ? TEXTURE_ARRAY : TEXTURE_2D),
       .format = depth ? state.depthFormat : FORMAT_RGBA8,
       .srgb = !depth,
       .width = width,
       .height = height,
-      .layers = 1 << stereo,
+      .layers = (cube ? 6 : 1) << stereo,
       .mipmaps = 1,
-      .usage = TEXTURE_RENDER | (depth ? 0 : TEXTURE_SAMPLE),
+      .usage = TEXTURE_RENDER | TEXTURE_TRANSFER | (depth ? 0 : TEXTURE_SAMPLE),
       .handle = (uintptr_t) images[i].image,
       .label = "OpenXR Swapchain",
       .xr = true
@@ -531,6 +547,8 @@ static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
       return false;
     }
   }
+
+  swapchain->immutable = immutable;
 
   return true;
 }
@@ -547,6 +565,11 @@ static void swapchain_destroy(Swapchain* swapchain) {
 
 static Texture* swapchain_acquire(Swapchain* swapchain) {
   if (!swapchain->acquired) {
+    if (swapchain->immutable && swapchain->textureIndex == ~0u) {
+      lovrSetError("Static Layers can only be updated once");
+      return NULL;
+    }
+
     XrSwapchainImageWaitInfo waitInfo = { XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, .timeout = XR_INFINITE_DURATION };
     XR(xrAcquireSwapchainImage(swapchain->handle, NULL, &swapchain->textureIndex), "xrAcquireSwapchainImage");
 
@@ -567,6 +590,7 @@ static Texture* swapchain_acquire(Swapchain* swapchain) {
 static bool swapchain_release(Swapchain* swapchain) {
   if (swapchain->handle && swapchain->acquired) {
     XR(xrReleaseSwapchainImage(swapchain->handle, NULL), "xrReleaseSwapchainImage");
+    swapchain->textureIndex = ~0u; // Mark as released, for immutable swapchains >.>
     swapchain->acquired = false;
   }
   return true;
@@ -688,7 +712,11 @@ static bool openxr_init(HeadsetConfig* config) {
 #ifdef __ANDROID__
     { "XR_KHR_android_create_instance", NULL, true },
 #endif
+    { "XR_KHR_composition_layer_cylinder", &state.extensions.layerCurve, true },
+    { "XR_KHR_composition_layer_cube", &state.extensions.layerCube, true },
     { "XR_KHR_composition_layer_depth", &state.extensions.depth, config->submitDepth },
+    { "XR_KHR_composition_layer_equirect", &state.extensions.layerEquirect, true },
+    { "XR_KHR_composition_layer_equirect2", &state.extensions.layerEquirect2, true },
 #ifdef _WIN32
     { "XR_KHR_win32_convert_performance_counter_time", NULL, true },
 #else
@@ -1535,14 +1563,14 @@ static bool openxr_start(void) {
     }
 
     lovrAssertGoto(stop, supportsColor, "This VR runtime does not support sRGB rgba8 textures");
-    if (!swapchain_init(&state.swapchains[COLOR], state.width, state.height, true, false)) {
+    if (!swapchain_init(&state.swapchains[COLOR], state.width, state.height, true, false, false, false)) {
       goto stop;
     }
 
     GraphicsFeatures features;
     lovrGraphicsGetFeatures(&features);
     if (state.extensions.depth && supportsDepth && features.depthResolve) {
-      if (!swapchain_init(&state.swapchains[DEPTH], state.width, state.height, true, true)) {
+      if (!swapchain_init(&state.swapchains[DEPTH], state.width, state.height, true, true, false, false)) {
         goto stop;
       }
     } else {
@@ -1614,6 +1642,8 @@ static bool openxr_start(void) {
     state.refreshRates = lovrMalloc(state.refreshRateCount * sizeof(float));
     XRG(xrEnumerateDisplayRefreshRatesFB(state.session, state.refreshRateCount, &state.refreshRateCount, state.refreshRates), "xrEnumerateDisplayRefreshRatesFB", stop);
   }
+
+  state.showMainLayer = true;
 
   return true;
 
@@ -1704,6 +1734,9 @@ static void openxr_getFeatures(HeadsetFeatures* features) {
   features->handModel = state.extensions.handTrackingMesh;
   features->controllerModel = state.extensions.controllerModel;
   features->controllerSkeleton = state.extensions.handTrackingDataSource && state.extensions.handTrackingMotionRange;
+  features->layerCube = state.extensions.layerCube;
+  features->layerSphere = state.extensions.layerEquirect || state.extensions.layerEquirect2;
+  features->layerCurve = state.extensions.layerCurve;
   features->layerDepthTest = state.extensions.layerDepthTest;
   features->layerFilter = state.extensions.layerSettings && state.extensions.layerAutoFilter;
 }
@@ -2685,51 +2718,99 @@ static bool openxr_animate(Model* model) {
   }
 }
 
-static Layer* openxr_newLayer(uint32_t width, uint32_t height, const LayerInfo* settings) {
+static Layer* openxr_newLayer(const LayerInfo* info) {
+  lovrCheck(info->type != LAYER_CUBE || state.extensions.layerCube, "This headset does not support cube layers");
+  lovrCheck(info->type != LAYER_CUBE || info->width == info->height, "Cube layers must be square");
+  lovrCheck(info->type != LAYER_SPHERE || state.extensions.layerEquirect || state.extensions.layerEquirect2, "This headset does not support sphere layers");
+
   Layer* layer = lovrCalloc(sizeof(Layer));
   layer->ref = 1;
-  layer->width = width;
-  layer->height = height;
+  layer->info = *info;
 
-  if (!swapchain_init(&layer->swapchain, width, height, false, false)) {
+  if (!swapchain_init(&layer->swapchain, info->width, info->height, info->stereo, false, info->type == LAYER_CUBE, info->immutable)) {
     lovrLayerDestroy(layer);
     return NULL;
   }
 
-  layer->info.type = XR_TYPE_COMPOSITION_LAYER_QUAD;
-  layer->info.layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-  layer->info.layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
-  layer->info.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-  layer->info.subImage.swapchain = layer->swapchain.handle;
-  layer->info.subImage.imageRect.extent.width = width;
-  layer->info.subImage.imageRect.extent.height = height;
-  layer->info.pose.orientation.w = 1.f;
-  layer->info.size.width = 1.f;
-  layer->info.size.height = 1.f;
+  XrCompositionLayerFlags flags =
+    (info->transparent ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT : 0) |
+    (info->transparent ? XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT : 0);
+  XrEyeVisibility eyes = info->stereo ? XR_EYE_VISIBILITY_LEFT : XR_EYE_VISIBILITY_BOTH;
+  XrSwapchainSubImage subimage = { layer->swapchain.handle, { 0, 0, info->width, info->height }, 0 };
 
-  if (state.extensions.layerDepthTest) {
-    layer->depthTest.type = XR_TYPE_COMPOSITION_LAYER_DEPTH_TEST_FB;
-    layer->depthTest.next = layer->info.next;
-    layer->depthTest.depthMask = XR_TRUE;
-    layer->depthTest.compareOp = XR_COMPARE_OP_LESS_OR_EQUAL_FB;
-    layer->info.next = &layer->depthTest;
+  switch (info->type) {
+    case LAYER_QUAD:
+      layer->quad = (XrCompositionLayerQuad) {
+        .type = XR_TYPE_COMPOSITION_LAYER_QUAD,
+        .layerFlags = flags,
+        .eyeVisibility = eyes,
+        .subImage = subimage,
+        .pose.orientation.w = 1.f,
+        .size = { 1.f, 1.f }
+      };
+      break;
+    case LAYER_CUBE:
+      layer->cube = (XrCompositionLayerCubeKHR) {
+        .type = XR_TYPE_COMPOSITION_LAYER_CUBE_KHR,
+        .layerFlags = flags,
+        .eyeVisibility = eyes,
+        .swapchain = layer->swapchain.handle,
+        .orientation.w = 1.f
+      };
+      break;
+    case LAYER_SPHERE:
+      if (state.extensions.layerEquirect2) {
+        layer->equirect2 = (XrCompositionLayerEquirect2KHR) {
+          .type = XR_TYPE_COMPOSITION_LAYER_EQUIRECT2_KHR,
+          .layerFlags = flags,
+          .eyeVisibility = eyes,
+          .subImage = subimage,
+          .pose.orientation.w = 1.f,
+          .centralHorizontalAngle = 2.f * (float) M_PI,
+          .upperVerticalAngle = (float) M_PI * .5f,
+          .lowerVerticalAngle = (float) -M_PI * .5f
+        };
+      } else {
+        layer->equirect = (XrCompositionLayerEquirectKHR) {
+          .type = XR_TYPE_COMPOSITION_LAYER_EQUIRECT_KHR,
+          .layerFlags = flags,
+          .eyeVisibility = eyes,
+          .subImage = subimage,
+          .pose.orientation.w = 1.f,
+          .scale = { 1.f, 1.f }
+        };
+      }
+      break;
+    default: lovrUnreachable();
   }
 
-  if (settings->filter && state.extensions.layerSettings && state.extensions.layerAutoFilter) {
+  if (info->type == LAYER_QUAD && state.extensions.layerDepthTest) {
+    layer->depthTest.type = XR_TYPE_COMPOSITION_LAYER_DEPTH_TEST_FB;
+    layer->depthTest.next = layer->header.next;
+    layer->depthTest.depthMask = XR_TRUE;
+    layer->depthTest.compareOp = XR_COMPARE_OP_LESS_OR_EQUAL_FB;
+    layer->header.next = &layer->depthTest;
+  }
+
+  if (info->type == LAYER_QUAD && info->filter && state.extensions.layerSettings && state.extensions.layerAutoFilter) {
     layer->settings.type = XR_TYPE_COMPOSITION_LAYER_SETTINGS_FB;
-    layer->settings.next = layer->info.next;
+    layer->settings.next = layer->header.next;
     layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_NORMAL_SUPER_SAMPLING_BIT_FB;
     layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SUPER_SAMPLING_BIT_FB;
     layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_NORMAL_SHARPENING_BIT_FB;
     layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_QUALITY_SHARPENING_BIT_FB;
     layer->settings.layerFlags |= XR_COMPOSITION_LAYER_SETTINGS_AUTO_LAYER_FILTER_BIT_META;
-    layer->info.next = &layer->settings;
+    layer->header.next = &layer->settings;
   }
 
   if ((layer->pass = lovrPassCreate(NULL)) == NULL) {
     lovrLayerDestroy(layer);
     return NULL;
   }
+
+  float background[4][4] = { 0 };
+  LoadAction loads[4] = { LOAD_CLEAR };
+  lovrPassSetClear(layer->pass, loads, background, LOAD_CLEAR, 0.f);
 
   // Avoid submission of un-acquired swapchain
   if (!swapchain_acquire(&layer->swapchain)) {
@@ -2747,13 +2828,20 @@ static void openxr_destroyLayer(void* ref) {
   lovrFree(layer);
 }
 
-static Layer** openxr_getLayers(uint32_t* count) {
+static Layer** openxr_getLayers(uint32_t* count, bool* main) {
   *count = state.layerCount;
+  *main = state.showMainLayer;
   return state.layers;
 }
 
-static bool openxr_setLayers(Layer** layers, uint32_t count) {
-  lovrCheck(count <= MAX_LAYERS, "Too many layers");
+static bool openxr_setLayers(Layer** layers, uint32_t count, bool main) {
+  uint32_t total = 0;
+
+  for (uint32_t i = 0; i < count; i++) {
+    total += layers[i]->info.stereo ? 2 : 1;
+  }
+
+  lovrCheck(total <= MAX_LAYERS, "Too many layers");
 
   for (uint32_t i = 0; i < state.layerCount; i++) {
     lovrRelease(state.layers[i], lovrLayerDestroy);
@@ -2765,49 +2853,188 @@ static bool openxr_setLayers(Layer** layers, uint32_t count) {
     state.layers[i] = layers[i];
   }
 
+  state.showMainLayer = main;
+
   return true;
 }
 
-static void openxr_getLayerPose(Layer* layer, float position[3], float orientation[4]) {
-  memcpy(position, &layer->info.pose.position.x, 3 * sizeof(float));
-  memcpy(orientation, &layer->info.pose.orientation.x, 4 * sizeof(float));
+static void openxr_getLayerPose(Layer* layer, float* position, float* orientation) {
+  switch (layer->info.type) {
+    case LAYER_QUAD:
+      if (layer->curve == 0.f) {
+        memcpy(position, &layer->quad.pose.position.x, 3 * sizeof(float));
+        memcpy(orientation, &layer->quad.pose.orientation.x, 4 * sizeof(float));
+      } else {
+        memcpy(position, &layer->cylinder.pose.position, 3 * sizeof(float));
+        memcpy(orientation, &layer->cylinder.pose.orientation.x, 4 * sizeof(float));
+        float direction[3] = { 0.f, 0.f, -1.f };
+        quat_rotate(orientation, direction);
+        vec3_scale(direction, layer->cylinder.radius);
+        vec3_add(position, direction);
+      }
+      break;
+    case LAYER_CUBE:
+      vec3_set(position, 0.f, 0.f, 0.f);
+      quat_init(orientation, &layer->quad.pose.orientation.x);
+    case LAYER_SPHERE:
+      if (state.extensions.layerEquirect2) {
+        memcpy(position, &layer->equirect2.pose.position.x, 3 * sizeof(float));
+        memcpy(orientation, &layer->equirect2.pose.orientation.x, 4 * sizeof(float));
+      } else {
+        memcpy(position, &layer->equirect.pose.position.x, 3 * sizeof(float));
+        memcpy(orientation, &layer->equirect.pose.orientation.x, 4 * sizeof(float));
+      }
+      break;
+    default: lovrUnreachable();
+  }
 }
 
-static void openxr_setLayerPose(Layer* layer, float position[3], float orientation[4]) {
-  memcpy(&layer->info.pose.position.x, position, 3 * sizeof(float));
-  memcpy(&layer->info.pose.orientation.x, orientation, 4 * sizeof(float));
+static void openxr_setLayerPose(Layer* layer, float* position, float* orientation) {
+  switch (layer->info.type) {
+    case LAYER_QUAD:
+      if (layer->curve == 0.f) {
+        memcpy(&layer->quad.pose.position.x, position, 3 * sizeof(float));
+        memcpy(&layer->quad.pose.orientation.x, orientation, 4 * sizeof(float));
+      } else {
+        memcpy(&layer->cylinder.pose.position.x, position, 3 * sizeof(float));
+        memcpy(&layer->cylinder.pose.orientation.x, orientation, 4 * sizeof(float));
+        float direction[3] = { 0.f, 0.f, 1.f };
+        quat_rotate(orientation, direction);
+        vec3_scale(direction, layer->cylinder.radius);
+        vec3_add(&layer->cylinder.pose.position.x, direction);
+      }
+      break;
+    case LAYER_CUBE:
+      memcpy(&layer->cube.orientation.x, orientation, 4 * sizeof(float));
+      break;
+    case LAYER_SPHERE:
+      if (state.extensions.layerEquirect2) {
+        memcpy(&layer->equirect2.pose.position.x, position, 3 * sizeof(float));
+        memcpy(&layer->equirect2.pose.orientation.x, orientation, 4 * sizeof(float));
+      } else {
+        memcpy(&layer->equirect.pose.position.x, position, 3 * sizeof(float));
+        memcpy(&layer->equirect.pose.orientation.x, orientation, 4 * sizeof(float));
+      }
+      break;
+    default: lovrUnreachable();
+  }
 }
 
 static void openxr_getLayerDimensions(Layer* layer, float* width, float* height) {
-  *width = layer->info.size.width;
-  *height = layer->info.size.height;
+  if (layer->info.type == LAYER_QUAD) {
+    if (layer->curve == 0.f) {
+      *width = layer->quad.size.width;
+      *height = layer->quad.size.height;
+    } else {
+      *width = layer->cylinder.radius * layer->cylinder.centralAngle;
+      *height = layer->cylinder.radius * layer->cylinder.centralAngle / layer->cylinder.aspectRatio;
+    }
+  } else {
+    *width = 0.f;
+    *height = 0.f;
+  }
 }
 
 static void openxr_setLayerDimensions(Layer* layer, float width, float height) {
-  layer->info.size.width = width;
-  layer->info.size.height = height;
+  if (layer->info.type == LAYER_QUAD) {
+    if (layer->curve == 0.f) {
+      layer->quad.size.width = width;
+      layer->quad.size.height = height;
+    } else {
+      layer->cylinder.centralAngle = width / layer->cylinder.radius;
+      layer->cylinder.aspectRatio = width / height;
+    }
+  }
 }
 
-static ViewMask openxr_getLayerViewMask(Layer* layer) {
-  return (ViewMask) layer->info.eyeVisibility;
+static float openxr_getLayerCurve(Layer* layer) {
+  return layer->curve;
 }
 
-static void openxr_setLayerViewMask(Layer* layer, ViewMask mask) {
-  layer->info.eyeVisibility = (XrEyeVisibility) mask;
+static bool openxr_setLayerCurve(Layer* layer, float curve) {
+  if (curve < 1e-3) curve = 0.f;
+
+  lovrCheck(curve == 0.f || state.extensions.layerCurve, "This headset does not support curved layers");
+
+  if (layer->info.type == LAYER_QUAD) {
+    XrPosef quadPose;
+    openxr_getLayerPose(layer, &quadPose.position.x, &quadPose.orientation.x);
+
+    float width, height;
+    openxr_getLayerDimensions(layer, &width, &height);
+
+    bool wasCylinder = layer->curve > 0.f;
+    layer->curve = curve;
+
+    if (curve > 0.f) {
+      if (!wasCylinder) {
+        layer->cylinder = (XrCompositionLayerCylinderKHR) {
+          .type = XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR,
+          .layerFlags = layer->quad.layerFlags,
+          .eyeVisibility = layer->quad.eyeVisibility,
+          .subImage = layer->quad.subImage,
+          .aspectRatio = width / height
+        };
+      }
+
+      float minRadius = width / (2.f * (float) M_PI);
+      layer->cylinder.radius = MAX(1.f / curve, minRadius);
+      layer->cylinder.centralAngle = width / layer->cylinder.radius;
+      openxr_setLayerPose(layer, &quadPose.position.x, &quadPose.orientation.x);
+    } else if (wasCylinder) {
+      layer->quad = (XrCompositionLayerQuad) {
+        .type = XR_TYPE_COMPOSITION_LAYER_QUAD,
+        .layerFlags = layer->cylinder.layerFlags,
+        .eyeVisibility = layer->cylinder.eyeVisibility,
+        .subImage = layer->cylinder.subImage,
+        .pose = quadPose,
+        .size.width = layer->cylinder.radius * layer->cylinder.centralAngle,
+        .size.height = layer->cylinder.radius * layer->cylinder.centralAngle / layer->cylinder.aspectRatio
+      };
+    }
+  }
+
+  return true;
 }
 
 static void openxr_getLayerViewport(Layer* layer, int32_t* viewport) {
-  viewport[0] = layer->info.subImage.imageRect.offset.x;
-  viewport[1] = layer->info.subImage.imageRect.offset.y;
-  viewport[2] = layer->info.subImage.imageRect.extent.width;
-  viewport[3] = layer->info.subImage.imageRect.extent.height;
+  switch (layer->info.type) {
+    case LAYER_QUAD:
+      viewport[0] = layer->quad.subImage.imageRect.offset.x;
+      viewport[1] = layer->quad.subImage.imageRect.offset.y;
+      viewport[2] = layer->quad.subImage.imageRect.extent.width;
+      viewport[3] = layer->quad.subImage.imageRect.extent.height;
+      break;
+    case LAYER_CUBE:
+      viewport[0] = 0;
+      viewport[1] = 0;
+      viewport[2] = 0;
+      viewport[3] = 0;
+      break;
+    case LAYER_SPHERE:;
+      XrSwapchainSubImage* subimage = state.extensions.layerEquirect2 ? &layer->equirect2.subImage : &layer->equirect.subImage;
+      viewport[0] = subimage->imageRect.offset.x;
+      viewport[1] = subimage->imageRect.offset.y;
+      viewport[2] = subimage->imageRect.extent.width;
+      viewport[3] = subimage->imageRect.extent.height;
+      break;
+    default: lovrUnreachable();
+  }
 }
 
 static void openxr_setLayerViewport(Layer* layer, int32_t* viewport) {
-  layer->info.subImage.imageRect.offset.x = viewport[0];
-  layer->info.subImage.imageRect.offset.y = viewport[1];
-  layer->info.subImage.imageRect.extent.width = viewport[2] ? viewport[2] : layer->width - viewport[0];
-  layer->info.subImage.imageRect.extent.height = viewport[3] ? viewport[3] : layer->height - viewport[1];
+  XrSwapchainSubImage* subimage = NULL;
+
+  switch (layer->info.type) {
+    case LAYER_QUAD: subimage = &layer->quad.subImage; break;
+    case LAYER_SPHERE: subimage = state.extensions.layerEquirect2 ? &layer->equirect2.subImage : &layer->equirect.subImage; break;
+    default: return;
+  }
+
+  subimage->imageRect.offset.x = viewport[0];
+  subimage->imageRect.offset.y = viewport[1];
+  subimage->imageRect.extent.width = viewport[2] ? viewport[2] : layer->info.width - viewport[0];
+  subimage->imageRect.extent.height = viewport[3] ? viewport[3] : layer->info.height - viewport[1];
 }
 
 static Texture* openxr_getLayerTexture(Layer* layer) {
@@ -2823,17 +3050,31 @@ static Pass* openxr_getLayerPass(Layer* layer) {
     return NULL;
   }
 
-  float background[4][4];
-  LoadAction loads[4] = { LOAD_CLEAR };
-  lovrGraphicsGetBackgroundColor(background[0]);
-  lovrPassSetClear(layer->pass, loads, background, LOAD_CLEAR, 0.f);
+  if (layer->info.type == LAYER_CUBE) {
+    float viewMatrix[6][16];
+    float origin[3] = { 0.f, 0.f, 0.f };
+    mat4_lookAt(viewMatrix[0], origin, (float[3]) { -1.f,  0.f,  0.f }, (float[3]) { 0.f, 1.f,  0.f });
+    mat4_lookAt(viewMatrix[1], origin, (float[3]) {  1.f,  0.f,  0.f }, (float[3]) { 0.f, 1.f,  0.f });
+    mat4_lookAt(viewMatrix[2], origin, (float[3]) {  0.f,  1.f,  0.f }, (float[3]) { 0.f, 0.f, -1.f });
+    mat4_lookAt(viewMatrix[3], origin, (float[3]) {  0.f, -1.f,  0.f }, (float[3]) { 0.f, 0.f,  1.f });
+    mat4_lookAt(viewMatrix[4], origin, (float[3]) {  0.f,  0.f,  1.f }, (float[3]) { 0.f, 1.f,  0.f });
+    mat4_lookAt(viewMatrix[5], origin, (float[3]) {  0.f,  0.f, -1.f }, (float[3]) { 0.f, 1.f,  0.f });
 
-  float viewMatrix[16] = MAT4_IDENTITY;
-  lovrPassSetViewMatrix(layer->pass, 0, viewMatrix);
+    float projection[16];
+    mat4_perspective(projection, (float) M_PI / 2.f, 1.f, state.clipNear, state.clipFar);
 
-  float projection[16];
-  mat4_orthographic(projection, 0, layer->width, 0, layer->height, -1.f, 1.f);
-  lovrPassSetProjection(layer->pass, 0, projection);
+    for (uint32_t i = 0; i < 6; i++) {
+      lovrPassSetViewMatrix(layer->pass, i, viewMatrix[i]);
+      lovrPassSetProjection(layer->pass, i, projection);
+    }
+  } else {
+    float viewMatrix[16] = MAT4_IDENTITY;
+    lovrPassSetViewMatrix(layer->pass, 0, viewMatrix);
+
+    float projection[16];
+    mat4_orthographic(projection, 0, layer->info.width, 0, layer->info.height, -1.f, 1.f);
+    lovrPassSetProjection(layer->pass, 0, projection);
+  }
 
   return layer->pass;
 }
@@ -2942,6 +3183,7 @@ static bool openxr_getPass(Pass** pass) {
   return true;
 }
 
+#include <stdio.h>
 static bool openxr_submit(void) {
   if (!SESSION_ACTIVE(state.sessionState)) {
     state.waited = false;
@@ -2955,6 +3197,14 @@ static bool openxr_submit(void) {
   }
 
   XrCompositionLayerBaseHeader const* layers[MAX_LAYERS + 2];
+
+  union {
+    XrCompositionLayerQuad quad;
+    XrCompositionLayerCubeKHR cube;
+    XrCompositionLayerEquirectKHR equirect;
+    XrCompositionLayerEquirect2KHR equirect2;
+    XrCompositionLayerCylinderKHR cylinder;
+  } stereoLayers[MAX_LAYERS];
 
   XrCompositionLayerDepthTestFB depthTestInfo = {
     .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_TEST_FB,
@@ -2973,41 +3223,102 @@ static bool openxr_submit(void) {
     swapchain_release(&state.swapchains[COLOR]);
     swapchain_release(&state.swapchains[DEPTH]);
 
+    // Passthrough layer
     if (state.passthroughActive) {
       layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.passthroughLayer;
     }
 
-    state.layer.next = NULL;
+    // Background layers (currently just all the cube/sphere layers)
+    for (uint32_t i = 0; i < state.layerCount; i++) {
+      Layer* layer = state.layers[i];
 
-    if (state.extensions.layerDepthTest && state.extensions.depth && state.layerCount > 0) {
-      depthTestInfo.next = state.layer.next;
-      state.layer.next = &depthTestInfo;
-    }
+      if (layer->info.type != LAYER_CUBE && layer->info.type != LAYER_SPHERE) continue;
 
-    if (state.extensions.depth) {
-      if (state.clipFar == 0.f) {
-        state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = +INFINITY;
-        state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipNear;
-      } else {
-        state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = state.clipNear;
-        state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipFar;
+      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &layer->header;
+      layer->header.space = state.referenceSpace;
+      swapchain_release(&layer->swapchain);
+
+      // Stereo layers require 2 composition layers (gr?).  We make a temporary copy of the layer's
+      // data and change it to show up in the right eye with the second texture array layer.
+      if (layer->info.stereo) {
+        layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &stereoLayers[i];
+        switch (layer->info.type) {
+          case LAYER_CUBE:
+            stereoLayers[i].cube = layer->cube;
+            stereoLayers[i].cube.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+            stereoLayers[i].cube.imageArrayIndex = 1;
+            break;
+          case LAYER_SPHERE:
+            if (state.extensions.layerEquirect2) {
+              stereoLayers[i].equirect2 = layer->equirect2;
+              stereoLayers[i].equirect2.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+              stereoLayers[i].equirect2.subImage.imageArrayIndex = 1;
+            } else {
+              stereoLayers[i].equirect = layer->equirect;
+              stereoLayers[i].equirect.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+              stereoLayers[i].equirect.subImage.imageArrayIndex = 1;
+            }
+            break;
+          default: lovrUnreachable();
+        }
       }
     }
 
-    if (state.extensions.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE) {
-      state.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
-    } else {
-      state.layer.layerFlags = 0;
+    // Main layer
+    if (state.showMainLayer) {
+      state.layer.next = NULL;
+
+      if (state.extensions.layerDepthTest && state.extensions.depth && state.layerCount > 0) {
+        depthTestInfo.next = state.layer.next;
+        state.layer.next = &depthTestInfo;
+      }
+
+      if (state.extensions.depth) {
+        if (state.clipFar == 0.f) {
+          state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = +INFINITY;
+          state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipNear;
+        } else {
+          state.depthInfo[0].nearZ = state.depthInfo[1].nearZ = state.clipNear;
+          state.depthInfo[0].farZ = state.depthInfo[1].farZ = state.clipFar;
+        }
+      }
+
+      if (state.extensions.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE || state.layerCount > 0) {
+        state.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+      } else {
+        state.layer.layerFlags = 0;
+      }
+
+      state.layer.space = state.referenceSpace;
+
+      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layer;
     }
 
-    state.layer.space = state.referenceSpace;
-
-    layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layer;
-
+    // Foreground layers (currently just all the quad layers)
     for (uint32_t i = 0; i < state.layerCount; i++) {
-      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layers[i]->info;
-      state.layers[i]->info.space = state.referenceSpace;
-      swapchain_release(&state.layers[i]->swapchain);
+      Layer* layer = state.layers[i];
+
+      if (layer->info.type != LAYER_QUAD) continue;
+
+      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &layer->header;
+      layer->header.space = state.referenceSpace;
+      swapchain_release(&layer->swapchain);
+
+      // Stereo layers require 2 composition layers (gr?).  We make a temporary copy of the layer's
+      // data and change it to show up in the right eye with the second texture array layer.
+      if (layer->info.stereo) {
+        layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &stereoLayers[i];
+
+        if (layer->curve == 0.f) {
+          stereoLayers[i].quad = layer->quad;
+          stereoLayers[i].quad.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+          stereoLayers[i].quad.subImage.imageArrayIndex = 1;
+        } else {
+          stereoLayers[i].cylinder = layer->cylinder;
+          stereoLayers[i].cylinder.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+          stereoLayers[i].cylinder.subImage.imageArrayIndex = 1;
+        }
+      }
     }
   }
 
@@ -3185,8 +3496,8 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .setLayerPose = openxr_setLayerPose,
   .getLayerDimensions = openxr_getLayerDimensions,
   .setLayerDimensions = openxr_setLayerDimensions,
-  .getLayerViewMask = openxr_getLayerViewMask,
-  .setLayerViewMask = openxr_setLayerViewMask,
+  .getLayerCurve = openxr_getLayerCurve,
+  .setLayerCurve = openxr_setLayerCurve,
   .getLayerViewport = openxr_getLayerViewport,
   .setLayerViewport = openxr_setLayerViewport,
   .getLayerTexture = openxr_getLayerTexture,

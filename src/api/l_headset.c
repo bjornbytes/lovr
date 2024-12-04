@@ -81,10 +81,10 @@ StringEntry lovrDeviceAxis[] = {
   { 0 }
 };
 
-StringEntry lovrViewMask[] = {
-  [EYE_BOTH] = ENTRY("both"),
-  [EYE_LEFT] = ENTRY("left"),
-  [EYE_RIGHT] = ENTRY("right"),
+StringEntry lovrLayerType[] = {
+  [LAYER_QUAD] = ENTRY("quad"),
+  [LAYER_CUBE] = ENTRY("cube"),
+  [LAYER_SPHERE] = ENTRY("sphere"),
   { 0 }
 };
 
@@ -135,6 +135,9 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
   lua_pushboolean(L, features.controllerModel), lua_setfield(L, -2, "controllerModel");
   lua_pushboolean(L, features.controllerSkeleton), lua_setfield(L, -2, "controllerSkeleton");
+  lua_pushboolean(L, features.layerCube), lua_setfield(L, -2, "layerCube");
+  lua_pushboolean(L, features.layerSphere), lua_setfield(L, -2, "layerSphere");
+  lua_pushboolean(L, features.layerCurve), lua_setfield(L, -2, "layerCurve");
   lua_pushboolean(L, features.layerDepthTest), lua_setfield(L, -2, "layerDepthTest");
   lua_pushboolean(L, features.layerFilter), lua_setfield(L, -2, "layerFilter");
   return 1;
@@ -627,19 +630,23 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetLayers(lua_State* L) {
+  bool main;
   uint32_t count;
-  Layer** layers = lovrHeadsetInterface->getLayers(&count);
+  Layer** layers = lovrHeadsetInterface->getLayers(&count, &main);
   lua_createtable(L, (int) count, 0);
   for (uint32_t i = 0; i < count; i++) {
     luax_pushtype(L, Layer, layers[i]);
     lua_rawseti(L, -2, (int) i + 1);
   }
+  lua_pushboolean(L, main);
+  lua_setfield(L, -2, "main");
   return 1;
 }
 
 static int l_lovrHeadsetSetLayers(lua_State* L) {
   Layer* layers[MAX_LAYERS];
   uint32_t count = 0;
+  bool main = true;
   if (lua_type(L, 1) == LUA_TTABLE) {
     count = luax_len(L, 1);
     luax_check(L, count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
@@ -648,6 +655,9 @@ static int l_lovrHeadsetSetLayers(lua_State* L) {
       layers[i] = luax_checktype(L, -1, Layer);
       lua_pop(L, 1);
     }
+    lua_getfield(L, 1, "main");
+    if (!lua_isnil(L, -1)) main = lua_toboolean(L, -1);
+    lua_pop(L, 1);
   } else {
     count = lua_gettop(L);
     luax_check(L, count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
@@ -655,21 +665,46 @@ static int l_lovrHeadsetSetLayers(lua_State* L) {
       layers[i] = luax_checktype(L, (int) i + 1, Layer);
     }
   }
-  bool success = lovrHeadsetInterface->setLayers(layers, count);
+  bool success = lovrHeadsetInterface->setLayers(layers, count, main);
   luax_assert(L, success);
   return 0;
 }
 
 static int l_lovrHeadsetNewLayer(lua_State* L) {
-  uint32_t width = luax_checku32(L, 1);
-  uint32_t height = luax_checku32(L, 2);
-  LayerInfo info = { .filter = true };
+  LayerInfo info = {
+    .type = LAYER_QUAD,
+    .stereo = false,
+    .immutable = false,
+    .transparent = true,
+    .filter = true
+  };
+
+  info.width = luax_checku32(L, 1);
+  info.height = luax_checku32(L, 2);
+
   if (lua_istable(L, 3)) {
+    lua_getfield(L, 3, "type");
+    if (!lua_isnil(L, -1)) info.type = luax_checkenum(L, -1, LayerType, NULL);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "stereo");
+    if (!lua_isnil(L, -1)) info.stereo = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "static");
+    if (!lua_isnil(L, -1)) info.immutable = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 3, "transparent");
+    if (!lua_isnil(L, -1)) info.transparent = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
     lua_getfield(L, 3, "filter");
-    info.filter = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
+    if (!lua_isnil(L, -1)) info.filter = lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
-  Layer* layer = lovrHeadsetInterface->newLayer(width, height, &info);
+
+  Layer* layer = lovrHeadsetInterface->newLayer(&info);
   luax_assert(L, layer);
   luax_pushtype(L, Layer, layer);
   lovrRelease(layer, lovrLayerDestroy);
