@@ -1670,7 +1670,7 @@ static void openxr_stop(void) {
 
   if (state.session) xrDestroySession(state.session);
   state.sessionState = XR_SESSION_STATE_UNKNOWN;
-  state.session = NULL;
+  state.session = XR_NULL_HANDLE;
 }
 
 static void openxr_destroy(void) {
@@ -3018,7 +3018,7 @@ static bool openxr_submit(void) {
 }
 
 static bool openxr_isActive(void) {
-  return state.session && SESSION_ACTIVE(state.sessionState);
+  return state.session;
 }
 
 static bool openxr_isVisible(void) {
