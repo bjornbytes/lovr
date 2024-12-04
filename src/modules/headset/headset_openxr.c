@@ -296,6 +296,7 @@ static XrBool32 onMessage(XrDebugUtilsMessageSeverityFlagsEXT severity, XrDebugU
   } else {
     lovrLog(level, "XR", "%s", data->message);
   }
+  return XR_FALSE;
 }
 
 static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, const char* extension) {
