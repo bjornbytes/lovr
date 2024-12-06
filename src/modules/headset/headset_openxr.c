@@ -3063,17 +3063,19 @@ static Pass* openxr_getLayerPass(Layer* layer) {
     float projection[16];
     mat4_perspective(projection, (float) M_PI / 2.f, 1.f, state.clipNear, state.clipFar);
 
-    for (uint32_t i = 0; i < 6; i++) {
-      lovrPassSetViewMatrix(layer->pass, i, viewMatrix[i]);
+    for (uint32_t i = 0; i < 6 << layer->info.stereo; i++) {
+      lovrPassSetViewMatrix(layer->pass, i, viewMatrix[i % 6]);
       lovrPassSetProjection(layer->pass, i, projection);
     }
   } else {
     float viewMatrix[16] = MAT4_IDENTITY;
-    lovrPassSetViewMatrix(layer->pass, 0, viewMatrix);
-
     float projection[16];
     mat4_orthographic(projection, 0, layer->info.width, 0, layer->info.height, -1.f, 1.f);
-    lovrPassSetProjection(layer->pass, 0, projection);
+
+    for (uint32_t i = 0; i < 1 << layer->info.stereo; i++) {
+      lovrPassSetViewMatrix(layer->pass, i, viewMatrix);
+      lovrPassSetProjection(layer->pass, i, projection);
+    }
   }
 
   return layer->pass;
