@@ -315,10 +315,11 @@ static Layer* simulator_newLayer(const LayerInfo* info) {
   layer->textureWeight = info->height;
   layer->texture = lovrTextureCreate(&(TextureInfo) {
     .format = FORMAT_RGBA8,
+    .type = (info->type == LAYER_CUBE ? TEXTURE_CUBE : (info->stereo ? TEXTURE_ARRAY : TEXTURE_2D)),
     .width = info->width,
     .height = info->height,
-    .layers = 1,
-    .usage = TEXTURE_RENDER,
+    .layers = (info->type == LAYER_CUBE ? 6 : 1) << info->stereo,
+    .usage = TEXTURE_RENDER | TEXTURE_TRANSFER,
     .srgb = true
   });
   layer->pass = lovrPassCreate("Layer");
