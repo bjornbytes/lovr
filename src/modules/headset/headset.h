@@ -54,6 +54,9 @@ typedef struct {
   bool handModel;
   bool controllerModel;
   bool controllerSkeleton;
+  bool layerCube;
+  bool layerSphere;
+  bool layerCurve;
   bool layerDepthTest;
   bool layerFilter;
 } HeadsetFeatures;
@@ -156,12 +159,18 @@ typedef enum {
 } SkeletonSource;
 
 typedef enum {
-  EYE_BOTH,
-  EYE_LEFT,
-  EYE_RIGHT
-} ViewMask;
+  LAYER_QUAD,
+  LAYER_CUBE,
+  LAYER_SPHERE
+} LayerType;
 
 typedef struct {
+  LayerType type;
+  uint32_t width;
+  uint32_t height;
+  bool stereo;
+  bool immutable;
+  bool transparent;
   bool filter;
 } LayerInfo;
 
@@ -215,16 +224,18 @@ typedef struct HeadsetInterface {
   void (*stopVibration)(Device device);
   struct ModelData* (*newModelData)(Device device, bool animated);
   bool (*animate)(struct Model* model);
-  Layer** (*getLayers)(uint32_t* count);
-  bool (*setLayers)(Layer** layers, uint32_t count);
-  Layer* (*newLayer)(uint32_t width, uint32_t height, const LayerInfo* settings);
+  Layer** (*getLayers)(uint32_t* count, bool* main);
+  bool (*setLayers)(Layer** layers, uint32_t count, bool main);
+  Layer* (*newLayer)(const LayerInfo* info);
   void (*destroyLayer)(void* ref);
   void (*getLayerPose)(Layer* layer, float* position, float* orientation);
   void (*setLayerPose)(Layer* layer, float* position, float* orientation);
   void (*getLayerDimensions)(Layer* layer, float* width, float* height);
   void (*setLayerDimensions)(Layer* layer, float width, float height);
-  ViewMask (*getLayerViewMask)(Layer* layer);
-  void (*setLayerViewMask)(Layer* layer, ViewMask mask);
+  float (*getLayerCurve)(Layer* layer);
+  bool (*setLayerCurve)(Layer* layer, float curve);
+  void (*getLayerColor)(Layer* layer, float color[4]);
+  void (*setLayerColor)(Layer* layer, float color[4]);
   void (*getLayerViewport)(Layer* layer, int32_t* viewport);
   void (*setLayerViewport)(Layer* layer, int32_t* viewport);
   struct Texture* (*getLayerTexture)(Layer* layer);

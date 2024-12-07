@@ -1,5 +1,6 @@
 #include "api.h"
 #include "headset/headset.h"
+#include "data/image.h"
 #include "data/modelData.h"
 #include "graphics/graphics.h"
 #include "core/maf.h"
@@ -81,10 +82,10 @@ StringEntry lovrDeviceAxis[] = {
   { 0 }
 };
 
-StringEntry lovrViewMask[] = {
-  [EYE_BOTH] = ENTRY("both"),
-  [EYE_LEFT] = ENTRY("left"),
-  [EYE_RIGHT] = ENTRY("right"),
+StringEntry lovrLayerType[] = {
+  [LAYER_QUAD] = ENTRY("quad"),
+  [LAYER_CUBE] = ENTRY("cube"),
+  [LAYER_SPHERE] = ENTRY("sphere"),
   { 0 }
 };
 
@@ -135,6 +136,9 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
   lua_pushboolean(L, features.controllerModel), lua_setfield(L, -2, "controllerModel");
   lua_pushboolean(L, features.controllerSkeleton), lua_setfield(L, -2, "controllerSkeleton");
+  lua_pushboolean(L, features.layerCube), lua_setfield(L, -2, "layerCube");
+  lua_pushboolean(L, features.layerSphere), lua_setfield(L, -2, "layerSphere");
+  lua_pushboolean(L, features.layerCurve), lua_setfield(L, -2, "layerCurve");
   lua_pushboolean(L, features.layerDepthTest), lua_setfield(L, -2, "layerDepthTest");
   lua_pushboolean(L, features.layerFilter), lua_setfield(L, -2, "layerFilter");
   return 1;
@@ -627,19 +631,23 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetLayers(lua_State* L) {
+  bool main;
   uint32_t count;
-  Layer** layers = lovrHeadsetInterface->getLayers(&count);
+  Layer** layers = lovrHeadsetInterface->getLayers(&count, &main);
   lua_createtable(L, (int) count, 0);
   for (uint32_t i = 0; i < count; i++) {
     luax_pushtype(L, Layer, layers[i]);
     lua_rawseti(L, -2, (int) i + 1);
   }
+  lua_pushboolean(L, main);
+  lua_setfield(L, -2, "main");
   return 1;
 }
 
 static int l_lovrHeadsetSetLayers(lua_State* L) {
   Layer* layers[MAX_LAYERS];
   uint32_t count = 0;
+  bool main = true;
   if (lua_type(L, 1) == LUA_TTABLE) {
     count = luax_len(L, 1);
     luax_check(L, count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
@@ -648,6 +656,9 @@ static int l_lovrHeadsetSetLayers(lua_State* L) {
       layers[i] = luax_checktype(L, -1, Layer);
       lua_pop(L, 1);
     }
+    lua_getfield(L, 1, "main");
+    if (!lua_isnil(L, -1)) main = lua_toboolean(L, -1);
+    lua_pop(L, 1);
   } else {
     count = lua_gettop(L);
     luax_check(L, count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
@@ -655,22 +666,122 @@ static int l_lovrHeadsetSetLayers(lua_State* L) {
       layers[i] = luax_checktype(L, (int) i + 1, Layer);
     }
   }
-  bool success = lovrHeadsetInterface->setLayers(layers, count);
+  bool success = lovrHeadsetInterface->setLayers(layers, count, main);
   luax_assert(L, success);
   return 0;
 }
 
 static int l_lovrHeadsetNewLayer(lua_State* L) {
-  uint32_t width = luax_checku32(L, 1);
-  uint32_t height = luax_checku32(L, 2);
-  LayerInfo info = { .filter = true };
-  if (lua_istable(L, 3)) {
-    lua_getfield(L, 3, "filter");
-    info.filter = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
+  LayerInfo info = {
+    .filter = true
+  };
+
+  int index;
+  Image* images[12];
+  uint32_t imageCount = 0;
+  Texture* texture = NULL;
+  uint32_t layerCount = 0;
+
+  if (lua_type(L, 1) == LUA_TNUMBER) {
+    info.width = luax_checku32(L, 1);
+    info.height = luax_checku32(L, 2);
+    layerCount = 1;
+    index = 3;
+  } else if ((texture = luax_totype(L, 1, Texture)) != NULL) {
+    const TextureInfo* textureInfo = lovrTextureGetInfo(texture);
+    luax_check(L, textureInfo->format == FORMAT_RGBA8, "Currently, Layer images must be rgba8");
+    info.width = textureInfo->width;
+    info.height = textureInfo->height;
+    layerCount = textureInfo->layers;
+    index = 2;
+  } else if (lua_istable(L, 1)) {
+    uint32_t length = luax_len(L, 1);
+    luax_check(L, length <= COUNTOF(images), "Too many images!");
+    for (uint32_t i = 0; i < length; i++) {
+      lua_rawgeti(L, 1, i + 1);
+      Image* image = luax_checkimage(L, -1);
+      luax_check(L, image, "Expected a table of Images");
+      luax_check(L, i == 0 || lovrImageGetWidth(image, 0) == lovrImageGetWidth(images[0], 0), "Layer image sizes must match");
+      luax_check(L, i == 0 || lovrImageGetHeight(image, 0) == lovrImageGetHeight(images[0], 0), "Layer image sizes must match");
+      luax_check(L, lovrImageGetLayerCount(image) == 1, "When providing a table of Images, they can only have a single layer");
+      luax_check(L, lovrImageGetFormat(image) == FORMAT_RGBA8, "Currently, Layer images must be rgba8");
+      images[imageCount++] = image;
+      lua_pop(L, 1);
+    }
+    info.width = lovrImageGetWidth(images[0], 0);
+    info.height = lovrImageGetHeight(images[0], 0);
+    layerCount = imageCount;
+    index = 2;
+  } else {
+    images[0] = luax_checkimage(L, 1);
+    luax_check(L, lovrImageGetFormat(images[0]) == FORMAT_RGBA8, "Currently, Layer images must be rgba8");
+    info.width = lovrImageGetWidth(images[0], 0);
+    info.height = lovrImageGetHeight(images[0], 0);
+    layerCount = lovrImageGetLayerCount(images[0]);
+    imageCount = 1;
+    index = 2;
+  }
+
+  switch (layerCount) {
+    case 1: info.type = LAYER_QUAD; info.stereo = false; break;
+    case 2: info.type = LAYER_QUAD; info.stereo = true; break;
+    case 6: info.type = LAYER_CUBE; info.stereo = false; break;
+    case 12: info.type = LAYER_CUBE; info.stereo = true; break;
+    default: return luaL_error(L, "Invalid image count for Layer (expected 1, 2, 6, or 12)");
+  }
+
+  info.immutable = texture || imageCount > 0;
+
+  if (lua_istable(L, index)) {
+    lua_getfield(L, index, "type");
+    if (!lua_isnil(L, -1)) info.type = luax_checkenum(L, -1, LayerType, NULL);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "stereo");
+    if (!lua_isnil(L, -1)) info.stereo = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "static");
+    if (!lua_isnil(L, -1)) info.immutable = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "transparent");
+    if (!lua_isnil(L, -1)) info.transparent = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, index, "filter");
+    if (!lua_isnil(L, -1)) info.filter = lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
-  Layer* layer = lovrHeadsetInterface->newLayer(width, height, &info);
+
+  if (texture || imageCount > 0) {
+    uint32_t expected = (info.type == LAYER_CUBE ? 6 : 1) << info.stereo;
+    luax_check(L, layerCount == expected, "Expected %d images for %s%s layer", expected, info.stereo ? "stereo " : "", lovrLayerType[info.type].string);
+  }
+
+  Layer* layer = lovrHeadsetInterface->newLayer(&info);
   luax_assert(L, layer);
+
+  if (texture || imageCount > 0) {
+    Texture* layerTexture = lovrHeadsetInterface->getLayerTexture(layer);
+    luax_assert(L, layerTexture);
+
+    if (texture) {
+      uint32_t srcOffset[4] = { 0 };
+      uint32_t dstOffset[4] = { 0 };
+      uint32_t extent[3] = { info.width, info.height, layerCount };
+      luax_assert(L, lovrTextureCopy(texture, layerTexture, srcOffset, dstOffset, extent));
+    } else if (imageCount > 0) {
+      for (uint32_t i = 0; i < imageCount; i++) {
+        uint32_t texOffset[4] = { 0, 0, i, 0 };
+        uint32_t imgOffset[4] = { 0, 0, 0, 0 };
+        uint32_t extent[3] = { info.width, info.height, lovrImageGetLayerCount(images[i]) };
+        luax_assert(L, lovrTextureSetPixels(layerTexture, images[i], texOffset, imgOffset, extent));
+        lovrRelease(images[i], lovrImageDestroy);
+      }
+    }
+  }
+
   luax_pushtype(L, Layer, layer);
   lovrRelease(layer, lovrLayerDestroy);
   return 1;
