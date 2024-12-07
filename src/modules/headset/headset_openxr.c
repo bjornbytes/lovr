@@ -4,6 +4,7 @@
 #include "data/modelData.h"
 #include "event/event.h"
 #include "graphics/graphics.h"
+#include "math/math.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include "util.h"
@@ -187,6 +188,7 @@ struct Layer {
     XrCompositionLayerEquirect2KHR equirect2;
     XrCompositionLayerCylinderKHR cylinder;
   };
+  XrCompositionLayerColorScaleBiasKHR color;
   XrCompositionLayerDepthTestFB depthTest;
   XrCompositionLayerSettingsFB settings;
 };
@@ -250,6 +252,7 @@ static struct {
     bool headless;
     bool keyboardTracking;
     bool layerAutoFilter;
+    bool layerColor;
     bool layerCube;
     bool layerCurve;
     bool layerDepthTest;
@@ -712,6 +715,7 @@ static bool openxr_init(HeadsetConfig* config) {
 #ifdef __ANDROID__
     { "XR_KHR_android_create_instance", NULL, true },
 #endif
+    { "XR_KHR_composition_layer_color_scale_bias", &state.extensions.layerColor, true },
     { "XR_KHR_composition_layer_cylinder", &state.extensions.layerCurve, true },
     { "XR_KHR_composition_layer_cube", &state.extensions.layerCube, true },
     { "XR_KHR_composition_layer_depth", &state.extensions.depth, config->submitDepth },
@@ -2784,6 +2788,16 @@ static Layer* openxr_newLayer(const LayerInfo* info) {
     default: lovrUnreachable();
   }
 
+  if (state.extensions.layerColor) {
+    layer->color.type = XR_TYPE_COMPOSITION_LAYER_COLOR_SCALE_BIAS_KHR;
+    layer->color.next = layer->header.next;
+    layer->color.colorScale.r = 1.f;
+    layer->color.colorScale.g = 1.f;
+    layer->color.colorScale.b = 1.f;
+    layer->color.colorScale.a = 1.f;
+    layer->header.next = &layer->color;
+  }
+
   if (info->type == LAYER_QUAD && state.extensions.layerDepthTest) {
     layer->depthTest.type = XR_TYPE_COMPOSITION_LAYER_DEPTH_TEST_FB;
     layer->depthTest.next = layer->header.next;
@@ -2954,8 +2968,6 @@ static float openxr_getLayerCurve(Layer* layer) {
 static bool openxr_setLayerCurve(Layer* layer, float curve) {
   if (curve < 1e-3) curve = 0.f;
 
-  lovrCheck(curve == 0.f || state.extensions.layerCurve, "This headset does not support curved layers");
-
   if (layer->info.type == LAYER_QUAD) {
     XrPosef quadPose;
     openxr_getLayerPose(layer, &quadPose.position.x, &quadPose.orientation.x);
@@ -2995,6 +3007,20 @@ static bool openxr_setLayerCurve(Layer* layer, float curve) {
   }
 
   return true;
+}
+
+static void openxr_getLayerColor(Layer* layer, float color[4]) {
+  color[0] = lovrMathLinearToGamma(layer->color.colorScale.r);
+  color[1] = lovrMathLinearToGamma(layer->color.colorScale.g);
+  color[2] = lovrMathLinearToGamma(layer->color.colorScale.b);
+  color[3] = layer->color.colorScale.a;
+}
+
+static void openxr_setLayerColor(Layer* layer, float color[4]) {
+  layer->color.colorScale.r = lovrMathGammaToLinear(color[0]);
+  layer->color.colorScale.g = lovrMathGammaToLinear(color[1]);
+  layer->color.colorScale.b = lovrMathGammaToLinear(color[2]);
+  layer->color.colorScale.a = color[3];
 }
 
 static void openxr_getLayerViewport(Layer* layer, int32_t* viewport) {
@@ -3500,6 +3526,8 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .setLayerDimensions = openxr_setLayerDimensions,
   .getLayerCurve = openxr_getLayerCurve,
   .setLayerCurve = openxr_setLayerCurve,
+  .getLayerColor = openxr_getLayerColor,
+  .setLayerColor = openxr_setLayerColor,
   .getLayerViewport = openxr_getLayerViewport,
   .setLayerViewport = openxr_setLayerViewport,
   .getLayerTexture = openxr_getLayerTexture,

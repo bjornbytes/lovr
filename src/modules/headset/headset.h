@@ -234,6 +234,8 @@ typedef struct HeadsetInterface {
   void (*setLayerDimensions)(Layer* layer, float width, float height);
   float (*getLayerCurve)(Layer* layer);
   bool (*setLayerCurve)(Layer* layer, float curve);
+  void (*getLayerColor)(Layer* layer, float color[4]);
+  void (*setLayerColor)(Layer* layer, float color[4]);
   void (*getLayerViewport)(Layer* layer, int32_t* viewport);
   void (*setLayerViewport)(Layer* layer, int32_t* viewport);
   struct Texture* (*getLayerTexture)(Layer* layer);

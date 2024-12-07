@@ -377,6 +377,17 @@ static void simulator_setLayerDimensions(Layer* layer, float width, float height
   layer->height = height;
 }
 
+static void simulator_getLayerColor(Layer* layer, float color[4]) {
+  color[0] = 1.f;
+  color[1] = 1.f;
+  color[2] = 1.f;
+  color[3] = 1.f;
+}
+
+static void simulator_setLayerColor(Layer* layer, float color[4]) {
+  //
+}
+
 static float simulator_getLayerCurve(Layer* layer) {
   return layer->curve;
 }
@@ -626,6 +637,8 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .setLayerDimensions = simulator_setLayerDimensions,
   .getLayerCurve = simulator_getLayerCurve,
   .setLayerCurve = simulator_setLayerCurve,
+  .getLayerColor = simulator_getLayerColor,
+  .setLayerColor = simulator_setLayerColor,
   .getLayerViewport = simulator_getLayerViewport,
   .setLayerViewport = simulator_setLayerViewport,
   .getLayerTexture = simulator_getLayerTexture,

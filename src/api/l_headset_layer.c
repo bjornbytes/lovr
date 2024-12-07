@@ -98,6 +98,25 @@ static int l_lovrLayerSetCurve(lua_State* L) {
   return 0;
 }
 
+static int l_lovrLayerGetColor(lua_State* L) {
+  Layer* layer = luax_checktype(L, 1, Layer);
+  float color[4];
+  lovrHeadsetInterface->getLayerColor(layer, color);
+  lua_pushnumber(L, color[0]);
+  lua_pushnumber(L, color[1]);
+  lua_pushnumber(L, color[2]);
+  lua_pushnumber(L, color[3]);
+  return 4;
+}
+
+static int l_lovrLayerSetColor(lua_State* L) {
+  Layer* layer = luax_checktype(L, 1, Layer);
+  float color[4];
+  luax_readcolor(L, 1, color);
+  lovrHeadsetInterface->setLayerColor(layer, color);
+  return 0;
+}
+
 static int l_lovrLayerGetViewport(lua_State* L) {
   Layer* layer = luax_checktype(L, 1, Layer);
   int32_t viewport[4];
@@ -147,6 +166,8 @@ const luaL_Reg lovrLayer[] = {
   { "setDimensions", l_lovrLayerSetDimensions },
   { "getCurve", l_lovrLayerGetCurve },
   { "setCurve", l_lovrLayerSetCurve },
+  { "getColor", l_lovrLayerGetColor },
+  { "setColor", l_lovrLayerSetColor },
   { "getViewport", l_lovrLayerGetViewport },
   { "setViewport", l_lovrLayerSetViewport },
   { "getTexture", l_lovrLayerGetTexture },
