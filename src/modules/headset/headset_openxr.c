@@ -19,15 +19,20 @@
  #include <windows.h>
  #define XR_FOREACH_PLATFORM(X) X(xrConvertWin32PerformanceCounterToTimeKHR)
 #else
+ #include <time.h>
+ #define XR_USE_TIMESPEC
  #if defined(__ANDROID__)
   #define XR_USE_PLATFORM_ANDROID
   void* os_get_java_vm(void);
   void* os_get_jni_context(void);
   #include <jni.h>
+  #include <unistd.h>
+  #define XR_FOREACH_PLATFORM(X)\
+    X(xrConvertTimespecTimeToTimeKHR)\
+    X(xrSetAndroidApplicationThreadKHR)
+ #else
+  #define XR_FOREACH_PLATFORM(X) X(xrConvertTimespecTimeToTimeKHR)
  #endif
- #include <time.h>
- #define XR_USE_TIMESPEC
- #define XR_FOREACH_PLATFORM(X) X(xrConvertTimespecTimeToTimeKHR)
 #endif
 
 #ifdef LOVR_VK
@@ -251,6 +256,7 @@ static struct {
     bool presence;
     bool questPassthrough;
     bool refreshRate;
+    bool threadHint;
     bool viveTrackers;
   } extensions;
 } state;
@@ -687,6 +693,7 @@ static bool openxr_init(HeadsetConfig* config) {
 #endif
 #ifdef __ANDROID__
     { "XR_KHR_android_create_instance", NULL, true },
+    { "XR_KHR_android_thread_settings", &state.extensions.threadHint, true },
 #endif
     { "XR_KHR_composition_layer_depth", &state.extensions.depth, config->submitDepth },
 #ifdef _WIN32
@@ -1452,6 +1459,12 @@ static bool openxr_start(void) {
 
     XR(xrCreateSession(state.instance, &info, &state.session), "xrCreateSession");
     XRG(xrAttachSessionActionSets(state.session, &attachInfo), "xrAttachSessionActionSets", stop);
+
+#ifdef __ANDROID__
+    if (state.extensions.threadHint) {
+      XRG(xrSetAndroidApplicationThreadKHR(state.session, XR_ANDROID_THREAD_TYPE_APPLICATION_MAIN_KHR, gettid()), "xrSetAndroidApplicationThreadKHR", stop);
+    }
+#endif
   }
 
   { // Spaaace
