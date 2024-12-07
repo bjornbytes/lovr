@@ -2736,9 +2736,7 @@ static Layer* openxr_newLayer(const LayerInfo* info) {
     return NULL;
   }
 
-  XrCompositionLayerFlags flags =
-    (info->transparent ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT : 0) |
-    (info->transparent ? XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT : 0);
+  XrCompositionLayerFlags flags = info->transparent ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT : 0;
   XrEyeVisibility eyes = info->stereo ? XR_EYE_VISIBILITY_LEFT : XR_EYE_VISIBILITY_BOTH;
   XrSwapchainSubImage subimage = { layer->swapchain.handle, { 0, 0, info->width, info->height }, 0 };
 
@@ -3312,7 +3310,7 @@ static bool openxr_submit(void) {
       }
 
       if (state.extensions.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE || state.layerCount > 0) {
-        state.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+        state.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
       } else {
         state.layer.layerFlags = 0;
       }
