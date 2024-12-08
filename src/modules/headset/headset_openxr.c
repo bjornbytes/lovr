@@ -104,6 +104,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrSyncActions)\
   X(xrApplyHapticFeedback)\
   X(xrStopHapticFeedback)\
+  X(xrGetVisibilityMaskKHR)\
   X(xrCreateHandTrackerEXT)\
   X(xrDestroyHandTrackerEXT)\
   X(xrLocateHandJointsEXT)\
@@ -223,6 +224,7 @@ static struct {
   Layer* layers[MAX_LAYERS];
   uint32_t layerCount;
   bool showMainLayer;
+  Mesh* mask;
   XrFrameState frameState;
   XrTime lastDisplayTime;
   XrTime epoch;
@@ -273,6 +275,7 @@ static struct {
     bool questPassthrough;
     bool refreshRate;
     bool threadHint;
+    bool visibilityMask;
     bool viveTrackers;
   } extensions;
 } state;
@@ -491,6 +494,70 @@ static XrControllerModelKeyMSFT getControllerModelKey(Device device) {
   }
 
   return *modelKey;
+}
+
+static bool loadVisibilityMask(void) {
+  XrViewConfigurationType viewConfig = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+  XrVisibilityMaskTypeKHR type = XR_VISIBILITY_MASK_TYPE_HIDDEN_TRIANGLE_MESH_KHR;
+  XrVisibilityMaskKHR info = { .type = XR_TYPE_VISIBILITY_MASK_KHR };
+
+  uint32_t vertexCount = 0;
+  uint32_t indexCount = 0;
+
+  for (uint32_t i = 0; i < 2; i++) {
+    XR(xrGetVisibilityMaskKHR(state.session, viewConfig, i, type, &info), "xrGetVisibilityMask");
+    // TODO check for u32 overflow
+    vertexCount += info.vertexCountOutput;
+    indexCount += info.indexCountOutput;
+  }
+
+  if (!state.mask || lovrMeshGetVertexFormat(state.mask)->length < vertexCount) {
+    state.mask = lovrMeshCreate(&(MeshInfo) {
+      .vertexFormat = &(DataField) {
+        .name = "VertexPosition",
+        .type = TYPE_F32x3,
+        .length = vertexCount,
+        .stride = 12
+      }
+    }, NULL);
+
+    if (!state.mask) {
+      return false;
+    }
+  }
+
+  float* vertices = lovrMeshSetVertices(state.mask, 0, vertexCount);
+  info.vertices = (void*) vertices;
+  info.indices = lovrMeshSetIndices(state.mask, indexCount, TYPE_U32);
+  info.vertexCapacityInput = vertexCount;
+  info.indexCapacityInput = indexCount;
+
+  if (!info.vertices || !info.indices) {
+    // TODO cleanup?
+    return false;
+  }
+
+  for (uint32_t i = 0; i < 2; i++) {
+    XR(xrGetVisibilityMaskKHR(state.session, viewConfig, 0, type, &info), "xrGetVisibilityMask");
+    info.vertexCapacityInput -= info.vertexCountOutput;
+    info.indexCapacityInput -= info.indexCountOutput;
+
+    // Each vertex from OpenXR is 2 floats, but we store them as vec3 with z == view index
+    for (uint32_t j = 0; j < info.vertexCountOutput; j++) {
+      uint32_t index = info.vertexCountOutput - j - 1;
+      float* dst = vertices + 3 * index;
+      float* src = vertices + 2 * index;
+      dst[2] = (float) i;
+      dst[1] = src[1];
+      dst[0] = src[0];
+    }
+
+    vertices += 3 * info.vertexCountOutput;
+    info.vertices = (void*) vertices;
+    info.indices += info.indexCountOutput;
+  }
+
+  return true;
 }
 
 static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, bool stereo, bool depth, bool cube, bool immutable) {
@@ -715,9 +782,6 @@ static bool openxr_init(HeadsetConfig* config) {
   // Extensions with feature == NULL must be present.  The enable flag can be used to
   // conditionally enable extensions based on config, platform, etc.
   struct { const char* name; bool* feature; bool enable; } extensions[] = {
-#ifdef LOVR_VK
-    { "XR_KHR_vulkan_enable2", NULL, true },
-#endif
 #ifdef __ANDROID__
     { "XR_KHR_android_create_instance", NULL, true },
     { "XR_KHR_android_thread_settings", &state.extensions.threadHint, true },
@@ -728,10 +792,15 @@ static bool openxr_init(HeadsetConfig* config) {
     { "XR_KHR_composition_layer_depth", &state.extensions.depth, config->submitDepth },
     { "XR_KHR_composition_layer_equirect", &state.extensions.layerEquirect, true },
     { "XR_KHR_composition_layer_equirect2", &state.extensions.layerEquirect2, true },
+#ifndef _WIN32
+    { "XR_KHR_convert_timespec_time", NULL, true },
+#endif
+    { "XR_KHR_visibility_mask", &state.extensions.visibilityMask, true },
+#ifdef LOVR_VK
+    { "XR_KHR_vulkan_enable2", NULL, true },
+#endif
 #ifdef _WIN32
     { "XR_KHR_win32_convert_performance_counter_time", NULL, true },
-#else
-    { "XR_KHR_convert_timespec_time", NULL, true },
 #endif
     { "XR_EXT_debug_utils", &state.extensions.debug, true },
     { "XR_EXT_eye_gaze_interaction", &state.extensions.gaze, true },
@@ -1660,6 +1729,10 @@ static bool openxr_start(void) {
     XRG(xrEnumerateDisplayRefreshRatesFB(state.session, state.refreshRateCount, &state.refreshRateCount, state.refreshRates), "xrEnumerateDisplayRefreshRatesFB", stop);
   }
 
+  if (state.extensions.visibilityMask) {
+    loadVisibilityMask();
+  }
+
   state.showMainLayer = true;
 
   return true;
@@ -1697,6 +1770,9 @@ static void openxr_stop(void) {
   swapchain_destroy(&state.swapchains[1]);
   lovrRelease(state.pass, lovrPassDestroy);
   state.pass = NULL;
+
+  lovrRelease(state.mask, lovrMeshDestroy);
+  state.mask = NULL;
 
   if (state.handTrackers[0]) xrDestroyHandTrackerEXT(state.handTrackers[0]);
   if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
@@ -3218,11 +3294,19 @@ static bool openxr_getPass(Pass** pass) {
     }
   }
 
+  if (state.extensions.visibilityMask) {
+    Shader* shader = lovrGraphicsGetDefaultShader(SHADER_MASK);
+    lovrPassPush(state.pass, STACK_STATE);
+    lovrPassSetShader(state.pass, shader);
+    lovrPassSetColor(state.pass, (float[4]) { 0.f, 0.f, 0.f, 1.f });
+    lovrPassDrawMesh(state.pass, state.mask, NULL, 1);
+    lovrPassPop(state.pass, STACK_STATE);
+  }
+
   *pass = state.pass;
   return true;
 }
 
-#include <stdio.h>
 static bool openxr_submit(void) {
   if (!SESSION_ACTIVE(state.sessionState)) {
     state.waited = false;
@@ -3393,6 +3477,8 @@ static bool openxr_update(double* dt) {
   e.type = XR_TYPE_EVENT_DATA_BUFFER;
   e.next = NULL;
 
+  bool visibilityMaskDirty = false;
+
   while (xrPollEvent(state.instance, &e) == XR_SUCCESS) {
     switch (e.type) {
       case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
@@ -3443,6 +3529,9 @@ static bool openxr_update(double* dt) {
         }
         break;
       }
+      case XR_TYPE_EVENT_DATA_VISIBILITY_MASK_CHANGED_KHR:
+        visibilityMaskDirty = true;
+        break;
       case XR_TYPE_EVENT_DATA_USER_PRESENCE_CHANGED_EXT: {
         XrEventDataUserPresenceChangedEXT* event = (XrEventDataUserPresenceChangedEXT*) &e;
         state.mounted = event->isUserPresent;
@@ -3455,6 +3544,10 @@ static bool openxr_update(double* dt) {
   }
 
   if (SESSION_ACTIVE(state.sessionState)) {
+    if (visibilityMaskDirty) {
+      loadVisibilityMask();
+    }
+
     state.lastDisplayTime = state.frameState.predictedDisplayTime;
     XR(xrWaitFrame(state.session, NULL, &state.frameState), "xrWaitFrame");
     state.waited = true;
