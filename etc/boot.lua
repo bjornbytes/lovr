@@ -34,6 +34,7 @@ local conf = {
     start = true,
     debug = false,
     seated = false,
+    mask = false,
     stencil = false,
     antialias = true,
     supersample = false,
