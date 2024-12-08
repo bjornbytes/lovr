@@ -53,6 +53,7 @@ StringEntry lovrDevice[] = {
   [DEVICE_FOOT_RIGHT] = ENTRY("foot/right"),
   [DEVICE_CAMERA] = ENTRY("camera"),
   [DEVICE_KEYBOARD] = ENTRY("keyboard"),
+  [DEVICE_STYLUS] = ENTRY("stylus"),
   [DEVICE_EYE_LEFT] = ENTRY("eye/left"),
   [DEVICE_EYE_RIGHT] = ENTRY("eye/right"),
   [DEVICE_EYE_GAZE] = ENTRY("eye/gaze"),
@@ -70,7 +71,7 @@ StringEntry lovrDeviceButton[] = {
   [BUTTON_B] = ENTRY("b"),
   [BUTTON_X] = ENTRY("x"),
   [BUTTON_Y] = ENTRY("y"),
-  [BUTTON_PROXIMITY] = ENTRY("proximity"),
+  [BUTTON_NIB] = ENTRY("nib"),
   { 0 }
 };
 
@@ -79,6 +80,7 @@ StringEntry lovrDeviceAxis[] = {
   [AXIS_THUMBSTICK] = ENTRY("thumbstick"),
   [AXIS_TOUCHPAD] = ENTRY("touchpad"),
   [AXIS_GRIP] = ENTRY("grip"),
+  [AXIS_NIB] = ENTRY("nib"),
   { 0 }
 };
 
@@ -512,7 +514,8 @@ static const int axisCounts[MAX_AXES] = {
   [AXIS_TRIGGER] = 1,
   [AXIS_THUMBSTICK] = 2,
   [AXIS_TOUCHPAD] = 2,
-  [AXIS_GRIP] = 1
+  [AXIS_GRIP] = 1,
+  [AXIS_NIB] = 1
 };
 
 static int l_lovrHeadsetGetAxis(lua_State* L) {
