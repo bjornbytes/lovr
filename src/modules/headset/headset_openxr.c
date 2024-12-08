@@ -100,6 +100,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrAttachSessionActionSets)\
   X(xrGetActionStateBoolean)\
   X(xrGetActionStateFloat)\
+  X(xrGetActionStateVector2f)\
   X(xrGetActionStatePose)\
   X(xrSyncActions)\
   X(xrApplyHapticFeedback)\
@@ -135,23 +136,24 @@ XR_FOREACH(XR_DECLARE)
 XR_FOREACH_PLATFORM(XR_DECLARE)
 
 enum {
+  ACTION_NONE,
   ACTION_PINCH_POSE,
   ACTION_POKE_POSE,
   ACTION_GRIP_POSE,
   ACTION_POINTER_POSE,
   ACTION_TRACKER_POSE,
+  ACTION_STYLUS_POSE,
   ACTION_GAZE_POSE,
   ACTION_TRIGGER_DOWN,
   ACTION_TRIGGER_TOUCH,
   ACTION_TRIGGER_AXIS,
   ACTION_TRACKPAD_DOWN,
   ACTION_TRACKPAD_TOUCH,
-  ACTION_TRACKPAD_X,
-  ACTION_TRACKPAD_Y,
+  ACTION_TRACKPAD_AXIS,
   ACTION_THUMBSTICK_DOWN,
   ACTION_THUMBSTICK_TOUCH,
-  ACTION_THUMBSTICK_X,
-  ACTION_THUMBSTICK_Y,
+  ACTION_THUMBSTICK_AXIS,
+  ACTION_THUMBREST_TOUCH,
   ACTION_MENU_DOWN,
   ACTION_MENU_TOUCH,
   ACTION_GRIP_DOWN,
@@ -165,8 +167,10 @@ enum {
   ACTION_X_TOUCH,
   ACTION_Y_DOWN,
   ACTION_Y_TOUCH,
-  ACTION_THUMBREST_TOUCH,
-  ACTION_VIBRATE,
+  ACTION_NIB_DOWN,
+  ACTION_NIB_FORCE,
+  ACTION_HAND_VIBRATE,
+  ACTION_STYLUS_VIBRATE,
   MAX_ACTIONS
 };
 
@@ -266,6 +270,7 @@ static struct {
     bool layerSettings;
     bool localFloor;
     bool ml2Controller;
+    bool mxInk;
     bool overlay;
     bool passthroughPreferences;
     bool picoController;
@@ -422,6 +427,8 @@ static XrAction getPoseActionForDevice(Device device) {
     case DEVICE_CAMERA:
     case DEVICE_KEYBOARD:
       return state.extensions.viveTrackers ? state.actions[ACTION_TRACKER_POSE] : XR_NULL_HANDLE;
+    case DEVICE_STYLUS:
+      return state.extensions.mxInk ? state.actions[ACTION_STYLUS_POSE] : XR_NULL_HANDLE;
     case DEVICE_EYE_GAZE:
       return state.actions[ACTION_GAZE_POSE];
     default:
@@ -749,6 +756,7 @@ static bool openxr_init(HeadsetConfig* config) {
     { "XR_FB_hand_tracking_mesh", &state.extensions.handTrackingMesh, true },
     { "XR_FB_keyboard_tracking", &state.extensions.keyboardTracking, true },
     { "XR_FB_passthrough", &state.extensions.questPassthrough, true },
+    { "XR_LOGITECH_mx_ink_stylus_interaction", &state.extensions.mxInk, true },
     { "XR_META_automatic_layer_filter", &state.extensions.layerAutoFilter, true },
     { "XR_META_passthrough_preferences", &state.extensions.passthroughPreferences, true },
     { "XR_ML_ml2_controller_interaction", &state.extensions.ml2Controller, true },
@@ -957,23 +965,24 @@ static bool openxr_init(HeadsetConfig* config) {
   };
 
   XrActionCreateInfo actionInfo[] = {
+    { 0, NULL },
     { 0, NULL, "pinch_pose",       XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Pinch Pose" },
     { 0, NULL, "poke_pose",        XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Poke Pose" },
     { 0, NULL, "grip_pose",        XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Grip Pose" },
     { 0, NULL, "pointer_pose",     XR_ACTION_TYPE_POSE_INPUT,       2, hands, "Pointer Pose" },
     { 0, NULL, "tracker_pose",     XR_ACTION_TYPE_POSE_INPUT,       12, trackers, "Tracker Pose" },
+    { 0, NULL, "stylus_pose",      XR_ACTION_TYPE_POSE_INPUT,       0, NULL, "Stylus Pose" },
     { 0, NULL, "gaze_pose",        XR_ACTION_TYPE_POSE_INPUT,       0, NULL, "Gaze Pose" },
     { 0, NULL, "trigger_down",     XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trigger Down" },
     { 0, NULL, "trigger_touch",    XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trigger Touch" },
     { 0, NULL, "trigger_axis" ,    XR_ACTION_TYPE_FLOAT_INPUT,      2, hands, "Trigger Axis" },
     { 0, NULL, "trackpad_down" ,   XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Down" },
     { 0, NULL, "trackpad_touch",   XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Touch" },
-    { 0, NULL, "trackpad_x",       XR_ACTION_TYPE_FLOAT_INPUT,      2, hands, "Trackpad X" },
-    { 0, NULL, "trackpad_y",       XR_ACTION_TYPE_FLOAT_INPUT,      2, hands, "Trackpad Y" },
+    { 0, NULL, "trackpad_axis",    XR_ACTION_TYPE_VECTOR2F_INPUT,   2, hands, "Trackpad Axis" },
     { 0, NULL, "thumbstick_down",  XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbstick Down" },
     { 0, NULL, "thumbstick_touch", XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbstick Touch" },
-    { 0, NULL, "thumbstick_x",     XR_ACTION_TYPE_FLOAT_INPUT,      2, hands, "Thumbstick X" },
-    { 0, NULL, "thumbstick_y",     XR_ACTION_TYPE_FLOAT_INPUT,      2, hands, "Thumbstick Y" },
+    { 0, NULL, "thumbstick_axis" , XR_ACTION_TYPE_VECTOR2F_INPUT,   2, hands, "Thumbstick Axis" },
+    { 0, NULL, "thumbrest_touch",  XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbrest Touch" },
     { 0, NULL, "menu_down",        XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Menu Down" },
     { 0, NULL, "menu_touch",       XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Menu Touch" },
     { 0, NULL, "grip_down",        XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Grip Down" },
@@ -987,8 +996,10 @@ static bool openxr_init(HeadsetConfig* config) {
     { 0, NULL, "x_touch",          XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "X Touch" },
     { 0, NULL, "y_down",           XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Y Down" },
     { 0, NULL, "y_touch",          XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Y Touch" },
-    { 0, NULL, "thumbrest_touch",  XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbrest Touch" },
-    { 0, NULL, "vibrate",          XR_ACTION_TYPE_VIBRATION_OUTPUT, 2, hands, "Vibrate" }
+    { 0, NULL, "nib_down",         XR_ACTION_TYPE_BOOLEAN_INPUT,    0, NULL, "Nib Down" },
+    { 0, NULL, "nib_force",        XR_ACTION_TYPE_FLOAT_INPUT,      0, NULL, "Nib Force" },
+    { 0, NULL, "vibrate",          XR_ACTION_TYPE_VIBRATION_OUTPUT, 2, hands, "Vibrate" },
+    { 0, NULL, "stylus_vibrate",   XR_ACTION_TYPE_VIBRATION_OUTPUT, 0, NULL, "Stylus Vibrate" }
   };
 
   static_assert(COUNTOF(actionInfo) == MAX_ACTIONS, "Unbalanced action table!");
@@ -1002,6 +1013,7 @@ static bool openxr_init(HeadsetConfig* config) {
   }
 
   for (uint32_t i = 0; i < MAX_ACTIONS; i++) {
+    if (i == ACTION_NONE) continue;
     actionInfo[i].type = XR_TYPE_ACTION_CREATE_INFO;
     XR_INIT(xrCreateAction(state.actionSet, &actionInfo[i], &state.actions[i]), "Failed to create action");
   }
@@ -1017,6 +1029,7 @@ static bool openxr_init(HeadsetConfig* config) {
     PROFILE_PICO_NEO3,
     PROFILE_PICO4,
     PROFILE_TRACKER,
+    PROFILE_MX_INK,
     PROFILE_GAZE,
     MAX_PROFILES
   };
@@ -1032,6 +1045,7 @@ static bool openxr_init(HeadsetConfig* config) {
     [PROFILE_PICO_NEO3] = "/interaction_profiles/bytedance/pico_neo3_controller",
     [PROFILE_PICO4] = "/interaction_profiles/bytedance/pico4_controller",
     [PROFILE_TRACKER] = "/interaction_profiles/htc/vive_tracker_htcx",
+    [PROFILE_MX_INK] = "/interaction_profiles/logitech/mx_ink_stylus_logitech",
     [PROFILE_GAZE] = "/interaction_profiles/ext/eye_gaze_interaction"
   };
 
@@ -1054,8 +1068,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_TRIGGER_DOWN, "/user/hand/right/input/select/click" },
       { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
       { ACTION_MENU_DOWN, "/user/hand/right/input/menu/click" },
-      { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
-      { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/left/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/right/output/haptic" },
       { 0, NULL }
     },
     [PROFILE_VIVE] = (Binding[]) {
@@ -1075,16 +1089,14 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
-      { ACTION_TRACKPAD_X, "/user/hand/left/input/trackpad/x" },
-      { ACTION_TRACKPAD_X, "/user/hand/right/input/trackpad/x" },
-      { ACTION_TRACKPAD_Y, "/user/hand/left/input/trackpad/y" },
-      { ACTION_TRACKPAD_Y, "/user/hand/right/input/trackpad/y" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/right/input/trackpad" },
       { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
       { ACTION_MENU_DOWN, "/user/hand/right/input/menu/click" },
       { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/click" },
       { ACTION_GRIP_DOWN, "/user/hand/right/input/squeeze/click" },
-      { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
-      { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/left/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/right/output/haptic" },
       { 0, NULL }
     },
     [PROFILE_TOUCH] = (Binding[]) {
@@ -1106,10 +1118,10 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
-      { ACTION_THUMBSTICK_X, "/user/hand/left/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/right/input/thumbstick" },
+      { ACTION_THUMBREST_TOUCH, "/user/hand/left/input/thumbrest/touch" },
+      { ACTION_THUMBREST_TOUCH, "/user/hand/right/input/thumbrest/touch" },
       { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
       { ACTION_MENU_DOWN, "/user/hand/right/input/system/click" },
       { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/value" },
@@ -1124,10 +1136,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_X_TOUCH, "/user/hand/left/input/x/touch" },
       { ACTION_Y_DOWN, "/user/hand/left/input/y/click" },
       { ACTION_Y_TOUCH, "/user/hand/left/input/y/touch" },
-      { ACTION_THUMBREST_TOUCH, "/user/hand/left/input/thumbrest/touch" },
-      { ACTION_THUMBREST_TOUCH, "/user/hand/right/input/thumbrest/touch" },
-      { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
-      { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/left/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/right/output/haptic" },
       { 0, NULL }
     },
     [PROFILE_GO] = (Binding[]) {
@@ -1145,10 +1155,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
-      { ACTION_TRACKPAD_X, "/user/hand/left/input/trackpad/x" },
-      { ACTION_TRACKPAD_X, "/user/hand/right/input/trackpad/x" },
-      { ACTION_TRACKPAD_Y, "/user/hand/left/input/trackpad/y" },
-      { ACTION_TRACKPAD_Y, "/user/hand/right/input/trackpad/y" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/right/input/trackpad" },
       { 0, NULL }
     },
     [PROFILE_INDEX] = (Binding[]) {
@@ -1170,18 +1178,14 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/force" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
-      { ACTION_TRACKPAD_X, "/user/hand/left/input/trackpad/x" },
-      { ACTION_TRACKPAD_X, "/user/hand/right/input/trackpad/x" },
-      { ACTION_TRACKPAD_Y, "/user/hand/left/input/trackpad/y" },
-      { ACTION_TRACKPAD_Y, "/user/hand/right/input/trackpad/y" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/right/input/trackpad" },
       { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
       { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
-      { ACTION_THUMBSTICK_X, "/user/hand/left/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/right/input/thumbstick" },
       { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/force" },
       { ACTION_GRIP_DOWN, "/user/hand/right/input/squeeze/force" },
       { ACTION_GRIP_TOUCH, "/user/hand/left/input/squeeze/value" },
@@ -1196,8 +1200,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_B_DOWN, "/user/hand/right/input/b/click" },
       { ACTION_B_TOUCH, "/user/hand/left/input/b/touch" },
       { ACTION_B_TOUCH, "/user/hand/right/input/b/touch" },
-      { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
-      { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/left/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/right/output/haptic" },
       { 0, NULL }
     },
     [PROFILE_WMR] = (Binding[]) {
@@ -1217,24 +1221,20 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
-      { ACTION_TRACKPAD_X, "/user/hand/left/input/trackpad/x" },
-      { ACTION_TRACKPAD_X, "/user/hand/right/input/trackpad/x" },
-      { ACTION_TRACKPAD_Y, "/user/hand/left/input/trackpad/y" },
-      { ACTION_TRACKPAD_Y, "/user/hand/right/input/trackpad/y" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/right/input/trackpad" },
       { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
       { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
-      { ACTION_THUMBSTICK_X, "/user/hand/left/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/right/input/thumbstick" },
       { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
       { ACTION_MENU_DOWN, "/user/hand/right/input/menu/click" },
       { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/click" },
       { ACTION_GRIP_DOWN, "/user/hand/right/input/squeeze/click" },
       { ACTION_GRIP_AXIS, "/user/hand/left/input/squeeze/click" },
       { ACTION_GRIP_AXIS, "/user/hand/right/input/squeeze/click" },
-      { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
-      { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/left/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/right/output/haptic" },
       { 0, NULL }
     },
     [PROFILE_ML2] = (Binding[]) {
@@ -1254,16 +1254,14 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
-      { ACTION_TRACKPAD_X, "/user/hand/left/input/trackpad/x" },
-      { ACTION_TRACKPAD_X, "/user/hand/right/input/trackpad/x" },
-      { ACTION_TRACKPAD_Y, "/user/hand/left/input/trackpad/y" },
-      { ACTION_TRACKPAD_Y, "/user/hand/right/input/trackpad/y" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
+      { ACTION_TRACKPAD_AXIS, "/user/hand/right/input/trackpad" },
       { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
       { ACTION_MENU_DOWN, "/user/hand/right/input/menu/click" },
       { ACTION_GRIP_DOWN, "/user/hand/left/input/shoulder/click" },
       { ACTION_GRIP_DOWN, "/user/hand/right/input/shoulder/click" },
-      { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
-      { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/left/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/right/output/haptic" },
       { 0, NULL }
     },
     [PROFILE_PICO_NEO3] = (Binding[]) {
@@ -1285,10 +1283,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
-      { ACTION_THUMBSTICK_X, "/user/hand/left/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/right/input/thumbstick" },
       { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
       { ACTION_MENU_DOWN, "/user/hand/right/input/menu/click" },
       { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/click" },
@@ -1303,8 +1299,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_X_TOUCH, "/user/hand/left/input/x/touch" },
       { ACTION_Y_DOWN, "/user/hand/left/input/y/click" },
       { ACTION_Y_TOUCH, "/user/hand/left/input/y/touch" },
-      { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
-      { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/left/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/right/output/haptic" },
       { 0, NULL }
     },
     [PROFILE_PICO4] = (Binding[]) {
@@ -1326,10 +1322,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
-      { ACTION_THUMBSTICK_X, "/user/hand/left/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_X, "/user/hand/right/input/thumbstick/x" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/left/input/thumbstick/y" },
-      { ACTION_THUMBSTICK_Y, "/user/hand/right/input/thumbstick/y" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
+      { ACTION_THUMBSTICK_AXIS, "/user/hand/right/input/thumbstick" },
       { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
       { ACTION_MENU_DOWN, "/user/hand/right/input/system/click" },
       { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/click" },
@@ -1344,8 +1338,8 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_X_TOUCH, "/user/hand/left/input/x/touch" },
       { ACTION_Y_DOWN, "/user/hand/left/input/y/click" },
       { ACTION_Y_TOUCH, "/user/hand/left/input/y/touch" },
-      { ACTION_VIBRATE, "/user/hand/left/output/haptic" },
-      { ACTION_VIBRATE, "/user/hand/right/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/left/output/haptic" },
+      { ACTION_HAND_VIBRATE, "/user/hand/right/output/haptic" },
       { 0, NULL }
     },
     [PROFILE_TRACKER] = (Binding[]) {
@@ -1362,6 +1356,24 @@ static bool openxr_init(HeadsetConfig* config) {
       { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/camera/input/grip/pose" },
       { ACTION_TRACKER_POSE, "/user/vive_tracker_htcx/role/keyboard/input/grip/pose" },
       { 0, NULL }
+    },
+    [PROFILE_MX_INK] = (Binding[]) {
+      { ACTION_STYLUS_POSE, "/user/hand/left/input/tip_logitech/pose" },
+      { ACTION_STYLUS_POSE, "/user/hand/right/input/tip_logitech/pose" },
+      { ACTION_GRIP_DOWN, "/user/hand/left/input/cluster_middle_logitech/force" },
+      { ACTION_GRIP_DOWN, "/user/hand/right/input/cluster_middle_logitech/force" },
+      { ACTION_GRIP_AXIS, "/user/hand/left/input/cluster_middle_logitech/force" },
+      { ACTION_GRIP_AXIS, "/user/hand/right/input/cluster_middle_logitech/force" },
+      { ACTION_A_DOWN, "/user/hand/left/input/cluster_front_logitech/click" },
+      { ACTION_A_DOWN, "/user/hand/right/input/cluster_front_logitech/click" },
+      { ACTION_B_DOWN, "/user/hand/left/input/cluster_back_logitech/click" },
+      { ACTION_B_DOWN, "/user/hand/right/input/cluster_back_logitech/click" },
+      { ACTION_NIB_DOWN, "/user/hand/left/input/tip_logitech/force" },
+      { ACTION_NIB_DOWN, "/user/hand/right/input/tip_logitech/force" },
+      { ACTION_NIB_FORCE, "/user/hand/left/input/tip_logitech/force" },
+      { ACTION_NIB_FORCE, "/user/hand/right/input/tip_logitech/force" },
+      { ACTION_STYLUS_VIBRATE, "/user/hand/left/output/haptic" },
+      { ACTION_STYLUS_VIBRATE, "/user/hand/right/output/haptic" }
     },
     [PROFILE_GAZE] = (Binding[]) {
       { ACTION_GAZE_POSE, "/user/eyes_ext/input/gaze_ext/pose" },
@@ -1381,6 +1393,10 @@ static bool openxr_init(HeadsetConfig* config) {
 
   if (!state.extensions.viveTrackers) {
     bindings[PROFILE_TRACKER][0].path = NULL;
+  }
+
+  if (!state.extensions.mxInk) {
+    bindings[PROFILE_MX_INK][0].path = NULL;
   }
 
   if (!state.extensions.gaze) {
@@ -2129,33 +2145,43 @@ static bool openxr_getVelocity(Device device, float* linearVelocity, float* angu
   return velocity.velocityFlags & (XR_SPACE_VELOCITY_LINEAR_VALID_BIT | XR_SPACE_VELOCITY_ANGULAR_VALID_BIT);
 }
 
-static XrPath getInputActionFilter(Device device) {
-  return (device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT) ? state.actionFilters[device] : XR_NULL_PATH;
-}
-
-static bool getButtonState(Device device, DeviceButton button, bool* value, bool* changed, bool touch) {
-  XrActionStateGetInfo info = {
-    .type = XR_TYPE_ACTION_STATE_GET_INFO,
-    .subactionPath = getInputActionFilter(device)
+static bool openxr_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
+  static const uint8_t actions[MAX_DEVICES][MAX_BUTTONS] = {
+    [DEVICE_HAND_LEFT] = {
+      [BUTTON_TRIGGER] = ACTION_TRIGGER_DOWN,
+      [BUTTON_THUMBSTICK] = ACTION_THUMBSTICK_DOWN,
+      [BUTTON_TOUCHPAD] = ACTION_TRACKPAD_DOWN,
+      [BUTTON_MENU] = ACTION_MENU_DOWN,
+      [BUTTON_GRIP] = ACTION_GRIP_DOWN,
+      [BUTTON_A] = ACTION_A_DOWN,
+      [BUTTON_B] = ACTION_B_DOWN,
+      [BUTTON_X] = ACTION_X_DOWN,
+      [BUTTON_Y] = ACTION_Y_DOWN
+    },
+    [DEVICE_HAND_RIGHT] = {
+      [BUTTON_TRIGGER] = ACTION_TRIGGER_DOWN,
+      [BUTTON_THUMBSTICK] = ACTION_THUMBSTICK_DOWN,
+      [BUTTON_TOUCHPAD] = ACTION_TRACKPAD_DOWN,
+      [BUTTON_MENU] = ACTION_MENU_DOWN,
+      [BUTTON_GRIP] = ACTION_GRIP_DOWN,
+      [BUTTON_A] = ACTION_A_DOWN,
+      [BUTTON_B] = ACTION_B_DOWN,
+      [BUTTON_X] = ACTION_X_DOWN,
+      [BUTTON_Y] = ACTION_Y_DOWN
+    },
+    [DEVICE_STYLUS] = {
+      [BUTTON_GRIP] = ACTION_GRIP_DOWN,
+      [BUTTON_A] = ACTION_A_DOWN,
+      [BUTTON_B] = ACTION_B_DOWN,
+      [BUTTON_NIB] = ACTION_NIB_DOWN
+    }
   };
 
-  if (info.subactionPath == XR_NULL_PATH) {
-    return false;
-  }
-
-  switch (button) {
-    case BUTTON_TRIGGER: info.action = state.actions[ACTION_TRIGGER_DOWN + touch]; break;
-    case BUTTON_THUMBREST: info.action = touch ? state.actions[ACTION_THUMBREST_TOUCH] : XR_NULL_HANDLE; break;
-    case BUTTON_THUMBSTICK: info.action = state.actions[ACTION_THUMBSTICK_DOWN + touch]; break;
-    case BUTTON_TOUCHPAD: info.action = state.actions[ACTION_TRACKPAD_DOWN + touch]; break;
-    case BUTTON_MENU: info.action = state.actions[ACTION_MENU_DOWN + touch]; break;
-    case BUTTON_GRIP: info.action = state.actions[ACTION_GRIP_DOWN + touch]; break;
-    case BUTTON_A: info.action = state.actions[ACTION_A_DOWN + touch]; break;
-    case BUTTON_B: info.action = state.actions[ACTION_B_DOWN + touch]; break;
-    case BUTTON_X: info.action = state.actions[ACTION_X_DOWN + touch]; break;
-    case BUTTON_Y: info.action = state.actions[ACTION_Y_DOWN + touch]; break;
-    default: return false;
-  }
+  XrActionStateGetInfo info = {
+    .type = XR_TYPE_ACTION_STATE_GET_INFO,
+    .action = state.actions[actions[device][button]],
+    .subactionPath = state.actionFilters[device]
+  };
 
   if (!info.action) {
     return false;
@@ -2166,88 +2192,141 @@ static bool getButtonState(Device device, DeviceButton button, bool* value, bool
     return false;
   }
 
-  *value = actionState.currentState;
+  *down = actionState.currentState;
   *changed = actionState.changedSinceLastSync;
   return actionState.isActive;
 }
 
-static bool openxr_isDown(Device device, DeviceButton button, bool* down, bool* changed) {
-  return getButtonState(device, button, down, changed, false);
-}
-
 static bool openxr_isTouched(Device device, DeviceButton button, bool* touched) {
-  bool unused;
-  return getButtonState(device, button, touched, &unused, true);
-}
-
-static bool getFloatAction(uint32_t action, XrPath filter, float* value) {
-  XrActionStateGetInfo info = {
-    .type = XR_TYPE_ACTION_STATE_GET_INFO,
-    .action = state.actions[action],
-    .subactionPath = filter
+  static const uint8_t actions[MAX_DEVICES][MAX_BUTTONS] = {
+    [DEVICE_HAND_LEFT] = {
+      [BUTTON_TRIGGER] = ACTION_TRIGGER_TOUCH,
+      [BUTTON_THUMBSTICK] = ACTION_THUMBSTICK_TOUCH,
+      [BUTTON_THUMBREST] = ACTION_THUMBREST_TOUCH,
+      [BUTTON_TOUCHPAD] = ACTION_TRACKPAD_TOUCH,
+      [BUTTON_MENU] = ACTION_MENU_TOUCH,
+      [BUTTON_GRIP] = ACTION_GRIP_TOUCH,
+      [BUTTON_A] = ACTION_A_TOUCH,
+      [BUTTON_B] = ACTION_B_TOUCH,
+      [BUTTON_X] = ACTION_X_TOUCH,
+      [BUTTON_Y] = ACTION_Y_TOUCH
+    },
+    [DEVICE_HAND_RIGHT] = {
+      [BUTTON_TRIGGER] = ACTION_TRIGGER_TOUCH,
+      [BUTTON_THUMBSTICK] = ACTION_THUMBSTICK_TOUCH,
+      [BUTTON_THUMBREST] = ACTION_THUMBREST_TOUCH,
+      [BUTTON_TOUCHPAD] = ACTION_TRACKPAD_TOUCH,
+      [BUTTON_MENU] = ACTION_MENU_TOUCH,
+      [BUTTON_GRIP] = ACTION_GRIP_TOUCH,
+      [BUTTON_A] = ACTION_A_TOUCH,
+      [BUTTON_B] = ACTION_B_TOUCH,
+      [BUTTON_X] = ACTION_X_TOUCH,
+      [BUTTON_Y] = ACTION_Y_TOUCH
+    }
   };
 
-  XrActionStateFloat actionState = { .type = XR_TYPE_ACTION_STATE_FLOAT };
-  if (XR_FAILED(xrGetActionStateFloat(state.session, &info, &actionState))) {
+  XrActionStateGetInfo info = {
+    .type = XR_TYPE_ACTION_STATE_GET_INFO,
+    .action = state.actions[actions[device][button]],
+    .subactionPath = state.actionFilters[device]
+  };
+
+  if (!info.action) {
     return false;
   }
 
-  *value = actionState.currentState;
+  XrActionStateBoolean actionState = { .type = XR_TYPE_ACTION_STATE_BOOLEAN };
+  if (XR_FAILED(xrGetActionStateBoolean(state.session, &info, &actionState))) {
+    return false;
+  }
+
+  *touched = actionState.currentState;
   return actionState.isActive;
 }
 
 static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
-  XrPath filter = getInputActionFilter(device);
+  static const uint8_t actions[MAX_DEVICES][MAX_AXES] = {
+    [DEVICE_HAND_LEFT] = {
+      [AXIS_TRIGGER] = ACTION_TRIGGER_AXIS,
+      [AXIS_THUMBSTICK] = ACTION_THUMBSTICK_AXIS,
+      [AXIS_TOUCHPAD] = ACTION_TRACKPAD_AXIS,
+      [AXIS_GRIP] = ACTION_GRIP_AXIS
+    },
+    [DEVICE_HAND_RIGHT] = {
+      [AXIS_TRIGGER] = ACTION_TRIGGER_AXIS,
+      [AXIS_THUMBSTICK] = ACTION_THUMBSTICK_AXIS,
+      [AXIS_TOUCHPAD] = ACTION_TRACKPAD_AXIS,
+      [AXIS_GRIP] = ACTION_GRIP_AXIS
+    },
+    [DEVICE_STYLUS] = {
+      [AXIS_GRIP] = ACTION_GRIP_AXIS,
+      [AXIS_NIB] = ACTION_NIB_FORCE
+    }
+  };
 
-  if (filter == XR_NULL_PATH) {
+  if (!actions[device][axis]) {
     return false;
   }
 
-  switch (axis) {
-    case AXIS_TRIGGER:
-      if (getFloatAction(ACTION_TRIGGER_AXIS, filter, &value[0])) {
+  XrActionStateGetInfo info = {
+    .type = XR_TYPE_ACTION_STATE_GET_INFO,
+    .action = state.actions[actions[device][axis]],
+    .subactionPath = state.actionFilters[device]
+  };
+
+  if (axis == AXIS_THUMBSTICK || axis == AXIS_TOUCHPAD) {
+    XrActionStateVector2f actionState = { .type = XR_TYPE_ACTION_STATE_VECTOR2F };
+    if (XR_FAILED(xrGetActionStateVector2f(state.session, &info, &actionState))) {
+      return false;
+    }
+
+    value[0] = actionState.currentState.x;
+    value[1] = actionState.currentState.y;
+    return actionState.isActive;
+  } else {
+    XrActionStateFloat actionState = { .type = XR_TYPE_ACTION_STATE_FLOAT };
+
+    XrResult result = xrGetActionStateFloat(state.session, &info, &actionState);
+
+    if (XR_FAILED(result)) {
+      if (axis == AXIS_TRIGGER && state.extensions.handTrackingAim) { // Try FB extension for pinch
+        XrHandTrackerEXT tracker = getHandTracker(device);
+
+        if (!tracker) {
+          return false;
+        }
+
+        XrHandJointsLocateInfoEXT info = {
+          .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
+          .baseSpace = state.referenceSpace,
+          .time = state.frameState.predictedDisplayTime
+        };
+
+        XrHandTrackingAimStateFB aimState = {
+          .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
+        };
+
+        XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
+        XrHandJointLocationsEXT hand = {
+          .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
+          .next = &aimState,
+          .jointCount = 26 + state.extensions.handTrackingElbow,
+          .jointLocations = joints
+        };
+
+        if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand))) {
+          return false;
+        }
+
+        *value = aimState.pinchStrengthIndex;
         return true;
       }
 
-      // FB extension for pinch
-      if (!state.extensions.handTrackingAim) {
-        return false;
-      }
+      return false;
+    }
 
-      XrHandTrackerEXT tracker = getHandTracker(device);
-
-      if (!tracker) {
-        return false;
-      }
-
-      XrHandJointsLocateInfoEXT info = {
-        .type = XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT,
-        .baseSpace = state.referenceSpace,
-        .time = state.frameState.predictedDisplayTime
-      };
-
-      XrHandTrackingAimStateFB aimState = {
-        .type = XR_TYPE_HAND_TRACKING_AIM_STATE_FB
-      };
-
-      XrHandJointLocationEXT joints[MAX_HAND_JOINTS];
-      XrHandJointLocationsEXT hand = {
-        .type = XR_TYPE_HAND_JOINT_LOCATIONS_EXT,
-        .next = &aimState,
-        .jointCount = 26 + state.extensions.handTrackingElbow,
-        .jointLocations = joints
-      };
-
-      if (XR_FAILED(xrLocateHandJointsEXT(tracker, &info, &hand))) {
-        return false;
-      }
-
-      *value = aimState.pinchStrengthIndex;
-      return true;
-    case AXIS_THUMBSTICK: return getFloatAction(ACTION_THUMBSTICK_X, filter, &value[0]) && getFloatAction(ACTION_THUMBSTICK_Y, filter, &value[1]);
-    case AXIS_TOUCHPAD: return getFloatAction(ACTION_TRACKPAD_X, filter, &value[0]) && getFloatAction(ACTION_TRACKPAD_Y, filter, &value[1]);
-    case AXIS_GRIP: return getFloatAction(ACTION_GRIP_AXIS, filter, &value[0]);
-    default: return false;
+    *value = actionState.currentState;
+    return actionState.isActive;
   }
 }
 
@@ -2314,15 +2393,21 @@ static bool openxr_getSkeleton(Device device, float* poses, SkeletonSource* sour
 }
 
 static bool openxr_vibrate(Device device, float power, float duration, float frequency) {
-  XrHapticActionInfo info = {
-    .type = XR_TYPE_HAPTIC_ACTION_INFO,
-    .action = state.actions[ACTION_VIBRATE],
-    .subactionPath = getInputActionFilter(device)
+  static const uint8_t actions[MAX_DEVICES] = {
+    [DEVICE_HAND_LEFT] = ACTION_HAND_VIBRATE,
+    [DEVICE_HAND_RIGHT] = ACTION_HAND_VIBRATE,
+    [DEVICE_STYLUS] = ACTION_STYLUS_VIBRATE
   };
 
-  if (info.subactionPath == XR_NULL_PATH) {
+  if (!actions[device]) {
     return false;
   }
+
+  XrHapticActionInfo info = {
+    .type = XR_TYPE_HAPTIC_ACTION_INFO,
+    .action = state.actions[actions[device]],
+    .subactionPath = state.actionFilters[device]
+  };
 
   XrHapticVibration vibration = {
     .type = XR_TYPE_HAPTIC_VIBRATION,
@@ -2335,15 +2420,23 @@ static bool openxr_vibrate(Device device, float power, float duration, float fre
 }
 
 static void openxr_stopVibration(Device device) {
-  XrHapticActionInfo info = {
-    .type = XR_TYPE_HAPTIC_ACTION_INFO,
-    .action = state.actions[ACTION_VIBRATE],
-    .subactionPath = getInputActionFilter(device)
+  static const uint8_t actions[MAX_DEVICES] = {
+    [DEVICE_HAND_LEFT] = ACTION_HAND_VIBRATE,
+    [DEVICE_HAND_RIGHT] = ACTION_HAND_VIBRATE,
+    [DEVICE_STYLUS] = ACTION_STYLUS_VIBRATE
   };
 
-  if (info.subactionPath != XR_NULL_PATH) {
-    xrStopHapticFeedback(state.session, &info);
+  if (!actions[device]) {
+    return;
   }
+
+  XrHapticActionInfo info = {
+    .type = XR_TYPE_HAPTIC_ACTION_INFO,
+    .action = state.actions[actions[device]],
+    .subactionPath = state.actionFilters[device]
+  };
+
+  xrStopHapticFeedback(state.session, &info);
 }
 
 static ModelData* openxr_newModelDataFB(XrHandTrackerEXT tracker, bool animated) {

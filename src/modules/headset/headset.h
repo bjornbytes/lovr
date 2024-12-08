@@ -94,6 +94,7 @@ typedef enum {
   DEVICE_FOOT_RIGHT,
   DEVICE_CAMERA,
   DEVICE_KEYBOARD,
+  DEVICE_STYLUS,
   DEVICE_EYE_LEFT,
   DEVICE_EYE_RIGHT,
   DEVICE_EYE_GAZE,
@@ -111,7 +112,7 @@ typedef enum {
   BUTTON_B,
   BUTTON_X,
   BUTTON_Y,
-  BUTTON_PROXIMITY,
+  BUTTON_NIB,
   MAX_BUTTONS
 } DeviceButton;
 
@@ -120,6 +121,7 @@ typedef enum {
   AXIS_THUMBSTICK,
   AXIS_TOUCHPAD,
   AXIS_GRIP,
+  AXIS_NIB,
   MAX_AXES
 } DeviceAxis;
 
