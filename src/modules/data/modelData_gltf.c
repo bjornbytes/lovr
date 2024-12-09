@@ -144,9 +144,11 @@ static jsmntok_t* nomTexture(const char* json, jsmntok_t* token, uint32_t* image
           for (int i = (token++)->size; i > 0; i--) {
             gltfString key = NOM_STR(json, token);
             if (STR_EQ(key, "offset")) {
+              token++; // Enter array
               material->uvShift[0] = NOM_FLOAT(json, token);
               material->uvShift[1] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "scale")) {
+              token++; // Enter array
               material->uvScale[0] = NOM_FLOAT(json, token);
               material->uvScale[1] = NOM_FLOAT(json, token);
             } else {
