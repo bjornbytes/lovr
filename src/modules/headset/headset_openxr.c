@@ -3315,7 +3315,6 @@ static bool openxr_getPass(Pass** pass) {
   return true;
 }
 
-#include <stdio.h>
 static bool openxr_submit(void) {
   if (!SESSION_ACTIVE(state.sessionState)) {
     state.waited = false;
