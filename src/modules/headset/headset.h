@@ -32,6 +32,7 @@ typedef struct {
   float supersample;
   bool debug;
   bool seated;
+  bool mask;
   bool stencil;
   bool antialias;
   bool submitDepth;

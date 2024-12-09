@@ -7,6 +7,7 @@
 #include "shaders/equirect.frag.h"
 #include "shaders/fill.vert.h"
 #include "shaders/fill_array.frag.h"
+#include "shaders/mask.vert.h"
 #include "shaders/animator.comp.h"
 #include "shaders/blender.comp.h"
 #include "shaders/tallymerge.comp.h"
