@@ -347,7 +347,7 @@ void initSurface(out Surface surface) {
 }
 
 float D_GGX(const Surface surface, float NoH) {
-  float alpha2 = surface.roughness * surface.roughness2;
+  float alpha2 = surface.roughness2 * surface.roughness2;
   float denom = (NoH * NoH) * (alpha2 - 1.) + 1.;
   return alpha2 / (PI * denom * denom);
 }
