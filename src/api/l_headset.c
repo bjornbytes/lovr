@@ -957,7 +957,7 @@ int luaopen_lovr_headset(lua_State* L) {
     .driverCount = 0,
     .supersample = 1.f,
     .seated = false,
-    .mask = false,
+    .mask = true,
     .stencil = false,
     .antialias = true,
     .submitDepth = true,
@@ -1004,7 +1004,7 @@ int luaopen_lovr_headset(lua_State* L) {
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "mask");
-      config.mask = lua_toboolean(L, -1);
+      config.mask = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "stencil");
