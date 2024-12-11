@@ -647,7 +647,7 @@ static float overlapCallback(void* arg, const JPH_CollideShapeResult* result) {
   return ctx->callback(ctx->userdata, &hit);
 }
 
-bool lovrWorldOverlapShape(World* world, Shape* shape, float pose[7], uint32_t filter, OverlapCallback* callback, void* userdata) {
+bool lovrWorldOverlapShape(World* world, Shape* shape, float pose[7], float maxDistance, uint32_t filter, OverlapCallback* callback, void* userdata) {
   const JPH_NarrowPhaseQuery* query = JPH_PhysicsSystem_GetNarrowPhaseQueryNoLock(world->system);
 
   JPH_Vec3 centerOfMass;
@@ -666,10 +666,14 @@ bool lovrWorldOverlapShape(World* world, Shape* shape, float pose[7], uint32_t f
     .userdata = userdata
   };
 
+  JPH_CollideShapeSettings settings;
+  JPH_CollideShapeSettings_Init(&settings);
+  settings.maxSeparationDistance = maxDistance;
+
   JPH_BroadPhaseLayerFilter* layerFilter = getBroadPhaseLayerFilter(world, filter);
   JPH_ObjectLayerFilter* tagFilter = getObjectLayerFilter(world, filter);
 
-  return JPH_NarrowPhaseQuery_CollideShape(query, shape->handle, &scale, &transform, NULL, &offset, overlapCallback, &context, layerFilter, tagFilter, NULL, NULL);
+  return JPH_NarrowPhaseQuery_CollideShape(query, shape->handle, &scale, &transform, &settings, &offset, overlapCallback, &context, layerFilter, tagFilter, NULL, NULL);
 }
 
 typedef struct {

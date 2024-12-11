@@ -402,16 +402,17 @@ static int l_lovrWorldOverlapShape(lua_State* L) {
   Shape* shape = luax_checkshape(L, 2);
   index = luax_readvec3(L, 3, pose, NULL);
   index = luax_readquat(L, index, pose + 3, NULL);
+  float maxDistance = luax_optfloat(L, index++, 0.f);
   uint32_t filter = luax_checktagmask(L, index++, world);
   if (lua_isnoneornil(L, index)) {
     OverlapResult hit;
-    if (lovrWorldOverlapShape(world, shape, pose, filter, overlapFirstCallback, &hit)) {
+    if (lovrWorldOverlapShape(world, shape, pose, maxDistance, filter, overlapFirstCallback, &hit)) {
       return luax_pushoverlapresult(L, &hit);
     }
   } else {
     luaL_checktype(L, index, LUA_TFUNCTION);
     lua_settop(L, index);
-    lovrWorldOverlapShape(world, shape, pose, filter, overlapCallback, L);
+    lovrWorldOverlapShape(world, shape, pose, maxDistance, filter, overlapCallback, L);
   }
   return 0;
 }
