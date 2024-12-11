@@ -429,6 +429,7 @@ typedef struct {
 typedef struct {
   Attachment color[4];
   Attachment depth;
+  Texture* foveation;
   uint32_t count;
   uint32_t width;
   uint32_t height;
@@ -1192,6 +1193,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream) {
   target.pass = pass->gpu;
   target.width = canvas->width;
   target.height = canvas->height;
+  target.foveation = canvas->foveation ? canvas->foveation->gpu : NULL;
 
   // Cameras
 
@@ -2406,7 +2408,8 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
       ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
       ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
-      (transfer ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0),
+      (transfer ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
+      ((info->usage & TEXTURE_FOVEATION) ? GPU_TEXTURE_FOVEATION : 0),
     .srgb = srgb,
     .handle = info->handle,
     .label = info->label,
@@ -5790,7 +5793,7 @@ bool lovrGraphicsGetWindowPass(Pass** pass) {
   lovrPassReset(state.windowPass);
   memcpy(state.windowPass->canvas.color[0].clear, state.background, 4 * sizeof(float));
   CanvasTexture color[4] = { [0].texture = window };
-  lovrPassSetCanvas(state.windowPass, color, NULL, state.depthFormat, state.config.antialias ? 4 : 1);
+  lovrPassSetCanvas(state.windowPass, color, NULL, state.depthFormat, NULL, state.config.antialias ? 4 : 1);
   *pass = state.windowPass;
   return true;
 }
@@ -5824,6 +5827,7 @@ void lovrPassDestroy(void* ref) {
   }
   lovrRelease(pass->canvas.depth.texture, lovrTextureDestroy);
   lovrRelease(pass->canvas.depth.resolve, lovrTextureDestroy);
+  lovrRelease(pass->canvas.foveation, lovrTextureDestroy);
   lovrRelease(pass->tally.buffer, lovrBufferDestroy);
   if (pass->tally.gpu) {
     gpu_tally_destroy(pass->tally.gpu);
@@ -5916,7 +5920,7 @@ const char* lovrPassGetLabel(Pass* pass) {
   return pass->label;
 }
 
-void lovrPassGetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth, uint32_t* depthFormat, uint32_t* samples) {
+void lovrPassGetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth, uint32_t* depthFormat, Texture** foveation, uint32_t* samples) {
   for (uint32_t i = 0; i < COUNTOF(pass->canvas.color); i++) {
     color[i].texture = pass->canvas.color[i].texture;
     color[i].resolve = pass->canvas.color[i].resolve;
@@ -5924,10 +5928,11 @@ void lovrPassGetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth,
   depth->texture = pass->canvas.depth.texture;
   depth->resolve = pass->canvas.depth.resolve;
   *depthFormat = pass->canvas.depth.format;
+  *foveation = pass->canvas.foveation;
   *samples = pass->canvas.samples;
 }
 
-bool lovrPassSetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth, uint32_t depthFormat, uint32_t samples) {
+bool lovrPassSetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth, uint32_t depthFormat, Texture* foveation, uint32_t samples) {
   Canvas* canvas = &pass->canvas;
 
   for (uint32_t i = 0; i < canvas->count; i++) {
@@ -5942,6 +5947,9 @@ bool lovrPassSetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth,
   canvas->depth.texture = NULL;
   canvas->depth.resolve = NULL;
   canvas->depth.format = 0;
+
+  lovrRelease(canvas->foveation, lovrTextureDestroy);
+  canvas->foveation = NULL;
 
   canvas->count = 0;
   canvas->width = 0;
@@ -6043,10 +6051,13 @@ bool lovrPassSetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth,
     canvas->depth.automsaa = true;
   }
 
+  lovrRetain(foveation);
+  canvas->foveation = foveation;
+
   pass->gpu = getPass(canvas);
 
   if (!pass->gpu) {
-    return lovrPassSetCanvas(pass, NULL, NULL, 0, 0);
+    return lovrPassSetCanvas(pass, NULL, NULL, 0, NULL, 0);
   }
 
   lovrPassReset(pass);
@@ -8348,6 +8359,7 @@ static gpu_pass* getPass(Canvas* canvas) {
   info.colorCount = canvas->count;
   info.samples = canvas->samples;
   info.views = canvas->views;
+  info.foveated = !!canvas->foveation;
   info.surface = canvas->count > 0 && canvas->color[0].texture == state.window;
 
   uint64_t hash = hash64(&info, sizeof(info));

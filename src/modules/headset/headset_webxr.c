@@ -12,6 +12,8 @@ extern void webxr_getDisplayDimensions(uint32_t* width, uint32_t* height);
 extern float webxr_getRefreshRate(void);
 extern bool webxr_setRefreshRate(float refreshRate);
 extern const float* webxr_getRefreshRates(uint32_t* count);
+extern void webxr_getFoveation(FoveationLevel* level, bool* dynamic);
+extern bool webxr_setFoveation(FoveationLevel level, bool dynamic);
 PassthroughMode webxr_getPassthrough(void);
 extern bool webxr_setPassthrough(PassthroughMode mode);
 extern bool webxr_isPassthroughSupported(PassthroughMode mode);

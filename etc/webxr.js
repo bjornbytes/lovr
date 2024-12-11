@@ -213,6 +213,15 @@ var webxr = {
     return 0; /* NULL */ // TODO
   },
 
+  webxr_getFoveation: function(level, dynamic) {
+    HEAPU32[level >> 0] = 0; /* FOVEATION_NONE */
+    HEAPU32[dynamic >> 0] = false;
+  },
+
+  webxr_setFoveation: function(level, dynamic) {
+    return level == 0; /* FOVEATION_NONE */
+  },
+
   webxr_getPassthrough: function() {
     return 0; /* PASSTHROUGH_OPAQUE */
   },

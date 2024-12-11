@@ -191,6 +191,15 @@ static const float* simulator_getRefreshRates(uint32_t* count) {
   return *count = 0, NULL;
 }
 
+static void simulator_getFoveation(FoveationLevel* level, bool* dynamic) {
+  *level = FOVEATION_NONE;
+  *dynamic = false;
+}
+
+static bool simulator_setFoveation(FoveationLevel level, bool dynamic) {
+  return level == FOVEATION_NONE;
+}
+
 static PassthroughMode simulator_getPassthrough(void) {
   return PASSTHROUGH_OPAQUE;
 }
@@ -451,7 +460,7 @@ static bool simulator_getPass(Pass** pass) {
     }
 
     CanvasTexture color[4] = { [0].texture = state.texture };
-    if (!lovrPassSetCanvas(state.pass, color, NULL, state.depthFormat, state.config.antialias ? 4 : 1)) {
+    if (!lovrPassSetCanvas(state.pass, color, NULL, state.depthFormat, NULL, state.config.antialias ? 4 : 1)) {
       return false;
     }
   }
@@ -606,6 +615,8 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .getRefreshRate = simulator_getRefreshRate,
   .setRefreshRate = simulator_setRefreshRate,
   .getRefreshRates = simulator_getRefreshRates,
+  .getFoveation = simulator_getFoveation,
+  .setFoveation = simulator_setFoveation,
   .getPassthrough = simulator_getPassthrough,
   .setPassthrough = simulator_setPassthrough,
   .isPassthroughSupported = simulator_isPassthroughSupported,
