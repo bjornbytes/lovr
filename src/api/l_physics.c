@@ -37,7 +37,7 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     .threadSafe = true,
     .allowSleep = true,
     .stabilization = .2f,
-    .maxPenetration = .01f,
+    .maxOverlap = .01f,
     .restitutionThreshold = 1.f,
     .velocitySteps = 10,
     .positionSteps = 2
@@ -60,8 +60,8 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     if (!lua_isnil(L, -1)) info.stabilization = luax_checkfloat(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 1, "maxPenetration");
-    if (!lua_isnil(L, -1)) info.maxPenetration = luax_checkfloat(L, -1);
+    lua_getfield(L, 1, "maxOverlap");
+    if (!lua_isnil(L, -1)) info.maxOverlap = luax_checkfloat(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "restitutionThreshold");

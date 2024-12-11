@@ -45,7 +45,7 @@ typedef struct {
   bool threadSafe;
   bool allowSleep;
   float stabilization;
-  float maxPenetration;
+  float maxOverlap;
   float restitutionThreshold;
   uint32_t velocitySteps;
   uint32_t positionSteps;

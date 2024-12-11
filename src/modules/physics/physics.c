@@ -397,7 +397,7 @@ World* lovrWorldCreate(WorldInfo* info) {
   JPH_PhysicsSystem_GetPhysicsSettings(world->system, &settings);
   settings.allowSleeping = info->allowSleep;
   settings.baumgarte = CLAMP(info->stabilization, 0.f, 1.f);
-  settings.penetrationSlop = MAX(info->maxPenetration, 0.f);
+  settings.penetrationSlop = MAX(info->maxOverlap, 0.f);
   settings.minVelocityForRestitution = MAX(info->restitutionThreshold, 0.f);
   settings.numVelocitySteps = MAX(settings.numVelocitySteps, 2);
   settings.numPositionSteps = MAX(settings.numPositionSteps, 1);
