@@ -52,7 +52,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 #define XR(f, s) do { XrResult r = f; if (XR_FAILED(r)) { xrthrow(r, s); return 0; } } while(0)
 #define XRG(f, s, j) do { XrResult r = f; if (XR_FAILED(r)) { xrthrow(r, s); goto j; } } while(0)
 #define XR_INIT(f, s) if (!xrwarn(f, s)) return openxr_destroy(), false;
-#define SESSION_ACTIVE(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
+#define SESSION_RUNNING(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
 #define MAX_IMAGES 4
 #define MAX_HAND_JOINTS 27
 
@@ -87,6 +87,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrWaitSwapchainImage)\
   X(xrReleaseSwapchainImage)\
   X(xrBeginSession)\
+  X(xrEndSession)\
   X(xrWaitFrame)\
   X(xrBeginFrame)\
   X(xrEndFrame)\
@@ -3305,7 +3306,7 @@ static Pass* openxr_getLayerPass(Layer* layer) {
 }
 
 static bool openxr_getTexture(Texture** texture) {
-  if (!SESSION_ACTIVE(state.sessionState)) {
+  if (!SESSION_RUNNING(state.sessionState)) {
     *texture = NULL;
     return true;
   }
@@ -3326,7 +3327,7 @@ static bool openxr_getTexture(Texture** texture) {
 }
 
 static bool openxr_getDepthTexture(Texture** texture) {
-  if (!SESSION_ACTIVE(state.sessionState) || !state.extensions.depth) {
+  if (!SESSION_RUNNING(state.sessionState) || !state.extensions.depth) {
     *texture = NULL;
     return true;
   }
@@ -3422,7 +3423,7 @@ static bool openxr_getPass(Pass** pass) {
 }
 
 static bool openxr_submit(void) {
-  if (!SESSION_ACTIVE(state.sessionState)) {
+  if (!SESSION_RUNNING(state.sessionState)) {
     state.waited = false;
     return true;
   }
@@ -3607,7 +3608,8 @@ static bool openxr_update(double* dt) {
             break;
 
           case XR_SESSION_STATE_STOPPING:
-            openxr_stop();
+            XR(xrEndSession(state.session), "xrEndSession");
+            state.mounted = false;
             break;
 
           case XR_SESSION_STATE_EXITING:
@@ -3657,7 +3659,7 @@ static bool openxr_update(double* dt) {
     e.type = XR_TYPE_EVENT_DATA_BUFFER;
   }
 
-  if (SESSION_ACTIVE(state.sessionState)) {
+  if (SESSION_RUNNING(state.sessionState)) {
     if (visibilityMaskDirty && !loadVisibilityMask()) {
       lovrLog(LOG_WARN, "XR", "Failed to load headset mask: %s", lovrGetError());
     }
