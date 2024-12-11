@@ -1437,11 +1437,7 @@ bool lovrColliderSetMass(Collider* collider, float mass) {
   lovrCheck(mass > 0.f, "Mass must be positive");
 
   if (collider->automaticMass) {
-    const JPH_Shape* shape = JPH_BodyInterface_GetShape(getBodyInterface(collider, READ), collider->id);
-    JPH_MassProperties properties;
-    JPH_Shape_GetMassProperties(shape, &properties);
-    JPH_MassProperties_ScaleToMass(&properties, mass);
-    JPH_MotionProperties_SetMassProperties(motion, dofs, &properties);
+    JPH_MotionProperties_ScaleToMass(motion, mass);
   } else {
     JPH_MotionProperties_SetInverseMass(motion, 1.f / mass);
   }
