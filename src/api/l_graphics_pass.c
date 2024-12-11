@@ -40,8 +40,9 @@ static int l_lovrPassGetCanvas(lua_State* L) {
   CanvasTexture color[4];
   CanvasTexture depth;
   uint32_t depthFormat;
+  Texture* foveation;
   uint32_t samples;
-  lovrPassGetCanvas(pass, color, &depth, &depthFormat, &samples);
+  lovrPassGetCanvas(pass, color, &depth, &depthFormat, &foveation, &samples);
 
   if (!color[0].texture && !depth.texture) {
     lua_pushnil(L);
@@ -141,7 +142,7 @@ int l_lovrPassSetCanvas(lua_State* L) {
   } else if (!lua_isnoneornil(L, 2)) {
     luaL_error(L, "Expected Texture, table, or nil for canvas");
   }
-  luax_assert(L, lovrPassSetCanvas(pass, color, &depth, depthFormat, samples));
+  luax_assert(L, lovrPassSetCanvas(pass, color, &depth, depthFormat, NULL, samples));
   return 0;
 }
 

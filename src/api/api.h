@@ -40,6 +40,7 @@ extern StringEntry lovrEffect[];
 extern StringEntry lovrEventType[];
 extern StringEntry lovrFileAction[];
 extern StringEntry lovrFilterMode[];
+extern StringEntry lovrFoveationLevel[];
 extern StringEntry lovrHeadsetDriver[];
 extern StringEntry lovrHorizontalAlign[];
 extern StringEntry lovrJointType[];
