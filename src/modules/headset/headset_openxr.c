@@ -2382,7 +2382,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
 
     XrResult result = xrGetActionStateFloat(state.session, &info, &actionState);
 
-    if (XR_FAILED(result)) {
+    if (XR_FAILED(result) || !actionState.isActive) {
       if (axis == AXIS_TRIGGER && state.extensions.handTrackingAim) { // Try FB extension for pinch
         XrHandTrackerEXT tracker = getHandTracker(device);
 
@@ -2420,7 +2420,7 @@ static bool openxr_getAxis(Device device, DeviceAxis axis, float* value) {
     }
 
     *value = actionState.currentState;
-    return actionState.isActive;
+    return true;
   }
 }
 
