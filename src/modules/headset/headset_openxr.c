@@ -637,6 +637,7 @@ static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
       .height = height,
       .layers = (cube ? 6 : 1) << stereo,
       .mipmaps = 1,
+      .samples = 1,
       .usage = TEXTURE_RENDER | TEXTURE_TRANSFER | (depth ? 0 : TEXTURE_SAMPLE),
       .handle = (uintptr_t) images[i].image,
       .label = "OpenXR Swapchain",
@@ -3269,8 +3270,8 @@ static Pass* openxr_getLayerPass(Layer* layer) {
   Texture* texture = openxr_getLayerTexture(layer);
   if (!texture) return NULL;
 
-  Texture* textures[4] = { texture };
-  if (!lovrPassSetCanvas(layer->pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1)) {
+  CanvasTexture color[4] = { [0].texture = texture };
+  if (!lovrPassSetCanvas(layer->pass, color, NULL, state.depthFormat, state.config.antialias ? 4 : 1)) {
     return NULL;
   }
 
@@ -3353,19 +3354,19 @@ static bool openxr_getPass(Pass** pass) {
     return true;
   }
 
-  Texture* textures[4] = { 0 };
-  Texture* depth = NULL;
+  CanvasTexture color[4] = { 0 };
+  CanvasTexture depth = { 0 };
 
-  if (!openxr_getTexture(&textures[0]) || !openxr_getDepthTexture(&depth)) {
+  if (!openxr_getTexture(&color[0].texture) || !openxr_getDepthTexture(&depth.texture)) {
     return false;
   }
 
-  if (!textures[0]) {
+  if (!color[0].texture) {
     *pass = NULL;
     return true;
   }
 
-  if (!lovrPassSetCanvas(state.pass, textures, depth, state.depthFormat, state.config.antialias ? 4 : 1)) {
+  if (!lovrPassSetCanvas(state.pass, color, &depth, state.depthFormat, state.config.antialias ? 4 : 1)) {
     return false;
   }
 

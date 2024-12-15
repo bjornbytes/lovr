@@ -442,6 +442,7 @@ static bool simulator_getPass(Pass** pass) {
       .height = height,
       .layers = 1,
       .mipmaps = 1,
+      .samples = 1,
       .usage = TEXTURE_RENDER | TEXTURE_SAMPLE
     });
 
@@ -449,8 +450,8 @@ static bool simulator_getPass(Pass** pass) {
       return false;
     }
 
-    Texture* textures[4] = { state.texture };
-    if (!lovrPassSetCanvas(state.pass, textures, NULL, state.depthFormat, state.config.antialias ? 4 : 1)) {
+    CanvasTexture color[4] = { [0].texture = state.texture };
+    if (!lovrPassSetCanvas(state.pass, color, NULL, state.depthFormat, state.config.antialias ? 4 : 1)) {
       return false;
     }
   }

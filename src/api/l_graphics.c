@@ -469,6 +469,7 @@ static int l_lovrGraphicsGetLimits(lua_State* L) {
   lua_pushinteger(L, limits.textureSize3D), lua_setfield(L, -2, "textureSize3D");
   lua_pushinteger(L, limits.textureSizeCube), lua_setfield(L, -2, "textureSizeCube");
   lua_pushinteger(L, limits.textureLayers), lua_setfield(L, -2, "textureLayers");
+  lua_pushinteger(L, limits.textureSamples), lua_setfield(L, -2, "textureSamples");
 
   lua_createtable(L, 3, 0);
   lua_pushinteger(L, limits.renderSize[0]), lua_rawseti(L, -2, 1);
@@ -763,6 +764,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     .format = FORMAT_RGBA8,
     .layers = 1,
     .mipmaps = ~0u,
+    .samples = 1,
     .usage = TEXTURE_SAMPLE,
     .srgb = true
   };
@@ -851,6 +853,10 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
       lua_getfield(L, index, "format");
       info.format = lua_isnil(L, -1) ? info.format : (uint32_t) luax_checkenum(L, -1, TextureFormat, NULL);
       lua_pop(L, 1);
+
+      lua_getfield(L, index, "samples");
+      info.samples = lua_isnil(L, -1) ? info.samples : luax_checku32(L, -1);
+      lua_pop(L, 1);
     }
 
     lua_getfield(L, index, "linear");
@@ -864,7 +870,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     } else if (!lua_isnil(L, -1)) {
       info.mipmaps = lua_toboolean(L, -1) ? ~0u : 1;
     } else {
-      info.mipmaps = (info.imageCount == 0 || !mipmappable) ? 1 : ~0u;
+      info.mipmaps = (info.samples > 1 || info.imageCount == 0 || !mipmappable) ? 1 : ~0u;
     }
     if (info.imageCount > 0 && info.mipmaps > 1 && !mipmappable) {
       luaL_error(L, "This texture format does not support blitting, which is required for mipmap generation");
@@ -1198,6 +1204,7 @@ static Texture* luax_opttexture(lua_State* L, int index) {
     .height = lovrImageGetHeight(image, 0),
     .layers = 1,
     .mipmaps = ~0u,
+    .samples = 1,
     .usage = TEXTURE_SAMPLE,
     .srgb = lovrImageIsSRGB(image),
     .imageCount = 1,

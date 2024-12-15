@@ -332,12 +332,14 @@ typedef struct {
   bool srgb;
   gpu_load_op load;
   gpu_save_op save;
+  bool resolve;
 } gpu_color_info;
 
 typedef struct {
   gpu_texture_format format;
   gpu_load_op load, stencilLoad;
   gpu_save_op save, stencilSave;
+  bool resolve;
 } gpu_depth_info;
 
 typedef struct {
@@ -346,8 +348,6 @@ typedef struct {
   uint32_t colorCount;
   uint32_t samples;
   uint32_t views;
-  bool resolveColor;
-  bool resolveDepth;
   bool surface;
 } gpu_pass_info;
 
@@ -684,6 +684,7 @@ enum {
 
 typedef struct {
   uint8_t formats[GPU_FORMAT_COUNT][2];
+  uint32_t sampleCounts;
   bool textureBC;
   bool textureASTC;
   bool wireframe;

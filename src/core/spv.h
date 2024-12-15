@@ -85,7 +85,7 @@ typedef struct {
   uint32_t arraySize;
   spv_resource_type type;
   spv_texture_dimension dimension;
-  uint32_t textureFlags;
+  uint16_t textureFlags;
   spv_field* bufferFields;
 } spv_resource;
 

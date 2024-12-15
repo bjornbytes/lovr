@@ -1316,53 +1316,62 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
 
   VkAttachmentDescription2 attachments[10];
   VkAttachmentReference2 references[10];
+  bool hasColorResolve = false;
+  uint32_t attachmentCount = 0;
 
   for (uint32_t i = 0; i < info->colorCount; i++) {
-    references[i] = (VkAttachmentReference2) {
+    uint32_t index = attachmentCount++;
+
+    references[index] = (VkAttachmentReference2) {
       .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
       .layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
       .attachment = i
     };
 
-    attachments[i] = (VkAttachmentDescription2) {
+    attachments[index] = (VkAttachmentDescription2) {
       .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
       .format = convertFormat(info->color[i].format, info->color[i].srgb),
       .samples = info->samples,
       .loadOp = loadOps[info->color[i].load],
-      .storeOp = info->resolveColor ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->color[i].save],
+      .storeOp = info->color[i].resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->color[i].save],
       .initialLayout = references[i].layout,
       .finalLayout = references[i].layout
     };
+
+    hasColorResolve |= info->color[i].resolve;
   }
 
-  if (info->resolveColor) {
+  if (hasColorResolve) {
     for (uint32_t i = 0; i < info->colorCount; i++) {
-      uint32_t index = info->colorCount + i;
+      uint32_t referenceIndex = info->colorCount + i;
 
-      references[index] = (VkAttachmentReference2) {
+      references[referenceIndex] = (VkAttachmentReference2) {
         .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
         .layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
-        .attachment = index
+        .attachment = info->color[i].resolve ? attachmentCount : VK_ATTACHMENT_UNUSED
       };
 
-      attachments[index] = (VkAttachmentDescription2) {
-        .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-        .format = attachments[i].format,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .storeOp = storeOps[info->color[i].save],
-        .initialLayout = references[index].layout,
-        .finalLayout = references[index].layout
-      };
+      if (info->color[i].resolve) {
+        attachments[attachmentCount++] = (VkAttachmentDescription2) {
+          .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+          .format = attachments[i].format,
+          .samples = VK_SAMPLE_COUNT_1_BIT,
+          .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+          .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+          .initialLayout = references[referenceIndex].layout,
+          .finalLayout = references[referenceIndex].layout
+        };
+      }
     }
   }
 
   bool depth = !!info->depth.format;
 
   if (depth) {
-    uint32_t index = info->colorCount << info->resolveColor;
+    uint32_t referenceIndex = info->colorCount << hasColorResolve;
+    uint32_t index = attachmentCount++;
 
-    references[index] = (VkAttachmentReference2) {
+    references[referenceIndex] = (VkAttachmentReference2) {
       .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
       .layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
       .attachment = index
@@ -1373,49 +1382,52 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
       .format = convertFormat(info->depth.format, LINEAR),
       .samples = info->samples,
       .loadOp = loadOps[info->depth.load],
-      .storeOp = info->resolveDepth ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->depth.save],
+      .storeOp = info->depth.resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->depth.save],
       .stencilLoadOp = loadOps[info->depth.stencilLoad],
-      .stencilStoreOp = info->resolveDepth ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->depth.stencilSave],
-      .initialLayout = references[index].layout,
-      .finalLayout = references[index].layout
+      .stencilStoreOp = info->depth.resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[info->depth.stencilSave],
+      .initialLayout = references[referenceIndex].layout,
+      .finalLayout = references[referenceIndex].layout
     };
 
-    if (info->resolveDepth) {
-      references[index + 1] = (VkAttachmentReference2) {
+    if (info->depth.resolve) {
+      uint32_t referenceIndex = (info->colorCount << hasColorResolve) + 1;
+      uint32_t index = attachmentCount++;
+
+      references[referenceIndex] = (VkAttachmentReference2) {
         .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
         .layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
-        .attachment = index + 1
+        .attachment = index
       };
 
-      attachments[index + 1] = (VkAttachmentDescription2) {
+      attachments[index] = (VkAttachmentDescription2) {
         .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-        .format = attachments[index].format,
+        .format = attachments[index - 1].format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .storeOp = storeOps[info->depth.save],
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .stencilStoreOp = storeOps[info->depth.stencilSave],
-        .initialLayout = references[index + 1].layout,
-        .finalLayout = references[index + 1].layout
+        .initialLayout = references[referenceIndex].layout,
+        .finalLayout = references[referenceIndex].layout
       };
     }
   }
 
-  uint32_t attachmentCount = (info->colorCount << info->resolveColor) + (depth << info->resolveDepth);
+  uint32_t referenceCount = (info->colorCount << hasColorResolve) + (depth << info->depth.resolve);
 
   VkSubpassDescription2 subpass = {
     .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
-    .pNext = info->resolveDepth ? &(VkSubpassDescriptionDepthStencilResolve) {
+    .pNext = info->depth.resolve ? &(VkSubpassDescriptionDepthStencilResolve) {
       .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,
       .depthResolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT,
       .stencilResolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT,
-      .pDepthStencilResolveAttachment = &references[attachmentCount - 1]
+      .pDepthStencilResolveAttachment = &references[referenceCount - 1]
     } : NULL,
     .viewMask = (1 << info->views) - 1,
     .colorAttachmentCount = info->colorCount,
     .pColorAttachments = &references[0],
-    .pResolveAttachments = info->resolveColor ? &references[info->colorCount] : NULL,
-    .pDepthStencilAttachment = depth ? &references[attachmentCount - 1 - info->resolveDepth] : NULL
+    .pResolveAttachments = hasColorResolve ? &references[info->colorCount] : NULL,
+    .pDepthStencilAttachment = depth ? &references[referenceCount - 1 - info->depth.resolve] : NULL
   };
 
   VkRenderPassCreateInfo2 createInfo = {
@@ -1858,10 +1870,8 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     attachmentCount++;
   }
 
-  if (pass->colorCount > 0 && canvas->color[0].resolve) {
-    for (uint32_t i = 0; i < pass->colorCount; i++) {
-      images[attachmentCount++] = canvas->color[i].resolve->view;
-    }
+  for (uint32_t i = 0; i < pass->colorCount; i++) {
+    if (canvas->color[i].resolve) images[attachmentCount++] = canvas->color[i].resolve->view;
   }
 
   if (canvas->depth.texture) {
@@ -2549,6 +2559,17 @@ bool gpu_init(gpu_config* config) {
           }
         }
       }
+
+      // Sample counts
+      for (uint32_t i = 1; i <= 16; i++) {
+        VkPhysicalDeviceLimits* limits = &properties2.properties.limits;
+        if (~limits->framebufferColorSampleCounts & i) continue;
+        if (~limits->framebufferDepthSampleCounts & i) continue;
+        if (~limits->framebufferStencilSampleCounts & i) continue;
+        if (~limits->sampledImageColorSampleCounts & i) continue;
+        if (~limits->sampledImageDepthSampleCounts & i) continue;
+        config->features->sampleCounts |= i;
+      }
     }
 
     // Queue Family
@@ -3093,7 +3114,7 @@ static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve,
 
   bool depth = texture->aspect != VK_IMAGE_ASPECT_COLOR_BIT;
 
-  VkPipelineStageFlags2 stage = depth ?
+  VkPipelineStageFlags2 stage = (depth && !resolve) ?
     (VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT_KHR | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT_KHR ) :
     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR;
 
