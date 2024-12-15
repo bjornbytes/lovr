@@ -1933,7 +1933,9 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
     .renderPass = pass->handle,
     .framebuffer = framebuffer,
-    .renderArea = { { 0, 0 }, { canvas->width, canvas->height } },
+    .renderArea.offset = { canvas->area[0], canvas->area[1] },
+    .renderArea.extent.width = canvas->area[2] ? canvas->area[2] : canvas->width,
+    .renderArea.extent.height = canvas->area[3] ? canvas->area[3] : canvas->height,
     .clearValueCount = attachmentCount,
     .pClearValues = clears
   };

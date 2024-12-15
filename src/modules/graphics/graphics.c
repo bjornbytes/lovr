@@ -1193,6 +1193,22 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream) {
   target.width = canvas->width;
   target.height = canvas->height;
 
+  uint32_t min[2] = { ~0u, ~0u };
+  uint32_t max[2] = { 0, 0 };
+
+  for (uint32_t i = 0; i < pass->scissorCount; i++) {
+    uint32_t* scissor = pass->scissors + 4 * i;
+    min[0] = MIN(min[0], scissor[0]);
+    min[1] = MIN(min[1], scissor[1]);
+    max[0] = MAX(max[0], scissor[0] + scissor[2]);
+    max[1] = MAX(max[1], scissor[1] + scissor[3]);
+  }
+
+  target.area[0] = min[0];
+  target.area[1] = min[1];
+  target.area[2] = max[0] - min[0];
+  target.area[3] = max[1] - min[1];
+
   // Cameras
 
   Camera* camera = pass->cameras;
