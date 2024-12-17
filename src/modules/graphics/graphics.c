@@ -2753,12 +2753,13 @@ bool lovrTextureSetPixels(Texture* texture, Image* image, uint32_t dstOffset[4],
 bool lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
   if (!beginFrame()) return false;
 
+  if (src->info.format != dst->info.format) return lovrTextureBlit(src, dst, srcOffset, dstOffset, extent, extent, FILTER_NEAREST);
+
   if (extent[0] == ~0u) extent[0] = MIN(src->info.width - srcOffset[0], dst->info.width - dstOffset[0]);
   if (extent[1] == ~0u) extent[1] = MIN(src->info.height - srcOffset[1], dst->info.height - dstOffset[1]);
   if (extent[2] == ~0u) extent[2] = MIN(src->info.layers - srcOffset[2], dst->info.layers - dstOffset[2]);
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "to");
-  lovrCheck(src->info.format == dst->info.format, "Copying between Textures requires them to have the same format");
   lovrCheck(src->info.samples == dst->info.samples, "Texture sample counts must match to copy between them");
   if (!checkTextureBounds(&src->info, srcOffset, extent)) return false;
   if (!checkTextureBounds(&dst->info, dstOffset, extent)) return false;
@@ -2777,18 +2778,23 @@ bool lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
 bool lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter) {
   if (!beginFrame()) return false;
 
+  bool depth = isDepthFormat(src->info.format) || isDepthFormat(dst->info.format);
+
+  if (depth) filter = FILTER_NEAREST;
   if (srcExtent[0] == ~0u) srcExtent[0] = src->info.width - srcOffset[0];
   if (srcExtent[1] == ~0u) srcExtent[1] = src->info.height - srcOffset[1];
   if (srcExtent[2] == ~0u) srcExtent[2] = src->info.layers - srcOffset[2];
   if (dstExtent[0] == ~0u) dstExtent[0] = dst->info.width - dstOffset[0];
   if (dstExtent[1] == ~0u) dstExtent[1] = dst->info.height - dstOffset[1];
   if (dstExtent[2] == ~0u) dstExtent[2] = dst->info.layers - dstOffset[2];
-  uint32_t supports = state.features.formats[src->info.format][src->info.srgb];
+  uint32_t srcSupports = state.features.formats[src->info.format][src->info.srgb];
+  uint32_t dstSupports = state.features.formats[dst->info.format][dst->info.srgb];
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to blit %s it", "to");
   lovrCheck(src->info.samples == 1 && dst->info.samples == 1, "Can not blit a multisampled texture");
-  lovrCheck(supports & GPU_FEATURE_BLIT, "This GPU does not support blitting this texture format/encoding");
-  lovrCheck(src->info.format == dst->info.format && src->info.srgb == dst->info.srgb, "Texture formats must match to blit between them");
+  lovrCheck(srcSupports & GPU_FEATURE_BLIT, "This GPU does not support blitting this texture format/encoding");
+  lovrCheck(dstSupports & GPU_FEATURE_BLIT, "This GPU does not support blitting this texture format/encoding");
+  lovrCheck(!depth || src->info.format == dst->info.format, "Blitting between depth textures requires them to have the same format");
   lovrCheck(((src->info.type == TEXTURE_3D) ^ (dst->info.type == TEXTURE_3D)) == false, "3D textures can only be blitted with other 3D textures");
   lovrCheck(src->info.type == TEXTURE_3D || srcExtent[2] == dstExtent[2], "When blitting between non-3D textures, blit layer counts must match");
   if (!checkTextureBounds(&src->info, srcOffset, srcExtent)) return false;
