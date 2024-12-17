@@ -21,6 +21,13 @@ group('data', function()
       -- Out of bounds
       expect(function() image:setPixel(4, 4, 0, 0, 0, 0) end).to.fail()
       expect(function() image:setPixel(-4, -4, 0, 0, 0, 0) end).to.fail()
+
+      -- f16
+      image = lovr.data.newImage(4, 4, 'rg16f')
+      image:setPixel(0, 0, 1, 2, 3, 4)
+      image:setPixel(3, 3, 9, 8, 7, 6)
+      expect({ image:getPixel(0, 0) }).to.equal({ 1, 2, 0, 1 })
+      expect({ image:getPixel(3, 3) }).to.equal({ 9, 8, 0, 1 })
     end)
   end)
 end)

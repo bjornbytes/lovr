@@ -103,6 +103,8 @@ dev
 - Change `--graphics-debug` CLI flag to be named `--debug`.
 - Change `--version` and `lovr.getVersion` to also return the git commit hash.
 - Change `Pass:setViewport/Scissor` to be per-draw state instead of per-pass.
+- Change `Image:get/set/mapPixel` to support `r16f`, `rg16f`, and `rgba16f`.
+- Change `Image:getPixel` to return 1 for alpha when the format doesn't have an alpha component.
 
 ### Fix
 

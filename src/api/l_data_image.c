@@ -102,7 +102,7 @@ static int l_lovrImageGetPixel(lua_State* L) {
   Image* image = luax_checktype(L, 1, Image);
   uint32_t x = luax_checku32(L, 2);
   uint32_t y = luax_checku32(L, 3);
-  float pixel[4];
+  float pixel[4] = { 0.f, 0.f, 0.f, 1.f };
   luax_assert(L, lovrImageGetPixel(image, x, y, pixel));
   lua_pushnumber(L, pixel[0]);
   lua_pushnumber(L, pixel[1]);
