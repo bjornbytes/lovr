@@ -223,5 +223,6 @@ int luaopen_lovr_data(lua_State* L) {
   luax_registertype(L, ModelData);
   luax_registertype(L, Rasterizer);
   luax_registertype(L, Sound);
+  float16Init();
   return 1;
 }

@@ -227,6 +227,8 @@ void utf8_encode(uint32_t c, char s[4]) {
 // f16
 // http://fox-toolkit.org/ftp/fasthalffloatconversion.pdf
 
+static bool float16Initialized = false;
+
 // f32 to f16 tables
 static uint16_t base[512];
 static uint8_t shift[512];
@@ -237,6 +239,9 @@ static uint32_t exponent[64];
 static uint16_t offset[64];
 
 void float16Init(void) {
+  if (float16Initialized) return;
+  float16Initialized = true;
+
   for (uint32_t i = 0; i < 256; i++) {
     int e = i - 127;
     if (e < -24) {
