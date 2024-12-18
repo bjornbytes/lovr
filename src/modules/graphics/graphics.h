@@ -195,10 +195,11 @@ typedef enum {
 } TextureType;
 
 enum {
-  TEXTURE_SAMPLE   = (1 << 0),
-  TEXTURE_RENDER   = (1 << 1),
-  TEXTURE_STORAGE  = (1 << 2),
-  TEXTURE_TRANSFER = (1 << 3)
+  TEXTURE_SAMPLE    = (1 << 0),
+  TEXTURE_RENDER    = (1 << 1),
+  TEXTURE_STORAGE   = (1 << 2),
+  TEXTURE_TRANSFER  = (1 << 3),
+  TEXTURE_FOVEATION = (1 << 4)
 };
 
 typedef struct {
@@ -580,8 +581,8 @@ void lovrPassReset(Pass* pass);
 const PassStats* lovrPassGetStats(Pass* pass);
 const char* lovrPassGetLabel(Pass* pass);
 
-void lovrPassGetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth, uint32_t* depthFormat, uint32_t* samples);
-bool lovrPassSetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth, uint32_t depthFormat, uint32_t samples);
+void lovrPassGetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth, uint32_t* depthFormat, Texture** foveation, uint32_t* samples);
+bool lovrPassSetCanvas(Pass* pass, CanvasTexture color[4], CanvasTexture* depth, uint32_t depthFormat, Texture* foveation, uint32_t samples);
 void lovrPassGetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadAction* depthLoad, float* depthClear);
 bool lovrPassSetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadAction depthLoad, float depthClear);
 uint32_t lovrPassGetAttachmentCount(Pass* pass, bool* depth);

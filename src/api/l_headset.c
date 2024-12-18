@@ -21,6 +21,14 @@ StringEntry lovrControllerSkeletonMode[] = {
   { 0 }
 };
 
+StringEntry lovrFoveationLevel[] = {
+  [FOVEATION_NONE] = ENTRY("none"),
+  [FOVEATION_LOW] = ENTRY("low"),
+  [FOVEATION_MEDIUM] = ENTRY("medium"),
+  [FOVEATION_HIGH] = ENTRY("high"),
+  { 0 }
+};
+
 StringEntry lovrPassthroughMode[] = {
   [PASSTHROUGH_OPAQUE] = ENTRY("opaque"),
   [PASSTHROUGH_BLEND] = ENTRY("blend"),
@@ -216,6 +224,29 @@ static int l_lovrHeadsetGetRefreshRates(lua_State* L) {
   }
 
   return 1;
+}
+
+static int l_lovrHeadsetGetFoveation(lua_State* L) {
+  FoveationLevel level;
+  bool dynamic;
+  lovrHeadsetInterface->getFoveation(&level, &dynamic);
+  luax_pushenum(L, FoveationLevel, level);
+  lua_pushboolean(L, dynamic);
+  return 2;
+}
+
+static int l_lovrHeadsetSetFoveation(lua_State* L) {
+  if (lua_isnoneornil(L, 1)) {
+    bool success = lovrHeadsetInterface->setFoveation(FOVEATION_NONE, false);
+    lua_pushboolean(L, success);
+    return 1;
+  } else {
+    FoveationLevel level = luax_checkenum(L, 1, FoveationLevel, NULL);
+    bool dynamic = lua_isnoneornil(L, -1) ? true : lua_toboolean(L, 2);
+    bool success = lovrHeadsetInterface->setFoveation(level, dynamic);
+    lua_pushboolean(L, success);
+    return 1;
+  }
 }
 
 static int l_lovrHeadsetGetPassthrough(lua_State* L) {
@@ -895,6 +926,8 @@ static const luaL_Reg lovrHeadset[] = {
   { "getRefreshRate", l_lovrHeadsetGetRefreshRate },
   { "setRefreshRate", l_lovrHeadsetSetRefreshRate },
   { "getRefreshRates", l_lovrHeadsetGetRefreshRates },
+  { "getFoveation", l_lovrHeadsetGetFoveation },
+  { "setFoveation", l_lovrHeadsetSetFoveation },
   { "getPassthrough", l_lovrHeadsetGetPassthrough },
   { "setPassthrough", l_lovrHeadsetSetPassthrough },
   { "getPassthroughModes", l_lovrHeadsetGetPassthroughModes },

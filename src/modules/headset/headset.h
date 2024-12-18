@@ -63,6 +63,13 @@ typedef struct {
 } HeadsetFeatures;
 
 typedef enum {
+  FOVEATION_NONE,
+  FOVEATION_LOW,
+  FOVEATION_MEDIUM,
+  FOVEATION_HIGH
+} FoveationLevel;
+
+typedef enum {
   PASSTHROUGH_OPAQUE,
   PASSTHROUGH_BLEND,
   PASSTHROUGH_ADD,
@@ -205,6 +212,8 @@ typedef struct HeadsetInterface {
   float (*getRefreshRate)(void);
   bool (*setRefreshRate)(float refreshRate);
   const float* (*getRefreshRates)(uint32_t* count);
+  void (*getFoveation)(FoveationLevel* level, bool* dynamic);
+  bool (*setFoveation)(FoveationLevel level, bool dynamic);
   PassthroughMode (*getPassthrough)(void);
   bool (*setPassthrough)(PassthroughMode mode);
   bool (*isPassthroughSupported)(PassthroughMode mode);
