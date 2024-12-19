@@ -8,6 +8,7 @@ dev
 
 - Add `Layer` object, `lovr.headset.newLayer`, and `lovr.headset.get/setLayers`.
 - Add `lovr.headset.get/setFoveation`.
+- Add `t.headset.mask`.
 - Add back `lovr.headset.isMounted` and the `lovr.mount` callback.
 - Add `stylus` Device, `nib` DeviceButton, and `nib` DeviceAxis.
 - Add support for Logitech MX Ink input.
@@ -121,7 +122,7 @@ dev
 
 ### Fix
 
-- Fix `t.headset.submitDepth` to actually submit depth.
+- Fix `t.headset.submitdepth` to actually submit depth.
 - Fix depth write when depth testing is disabled.
 - Fix "morgue overflow" error when creating or destroying large amounts of textures at once.
 - Fix `Texture:getType` when used with texture views.
