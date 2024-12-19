@@ -317,6 +317,11 @@ static bool simulator_animate(struct Model* model) {
   return false;
 }
 
+static Texture* simulator_setBackground(uint32_t width, uint32_t height, uint32_t layers) {
+  lovrSetError("NYI");
+  return NULL;
+}
+
 static Layer* simulator_newLayer(const LayerInfo* info) {
   Layer* layer = lovrCalloc(sizeof(Layer));
   layer->ref = 1;
@@ -324,10 +329,10 @@ static Layer* simulator_newLayer(const LayerInfo* info) {
   layer->textureWeight = info->height;
   layer->texture = lovrTextureCreate(&(TextureInfo) {
     .format = FORMAT_RGBA8,
-    .type = (info->type == LAYER_CUBE ? TEXTURE_CUBE : (info->stereo ? TEXTURE_ARRAY : TEXTURE_2D)),
+    .type = info->stereo ? TEXTURE_ARRAY : TEXTURE_2D,
     .width = info->width,
     .height = info->height,
-    .layers = (info->type == LAYER_CUBE ? 6 : 1) << info->stereo,
+    .layers = 1 << info->stereo,
     .usage = TEXTURE_RENDER | TEXTURE_TRANSFER,
     .srgb = true
   });
@@ -639,6 +644,7 @@ HeadsetInterface lovrHeadsetSimulatorDriver = {
   .stopVibration = simulator_stopVibration,
   .newModelData = simulator_newModelData,
   .animate = simulator_animate,
+  .setBackground = simulator_setBackground,
   .newLayer = simulator_newLayer,
   .destroyLayer = simulator_destroyLayer,
   .getLayers = simulator_getLayers,
