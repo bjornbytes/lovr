@@ -86,6 +86,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrAcquireSwapchainImage)\
   X(xrWaitSwapchainImage)\
   X(xrReleaseSwapchainImage)\
+  X(xrUpdateSwapchainFB)\
   X(xrBeginSession)\
   X(xrEndSession)\
   X(xrWaitFrame)\
@@ -120,6 +121,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrRequestDisplayRefreshRateFB)\
   X(xrQuerySystemTrackedKeyboardFB)\
   X(xrCreateKeyboardSpaceFB)\
+  X(xrCreateFoveationProfileFB)\
+  X(xrDestroyFoveationProfileFB)\
   X(xrCreatePassthroughFB)\
   X(xrDestroyPassthroughFB)\
   X(xrPassthroughStartFB)\
@@ -181,6 +184,7 @@ typedef struct {
   uint32_t textureIndex;
   uint32_t textureCount;
   Texture* textures[MAX_IMAGES];
+  Texture* foveationTextures[MAX_IMAGES];
   bool immutable;
   bool acquired;
 } Swapchain;
@@ -204,7 +208,18 @@ struct Layer {
   XrCompositionLayerSettingsFB settings;
 };
 
-enum { COLOR, DEPTH };
+enum {
+  COLOR,
+  DEPTH
+};
+
+enum {
+  FLAG_STEREO = (1 << 0),
+  FLAG_DEPTH = (1 << 1),
+  FLAG_CUBE = (1 << 2),
+  FLAG_STATIC = (1 << 3),
+  FLAG_FOVEATED = (1 << 4)
+};
 
 static struct {
   HeadsetConfig config;
@@ -244,6 +259,8 @@ static struct {
   XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
   XrControllerModelKeyMSFT controllerModelKeys[2];
+  FoveationLevel foveationLevel;
+  bool foveationDynamic;
   XrPassthroughFB passthrough;
   XrPassthroughLayerFB passthroughLayerHandle;
   bool passthroughActive;
@@ -253,6 +270,9 @@ static struct {
     bool controllerModel;
     bool debug;
     bool depth;
+    bool foveation;
+    bool foveationConfig;
+    bool foveationVulkan;
     bool gaze;
     bool handInteraction;
     bool handTracking;
@@ -279,6 +299,7 @@ static struct {
     bool picoController;
     bool presence;
     bool questPassthrough;
+    bool swapchainUpdate;
     bool refreshRate;
     bool threadHint;
     bool visibilityMask;
@@ -585,7 +606,13 @@ static bool loadVisibilityMask(void) {
   return true;
 }
 
-static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, bool stereo, bool depth, bool cube, bool immutable) {
+static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height, uint32_t flags) {
+  bool stereo = flags & FLAG_STEREO;
+  bool depth = flags & FLAG_DEPTH;
+  bool cube = flags & FLAG_CUBE;
+  bool immutable = flags & FLAG_STATIC;
+  bool foveated = flags & FLAG_FOVEATED;
+
   XrSwapchainCreateInfo info = {
     .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
     .createFlags = immutable ? XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT : 0,
@@ -596,6 +623,17 @@ static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
     .arraySize = 1 << stereo,
     .mipCount = 1
   };
+
+  XrSwapchainCreateInfoFoveationFB foveation = {
+    .type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB,
+#ifdef LOVR_VK
+    .flags = XR_SWAPCHAIN_CREATE_FOVEATION_FRAGMENT_DENSITY_MAP_BIT_FB
+#endif
+  };
+
+  if (foveated) {
+    info.next = &foveation;
+  }
 
   if (depth) {
     info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -616,10 +654,15 @@ static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
   XR(xrCreateSwapchain(state.session, &info, &swapchain->handle), "xrCreateSwapchain");
 
 #ifdef LOVR_VK
+  XrSwapchainImageFoveationVulkanFB foveationImages[MAX_IMAGES];
   XrSwapchainImageVulkanKHR images[MAX_IMAGES];
   for (uint32_t i = 0; i < MAX_IMAGES; i++) {
-    images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
-    images[i].next = NULL;
+    images[i] = (XrSwapchainImageVulkanKHR) { .type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR };
+
+    if (foveated) {
+      foveationImages[i] = (XrSwapchainImageFoveationVulkanFB) { .type = XR_TYPE_SWAPCHAIN_IMAGE_FOVEATION_VULKAN_FB };
+      images[i].next = &foveationImages[i];
+    }
   }
 #else
 #error "Unsupported graphics backend"
@@ -636,8 +679,6 @@ static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
       .width = width,
       .height = height,
       .layers = (cube ? 6 : 1) << stereo,
-      .mipmaps = 1,
-      .samples = 1,
       .usage = TEXTURE_RENDER | TEXTURE_TRANSFER | (depth ? 0 : TEXTURE_SAMPLE),
       .handle = (uintptr_t) images[i].image,
       .label = "OpenXR Swapchain",
@@ -648,6 +689,21 @@ static bool swapchain_init(Swapchain* swapchain, uint32_t width, uint32_t height
       swapchain_destroy(swapchain);
       return false;
     }
+
+#ifdef LOVR_VK
+    if (foveated) {
+      swapchain->foveationTextures[i] = lovrTextureCreate(&(TextureInfo) {
+        .type = stereo ? TEXTURE_ARRAY : TEXTURE_2D,
+        .format = FORMAT_RG8,
+        .width = foveationImages[i].width,
+        .height = foveationImages[i].height,
+        .layers = 1 << stereo,
+        .usage = TEXTURE_FOVEATION,
+        .handle = (uintptr_t) foveationImages[i].image,
+        .label = "OpenXR Foveation Texture"
+      });
+    }
+#endif
   }
 
   swapchain->immutable = immutable;
@@ -840,10 +896,14 @@ static bool openxr_init(HeadsetConfig* config) {
     { "XR_FB_composition_layer_depth_test", &state.extensions.layerDepthTest, true },
     { "XR_FB_composition_layer_settings", &state.extensions.layerSettings, true },
     { "XR_FB_display_refresh_rate", &state.extensions.refreshRate, true },
+    { "XR_FB_foveation", &state.extensions.foveation, true },
+    { "XR_FB_foveation_configuration", &state.extensions.foveationConfig, true },
+    { "XR_FB_foveation_vulkan", &state.extensions.foveationVulkan, true },
     { "XR_FB_hand_tracking_aim", &state.extensions.handTrackingAim, true },
     { "XR_FB_hand_tracking_mesh", &state.extensions.handTrackingMesh, true },
     { "XR_FB_keyboard_tracking", &state.extensions.keyboardTracking, true },
     { "XR_FB_passthrough", &state.extensions.questPassthrough, true },
+    { "XR_FB_swapchain_update_state", &state.extensions.swapchainUpdate, true },
     { "XR_LOGITECH_mx_ink_stylus_interaction", &state.extensions.mxInk, true },
     { "XR_META_automatic_layer_filter", &state.extensions.layerAutoFilter, true },
     { "XR_META_passthrough_preferences", &state.extensions.passthroughPreferences, true },
@@ -1683,15 +1743,17 @@ static bool openxr_start(void) {
       }
     }
 
+    uint32_t flags = FLAG_STEREO | (state.extensions.foveation ? FLAG_FOVEATED : 0);
+
     lovrAssertGoto(stop, supportsColor, "This VR runtime does not support sRGB rgba8 textures");
-    if (!swapchain_init(&state.swapchains[COLOR], state.width, state.height, true, false, false, false)) {
+    if (!swapchain_init(&state.swapchains[COLOR], state.width, state.height, flags)) {
       goto stop;
     }
 
     GraphicsFeatures features;
     lovrGraphicsGetFeatures(&features);
     if (state.extensions.depth && supportsDepth && features.depthResolve) {
-      if (!swapchain_init(&state.swapchains[DEPTH], state.width, state.height, true, true, false, false)) {
+      if (!swapchain_init(&state.swapchains[DEPTH], state.width, state.height, FLAG_STEREO | FLAG_DEPTH)) {
         goto stop;
       }
     } else {
@@ -1902,6 +1964,65 @@ static bool openxr_setRefreshRate(float refreshRate) {
 static const float* openxr_getRefreshRates(uint32_t* count) {
   *count = state.refreshRateCount;
   return state.refreshRates;
+}
+
+static void openxr_getFoveation(FoveationLevel* level, bool* dynamic) {
+  *level = state.foveationLevel;
+  *dynamic = state.foveationDynamic;
+}
+
+static bool openxr_setFoveation(FoveationLevel level, bool dynamic) {
+  if (!state.session || !state.extensions.foveation) {
+    return level == FOVEATION_NONE;
+  }
+
+  if (state.foveationLevel == level && state.foveationDynamic == dynamic) {
+    return true;
+  }
+
+  XrFoveationLevelProfileCreateInfoFB profileInfo = {
+    .type = XR_TYPE_FOVEATION_LEVEL_PROFILE_CREATE_INFO_FB
+  };
+
+  switch (level) {
+    case FOVEATION_NONE: profileInfo.level = XR_FOVEATION_LEVEL_NONE_FB; break;
+    case FOVEATION_LOW: profileInfo.level = XR_FOVEATION_LEVEL_LOW_FB; break;
+    case FOVEATION_MEDIUM: profileInfo.level = XR_FOVEATION_LEVEL_MEDIUM_FB; break;
+    case FOVEATION_HIGH: profileInfo.level = XR_FOVEATION_LEVEL_HIGH_FB; break;
+    default: break;
+  }
+
+  if (dynamic) {
+    profileInfo.dynamic = XR_FOVEATION_DYNAMIC_LEVEL_ENABLED_FB;
+  } else {
+    profileInfo.dynamic = XR_FOVEATION_DYNAMIC_DISABLED_FB;
+  }
+
+  XrFoveationProfileCreateInfoFB info = {
+    .type = XR_TYPE_FOVEATION_PROFILE_CREATE_INFO_FB,
+    .next = &profileInfo
+  };
+
+  XrFoveationProfileFB profile;
+  if (XR_FAILED(xrCreateFoveationProfileFB(state.session, &info, &profile))) {
+    return false;
+  }
+
+  XrSwapchainStateFoveationFB foveationState = {
+    .type = XR_TYPE_SWAPCHAIN_STATE_FOVEATION_FB,
+    .profile = profile
+  };
+
+  if (XR_FAILED(xrUpdateSwapchainFB(state.swapchains[COLOR].handle, (XrSwapchainStateBaseHeaderFB*) &foveationState))) {
+    return false;
+  }
+
+  xrDestroyFoveationProfileFB(profile);
+
+  state.foveationLevel = level;
+  state.foveationDynamic = dynamic;
+
+  return true;
 }
 
 static XrEnvironmentBlendMode convertPassthroughMode(PassthroughMode mode) {
@@ -2932,12 +3053,17 @@ static Layer* openxr_newLayer(const LayerInfo* info) {
   layer->ref = 1;
   layer->info = *info;
 
-  if (!swapchain_init(&layer->swapchain, info->width, info->height, info->stereo, false, info->type == LAYER_CUBE, info->immutable)) {
+  uint32_t flags =
+    (info->stereo ? FLAG_STEREO : 0) |
+    (info->type == LAYER_CUBE ? FLAG_CUBE : 0) |
+    (info->immutable ? FLAG_STATIC : 0);
+
+  if (!swapchain_init(&layer->swapchain, info->width, info->height, flags)) {
     lovrLayerDestroy(layer);
     return NULL;
   }
 
-  XrCompositionLayerFlags flags = info->transparent ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT : 0;
+  XrCompositionLayerFlags layerFlags = info->transparent ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT : 0;
   XrEyeVisibility eyes = info->stereo ? XR_EYE_VISIBILITY_LEFT : XR_EYE_VISIBILITY_BOTH;
   XrSwapchainSubImage subimage = { layer->swapchain.handle, { 0, 0, info->width, info->height }, 0 };
 
@@ -2945,7 +3071,7 @@ static Layer* openxr_newLayer(const LayerInfo* info) {
     case LAYER_QUAD:
       layer->quad = (XrCompositionLayerQuad) {
         .type = XR_TYPE_COMPOSITION_LAYER_QUAD,
-        .layerFlags = flags,
+        .layerFlags = layerFlags,
         .eyeVisibility = eyes,
         .subImage = subimage,
         .pose.orientation.w = 1.f,
@@ -2955,7 +3081,7 @@ static Layer* openxr_newLayer(const LayerInfo* info) {
     case LAYER_CUBE:
       layer->cube = (XrCompositionLayerCubeKHR) {
         .type = XR_TYPE_COMPOSITION_LAYER_CUBE_KHR,
-        .layerFlags = flags,
+        .layerFlags = layerFlags,
         .eyeVisibility = eyes,
         .swapchain = layer->swapchain.handle,
         .orientation.w = 1.f
@@ -2965,7 +3091,7 @@ static Layer* openxr_newLayer(const LayerInfo* info) {
       if (state.extensions.layerEquirect2) {
         layer->equirect2 = (XrCompositionLayerEquirect2KHR) {
           .type = XR_TYPE_COMPOSITION_LAYER_EQUIRECT2_KHR,
-          .layerFlags = flags,
+          .layerFlags = layerFlags,
           .eyeVisibility = eyes,
           .subImage = subimage,
           .pose.orientation.w = 1.f,
@@ -2976,7 +3102,7 @@ static Layer* openxr_newLayer(const LayerInfo* info) {
       } else {
         layer->equirect = (XrCompositionLayerEquirectKHR) {
           .type = XR_TYPE_COMPOSITION_LAYER_EQUIRECT_KHR,
-          .layerFlags = flags,
+          .layerFlags = layerFlags,
           .eyeVisibility = eyes,
           .subImage = subimage,
           .pose.orientation.w = 1.f,
@@ -3271,7 +3397,7 @@ static Pass* openxr_getLayerPass(Layer* layer) {
   if (!texture) return NULL;
 
   CanvasTexture color[4] = { [0].texture = texture };
-  if (!lovrPassSetCanvas(layer->pass, color, NULL, state.depthFormat, state.config.antialias ? 4 : 1)) {
+  if (!lovrPassSetCanvas(layer->pass, color, NULL, state.depthFormat, NULL, state.config.antialias ? 4 : 1)) {
     return NULL;
   }
 
@@ -3366,7 +3492,9 @@ static bool openxr_getPass(Pass** pass) {
     return true;
   }
 
-  if (!lovrPassSetCanvas(state.pass, color, &depth, state.depthFormat, state.config.antialias ? 4 : 1)) {
+  Texture* foveation = state.swapchains[COLOR].foveationTextures[state.swapchains[COLOR].textureIndex];
+
+  if (!lovrPassSetCanvas(state.pass, color, &depth, state.depthFormat, foveation, state.config.antialias ? 4 : 1)) {
     return false;
   }
 
@@ -3715,6 +3843,8 @@ HeadsetInterface lovrHeadsetOpenXRDriver = {
   .getRefreshRate = openxr_getRefreshRate,
   .setRefreshRate = openxr_setRefreshRate,
   .getRefreshRates = openxr_getRefreshRates,
+  .getFoveation = openxr_getFoveation,
+  .setFoveation = openxr_setFoveation,
   .getPassthrough = openxr_getPassthrough,
   .setPassthrough = openxr_setPassthrough,
   .isPassthroughSupported = openxr_isPassthroughSupported,

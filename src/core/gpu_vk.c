@@ -177,6 +177,7 @@ typedef struct {
   bool renderPass2;
   bool synchronization2;
   bool scalarBlockLayout;
+  bool foveation;
 } gpu_extensions;
 
 // State
@@ -486,6 +487,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       ((info->usage & GPU_TEXTURE_STORAGE) ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
       ((info->usage & GPU_TEXTURE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
       ((info->usage & GPU_TEXTURE_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
+      ((info->usage & GPU_TEXTURE_FOVEATION) ? VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT : 0) |
       ((info->usage == GPU_TEXTURE_RENDER) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0) |
       (info->upload.levelCount > 0 ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
       (info->upload.generateMipmaps ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0)
@@ -697,7 +699,8 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
       ((info->usage & GPU_TEXTURE_SAMPLE) ? VK_IMAGE_USAGE_SAMPLED_BIT : 0) |
       (((info->usage & GPU_TEXTURE_RENDER) && texture->aspect == VK_IMAGE_ASPECT_COLOR_BIT) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0) |
       (((info->usage & GPU_TEXTURE_RENDER) && texture->aspect != VK_IMAGE_ASPECT_COLOR_BIT) ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0) |
-      ((info->usage & GPU_TEXTURE_STORAGE) && !texture->srgb ? VK_IMAGE_USAGE_STORAGE_BIT : 0)
+      ((info->usage & GPU_TEXTURE_STORAGE) && !texture->srgb ? VK_IMAGE_USAGE_STORAGE_BIT : 0) |
+      ((info->usage & GPU_TEXTURE_FOVEATION) ? VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT : 0)
   };
 
   if (viewUsage.usage == 0) {
@@ -1413,6 +1416,18 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
     }
   }
 
+  if (info->foveated) {
+    attachments[attachmentCount++] = (VkAttachmentDescription2) {
+      .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+      .format = VK_FORMAT_R8G8_UNORM,
+      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+      .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+      .initialLayout = VK_IMAGE_LAYOUT_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT,
+      .finalLayout = VK_IMAGE_LAYOUT_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT
+    };
+  }
+
   uint32_t referenceCount = (info->colorCount << hasColorResolve) + (depth << info->depth.resolve);
 
   VkSubpassDescription2 subpass = {
@@ -1432,6 +1447,13 @@ bool gpu_pass_init(gpu_pass* pass, gpu_pass_info* info) {
 
   VkRenderPassCreateInfo2 createInfo = {
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
+    .pNext = info->foveated ? &(VkRenderPassFragmentDensityMapCreateInfoEXT) {
+      .sType = VK_STRUCTURE_TYPE_RENDER_PASS_FRAGMENT_DENSITY_MAP_CREATE_INFO_EXT,
+      .fragmentDensityMapAttachment = {
+        .attachment = attachmentCount - 1,
+        .layout = VK_IMAGE_LAYOUT_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT
+      }
+    } : NULL,
     .attachmentCount = attachmentCount,
     .pAttachments = attachments,
     .subpassCount = 1,
@@ -1860,8 +1882,8 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
 
   // Framebuffer
 
-  VkImageView images[10];
-  VkClearValue clears[10];
+  VkImageView images[11];
+  VkClearValue clears[11];
   uint32_t attachmentCount = 0;
 
   for (uint32_t i = 0; i < pass->colorCount; i++) {
@@ -1883,6 +1905,11 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     if (canvas->depth.resolve) {
       images[attachmentCount++] = canvas->depth.resolve->view;
     }
+  }
+
+  if (canvas->foveation) {
+    uint32_t index = attachmentCount++;
+    images[index] = canvas->foveation->view;
   }
 
   VkFramebufferCreateInfo info = {
@@ -2388,7 +2415,8 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_shader_non_semantic_info", config->debug, &state.extensions.shaderDebug },
       { "VK_KHR_image_format_list", true, &state.extensions.formatList },
       { "VK_KHR_synchronization2", true, &state.extensions.synchronization2 },
-      { "VK_EXT_scalar_block_layout", true, &state.extensions.scalarBlockLayout }
+      { "VK_EXT_scalar_block_layout", true, &state.extensions.scalarBlockLayout },
+      { "VK_EXT_fragment_density_map", true, &state.extensions.foveation }
     };
 
     uint32_t extensionCount = 0;
@@ -2473,6 +2501,10 @@ bool gpu_init(gpu_config* config) {
 
     // Features
 
+    VkPhysicalDeviceFragmentDensityMapFeaturesEXT fragmentDensityMapFeatures = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT
+    };
+
     VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalarBlockLayoutFeatures = {
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT
     };
@@ -2500,6 +2532,12 @@ bool gpu_init(gpu_config* config) {
       VkPhysicalDeviceFeatures2 features2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
       VkPhysicalDeviceFeatures* enable = &enabledFeatures.features;
       VkPhysicalDeviceFeatures* supports = &features2.features;
+
+      if (state.extensions.foveation) {
+        fragmentDensityMapFeatures.pNext = features2.pNext;
+        features2.pNext = &fragmentDensityMapFeatures;
+      }
+
       vkGetPhysicalDeviceFeatures2(state.adapter, &features2);
 
       // Required features
@@ -2537,6 +2575,14 @@ bool gpu_init(gpu_config* config) {
         scalarBlockLayoutFeatures.scalarBlockLayout = true;
         scalarBlockLayoutFeatures.pNext = enabledFeatures.pNext;
         enabledFeatures.pNext = &scalarBlockLayoutFeatures;
+      }
+
+      if (state.extensions.foveation && fragmentDensityMapFeatures.fragmentDensityMap) {
+        fragmentDensityMapFeatures.fragmentDensityMapDynamic = false;
+        fragmentDensityMapFeatures.fragmentDensityMapNonSubsampledImages = true;
+        fragmentDensityMapFeatures.pNext = enabledFeatures.pNext;
+        enabledFeatures.pNext = &fragmentDensityMapFeatures;
+        config->features->foveation = true;
       }
 
       // Formats
