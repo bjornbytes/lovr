@@ -5217,6 +5217,11 @@ void lovrModelDestroy(void* ref) {
     lovrFree(model->materials);
     lovrFree(model->textures);
   }
+  if (model->meshes) {
+    for (uint32_t i = 0; i < data->primitiveCount; i++) {
+      lovrRelease(model->meshes[i], lovrMeshDestroy);
+    }
+  }
   lovrRelease(model->rawVertexBuffer, lovrBufferDestroy);
   lovrRelease(model->vertexBuffer, lovrBufferDestroy);
   lovrRelease(model->indexBuffer, lovrBufferDestroy);
