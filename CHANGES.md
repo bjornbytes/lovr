@@ -7,12 +7,19 @@ dev
 ### Add
 
 - Add `Layer` object, `lovr.headset.newLayer`, and `lovr.headset.get/setLayers`.
-- Add `File` object and `lovr.filesystem.newFile`.
+- Add `lovr.headset.get/setFoveation`.
+- Add back `lovr.headset.isMounted` and the `lovr.mount` callback.
+- Add `stylus` Device, `nib` DeviceButton, and `nib` DeviceAxis.
+- Add support for Logitech MX Ink input.
+- Add `t.headset.controllerskeleton` to control how controllers return hand tracking data.
+- Add `controller` field to the table returned by `lovr.headset.getSkeleton`.
 - Add support for BMFont in `Font` and `Rasterizer`.
+- Add `File` object and `lovr.filesystem.newFile`.
 - Add `--watch` CLI flag, `lovr.filechanged` event, and `lovr.filesystem.watch/unwatch`.
 - Add `--simulator` CLI flag to force use of simulator headset driver.
-- Add back `lovr.headset.isMounted` and the `lovr.mount` callback.
 - Add `lovr.headset.stop`, `lovr.headset.isActive`, and `t.headset.start`.
+- Add `t.headset.debug` to enable additional messages from the VR runtime.
+- Add `t.headset.getFeatures`.
 - Add `Model:resetBlendShapes`.
 - Add `lovr.system.wasMousePressed` and `lovr.system.wasMouseReleased`.
 - Add `lovr.system.get/setClipboardText`.
@@ -23,6 +30,7 @@ dev
 - Add support for nesting texture views (creating a view of a view).
 - Add `sn10x3` `DataType`.
 - Add support for `d24` texture format.
+- Add support for `SampleID`, `SampleMaskIn`, `SampleMask`, and `SamplePosition` in pixel shaders.
 - Add `Quat:get/setEuler`.
 - Add `lovr.system.openConsole` (for internal Lua code).
 - Add `lovr.filesystem.getBundlePath` (for internal Lua code).
@@ -80,6 +88,7 @@ dev
 - Change `Mesh:setMaterial` to also take a `Texture`.
 - Change shader syntax to no longer require set/binding numbers for buffer/texture variables.
 - Change `Texture:getFormat` to also return whether the texture is linear or sRGB.
+- Change `Texture:setPixels` to allow copying between textures with different formats.
 - Change `Readback:getImage` and `Texture:getPixels` to return sRGB images when the source Texture is sRGB.
 - Change `lovr.graphics.newTexture` to use a layer count of 6 when type is `cube` and only width/height is given.
 - Change `lovr.graphics.newTexture` to default mipmap count to 1 when an Image is given with a non-blittable format.
@@ -90,6 +99,8 @@ dev
 - Change `lovr.graphics.compileShader` to take/return multiple stages.
 - Change maximum number of physics tags from 16 to 31.
 - Change `TerrainShape` to require square dimensions.
+- Change `MeshShape` constructors to accept a `MeshShape` to reuse data from.
+- Change `MeshShape` constructors to take an optional scale to apply to the vertices.
 - Change `Buffer:setData` to use more consistent rules to read data from tables.
 - Change `World:queryBox/querySphere` to perform coarse AABB collision detection (use `World:overlapShape` for an exact test).
 - Change `World:queryBox/querySphere` to take an optional set of tags to include/exclude.
@@ -97,6 +108,7 @@ dev
 - Change `World:queryBox/querySphere` to return nil when a callback is given.
 - Change `World:raycast` to take a set of tags to allow/ignore.
 - Change `World:raycast` callback to be optional (if nil, the closest hit will be returned).
+- Change `World:raycast` to also return the triangle that was hit on MeshShapes.
 - Change physics queries to report colliders in addition to shapes.
 - Change `tostring` on objects to also include their pointers.
 - Change `desktop` HeadsetDriver to be named `simulator`.
@@ -105,6 +117,7 @@ dev
 - Change `Pass:setViewport/Scissor` to be per-draw state instead of per-pass.
 - Change `Image:get/set/mapPixel` to support `r16f`, `rg16f`, and `rgba16f`.
 - Change `Image:getPixel` to return 1 for alpha when the format doesn't have an alpha component.
+- Change stack size of `state` stack (used with `Pass:push/pop`) from 4 to 8.
 
 ### Fix
 
@@ -121,6 +134,7 @@ dev
 - Fix bug when rendering meshes from `Model:getMesh`.
 - Fix bug with `Curve:slice` when curve has more than 4 points.
 - Fix bug with `hand/*/pinch` and `hand/*/poke` device poses.
+- Fix bug when loading glTF models that use the `KHR_texture_transform` extension.
 
 ### Deprecate
 
@@ -147,7 +161,6 @@ dev
 - Remove `Pass:getType` (passes support both render and compute now).
 - Remove `Pass:getTarget` (renamed to `Pass:getCanvas`).
 - Remove `Pass:getSampleCount` (`Pass:getCanvas` returns sample count).
-- Remove `samples` option from `lovr.graphics.newTexture` (sample count is always 1).
 - Remove variant of `Pass:send` that takes a binding number instead of a variable name.
 - Remove `Texture:newView` (renamed to `lovr.graphics.newTextureView`).
 - Remove `Texture:isView` and `Texture:getParent`.
