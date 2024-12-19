@@ -173,6 +173,7 @@ static int l_lovrImageEncode(lua_State* L) {
   Blob* blob = lovrImageEncode(image);
   luax_assert(L, blob);
   luax_pushtype(L, Blob, blob);
+  lovrRelease(blob, lovrBlobDestroy);
   return 1;
 }
 
