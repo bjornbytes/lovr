@@ -19,7 +19,7 @@ dev
 - Add `--simulator` CLI flag to force use of simulator headset driver.
 - Add `lovr.headset.stop`, `lovr.headset.isActive`, and `t.headset.start`.
 - Add `t.headset.debug` to enable additional messages from the VR runtime.
-- Add `t.headset.getFeatures`.
+- Add `lovr.headset.getFeatures`.
 - Add `Model:resetBlendShapes`.
 - Add `lovr.system.wasMousePressed` and `lovr.system.wasMouseReleased`.
 - Add `lovr.system.get/setClipboardText`.
