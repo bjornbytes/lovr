@@ -530,6 +530,11 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
     }
   }
 
+  if (model->blobCount && !model->blobs) {
+    model->blobCount = 0;
+    ASSERT(false, "Mesh missing in model");
+  }
+
   // We only support a single root node, so if there is more than one root node in the scene then
   // we create a fake "super root" node and add all the scene's root nodes as its children.
   if (info.sceneCount > 0 && scenes[rootScene].nodeCount > 1) {
