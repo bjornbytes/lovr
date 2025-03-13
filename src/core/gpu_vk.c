@@ -1,6 +1,7 @@
 #include "gpu.h"
 #include <string.h>
 #include <threads.h>
+#include <stdlib.h>
 #include <stdatomic.h>
 
 #ifdef _WIN32
@@ -2528,15 +2529,13 @@ bool gpu_init(gpu_config* config) {
   // Checking if vulkan was linked in (`-DLOVR_LINK_VULKAN` or `LD_PRELOAD`)
   state.library = NULL;
   void *selflib = dlopen(NULL, RTLD_NOW);
-  if (selflib) {
-    if (dlsym(selflib, "vkGetInstanceProcAddr"))
-      state.library = selflib;
-    else
-      dlclose(selflib);
-  }
+  if (dlsym(selflib, "vkGetInstanceProcAddr"))
+    state.library = selflib;
+  else
+    dlclose(selflib);
 
 #ifdef __APPLE__
-  state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library) state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("libvulkan.dylib", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("libMoltenVK.dylib", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("vulkan.framework/vulkan", RTLD_NOW | RTLD_LOCAL);
@@ -2546,7 +2545,7 @@ bool gpu_init(gpu_config* config) {
   ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #else
-  state.library = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library) state.library = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
   ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
