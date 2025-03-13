@@ -2524,9 +2524,25 @@ bool gpu_init(gpu_config* config) {
   state.library = LoadLibraryA("vulkan-1.dll");
   ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
-#elif __APPLE__
-  state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
+#else
+  // Checking if vulkan was linked in (`-DLOVR_LINK_VULKAN`)
+  state.library = NULL;
+  void *selflib = dlopen(NULL, RTLD_NOW);
+  if (selflib) {
+    if (dlsym(selflib, "vkGetInstanceProcAddr"))
+      state.library = selflib;
+    else
+      dlclose(selflib);
+  }
+
+#ifdef __APPLE__
+  state.library = dlopen("libvulkan.dylib", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library) state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("libMoltenVK.dylib", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library) state.library = dlopen("vulkan.framework/vulkan", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library) state.library = dlopen("MoltenVK.framework/MoltenVK", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library && getenv("DYLD_FALLBACK_LIBRARY_PATH") == NULL)
+    state.library = dlopen("/usr/local/lib/libvulkan.dylib", RTLD_NOW | RTLD_LOCAL);
   ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
 #else
@@ -2534,6 +2550,7 @@ bool gpu_init(gpu_config* config) {
   if (!state.library) state.library = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
   ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(state.library, "vkGetInstanceProcAddr");
+#endif
 #endif
   GPU_FOREACH_ANONYMOUS(GPU_LOAD_ANONYMOUS);
 
