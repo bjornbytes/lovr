@@ -93,6 +93,7 @@ if(LOVR_USE_GLFW AND NOT (EMSCRIPTEN OR ANDROID))
   if(LOVR_SYSTEM_GLFW)
     pkg_search_module(GLFW REQUIRED glfw3)
     list(APPEND LOVR_INCLUDES ${GLFW_INCLUDE_DIRS})
+    set(LOVR_GLFW_LIBDIR ${GLFW_LIBRARY_DIRS})
     set(LOVR_GLFW ${GLFW_LIBRARIES})
   else()
     set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
@@ -125,7 +126,6 @@ if(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
       target_compile_definitions(buildvm PRIVATE _CRT_SECURE_NO_WARNINGS)
     endif()
     set(LOVR_LUA_INCLUDE deps/luajit/src ${CMAKE_BINARY_DIR}/luajit)
-    set(LOVR_LUA_LIBDIR deps/luajit/src)
     set(LOVR_LUA libluajit)
   endif()
 else()
@@ -151,7 +151,6 @@ else()
       target_compile_definitions(lua PRIVATE LUA_USE_DLOPEN)
     endif()
     set(LOVR_LUA_INCLUDE deps/lua)
-    set(LOVR_LUA_LIBDIR deps/lua)
     set(LOVR_LUA lua)
   endif()
 endif()
@@ -344,6 +343,7 @@ target_include_directories(lovr PRIVATE
 
 target_link_directories(lovr PRIVATE
   ${LOVR_LUA_LIBDIR}
+  ${LOVR_GLFW_LIBDIR}
 )
 
 target_link_libraries(lovr
