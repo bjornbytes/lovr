@@ -344,10 +344,6 @@ target_include_directories(lovr PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/etc
 )
 
-target_link_directories(lovr PRIVATE
-  ${LOVR_VULKAN_LIBDIR}
-)
-
 target_link_libraries(lovr
   ${LOVR_GLFW}
   ${LOVR_LUA}
