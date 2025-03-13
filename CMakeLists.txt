@@ -43,6 +43,8 @@ option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUI
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 option(LOVR_BUILD_WITH_SYMBOLS "Build with C function symbols exposed" OFF)
 
+option(LOVR_LINK_VULKAN "Links vulkan with lovr bypassing the libvulkan search" OFF)
+
 # Setup
 if(EMSCRIPTEN)
   string(CONCAT EMSCRIPTEN_LINKER_FLAGS
@@ -205,6 +207,12 @@ endif()
 # Vulkan
 if(LOVR_USE_VULKAN)
   list(APPEND LOVR_INCLUDES deps/vulkan-headers/include)
+
+  if(LOVR_LINK_VULKAN)
+    pkg_search_module(VULKAN REQUIRED vulkan)
+    target_link_directories(lovr ${VULKAN_LIBRARY_DIRS})
+    target_link_libraries(lovr ${VULKAN_LIBRARIES})
+  endif()
 endif()
 
 # OpenXR

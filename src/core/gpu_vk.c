@@ -2525,7 +2525,7 @@ bool gpu_init(gpu_config* config) {
   ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
 #else
-  // Checking if vulkan was linked in (`-DLOVR_LINK_VULKAN`)
+  // Checking if vulkan was linked in (`-DLOVR_LINK_VULKAN` or `LD_PRELOAD`)
   state.library = NULL;
   void *selflib = dlopen(NULL, RTLD_NOW);
   if (selflib) {
