@@ -210,8 +210,8 @@ if(LOVR_USE_VULKAN)
 
   if(LOVR_LINK_VULKAN)
     pkg_search_module(VULKAN REQUIRED vulkan)
-    target_link_directories(lovr ${VULKAN_LIBRARY_DIRS})
-    target_link_libraries(lovr ${VULKAN_LIBRARIES})
+    set(LOVR_VULKAN_LIBDIR ${VULKAN_LIBRARY_DIRS})
+    set(LOVR_VULKAN ${VULKAN_LIBRARIES})
   endif()
 endif()
 
@@ -346,6 +346,11 @@ target_include_directories(lovr PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/etc
 )
 
+target_link_directories(lovr PRIVATE
+  ${LOVR_LUA_LIBDIR}
+  ${LOVR_VULKAN_LIBDIR}
+)
+
 target_link_libraries(lovr
   ${LOVR_GLFW}
   ${LOVR_LUA}
@@ -355,6 +360,7 @@ target_link_libraries(lovr
   ${LOVR_OPENXR}
   ${LOVR_OCULUS_AUDIO}
   ${LOVR_PTHREADS}
+  ${LOVR_VULKAN}
   ${EMSCRIPTEN_LINKER_FLAGS}
 )
 
