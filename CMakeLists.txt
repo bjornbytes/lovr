@@ -753,7 +753,7 @@ elseif(APPLE)
   set_target_properties(lovr PROPERTIES
     MACOSX_RPATH TRUE
     BUILD_WITH_INSTALL_RPATH TRUE
-    INSTALL_RPATH "@executable_path"
+    INSTALL_RPATH "@executable_path;@executable_path/../lib"
     ENABLE_EXPORTS ON
   )
   if(LOVR_BUILD_BUNDLE)
