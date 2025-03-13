@@ -2536,8 +2536,8 @@ bool gpu_init(gpu_config* config) {
   }
 
 #ifdef __APPLE__
-  state.library = dlopen("libvulkan.dylib", RTLD_NOW | RTLD_LOCAL);
-  if (!state.library) state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
+  state.library = dlopen("libvulkan.1.dylib", RTLD_NOW | RTLD_LOCAL);
+  if (!state.library) state.library = dlopen("libvulkan.dylib", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("libMoltenVK.dylib", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("vulkan.framework/vulkan", RTLD_NOW | RTLD_LOCAL);
   if (!state.library) state.library = dlopen("MoltenVK.framework/MoltenVK", RTLD_NOW | RTLD_LOCAL);
