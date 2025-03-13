@@ -347,7 +347,6 @@ target_include_directories(lovr PRIVATE
 )
 
 target_link_directories(lovr PRIVATE
-  ${LOVR_LUA_LIBDIR}
   ${LOVR_VULKAN_LIBDIR}
 )
 
