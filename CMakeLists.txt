@@ -209,9 +209,7 @@ if(LOVR_USE_VULKAN)
   list(APPEND LOVR_INCLUDES deps/vulkan-headers/include)
 
   if(LOVR_LINK_VULKAN)
-    pkg_search_module(VULKAN REQUIRED vulkan)
-    set(LOVR_VULKAN_LIBDIR ${VULKAN_LIBRARY_DIRS})
-    set(LOVR_VULKAN ${VULKAN_LIBRARIES})
+    find_package(Vulkan REQUIRED)
   endif()
 endif()
 
@@ -359,9 +357,12 @@ target_link_libraries(lovr
   ${LOVR_OPENXR}
   ${LOVR_OCULUS_AUDIO}
   ${LOVR_PTHREADS}
-  ${LOVR_VULKAN}
   ${EMSCRIPTEN_LINKER_FLAGS}
 )
+
+if(LOVR_USE_VULKAN AND LOVR_LINK_VULKAN)
+  target_link_libraries(lovr PRIVATE Vulkan::Vulkan)
+endif()
 
 if(LOVR_SANITIZE)
   set(LOVR_SANITIZE_FLAGS "-fsanitize=address,undefined" "-O1" "-fno-omit-frame-pointer")
