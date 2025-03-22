@@ -31,6 +31,7 @@ StringEntry lovrDefaultAttribute[] = {
   [ATTR_POSITION] = ENTRY("position"),
   [ATTR_NORMAL] = ENTRY("normal"),
   [ATTR_UV] = ENTRY("uv"),
+  [ATTR_UV2] = ENTRY("uv2"),
   [ATTR_COLOR] = ENTRY("color"),
   [ATTR_TANGENT] = ENTRY("tangent"),
   [ATTR_JOINTS] = ENTRY("joints"),

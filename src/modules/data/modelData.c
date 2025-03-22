@@ -256,10 +256,22 @@ void lovrModelDataCopyAttribute(ModelData* data, ModelAttribute* attribute, char
     } else {
       lovrUnreachable();
     }
-  } else if (type == U16 && components == 1 && !normalized && !attribute->normalized) {
-    if (attribute->type == U8) {
+  } else if (type == U16) {
+    if (attribute->type == U8 && !attribute->normalized && !normalized && components == 1) {
       for (uint32_t i = 0; i < count; i++, src += attribute->stride, dst += stride) {
         *((uint16_t*) dst) = *(uint8_t*) src;
+      }
+    } else if (attribute->type == F32 && normalized) {
+      for (uint32_t i = 0; i < count; i++, src += attribute->stride, dst += stride) {
+        for (uint32_t j = 0; j < components; j++) {
+          ((uint16_t*) dst)[j] = (uint16_t) (((float*) src)[j] * 65535.f + .5f);
+        }
+      }
+    } else if (attribute->type == U8 && attribute->normalized && normalized) {
+      for (uint32_t i = 0; i < count; i++, src += attribute->stride, dst += stride) {
+        for (uint32_t j = 0; j < components; j++) {
+          ((uint16_t*) dst)[j] = (uint16_t) ((((uint8_t*) src)[j] / 255.f) * 65535.f + .5f);
+        }
       }
     } else {
       lovrUnreachable();
