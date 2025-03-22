@@ -805,7 +805,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   state.vertexFormats[VERTEX_SHAPE] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .bufferStrides[0] = sizeof(ShapeVertex),
     .attributes[0] = { 0, 10, offsetof(ShapeVertex, position), GPU_TYPE_F32x3 },
     .attributes[1] = { 0, 11, offsetof(ShapeVertex, normal), GPU_TYPE_F32x3 },
@@ -817,7 +817,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   state.vertexFormats[VERTEX_POINT] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .bufferStrides[0] = 12,
     .attributes[0] = { 0, 10, 0, GPU_TYPE_F32x3 },
     .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x4 },
@@ -829,7 +829,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   state.vertexFormats[VERTEX_GLYPH] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .bufferStrides[0] = sizeof(GlyphVertex),
     .attributes[0] = { 0, 10, offsetof(GlyphVertex, position), GPU_TYPE_F32x2 },
     .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x4 },
@@ -841,7 +841,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   state.vertexFormats[VERTEX_MODEL] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .bufferStrides[0] = sizeof(ModelVertex),
     .attributes[0] = { 0, 10, offsetof(ModelVertex, position), GPU_TYPE_F32x3 },
     .attributes[1] = { 0, 11, offsetof(ModelVertex, normal), GPU_TYPE_SN10x3 },
@@ -853,7 +853,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   state.vertexFormats[VERTEX_EMPTY] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .attributes[0] = { 1, 10, 0, GPU_TYPE_F32x3 },
     .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x3 },
     .attributes[2] = { 1, 12, 0, GPU_TYPE_F32x2 },
