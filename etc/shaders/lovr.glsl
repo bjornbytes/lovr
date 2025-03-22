@@ -529,6 +529,7 @@ void main() {
   PositionWorld = vec3(WorldFromLocal * VertexPosition);
   Normal = NormalMatrix * VertexNormal;
   UV = VertexUV;
+  UV2 = VertexUV2;
 
   Color = vec4(1.0);
   if (flag_passColor) Color *= PassColor;
