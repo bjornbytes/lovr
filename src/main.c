@@ -8,6 +8,21 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+
+static void loop(void* arg) {
+  lua_State* T = arg;
+  if (luax_resume(T, 0) != LUA_YIELD) {
+    int status = lua_tointeger(T, -1);
+    emscripten_cancel_main_loop();
+    lua_close(T);
+    os_destroy();
+    exit(status);
+  }
+}
+#endif
+
 int main(int argc, char** argv) {
   os_init();
 
@@ -37,6 +52,11 @@ int main(int argc, char** argv) {
 
     lua_State* T = lua_tothread(L, -1);
     lovrSetLogCallback(luax_vlog, T);
+
+#ifdef EMSCRIPTEN
+    emscripten_set_main_loop_arg(loop, T, 0, 1);
+    return 0;
+#endif
 
     while (luax_resume(T, 0) == LUA_YIELD) {
       os_sleep(0.);
