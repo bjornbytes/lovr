@@ -45,7 +45,6 @@ option(LOVR_BUILD_WITH_SYMBOLS "Build with C function symbols exposed" OFF)
 if(EMSCRIPTEN)
   string(CONCAT EMSCRIPTEN_LINKER_FLAGS
     "-Os "
-    "-sUSE_WEBGPU=1 "
     "-sFORCE_FILESYSTEM=1 "
     "-sINITIAL_MEMORY=1677721600 "
     "-sEXPORTED_FUNCTIONS=_main "
