@@ -118,6 +118,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
   } else {
     return luax_typeerror(L, 2, "table or Blob");
   }
+  lovrMeshFlushVertices(mesh);
   return 0;
 }
 
@@ -210,6 +211,7 @@ static int l_lovrMeshSetIndices(lua_State* L) {
     default: return luax_typeerror(L, 2, "nil, table, or Blob");
   }
 
+  lovrMeshFlushIndices(mesh);
   return 0;
 }
 

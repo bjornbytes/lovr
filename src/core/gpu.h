@@ -36,7 +36,6 @@ typedef uint64_t gpu_address;
 typedef enum {
   GPU_BUFFER_STATIC,
   GPU_BUFFER_STREAM,
-  GPU_BUFFER_UPLOAD,
   GPU_BUFFER_DOWNLOAD,
   GPU_BUFFER_TREE
 } gpu_buffer_type;
@@ -257,10 +256,10 @@ typedef struct {
   const char* label;
   struct {
     gpu_stream* stream;
-    gpu_buffer* buffer;
-    uint32_t* levelOffsets;
     uint32_t levelCount;
-    bool generateMipmaps;
+    void** levelData;
+    uint32_t* layerSizes;
+    bool generateLevels;
   } upload;
 } gpu_texture_info;
 
@@ -722,6 +721,10 @@ void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, 
 void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride);
 void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z);
 void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset);
+void* gpu_map(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size);
+void gpu_unmap(gpu_stream* stream, gpu_buffer* buffer);
+bool gpu_write_buffer(gpu_stream* stream, gpu_buffer* buffer, const void* data, uint32_t offset, uint32_t size);
+bool gpu_write_texture(gpu_stream* stream, gpu_texture* texture, void* data, uint32_t offset[4], uint32_t extent[3], uint32_t rowSize, uint32_t rowsPerImage);
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent);
 void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]);

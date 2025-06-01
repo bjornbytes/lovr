@@ -74,6 +74,7 @@ uint32_t lovrImageGetLayerCount(Image* image);
 uint32_t lovrImageGetLevelCount(Image* image);
 TextureFormat lovrImageGetFormat(Image* image);
 size_t lovrImageGetLayerSize(Image* image, uint32_t level);
+size_t lovrImageGetLayerStride(Image* image, uint32_t level);
 void* lovrImageGetLayerData(Image* image, uint32_t level, uint32_t layer);
 bool lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]);
 bool lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]);

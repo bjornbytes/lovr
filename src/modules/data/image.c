@@ -181,6 +181,10 @@ size_t lovrImageGetLayerSize(Image* image, uint32_t level) {
   return image->mipmaps[level].size;
 }
 
+size_t lovrImageGetLayerStride(Image* image, uint32_t level) {
+  return image->mipmaps[level].stride;
+}
+
 void* lovrImageGetLayerData(Image* image, uint32_t level, uint32_t layer) {
   if (layer >= image->layers || level >= image->levels) return NULL;
   return (uint8_t*) image->mipmaps[level].data + layer * image->mipmaps[level].stride;

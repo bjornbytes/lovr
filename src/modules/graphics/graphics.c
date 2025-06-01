@@ -605,12 +605,11 @@ static struct {
   gpu_vertex_format vertexFormats[VERTEX_FORMAT_COUNT];
   Readback* readbacks;
   MaterialBlock* materials;
-  BufferAllocator bufferAllocators[4];
+  BufferAllocator bufferAllocators[3];
   _Atomic(PipelineJob*) newPipelines;
   map_t pipelineLookup;
   gpu_pipeline* pipelines;
   atomic_uint pipelineCount;
-  atomic_uint glyphJobs;
   _Atomic(Layout*) layouts;
   Layout* builtinLayout;
   Layout* materialLayout;
@@ -742,11 +741,14 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   state.defaultBuffer = lovrBufferCreate(&(BufferInfo) { .size = sizeof(defaultBufferData), }, NULL);
   if (!state.defaultBuffer) goto fail;
 
-  BufferView view = getBuffer(GPU_BUFFER_UPLOAD, sizeof(defaultBufferData), 4);
-  if (!view.buffer) goto fail;
+  // Default Buffer (used for default vertex attributes and any other missing buffers)
 
-  memcpy(view.pointer, defaultBufferData, sizeof(defaultBufferData));
-  gpu_copy_buffers(state.stream, view.buffer, state.defaultBuffer->gpu, view.offset, 0, sizeof(defaultBufferData));
+  float data[] = { 0.f, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f, 1.f };
+  state.defaultBuffer = lovrBufferCreate(&(BufferInfo) { .size = sizeof(data) }, NULL);
+
+  if (!state.defaultBuffer || !gpu_write_buffer(state.stream, state.defaultBuffer->gpu, data, 0, sizeof(data))) {
+    goto fail;
+  }
 
   state.barrier.prev |= GPU_PHASE_COPY;
   state.barrier.next |= GPU_PHASE_INPUT_VERTEX | GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
@@ -1964,10 +1966,6 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     state.newPipelines = NULL;
   }
 
-  while (atomic_load(&state.glyphJobs) > 0) {
-    job_spin();
-  }
-
   lovrAssertGoto(fail, gpu_submit(streams, streamCount, state.tick++), "Failed to submit GPU command buffers: %s", gpu_get_error());
 
   state.stream = gpu_stream_begin("Internal");
@@ -2220,13 +2218,17 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
   }
 
   if (data && *data == NULL) {
-    BufferView staging = getBuffer(GPU_BUFFER_UPLOAD, size, 4);
-    if (!staging.buffer) return lovrBufferDestroy(buffer), mtx_unlock(&state.lock), NULL;
-    gpu_copy_buffers(state.stream, staging.buffer, buffer->gpu, staging.offset, 0, size);
+    *data = gpu_map(state.stream, buffer->gpu, 0, size);
+
+    if (*data == NULL) {
+      lovrBufferDestroy(buffer);
+      mtx_unlock(&state.lock);
+      return NULL;
+    }
+
     buffer->sync->writePhase = GPU_PHASE_COPY;
     buffer->sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
     buffer->sync->lastStreamWrite = state.tick;
-    *data = staging.pointer;
   }
 
   buffer->sync->barrier = &state.barrier;
@@ -2279,11 +2281,14 @@ void* lovrBufferSetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
   gpu_barrier barrier = syncStream(buffer->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
 
-  BufferView view = getBuffer(GPU_BUFFER_UPLOAD, extent, 4);
-  if (!view.buffer) return mtx_unlock(&state.lock), NULL;
+  void* data = gpu_map(state.stream, buffer->gpu, offset, extent);
 
-  gpu_copy_buffers(state.stream, view.buffer, buffer->gpu, view.offset, offset, extent);
-  return view.pointer;
+  if (!data) {
+    mtx_unlock(&state.lock);
+    lovrSetError("Failed to map buffer: %s", gpu_get_error());
+  }
+
+  return data;
 }
 
 // lovrBufferSetData leaves the lock held, and lovrBufferFlush must be called to release the lock
@@ -2325,6 +2330,10 @@ bool lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent, uint32_t 
   gpu_clear_buffer(state.stream, buffer->gpu, offset, extent, value);
   mtx_unlock(&state.lock);
   return true;
+}
+
+void lovrBufferFlush(Buffer* buffer) {
+  gpu_unmap(state.stream, buffer->gpu);
 }
 
 // Texture
@@ -2468,6 +2477,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(~info->usage & TEXTURE_RENDER || info->type != TEXTURE_3D || !isDepthFormat(info->format), "3D depth textures can not have the 'render' flag");
   lovrCheck((info->format < FORMAT_BC1 || info->format > FORMAT_BC7) || state.features.textureBC, "%s textures are not supported on this GPU", "BC");
   lovrCheck(info->format < FORMAT_ASTC_4x4 || state.features.textureASTC, "%s textures are not supported on this GPU", "ASTC");
+  lovrCheck(info->type != TEXTURE_3D || info->imageCount == 0 || lovrImageGetLevelCount(info->images[0]) == 1, "Images used to initialize 3D textures can not have mipmaps");
 
   Texture* texture = lovrCalloc(sizeof(Texture) + gpu_sizeof_texture());
   texture->ref = 1;
@@ -2480,57 +2490,31 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   texture->info.srgb = srgb;
   texture->info.label = lovrStrdup(info->label);
 
+  size_t stack = stackPush(&thread.stack);
+
   uint32_t levelCount = 0;
-  uint32_t levelOffsets[16];
-  uint32_t levelSizes[16];
-  BufferView view = { 0 };
+  void** levelData = NULL;
+  uint32_t layerSizes[16];
 
   mtx_lock(&state.lock);
 
   if (info->imageCount > 0) {
     levelCount = lovrImageGetLevelCount(info->images[0]);
-
-    if (info->type == TEXTURE_3D && levelCount > 1) {
-      lovrSetError("Images used to initialize 3D textures can not have mipmaps");
-      lovrTextureDestroy(texture);
-      return NULL;
-    }
-
-    uint32_t total = 0;
-    for (uint32_t level = 0; level < levelCount; level++) {
-      levelOffsets[level] = total;
-      uint32_t width = MAX(info->width >> level, 1);
-      uint32_t height = MAX(info->height >> level, 1);
-      levelSizes[level] = measureTexture(info->format, width, height, info->layers);
-      total += levelSizes[level];
-    }
-
-    view = getBuffer(GPU_BUFFER_UPLOAD, total, 64);
-    char* data = view.pointer;
-
-    if (!view.buffer) {
-      lovrTextureDestroy(texture);
-      return NULL;
-    }
+    levelData = allocate(&thread.stack, levelCount * info->layers * sizeof(void*));
 
     for (uint32_t level = 0; level < levelCount; level++) {
+      void** layers = &levelData[level * info->layers];
+      layerSizes[level] = lovrImageGetLayerSize(info->images[0], level);
+
       for (uint32_t layer = 0; layer < info->layers; layer++) {
         Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];
         uint32_t slice = info->imageCount == 1 ? layer : 0;
-        size_t size = lovrImageGetLayerSize(image, level);
-        if (size != levelSizes[level] / info->layers) lovrUnreachable();
-        void* pixels = lovrImageGetLayerData(image, level, slice);
-        memcpy(data, pixels, size);
-        data += size;
+        layers[layer] = lovrImageGetLayerData(image, level, slice);
       }
-      levelOffsets[level] += view.offset;
     }
   }
 
-  // Render targets with mipmaps get transfer usage for automipmapping
-  bool transfer = (info->usage & TEXTURE_TRANSFER) || ((info->usage & TEXTURE_RENDER) && texture->info.mipmaps > 1);
-
-  if (!gpu_texture_init(texture->gpu, &(gpu_texture_info) {
+  gpu_texture_info textureInfo = {
     .type = (gpu_texture_type) info->type,
     .format = (gpu_texture_format) info->format,
     .size = { info->width, info->height, info->layers },
@@ -2539,27 +2523,35 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     .usage =
       ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
+      ((info->usage & TEXTURE_RENDER) && mipmaps > 1 ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
       ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
-      (transfer ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
+      ((info->usage & TEXTURE_TRANSFER) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
       ((info->usage & TEXTURE_FOVEATION) ? GPU_TEXTURE_FOVEATION : 0),
     .srgb = srgb,
     .handle = info->handle,
     .label = info->label,
     .upload = {
       .stream = state.stream,
-      .buffer = view.buffer,
       .levelCount = levelCount,
-      .levelOffsets = levelOffsets,
-      .generateMipmaps = levelCount > 0 && levelCount < mipmaps
+      .levelData = levelData,
+      .layerSizes = layerSizes,
+      .generateLevels = levelCount > 0 && levelCount < mipmaps
     }
-  })) {
-    mtx_unlock(&state.lock);
+  };
+
+  // Render targets with mipmaps get transfer usage for automipmapping
+  bool transfer = (info->usage & TEXTURE_TRANSFER) || ((info->usage & TEXTURE_RENDER) && texture->info.mipmaps > 1);
+
+  if (!gpu_texture_init(texture->gpu, &textureInfo)) {
     lovrSetError("Failed to create texture: %s", gpu_get_error());
     lovrTextureDestroy(texture);
+    stackPop(&thread.stack, stack);
+    mtx_unlock(&state.lock);
     return NULL;
   }
 
   mtx_unlock(&state.lock);
+  stackPop(&thread.stack, stack);
 
   // Depth-stencil textures use a different depth-only view for sampling, otherwise default view can be used
   if (info->usage & TEXTURE_SAMPLE) {
@@ -2826,35 +2818,40 @@ bool lovrTextureSetPixels(Texture* texture, Image* image, uint32_t dstOffset[4],
   lovrCheck(srcOffset[3] < lovrImageGetLevelCount(image), "Image copy region exceeds its %s", "mipmap count");
   if (!checkTextureBounds(&texture->info, dstOffset, extent)) return false;
 
-  uint32_t srcWidth = lovrImageGetWidth(image, srcOffset[3]);
-  uint32_t rowSize = measureTexture(format, extent[0], 1, 1);
-  uint32_t totalSize = measureTexture(format, extent[0], extent[1], 1) * extent[2];
-  uint32_t layerOffset = measureTexture(format, srcWidth, srcOffset[1], 1);
-  layerOffset += measureTexture(format, srcOffset[0], 1, 1);
-  uint32_t pitch = measureTexture(format, srcWidth, 1, 1);
-
   mtx_lock(&state.lock);
-
-  BufferView view = getBuffer(GPU_BUFFER_UPLOAD, totalSize, 64);
-  if (!view.buffer) return mtx_unlock(&state.lock), false;
 
   gpu_barrier barrier = syncStream(texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_WRITE);
   gpu_sync(state.stream, &barrier, 1);
 
+  uint32_t srcWidth = lovrImageGetWidth(image, srcOffset[3]);
+  uint32_t layerOffset = measureTexture(format, srcWidth, srcOffset[1], 1) + measureTexture(format, srcOffset[0], 1, 1);
+  char* data = (char*) lovrImageGetLayerData(image, srcOffset[3], srcOffset[2]) + layerOffset;
+  uint32_t stride = lovrImageGetLayerStride(image, srcOffset[3]);
+  uint32_t rowSize = measureTexture(format, extent[0], 1, 1);
+  uint32_t rowsPerImage = lovrImageGetHeight(image, srcOffset[3]);
   uint32_t rootOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + texture->baseLayer, dstOffset[3] + texture->baseLevel };
-  gpu_copy_buffer_texture(state.stream, view.buffer, texture->root->gpu, view.offset, rootOffset, extent);
 
-  mtx_unlock(&state.lock);
+  // If the layers are tightly packed, they can be copied in a batch, otherwise do individual copies
+  if (stride == 0 || stride == lovrImageGetLayerSize(image, srcOffset[3])) {
+    if (!gpu_write_texture(state.stream, texture->root->gpu, data, rootOffset, extent, rowSize, rowsPerImage)) {
+      mtx_unlock(&state.lock);
+      return lovrSetError("Failed to write to texture: %s", gpu_get_error());
+    }
+  } else {
+    uint32_t layerCount = extent[2];
+    extent[2] = 1;
 
-  char* dst = view.pointer;
-  for (uint32_t z = 0; z < extent[2]; z++) {
-    const char* src = (char*) lovrImageGetLayerData(image, srcOffset[3], z) + layerOffset;
-    for (uint32_t y = 0; y < extent[1]; y++) {
-      memcpy(dst, src, rowSize);
-      dst += rowSize;
-      src += pitch;
+    for (uint32_t layer = 0; layer < layerCount; layer++) {
+      if (!gpu_write_texture(state.stream, texture->root->gpu, data, rootOffset, extent, rowSize, 0)) {
+        mtx_unlock(&state.lock);
+        return lovrSetError("Failed to write to texture: %s", gpu_get_error());
+      }
+      rootOffset[2]++;
+      data += stride;
     }
   }
+
+  mtx_unlock(&state.lock);
 
   return true;
 }
@@ -4006,19 +4003,19 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
 
   if (block->pointer) {
     data = (MaterialData*) ((char*) block->pointer + material->index * stride);
+    memcpy(data, info, sizeof(MaterialData));
   } else {
-    BufferView staging = getBuffer(GPU_BUFFER_UPLOAD, sizeof(MaterialData), 4);
-    if (!staging.buffer) return mtx_unlock(&state.lock), NULL;
+    if (!gpu_write_buffer(state.stream, block->buffer, info, stride * material->index, sizeof(MaterialData))) {
+      lovrSetError("Could not map buffer: %s", gpu_get_error());
+      mtx_unlock(&state.lock);
+      return NULL;
+    }
 
-    gpu_copy_buffers(state.stream, staging.buffer, block->buffer, staging.offset, stride * material->index, sizeof(MaterialData));
     state.barrier.prev |= GPU_PHASE_COPY;
     state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
     state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
     state.barrier.clear |= GPU_CACHE_UNIFORM;
-    data = staging.pointer;
   }
-
-  memcpy(data, info, sizeof(MaterialData));
 
   gpu_buffer_binding buffer = {
     .object = block->buffer,
@@ -4216,36 +4213,6 @@ void lovrFontSetLineSpacing(Font* font, float spacing) {
   font->lineSpacing = spacing;
 }
 
-typedef struct {
-  Font* font;
-  uint32_t codepoint;
-  uint32_t width;
-  uint32_t height;
-  uint8_t* dst;
-  float* src;
-} GlyphContext;
-
-static void rasterizeGlyph(void* arg) {
-  GlyphContext* ctx = arg;
-
-  lovrRasterizerGetPixels(ctx->font->info.rasterizer, ctx->codepoint, ctx->src, ctx->width, ctx->height, ctx->font->info.spread);
-
-  float* src = ctx->src;
-  uint8_t* dst = ctx->dst;
-  for (uint32_t y = 0; y < ctx->height; y++) {
-    for (uint32_t x = 0; x < ctx->width; x++) {
-      for (uint32_t c = 0; c < 4; c++) {
-        float f = *src++; // CLAMP would evaluate this multiple times
-        *dst++ = (uint8_t) (CLAMP(f, 0.f, 1.f) * 255.f + .5f);
-      }
-    }
-  }
-
-  atomic_fetch_sub(&state.glyphJobs, 1);
-  lovrFree(ctx->src);
-  lovrFree(ctx);
-}
-
 static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   // TODO this could be improved a LOT (batch glyph lookups, readwrite lock, don't lock for as long, etc.)
   mtx_lock(&font->lock);
@@ -4378,15 +4345,6 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
     wrap = false;
   }
 
-  mtx_lock(&state.lock);
-  BufferView bufferView = getBuffer(GPU_BUFFER_UPLOAD, pixelWidth * pixelHeight * 4 * sizeof(uint8_t), 64);
-
-  if (!bufferView.buffer) {
-    mtx_unlock(&state.lock);
-    mtx_unlock(&font->lock);
-    return NULL;
-  }
-
   if (wrap) {
     font->atlasX = font->atlasWidth == font->atlasHeight ? 0 : font->atlasWidth >> 1;
     font->atlasY += font->rowHeight;
@@ -4402,31 +4360,36 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   font->atlasX += pixelWidth;
   font->rowHeight = MAX(font->rowHeight, pixelHeight);
 
-  uint32_t dstOffset[4] = { glyph->x - font->padding, glyph->y - font->padding, 0, 0 };
-  uint32_t extent[3] = { pixelWidth, pixelHeight, 1 };
-  gpu_copy_buffer_texture(state.stream, bufferView.buffer, font->atlas->gpu, bufferView.offset, dstOffset, extent);
-
   state.barrier.prev |= GPU_PHASE_COPY;
   state.barrier.next |= GPU_PHASE_SHADER_FRAGMENT;
   state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
   state.barrier.clear |= GPU_CACHE_TEXTURE;
 
-  mtx_unlock(&state.lock);
+  size_t stack = stackPush(&thread.stack);
+  float* pixels = allocate(&thread.stack, pixelWidth * pixelHeight * 4 * sizeof(float));
+  lovrRasterizerGetPixels(font->info.rasterizer, codepoint, pixels, pixelWidth, pixelHeight, font->info.spread);
+
+  // TODO eliminate this copy
+  uint8_t* data = allocate(&thread.stack, pixelWidth * pixelHeight * 4 * sizeof(uint8_t));
+
+  float* src = pixels;
+  uint8_t* dst = data;
+  for (uint32_t y = 0; y < pixelHeight; y++) {
+    for (uint32_t x = 0; x < pixelWidth; x++) {
+      for (uint32_t c = 0; c < 4; c++) {
+        float f = *src++; // CLAMP would evaluate this multiple times
+        *dst++ = (uint8_t) (CLAMP(f, 0.f, 1.f) * 255.f + .5f);
+      }
+    }
+  }
+
+  uint32_t offset[4] = { glyph->x - font->padding, glyph->y - font->padding, 0, 0 };
+  uint32_t extent[3] = { pixelWidth, pixelHeight, 1 };
+  gpu_write_texture(state.stream, font->atlas->gpu, data, offset, extent, 0, 0);
+  stackPop(&thread.stack, stack);
 
   map_set(&font->glyphLookup, hash, font->glyphs.length++);
   mtx_unlock(&font->lock);
-
-  GlyphContext* context = lovrMalloc(sizeof(GlyphContext));
-  context->font = font;
-  context->codepoint = codepoint;
-  context->width = pixelWidth;
-  context->height = pixelHeight;
-  context->src = lovrMalloc(pixelWidth * pixelHeight * 4 * sizeof(float));
-  context->dst = bufferView.pointer;
-  atomic_fetch_add(&state.glyphJobs, 1);
-  if (!job_start(rasterizeGlyph, context)) {
-    rasterizeGlyph(context);
-  }
 
   return glyph;
 }
@@ -4757,10 +4720,6 @@ const DataField* lovrMeshGetVertexFormat(Mesh* mesh) {
   return mesh->vertexBuffer->info.format;
 }
 
-const DataField* lovrMeshGetIndexFormat(Mesh* mesh) {
-  return mesh->indexCount > 0 || !mesh->indexBuffer ? mesh->indexBuffer->info.format : NULL;
-}
-
 Buffer* lovrMeshGetVertexBuffer(Mesh* mesh) {
   return mesh->storage == MESH_CPU ? NULL : mesh->vertexBuffer;
 }
@@ -4810,6 +4769,12 @@ void* lovrMeshSetVertices(Mesh* mesh, uint32_t index, uint32_t count) {
     return (char*) mesh->vertices + index * format->stride;
   } else {
     return lovrBufferSetData(mesh->vertexBuffer, index * format->stride, count * format->stride);
+  }
+}
+
+void lovrMeshFlushVertices(Mesh* mesh) {
+  if (mesh->storage == MESH_GPU) {
+    lovrBufferFlush(mesh->vertexBuffer);
   }
 }
 
@@ -4863,7 +4828,14 @@ void* lovrMeshSetIndices(Mesh* mesh, uint32_t count, DataType type) {
   }
 }
 
+void lovrMeshFlushIndices(Mesh* mesh) {
+  if (mesh->storage == MESH_GPU) {
+    lovrBufferFlush(mesh->indices);
+  }
+}
+
 static const DataField* lovrMeshGetPositions(Mesh* mesh) {
+  if (mesh->storage == MESH_GPU) return NULL;
   const DataField* format = lovrMeshGetVertexFormat(mesh);
   uint32_t positionHash = (uint32_t) hash64("VertexPosition", strlen("VertexPosition"));
   for (uint32_t i = 0; i < MAX(format->fieldCount, 1); i++) {
@@ -5207,6 +5179,8 @@ Model* lovrModelCreate(const ModelInfo* info) {
         memcpy(vertexData, data->vertices + mesh->vertexOffset, mesh->vertexCount * sizeof(ModelVertex));
         vertexData = (ModelVertex*) vertexData + mesh->vertexCount;
       }
+
+      lovrBufferFlush(model->rawVertexBuffer);
     }
   }
 
