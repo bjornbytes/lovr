@@ -11,16 +11,29 @@
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
 
-static void loop(void* arg) {
+typedef bool FrameCallback(void*);
+
+EMSCRIPTEN_KEEPALIVE bool loop(void* arg) {
   lua_State* T = arg;
   if (luax_resume(T, 0) != LUA_YIELD) {
     int status = lua_tointeger(T, -1);
-    emscripten_cancel_main_loop();
+    // emscripten_cancel_main_loop();
     lua_close(T);
     os_destroy();
     exit(status);
+    return false;
   }
+  return true;
 }
+
+EM_JS(void, requestAnimationFrameLoopWithJSPI, (FrameCallback* callback, void* userdata), {
+  var wrappedCallback = WebAssembly.promising(getWasmTableEntry(callback));
+  async function tick() {
+    var keepLooping = await wrappedCallback(userdata);
+    if (keepLooping) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})
 #endif
 
 int main(int argc, char** argv) {
@@ -54,7 +67,7 @@ int main(int argc, char** argv) {
     lovrSetLogCallback(luax_vlog, T);
 
 #ifdef EMSCRIPTEN
-    emscripten_set_main_loop_arg(loop, T, 0, 1);
+    requestAnimationFrameLoopWithJSPI(loop, T);
     return 0;
 #endif
 

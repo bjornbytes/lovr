@@ -61,6 +61,7 @@ size_t gpu_sizeof_tally(void) { return sizeof(gpu_tally); }
 // State
 
 static struct {
+  WGpuAdapter adapter;
   WGpuDevice device;
   WGpuQueue queue;
   gpu_stream streams[64];
@@ -909,7 +910,12 @@ void gpu_xr_release(gpu_stream* stream, gpu_texture* texture) {
 // Entry
 
 bool gpu_init(gpu_config* config) {
-  // TODO initialize adapter/device
+  if (!navigator_gpu_available()) {
+    return false;
+  }
+
+  state.adapter = navigator_gpu_request_adapter_sync_simple();
+  state.device = wgpu_adapter_request_device_sync_simple(state.adapter);
   state.queue = wgpu_device_get_queue(state.device);
 
   if (config->features) {
