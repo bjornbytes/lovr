@@ -272,6 +272,17 @@ void gpu_sampler_destroy(gpu_sampler* sampler) {
 // Layout
 
 bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
+  static const WGPU_BIND_GROUP_LAYOUT_TYPE bindingTypes[] = {
+    [GPU_SLOT_UNIFORM_BUFFER] = WGPU_BIND_GROUP_LAYOUT_TYPE_BUFFER,
+    [GPU_SLOT_STORAGE_BUFFER] = WGPU_BIND_GROUP_LAYOUT_TYPE_BUFFER,
+    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = WGPU_BIND_GROUP_LAYOUT_TYPE_BUFFER,
+    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = WGPU_BIND_GROUP_LAYOUT_TYPE_BUFFER,
+    [GPU_SLOT_TEXTURE_WITH_SAMPLER] = WGPU_BIND_GROUP_LAYOUT_TYPE_INVALID, // Not supported
+    [GPU_SLOT_SAMPLED_TEXTURE] = WGPU_BIND_GROUP_LAYOUT_TYPE_TEXTURE,
+    [GPU_SLOT_STORAGE_TEXTURE] = WGPU_BIND_GROUP_LAYOUT_TYPE_STORAGE_TEXTURE,
+    [GPU_SLOT_SAMPLER] = WGPU_BIND_GROUP_LAYOUT_TYPE_SAMPLER
+  };
+
   static const WGPU_BUFFER_BINDING_TYPE bufferTypes[] = {
     [GPU_SLOT_UNIFORM_BUFFER] = WGPU_BUFFER_BINDING_TYPE_UNIFORM,
     [GPU_SLOT_STORAGE_BUFFER] = WGPU_BUFFER_BINDING_TYPE_STORAGE,
@@ -287,7 +298,8 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
       .visibility =
         (((slot->stages & GPU_STAGE_VERTEX) ? WGPU_SHADER_STAGE_VERTEX : 0) |
         ((slot->stages & GPU_STAGE_FRAGMENT) ? WGPU_SHADER_STAGE_FRAGMENT : 0) |
-        ((slot->stages & GPU_STAGE_COMPUTE) ? WGPU_SHADER_STAGE_COMPUTE : 0))
+        ((slot->stages & GPU_STAGE_COMPUTE) ? WGPU_SHADER_STAGE_COMPUTE : 0)),
+      .type = bindingTypes[info->slots[i].type]
     };
 
     switch (info->slots[i].type) {
@@ -301,7 +313,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
         break;
 
       case GPU_SLOT_TEXTURE_WITH_SAMPLER:
-        return false; // Unsupported
+        break;
 
       // FIXME need more metadata
       case GPU_SLOT_SAMPLED_TEXTURE:
