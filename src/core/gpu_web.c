@@ -261,7 +261,7 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
     .lodMinClamp = info->lodClamp[0],
     .lodMaxClamp = info->lodClamp[1] < 0.f ? 32 : info->lodClamp[1],
     .compare = compares[info->compare],
-    .maxAnisotropy = info->anisotropy
+    .maxAnisotropy = MAX(info->anisotropy, 1.f)
   });
 }
 
