@@ -150,7 +150,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .depthOrArrayLayers = info->size[2],
     .format = convertFormat(info->format, info->srgb),
     .mipLevelCount = info->mipmaps,
-    .sampleCount = info->samples
+    .sampleCount = MAX(info->samples, 1)
   });
 
   if (!texture->handle) {
