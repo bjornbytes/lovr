@@ -983,6 +983,8 @@ bool gpu_init(gpu_config* config) {
 
     config->features->formats[GPU_FORMAT_RGBA8][1] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
     config->features->formats[GPU_FORMAT_BGRA8][1] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+
+    config->features->sampleCounts = 1 | 4;
   }
 
   if (config->limits) {
