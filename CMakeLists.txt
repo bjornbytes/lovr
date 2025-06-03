@@ -53,8 +53,8 @@ if(EMSCRIPTEN)
     "-sEXPORTED_RUNTIME_METHODS=getValue,setValue "
     "--shell-file \"${PROJECT_SOURCE_DIR}/etc/lovr.html\""
   )
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os -sSUPPORT_LONGJMP=wasm -fno-exceptions")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -sSUPPORT_LONGJMP=wasm -fno-exceptions")
   if(LOVR_ENABLE_THREAD)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
