@@ -4,6 +4,9 @@
 
 struct gpu_buffer {
   WGpuBuffer handle;
+  void* mapping;
+  uint32_t mapOffset;
+  uint32_t mapExtent;
 };
 
 struct gpu_texture {
@@ -77,6 +80,7 @@ static struct {
 #define MAX(a, b) (a > b ? a : b)
 
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb);
+static uint32_t getRowSize(gpu_texture_format format, uint32_t width);
 
 // Buffer
 
@@ -95,9 +99,6 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
       WGPU_BUFFER_USAGE_VERTEX |
       WGPU_BUFFER_USAGE_INDEX |
       WGPU_BUFFER_USAGE_UNIFORM |
-      WGPU_BUFFER_USAGE_COPY_SRC |
-      WGPU_BUFFER_USAGE_MAP_WRITE,
-    [GPU_BUFFER_UPLOAD] =
       WGPU_BUFFER_USAGE_COPY_SRC |
       WGPU_BUFFER_USAGE_MAP_WRITE,
     [GPU_BUFFER_DOWNLOAD] =
@@ -143,7 +144,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       ((info->usage & GPU_TEXTURE_SAMPLE) ? WGPU_TEXTURE_USAGE_TEXTURE_BINDING : 0) |
       ((info->usage & GPU_TEXTURE_STORAGE) ? WGPU_TEXTURE_USAGE_STORAGE_BINDING : 0) |
       ((info->usage & GPU_TEXTURE_COPY_SRC) ? WGPU_TEXTURE_USAGE_COPY_SRC : 0) |
-      ((info->usage & GPU_TEXTURE_COPY_DST) ? WGPU_TEXTURE_USAGE_COPY_DST : 0),
+      ((info->usage & GPU_TEXTURE_COPY_DST) ? WGPU_TEXTURE_USAGE_COPY_DST : 0) |
+      (info->upload.levelCount > 0 ? WGPU_TEXTURE_USAGE_COPY_DST : 0),
     .dimension = dimensions[info->type],
     .width = info->size[0],
     .height = info->size[1],
@@ -166,7 +168,16 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
-  // TODO upload, mipgen
+  if (info->upload.levelCount) {
+    for (uint32_t i = 0; i < info->upload.levelCount; i++) {
+      void* data = info->upload.levelData[i];
+      uint32_t offset[4] = { 0, 0, 0, i };
+      uint32_t extent[3] = { MAX(info->size[0] >> i, 1), MAX(info->size[1] >> i, 1), info->size[2] };
+      gpu_write_texture(info->upload.stream, texture, data, offset, extent, 0, 0);
+    }
+  }
+
+  // TODO mipgen
 
   return true;
 }
@@ -819,6 +830,43 @@ void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offse
   wgpu_compute_pass_encoder_dispatch_workgroups_indirect(stream->compute, buffer->handle, offset);
 }
 
+void* gpu_map(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t extent) {
+  free(buffer->mapping);
+  buffer->mapping = malloc(extent);
+  buffer->mapOffset = offset;
+  buffer->mapExtent = extent;
+  return buffer->mapping;
+}
+
+void gpu_unmap(gpu_stream* stream, gpu_buffer* buffer) {
+  wgpu_queue_write_buffer(state.queue, buffer->handle, buffer->mapOffset, buffer->mapping, buffer->mapExtent);
+  buffer->mapping = NULL;
+}
+
+bool gpu_write_buffer(gpu_stream* stream, gpu_buffer* buffer, const void* data, uint32_t offset, uint32_t extent) {
+  wgpu_queue_write_buffer(state.queue, buffer->handle, offset, data, extent);
+  return true;
+}
+
+bool gpu_write_texture(gpu_stream* stream, gpu_texture* texture, void* data, uint32_t offset[4], uint32_t extent[3], uint32_t rowSize, uint32_t rowsPerImage) {
+  if (rowSize == 0) {
+    rowSize = getRowSize(wgpu_texture_format(texture->handle), extent[0]);
+  }
+
+  if (rowsPerImage == 0) {
+    rowsPerImage = extent[1];
+  }
+
+  WGpuImageCopyTexture dst = {
+    .texture = texture->handle,
+    .mipLevel = offset[3],
+    .origin = { offset[0], offset[1], offset[2] }
+  };
+
+  wgpu_queue_write_texture(state.queue, &dst, data, rowSize, rowsPerImage, extent[0], extent[1], extent[2]);
+  return true;
+}
+
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent) {
   wgpu_command_encoder_copy_buffer_to_buffer(stream->commands, src->handle, srcOffset, dst->handle, dstOffset, extent);
 }
@@ -1140,4 +1188,56 @@ static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb) {
   };
 
   return formats[format][srgb];
+}
+
+static uint32_t getRowSize(gpu_texture_format format, uint32_t width) {
+  switch (format) {
+    case GPU_FORMAT_R8: return width; break;
+    case GPU_FORMAT_RG8:
+    case GPU_FORMAT_R16:
+    case GPU_FORMAT_R16F:
+    case GPU_FORMAT_RGB565:
+    case GPU_FORMAT_RGB5A1:
+    case GPU_FORMAT_D16: return width * 2; break;
+    case GPU_FORMAT_RGBA8:
+    case GPU_FORMAT_BGRA8:
+    case GPU_FORMAT_RG16:
+    case GPU_FORMAT_RG16F:
+    case GPU_FORMAT_R32F:
+    case GPU_FORMAT_RG11B10F:
+    case GPU_FORMAT_RGB10A2:
+    case GPU_FORMAT_D24:
+    case GPU_FORMAT_D24S8:
+    case GPU_FORMAT_D32F: return width * 4; break;
+    case GPU_FORMAT_D32FS8: return width * 5; break;
+    case GPU_FORMAT_RGBA16:
+    case GPU_FORMAT_RGBA16F:
+    case GPU_FORMAT_RG32F: return width * 8; break;
+    case GPU_FORMAT_RGBA32F: return width * 16; break;
+    case GPU_FORMAT_BC1: return ((width + 3) / 4) * 8; break;
+    case GPU_FORMAT_BC2: return ((width + 3) / 4) * 16; break;
+    case GPU_FORMAT_BC3: return ((width + 3) / 4) * 16; break;
+    case GPU_FORMAT_BC4U: return ((width + 3) / 4) * 8; break;
+    case GPU_FORMAT_BC4S: return ((width + 3) / 4) * 8; break;
+    case GPU_FORMAT_BC5U: return ((width + 3) / 4) * 16; break;
+    case GPU_FORMAT_BC5S: return ((width + 3) / 4) * 16; break;
+    case GPU_FORMAT_BC6UF: return ((width + 3) / 4) * 16; break;
+    case GPU_FORMAT_BC6SF: return ((width + 3) / 4) * 16; break;
+    case GPU_FORMAT_BC7: return ((width + 3) / 4) * 16; break;
+    case GPU_FORMAT_ASTC_4x4: return ((width + 3) / 4) * 16; break;
+    case GPU_FORMAT_ASTC_5x4: return ((width + 4) / 5) * 16; break;
+    case GPU_FORMAT_ASTC_5x5: return ((width + 4) / 5) * 16; break;
+    case GPU_FORMAT_ASTC_6x5: return ((width + 5) / 6) * 16; break;
+    case GPU_FORMAT_ASTC_6x6: return ((width + 5) / 6) * 16; break;
+    case GPU_FORMAT_ASTC_8x5: return ((width + 7) / 8) * 16; break;
+    case GPU_FORMAT_ASTC_8x6: return ((width + 7) / 8) * 16; break;
+    case GPU_FORMAT_ASTC_8x8: return ((width + 7) / 8) * 16; break;
+    case GPU_FORMAT_ASTC_10x5: return ((width + 9) / 10) * 16; break;
+    case GPU_FORMAT_ASTC_10x6: return ((width + 9) / 10) * 16; break;
+    case GPU_FORMAT_ASTC_10x8: return ((width + 9) / 10) * 16; break;
+    case GPU_FORMAT_ASTC_10x10: return ((width + 9) / 10) * 16; break;
+    case GPU_FORMAT_ASTC_12x10: return ((width + 11) / 12) * 16; break;
+    case GPU_FORMAT_ASTC_12x12: return ((width + 11) / 12) * 16; break;
+    default: return 0;
+  }
 }
