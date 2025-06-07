@@ -505,6 +505,10 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
   release(buffer->memory, buffer->offset);
 }
 
+void gpu_buffer_flush(gpu_buffer* buffer, uint32_t offset, uint32_t extent) {
+  //
+}
+
 gpu_address gpu_buffer_get_address(gpu_buffer* buffer, uint32_t offset) {
   return vkGetBufferDeviceAddressKHR(state.device, &(VkBufferDeviceAddressInfoKHR) {
     .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR,

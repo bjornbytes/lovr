@@ -851,7 +851,6 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
   // Write data
   if (blob) {
     memcpy(data, blob->data, info.size);
-    lovrBufferFlush(buffer);
   } else if (hasData) {
     bool success = luax_checkbufferdata(L, 2, format, data);
     lovrBufferFlush(buffer);

@@ -46,6 +46,7 @@ typedef struct {
 typedef struct {
   BufferBlock* freelist;
   BufferBlock* current;
+  uint32_t lastCursor;
   uint32_t cursor;
 } BufferAllocator;
 
@@ -1949,8 +1950,12 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       }
     }
 
-    // Mark the tick for any buffers that filled up, so we know when to recycle them
-    if (passes[i]->buffers.current) {
+    BufferAllocator* allocator = &passes[i]->buffers;
+
+    // Mark the tick for any buffers that filled up, so we know when to recycle them (also flush)
+    if (allocator->current) {
+      gpu_buffer_flush(allocator->current->handle, allocator->lastCursor, allocator->cursor - allocator->lastCursor);
+
       for (BufferBlock* block = passes[i]->buffers.current->next; block; block = block->next) {
         block->tick = state.tick;
       }
@@ -1978,6 +1983,9 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     BufferAllocator* allocator = &state.bufferAllocators[i];
 
     if (allocator->current) {
+      gpu_buffer_flush(allocator->current->handle, allocator->lastCursor, allocator->cursor - allocator->lastCursor);
+      allocator->lastCursor = allocator->cursor;
+
       for (BufferBlock* block = allocator->current->next; block; block = block->next) {
         block->tick = state.tick;
       }
@@ -2330,10 +2338,6 @@ bool lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent, uint32_t 
   gpu_clear_buffer(state.stream, buffer->gpu, offset, extent, value);
   mtx_unlock(&state.lock);
   return true;
-}
-
-void lovrBufferFlush(Buffer* buffer) {
-  gpu_unmap(state.stream, buffer->gpu);
 }
 
 // Texture
@@ -4772,12 +4776,6 @@ void* lovrMeshSetVertices(Mesh* mesh, uint32_t index, uint32_t count) {
   }
 }
 
-void lovrMeshFlushVertices(Mesh* mesh) {
-  if (mesh->storage == MESH_GPU) {
-    lovrBufferFlush(mesh->vertexBuffer);
-  }
-}
-
 bool lovrMeshGetIndices(Mesh* mesh, void** indices, uint32_t* count, DataType* type) {
   lovrCheck(mesh->storage == MESH_CPU, "Can't get indices of GPU mesh");
 
@@ -4825,12 +4823,6 @@ void* lovrMeshSetIndices(Mesh* mesh, uint32_t count, DataType type) {
     void* data = lovrBufferSetData(mesh->indexBuffer, 0, count * format->stride);
     if (data) mesh->indexCount = count;
     return data;
-  }
-}
-
-void lovrMeshFlushIndices(Mesh* mesh) {
-  if (mesh->storage == MESH_GPU) {
-    lovrBufferFlush(mesh->indices);
   }
 }
 
@@ -5164,7 +5156,6 @@ Model* lovrModelCreate(const ModelInfo* info) {
     model->vertexBuffer = lovrBufferCreate(&bufferInfo, (void**) &vertexData);
     lovrAssertGoto(fail, model->vertexBuffer, "Failed to create model vertex buffer: %s", lovrGetError());
     memcpy(vertexData, data->vertices, meta->vertexCount * sizeof(ModelVertex));
-    lovrBufferFlush(model->vertexBuffer);
 
     // Animated vertices are ones that are blended or skinned.  They need a copy of the original vertex
     if (meta->animatedVertexCount > 0) {
@@ -5179,8 +5170,6 @@ Model* lovrModelCreate(const ModelInfo* info) {
         memcpy(vertexData, data->vertices + mesh->vertexOffset, mesh->vertexCount * sizeof(ModelVertex));
         vertexData = (ModelVertex*) vertexData + mesh->vertexCount;
       }
-
-      lovrBufferFlush(model->rawVertexBuffer);
     }
   }
 
@@ -5198,7 +5187,6 @@ Model* lovrModelCreate(const ModelInfo* info) {
     model->indexBuffer = lovrBufferCreate(&bufferInfo, &indexData);
     lovrAssertGoto(fail, model->indexBuffer, "Failed to create model index buffer: %s", lovrGetError());
     memcpy(indexData, data->indices, meta->indexCount * meta->indexSize);
-    lovrBufferFlush(model->indexBuffer);
   }
 
   // Joints
@@ -5215,7 +5203,6 @@ Model* lovrModelCreate(const ModelInfo* info) {
     model->skinBuffer = lovrBufferCreate(&bufferInfo, &skinData);
     lovrAssertGoto(fail, model->skinBuffer, "Failed to create model skinning buffer: %s", lovrGetError());
     memcpy(skinData, data->skinData, meta->skinnedVertexCount * 8);
-    lovrBufferFlush(model->skinBuffer);
   }
 
   // Blend Shapes
@@ -5233,7 +5220,6 @@ Model* lovrModelCreate(const ModelInfo* info) {
     model->blendBuffer = lovrBufferCreate(&bufferInfo, &blendData);
     lovrAssertGoto(fail, model->blendBuffer, "Failed to create model blend shape buffer: %s", lovrGetError());
     memcpy(blendData, data->blendData, meta->blendedVertexCount * sizeof(BlendData));
-    lovrBufferFlush(model->blendBuffer);
   }
 
   // Blend shapes
@@ -9024,6 +9010,10 @@ static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type typ
   BufferBlock* block = allocator->current;
 
   if (!block || cursor + size > block->size) {
+    if (block) {
+      gpu_buffer_flush(block->handle, allocator->lastCursor, allocator->cursor - allocator->lastCursor);
+    }
+
     BufferBlock** list = &allocator->freelist;
     BufferBlock** prev = NULL;
 
@@ -9066,6 +9056,7 @@ static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type typ
 
     block->next = allocator->current;
     allocator->current = block;
+    allocator->lastCursor = 0;
     cursor = 0;
   }
 

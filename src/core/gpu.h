@@ -50,6 +50,7 @@ typedef struct {
 
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info);
 void gpu_buffer_destroy(gpu_buffer* buffer);
+void gpu_buffer_flush(gpu_buffer* buffer, uint32_t offset, uint32_t extent);
 gpu_address gpu_buffer_get_address(gpu_buffer* buffer, uint32_t offset);
 
 // Tree
@@ -722,7 +723,6 @@ void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t 
 void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z);
 void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset);
 void* gpu_map(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size);
-void gpu_unmap(gpu_stream* stream, gpu_buffer* buffer);
 bool gpu_write_buffer(gpu_stream* stream, gpu_buffer* buffer, const void* data, uint32_t offset, uint32_t size);
 bool gpu_write_texture(gpu_stream* stream, gpu_texture* texture, void* data, uint32_t offset[4], uint32_t extent[3], uint32_t rowSize, uint32_t rowsPerImage);
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent);

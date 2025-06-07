@@ -4,9 +4,7 @@
 
 struct gpu_buffer {
   WGpuBuffer handle;
-  void* mapping;
-  uint32_t mapOffset;
-  uint32_t mapExtent;
+  void* memory;
 };
 
 struct gpu_texture {
@@ -61,12 +59,23 @@ size_t gpu_sizeof_bundle(void) { return sizeof(gpu_bundle); }
 size_t gpu_sizeof_pipeline(void) { return sizeof(gpu_pipeline); }
 size_t gpu_sizeof_tally(void) { return sizeof(gpu_tally); }
 
+// Internals
+
+typedef struct {
+  void* next;
+  void* data;
+  WGpuBuffer buffer;
+  uint32_t offset;
+  uint32_t extent;
+} gpu_mapping;
+
 // State
 
 static struct {
   WGpuAdapter adapter;
   WGpuDevice device;
   WGpuQueue queue;
+  gpu_mapping* mappings;
   gpu_stream streams[64];
   uint32_t streamCount;
   uint32_t tick;
@@ -119,13 +128,28 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
 
   wgpu_object_set_label(buffer->handle, info->label);
 
-  // TODO initial pointer
+  buffer->memory = NULL;
+
+  if (info->pointer) {
+    if (info->type != GPU_BUFFER_STATIC) {
+      buffer->memory = malloc(info->size);
+    }
+
+    *info->pointer = buffer->memory;
+  }
 
   return true;
 }
 
 void gpu_buffer_destroy(gpu_buffer* buffer) {
   wgpu_object_destroy(buffer->handle);
+  free(buffer->memory);
+}
+
+void gpu_buffer_flush(gpu_buffer* buffer, uint32_t offset, uint32_t extent) {
+  if (extent > 0) {
+    wgpu_queue_write_buffer(state.queue, buffer->handle, offset, buffer->memory, extent);
+  }
 }
 
 // Texture
@@ -831,16 +855,14 @@ void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offse
 }
 
 void* gpu_map(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t extent) {
-  free(buffer->mapping);
-  buffer->mapping = malloc(extent);
-  buffer->mapOffset = offset;
-  buffer->mapExtent = extent;
-  return buffer->mapping;
-}
-
-void gpu_unmap(gpu_stream* stream, gpu_buffer* buffer) {
-  wgpu_queue_write_buffer(state.queue, buffer->handle, buffer->mapOffset, buffer->mapping, buffer->mapExtent);
-  buffer->mapping = NULL;
+  gpu_mapping* mapping = malloc(sizeof(gpu_mapping));
+  mapping->next = state.mappings;
+  mapping->data = malloc(extent);
+  mapping->buffer = buffer->handle;
+  mapping->offset = offset;
+  mapping->extent = extent;
+  state.mappings = mapping;
+  return mapping->data;
 }
 
 bool gpu_write_buffer(gpu_stream* stream, gpu_buffer* buffer, const void* data, uint32_t offset, uint32_t extent) {
@@ -1111,6 +1133,14 @@ static void onSubmittedWorkDone(WGpuQueue queue, void* userdata) {
 }
 
 bool gpu_submit(gpu_stream** streams, uint32_t count) {
+  while (state.mappings) {
+    gpu_mapping* mapping = state.mappings;
+    wgpu_queue_write_buffer(state.queue, mapping->buffer, mapping->offset, mapping->data, mapping->extent);
+    state.mappings = mapping->next;
+    free(mapping->data);
+    free(mapping);
+  }
+
   WGpuCommandBuffer commandBuffers[64];
   count = MIN(count, COUNTOF(commandBuffers));
 
