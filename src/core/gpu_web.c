@@ -1073,7 +1073,7 @@ bool gpu_init(gpu_config* config) {
     config->limits->textureLayers = supported.maxTextureArrayLayers;
     config->limits->renderSize[0] = supported.maxTextureDimension2D;
     config->limits->renderSize[1] = supported.maxTextureDimension2D;
-    config->limits->renderSize[2] = 1;
+    config->limits->renderSize[2] = 6; // TODO actually support this
     config->limits->uniformBuffersPerStage = supported.maxUniformBuffersPerShaderStage;
     config->limits->storageBuffersPerStage = supported.maxStorageBuffersPerShaderStage;
     config->limits->sampledTexturesPerStage = supported.maxSampledTexturesPerShaderStage;
