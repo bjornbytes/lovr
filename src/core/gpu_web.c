@@ -755,6 +755,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   for (uint32_t i = 0; i < 4 && canvas->color[i].texture; i++, colorAttachmentCount++) {
     colorAttachments[i] = (WGpuRenderPassColorAttachment) {
       .view = canvas->color[i].texture->view,
+      .depthSlice = -1,
       .resolveTarget = canvas->color[i].resolve->view,
       .loadOp = loadOps[canvas->color[i].load],
       .storeOp = storeOps[canvas->color[i].save],
