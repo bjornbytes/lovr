@@ -109,17 +109,15 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
       WGPU_BUFFER_USAGE_INDEX |
       WGPU_BUFFER_USAGE_UNIFORM |
       WGPU_BUFFER_USAGE_COPY_SRC |
-      WGPU_BUFFER_USAGE_MAP_WRITE,
+      WGPU_BUFFER_USAGE_COPY_DST,
     [GPU_BUFFER_DOWNLOAD] =
       WGPU_BUFFER_USAGE_COPY_DST |
-      WGPU_BUFFER_USAGE_STORAGE |
-      WGPU_BUFFER_USAGE_MAP_READ,
+      WGPU_BUFFER_USAGE_STORAGE
   };
 
   buffer->handle = wgpu_device_create_buffer(state.device, &(WGpuBufferDescriptor) {
     .size = info->size,
-    .usage = usages[info->type],
-    .mappedAtCreation = !!info->pointer
+    .usage = usages[info->type]
   });
 
   if (!buffer->handle) {
