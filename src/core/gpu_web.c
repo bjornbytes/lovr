@@ -31,6 +31,7 @@ struct gpu_bundle_pool {
 
 struct gpu_bundle {
   WGpuBindGroup handle;
+  uint32_t dynamicBufferCount;
 };
 
 struct gpu_pipeline {
@@ -420,6 +421,7 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
     gpu_bundle_info* info = &infos[i];
     WGpuBindGroupEntry* entry = entries;
     gpu_binding* binding = info->bindings;
+    uint32_t dynamicBufferCount = 0;
 
     // TODO: error if binding array is given
     // TODO: error if binding count is bigger than 32
@@ -429,10 +431,12 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
       entry->binding = binding->number;
 
       switch (binding->type) {
-        case GPU_SLOT_UNIFORM_BUFFER:
-        case GPU_SLOT_STORAGE_BUFFER:
         case GPU_SLOT_UNIFORM_BUFFER_DYNAMIC:
         case GPU_SLOT_STORAGE_BUFFER_DYNAMIC:
+          dynamicBufferCount++;
+          /* fallthrough */
+        case GPU_SLOT_UNIFORM_BUFFER:
+        case GPU_SLOT_STORAGE_BUFFER:
           entry->resource = binding->buffer.object->handle;
           entry->bufferBindOffset = binding->buffer.offset;
           entry->bufferBindSize = binding->buffer.extent;
@@ -450,6 +454,7 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
     }
 
     bundles[i]->handle = wgpu_device_create_bind_group(state.device, info->layout->handle, entries, info->count);
+    bundles[i]->dynamicBufferCount = dynamicBufferCount;
   }
 }
 
@@ -799,11 +804,17 @@ void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_
 void gpu_bind_bundles(gpu_stream* stream, gpu_shader* shader, gpu_bundle** bundles, uint32_t first, uint32_t count, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount) {
   if (stream->compute) {
     for (uint32_t i = 0; i < count; i++) {
-      wgpu_compute_pass_encoder_set_bind_group(stream->compute, first + i, bundles[i]->handle, NULL, 0); // TODO dynamic offsets buh
+      uint32_t offsetCount = bundles[i]->dynamicBufferCount;
+      uint32_t* offsets = offsetCount > 0 ? dynamicOffsets : NULL;
+      wgpu_compute_pass_encoder_set_bind_group(stream->compute, first + i, bundles[i]->handle, offsets, offsetCount);
+      dynamicOffsets += offsetCount;
     }
   } else {
     for (uint32_t i = 0; i < count; i++) {
-      wgpu_render_pass_encoder_set_bind_group(stream->render, first + i, bundles[i]->handle, NULL, 0); // TODO dynamic offsets buh
+      uint32_t offsetCount = bundles[i]->dynamicBufferCount;
+      uint32_t* offsets = offsetCount > 0 ? dynamicOffsets : NULL;
+      wgpu_render_pass_encoder_set_bind_group(stream->render, first + i, bundles[i]->handle, offsets, offsetCount);
+      dynamicOffsets += offsetCount;
     }
   }
 }
