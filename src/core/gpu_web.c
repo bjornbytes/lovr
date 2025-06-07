@@ -909,8 +909,8 @@ void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, u
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]) {
   WGpuImageCopyBuffer srcRegion = {
     .offset = srcOffset,
-    .bytesPerRow = 0, // FIXME
-    .rowsPerImage = 0, // FIXME
+    .bytesPerRow = getRowSize(wgpu_texture_format(dst->handle), extent[0]),
+    .rowsPerImage = extent[1],
     .buffer = src->handle
   };
 
@@ -932,8 +932,8 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
 
   WGpuImageCopyBuffer dstRegion = {
     .offset = dstOffset,
-    .bytesPerRow = 0, // FIXME
-    .rowsPerImage = 0, // FIXME
+    .bytesPerRow = getRowSize(wgpu_texture_format(src->handle), extent[0]),
+    .rowsPerImage = extent[1],
     .buffer = dst->handle
   };
 
