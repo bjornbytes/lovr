@@ -44,10 +44,7 @@ struct gpu_tally {
 
 struct gpu_stream {
   WGpuCommandEncoder commands;
-  union {
-    WGpuRenderPassEncoder render;
-    WGpuComputePassEncoder compute;
-  };
+  WGpuObjectBase pass;
 };
 
 size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
@@ -764,29 +761,29 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     .depthStencilAttachment = depth
   };
 
-  stream->render = wgpu_command_encoder_begin_render_pass(stream->commands, &info);
+  stream->pass = wgpu_command_encoder_begin_render_pass(stream->commands, &info);
 }
 
 void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas) {
-  wgpu_render_pass_encoder_end(stream->render);
-  stream->render = 0;
+  wgpu_render_pass_encoder_end(stream->pass);
+  stream->pass = 0;
 }
 
 void gpu_compute_begin(gpu_stream* stream) {
-  stream->compute = wgpu_command_encoder_begin_compute_pass(stream->commands, NULL);
+  stream->pass = wgpu_command_encoder_begin_compute_pass(stream->commands, NULL);
 }
 
 void gpu_compute_end(gpu_stream* stream) {
-  wgpu_compute_pass_encoder_end(stream->compute);
-  stream->compute = 0;
+  wgpu_compute_pass_encoder_end(stream->pass);
+  stream->pass = 0;
 }
 
 void gpu_set_viewport(gpu_stream* stream, float view[4], float depth[2]) {
-  wgpu_render_pass_encoder_set_viewport(stream->render, view[0], view[1], view[2], view[3], depth[0], depth[1]);
+  wgpu_render_pass_encoder_set_viewport(stream->pass, view[0], view[1], view[2], view[3], depth[0], depth[1]);
 }
 
 void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]) {
-wgpu_render_pass_encoder_set_scissor_rect(stream->render, scissor[0], scissor[1], scissor[2], scissor[3]);
+wgpu_render_pass_encoder_set_scissor_rect(stream->pass, scissor[0], scissor[1], scissor[2], scissor[3]);
 }
 
 void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint32_t size) {
@@ -794,35 +791,22 @@ void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint
 }
 
 void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_type type) {
-  if (type == GPU_PIPELINE_COMPUTE) {
-    wgpu_compute_pass_encoder_set_pipeline(stream->compute, pipeline->handle);
-  } else {
-    wgpu_render_pass_encoder_set_pipeline(stream->render, pipeline->handle);
-  }
+  wgpu_encoder_set_pipeline(stream->pass, pipeline->handle);
 }
 
 void gpu_bind_bundles(gpu_stream* stream, gpu_shader* shader, gpu_bundle** bundles, uint32_t first, uint32_t count, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount) {
-  if (stream->compute) {
-    for (uint32_t i = 0; i < count; i++) {
-      uint32_t offsetCount = bundles[i]->dynamicBufferCount;
-      uint32_t* offsets = offsetCount > 0 ? dynamicOffsets : NULL;
-      wgpu_compute_pass_encoder_set_bind_group(stream->compute, first + i, bundles[i]->handle, offsets, offsetCount);
-      dynamicOffsets += offsetCount;
-    }
-  } else {
-    for (uint32_t i = 0; i < count; i++) {
-      uint32_t offsetCount = bundles[i]->dynamicBufferCount;
-      uint32_t* offsets = offsetCount > 0 ? dynamicOffsets : NULL;
-      wgpu_render_pass_encoder_set_bind_group(stream->render, first + i, bundles[i]->handle, offsets, offsetCount);
-      dynamicOffsets += offsetCount;
-    }
+  for (uint32_t i = 0; i < count; i++) {
+    uint32_t offsetCount = bundles[i]->dynamicBufferCount;
+    uint32_t* offsets = offsetCount > 0 ? dynamicOffsets : NULL;
+    wgpu_encoder_set_bind_group(stream->pass, first + i, bundles[i]->handle, offsets, offsetCount);
+    dynamicOffsets += offsetCount;
   }
 }
 
 void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count) {
   for (uint32_t i = 0; i < count; i++) {
     uint64_t size = wgpu_buffer_size(buffers[i]->handle) - offsets[i];
-    wgpu_render_pass_encoder_set_vertex_buffer(stream->render, first + i, buffers[i]->handle, offsets[i], size);
+    wgpu_render_pass_encoder_set_vertex_buffer(stream->pass, first + i, buffers[i]->handle, offsets[i], size);
   }
 }
 
@@ -832,37 +816,37 @@ void gpu_bind_index_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offs
     [GPU_INDEX_U32] = WGPU_INDEX_FORMAT_UINT32
   };
   uint64_t size = wgpu_buffer_size(buffer->handle) - offset;
-  wgpu_render_pass_encoder_set_index_buffer(stream->render, buffer->handle, indexTypes[type], offset, size);
+  wgpu_render_pass_encoder_set_index_buffer(stream->pass, buffer->handle, indexTypes[type], offset, size);
 }
 
 void gpu_draw(gpu_stream* stream, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t baseInstance) {
-  wgpu_render_pass_encoder_draw(stream->render, vertexCount, instanceCount, firstVertex, baseInstance);
+  wgpu_render_pass_encoder_draw(stream->pass, vertexCount, instanceCount, firstVertex, baseInstance);
 }
 
 void gpu_draw_indexed(gpu_stream* stream, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, uint32_t baseVertex, uint32_t baseInstance) {
-  wgpu_render_pass_encoder_draw_indexed(stream->render, indexCount, instanceCount, firstIndex, baseVertex, baseInstance);
+  wgpu_render_pass_encoder_draw_indexed(stream->pass, indexCount, instanceCount, firstIndex, baseVertex, baseInstance);
 }
 
 void gpu_draw_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
   stride = stride ? stride : 16;
   for (uint32_t i = 0; i < drawCount; i++) {
-    wgpu_render_pass_encoder_draw_indirect(stream->render, buffer->handle, offset + stride * i);
+    wgpu_render_pass_encoder_draw_indirect(stream->pass, buffer->handle, offset + stride * i);
   }
 }
 
 void gpu_draw_indirect_indexed(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) {
   stride = stride ? stride : 20;
   for (uint32_t i = 0; i < drawCount; i++) {
-    wgpu_render_pass_encoder_draw_indexed_indirect(stream->render, buffer->handle, offset + stride * i);
+    wgpu_render_pass_encoder_draw_indexed_indirect(stream->pass, buffer->handle, offset + stride * i);
   }
 }
 
 void gpu_compute(gpu_stream* stream, uint32_t x, uint32_t y, uint32_t z) {
-  wgpu_compute_pass_encoder_dispatch_workgroups(stream->compute, x, y, z);
+  wgpu_compute_pass_encoder_dispatch_workgroups(stream->pass, x, y, z);
 }
 
 void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset) {
-  wgpu_compute_pass_encoder_dispatch_workgroups_indirect(stream->compute, buffer->handle, offset);
+  wgpu_compute_pass_encoder_dispatch_workgroups_indirect(stream->pass, buffer->handle, offset);
 }
 
 void* gpu_map(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t extent) {
@@ -981,11 +965,11 @@ void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
 }
 
 void gpu_tally_begin(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
-  wgpu_render_pass_encoder_begin_occlusion_query(stream->render, index);
+  wgpu_render_pass_encoder_begin_occlusion_query(stream->pass, index);
 }
 
 void gpu_tally_finish(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
-  wgpu_render_pass_encoder_end_occlusion_query(stream->render);
+  wgpu_render_pass_encoder_end_occlusion_query(stream->pass);
 }
 
 void gpu_tally_mark(gpu_stream* stream, gpu_tally* tally, uint32_t index) {
