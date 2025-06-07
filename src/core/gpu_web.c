@@ -10,6 +10,7 @@ struct gpu_buffer {
 struct gpu_texture {
   WGpuTexture handle;
   WGpuTextureView view;
+  WGPU_TEXTURE_FORMAT format;
 };
 
 struct gpu_sampler {
@@ -183,6 +184,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   wgpu_object_set_label(texture->handle, info->label);
 
+  texture->format = wgpu_texture_format(texture->handle);
   texture->view = wgpu_texture_create_view_simple(texture->handle);
 
   if (!texture->view) {
@@ -213,9 +215,10 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
   };
 
   texture->handle = 0;
+  texture->format = info->source->format;
 
   return texture->view = wgpu_texture_create_view(info->source->handle, &(WGpuTextureViewDescriptor) {
-    .format = wgpu_texture_format(info->source->handle),
+    .format = texture->format,
     .dimension = types[info->type],
     .baseMipLevel = info->levelIndex,
     .mipLevelCount = info->levelCount,
@@ -766,14 +769,17 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     };
   }
 
+  WGPU_TEXTURE_FORMAT depthFormat = canvas->depth.texture ? canvas->depth.texture->format : WGPU_TEXTURE_FORMAT_INVALID;
+  bool stencil = depthFormat == WGPU_TEXTURE_FORMAT_DEPTH24PLUS_STENCIL8 || depthFormat == WGPU_TEXTURE_FORMAT_DEPTH32FLOAT_STENCIL8;
+
   WGpuRenderPassDepthStencilAttachment depth = {
     .view = canvas->depth.texture ? canvas->depth.texture->view : 0,
-    .depthLoadOp = loadOps[canvas->depth.load],
-    .depthStoreOp = storeOps[canvas->depth.save],
+    .depthLoadOp = canvas->depth.texture ? loadOps[canvas->depth.load] : WGPU_LOAD_OP_UNDEFINED,
+    .depthStoreOp = canvas->depth.texture ? storeOps[canvas->depth.save] : WGPU_STORE_OP_UNDEFINED,
     .depthClearValue = canvas->depth.clear,
     .depthReadOnly = false,
-    .stencilLoadOp = loadOps[canvas->depth.stencilLoad],
-    .stencilStoreOp = storeOps[canvas->depth.stencilSave],
+    .stencilLoadOp = stencil ? loadOps[canvas->depth.stencilLoad] : WGPU_LOAD_OP_UNDEFINED,
+    .stencilStoreOp = stencil ? storeOps[canvas->depth.stencilSave] : WGPU_STORE_OP_UNDEFINED,
     .stencilClearValue = 0,
     .stencilReadOnly = false
   };
@@ -890,7 +896,7 @@ bool gpu_write_buffer(gpu_stream* stream, gpu_buffer* buffer, const void* data, 
 
 bool gpu_write_texture(gpu_stream* stream, gpu_texture* texture, void* data, uint32_t offset[4], uint32_t extent[3], uint32_t rowSize, uint32_t rowsPerImage) {
   if (rowSize == 0) {
-    rowSize = getRowSize(wgpu_texture_format(texture->handle), extent[0]);
+    rowSize = getRowSize(texture->format, extent[0]);
   }
 
   if (rowsPerImage == 0) {
@@ -932,7 +938,7 @@ void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, u
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]) {
   WGpuImageCopyBuffer srcRegion = {
     .offset = srcOffset,
-    .bytesPerRow = getRowSize(wgpu_texture_format(dst->handle), extent[0]),
+    .bytesPerRow = getRowSize(dst->format, extent[0]),
     .rowsPerImage = extent[1],
     .buffer = src->handle
   };
@@ -955,7 +961,7 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
 
   WGpuImageCopyBuffer dstRegion = {
     .offset = dstOffset,
-    .bytesPerRow = getRowSize(wgpu_texture_format(src->handle), extent[0]),
+    .bytesPerRow = getRowSize(src->format, extent[0]),
     .rowsPerImage = extent[1],
     .buffer = dst->handle
   };
