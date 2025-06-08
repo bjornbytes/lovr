@@ -1,6 +1,8 @@
 #include "gpu.h"
 #include "lib/webgpu/webgpu.h"
+#include <tincture.h>
 #include <string.h>
+#include <stdio.h>
 
 struct gpu_buffer {
   WGpuBuffer handle;
@@ -405,9 +407,21 @@ void gpu_layout_destroy(gpu_layout* layout) {
 
 bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
   for (uint32_t i = 0; i < info->stageCount; i++) {
-    WGpuShaderModuleDescriptor descriptor = { 0 }; // TODO
+    char* wgsl;
+
+    if (!spirv_to_wgsl(info->stages[i].code, info->stages[i].length / 4, &wgsl)) {
+      for (uint32_t j = 0; j < i; j++) {
+        wgpu_object_destroy(shader->handles[j]);
+      }
+      fprintf(stderr, "Could not compile shader: %s\n", wgsl);
+      free(wgsl);
+      return false;
+    }
+
+    WGpuShaderModuleDescriptor descriptor = { .code = wgsl };
     shader->handles[i] = wgpu_device_create_shader_module(state.device, &descriptor);
     wgpu_object_set_label(shader->handles[i], info->label);
+    free(wgsl);
   }
 
   uint32_t layoutCount = 0;
