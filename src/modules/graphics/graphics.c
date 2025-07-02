@@ -1595,21 +1595,31 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream) {
       }
     }
 
-    if (draw->shader->pushConstantSize >= 4) {
-      gpu_push_constants(stream, draw->shader->gpu, (uint32_t[1]) { i & 0xff }, 4);
-    }
-
     if (draw->flags & DRAW_INDIRECT) {
+      if (draw->shader->pushConstantSize >= 4) {
+        gpu_push_constants(stream, draw->shader->gpu, (uint32_t[1]) { i & 0xff }, 4);
+      }
+
       if (draw->indexBuffer) {
         gpu_draw_indirect_indexed(stream, draw->indirect.buffer, draw->indirect.offset, draw->indirect.count, draw->indirect.stride);
       } else {
         gpu_draw_indirect(stream, draw->indirect.buffer, draw->indirect.offset, draw->indirect.count, draw->indirect.stride);
       }
-    } else {
+    } else if (draw->instances > 0) {
+      if (draw->shader->pushConstantSize >= 4) {
+        gpu_push_constants(stream, draw->shader->gpu, (uint32_t[1]) { i & 0xff }, 4);
+      }
+
       if (draw->indexBuffer) {
         gpu_draw_indexed(stream, draw->count, draw->instances, draw->start, draw->baseVertex, 0);
       } else {
         gpu_draw(stream, draw->count, draw->instances, draw->start, 0);
+      }
+    } else {
+      if (draw->indexBuffer) {
+        gpu_draw_indexed(stream, draw->count, 1, draw->start, draw->baseVertex, i & 0xff);
+      } else {
+        gpu_draw(stream, draw->count, 1, draw->start, i & 0xff);
       }
     }
   }
@@ -3247,6 +3257,30 @@ fail:
 }
 
 static bool lovrShaderInit(Shader* shader) {
+  // The builtin "instanced" shader flag always goes first, so we can quickly include/exclude it
+  // from flag array depending on whether the draw is instanced or not
+  if (shader->info.type != SHADER_COMPUTE) {
+    #define INSTANCED_FLAG_ID 1001
+
+    for (uint32_t i = 0; i < shader->flagCount; i++) {
+      if (shader->flags[i].id != INSTANCED_FLAG_ID) continue;
+
+      uint32_t index = shader->overrideCount++;
+
+      if (i > 0) {
+        gpu_shader_flag temp = shader->flags[index];
+        shader->flags[index] = shader->flags[i];
+        shader->flags[i] = temp;
+
+        uint32_t tempHash = shader->flagLookup[index];
+        shader->flagLookup[index] = shader->flagLookup[i];
+        shader->flagLookup[i] = tempHash;
+      }
+
+      shader->flags[index].value.b32 = true;
+      break;
+    }
+  }
 
   // Shaders store the full list of their flags so clones can override them, but they are reordered
   // to put overridden (active) ones first, so a contiguous list can be used to create pipelines
@@ -7377,7 +7411,7 @@ bool lovrPassSendData(Pass* pass, const char* name, size_t length, void** data, 
   return true;
 }
 
-static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw* prev) {
+static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw* prev, bool instanced) {
   Pipeline* pipeline = pass->pipeline;
   Shader* shader = draw->shader;
 
@@ -7388,8 +7422,12 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
 
   if (!pipeline->shader && pipeline->info.shader != shader->gpu) {
     pipeline->info.shader = shader->gpu;
-    pipeline->info.flags = NULL;
-    pipeline->info.flagCount = 0;
+    pipeline->info.flags = shader->flags;
+    pipeline->info.flagCount = shader->flagCount;
+    pipeline->dirty = true;
+  }
+
+  if (prev && (prev->instances > 0 != instanced)) {
     pipeline->dirty = true;
   }
 
@@ -7458,6 +7496,14 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
     pipeline->dirty = false;
     draw->pipelineInfo = lovrPassAllocate(pass, sizeof(gpu_pipeline_info));
     memcpy(draw->pipelineInfo, &pipeline->info, sizeof(pipeline->info));
+
+    // There's a flag at the beginning of the flag list used to mark a draw as instanced
+    // If the draw is non-instanced, ignore this flag
+    if (!instanced) {
+      draw->pipelineInfo->flags++;
+      draw->pipelineInfo->flagCount--;
+    }
+
     draw->pipeline = NULL;
   } else {
     draw->pipelineInfo = prev->pipelineInfo;
@@ -7601,10 +7647,10 @@ bool lovrPassDraw(Pass* pass, DrawInfo* info) {
 
   draw->start = info->start;
   draw->count = info->count > 0 ? info->count : (info->index.buffer || info->index.count > 0 ? info->index.count : info->vertex.count);
-  draw->instances = MAX(info->instances, 1);
+  draw->instances = info->instances;
   draw->baseVertex = info->baseVertex;
 
-  lovrPassResolvePipeline(pass, info, draw, previous);
+  lovrPassResolvePipeline(pass, info, draw, previous, draw->instances > 0);
   draw->bindings = lovrPassResolveBindings(pass, draw->shader, previous ? previous->bindings : NULL);
   if (!lovrPassResolveUniforms(pass, draw->shader, &draw->uniformBuffer, &draw->uniformOffset, previous)) return false;
   if (!lovrPassResolveVertices(pass, info, draw)) return false;
@@ -8865,7 +8911,7 @@ bool lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
   draw->indirect.count = count;
   draw->indirect.stride = stride;
 
-  lovrPassResolvePipeline(pass, &info, draw, previous);
+  lovrPassResolvePipeline(pass, &info, draw, previous, true);
   draw->bindings = lovrPassResolveBindings(pass, shader, previous ? previous->bindings : NULL);
   if (!lovrPassResolveUniforms(pass, draw->shader, &draw->uniformBuffer, &draw->uniformOffset, previous)) return false;
   if (!lovrPassResolveVertices(pass, &info, draw)) return false;

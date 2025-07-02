@@ -1,6 +1,7 @@
 // Flags
 #ifndef GL_COMPUTE_SHADER
 layout(constant_id = 1000) const float flag_pointSize = 1.f;
+layout(constant_id = 1001) const bool flag_instanced = false;
 layout(constant_id = 1002) const bool flag_passColor = true;
 layout(constant_id = 1003) const bool flag_materialColor = true;
 layout(constant_id = 1004) const bool flag_vertexColors = true;
@@ -63,10 +64,6 @@ layout(set = 1, binding = 4) uniform texture2D RoughnessTexture;
 layout(set = 1, binding = 5) uniform texture2D ClearcoatTexture;
 layout(set = 1, binding = 6) uniform texture2D OcclusionTexture;
 layout(set = 1, binding = 7) uniform texture2D NormalTexture;
-
-layout(push_constant) uniform PushConstants {
-  uint _drawID;
-};
 #endif
 
 // Attributes
@@ -159,9 +156,10 @@ layout(location = 15) in vec4 Tangent;
 #endif
 
 #ifdef GL_VERTEX_SHADER
-#define Transform mat4(Draws[_drawID].transform)
-#define NormalMatrix (cofactor3(Draws[_drawID].transform))
-#define PassColor Draws[_drawID].color
+#define DrawID InstanceIndex
+#define Transform mat4(Draws[DrawID].transform)
+#define NormalMatrix (cofactor3(Draws[DrawID].transform))
+#define PassColor Draws[DrawID].color
 #define ClipFromLocal (ViewProjection * Transform)
 #define ClipFromWorld (ViewProjection)
 #define ClipFromView (Projection)
