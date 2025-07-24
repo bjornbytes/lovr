@@ -607,10 +607,10 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
           .offset = info->vertex.attributes[j].offset,
           .shaderLocation = info->vertex.attributes[j].location
         };
+
+        vertexBuffers[i].numAttributes++;
       }
     }
-
-    totalAttributeCount += vertexBuffers[i].numAttributes;
   }
 
   WGpuVertexState vertex = {
