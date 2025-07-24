@@ -50,8 +50,10 @@ if(EMSCRIPTEN)
     "-sASYNCIFY_IGNORE_INDIRECT=1 "
     "-sFORCE_FILESYSTEM=1 "
     "-sINITIAL_MEMORY=1677721600 "
+    "-sSTACK_SIZE=2MB "
     "-sEXPORTED_FUNCTIONS=_main "
     "-sEXPORTED_RUNTIME_METHODS=getValue,setValue "
+    "--js-library \"${PROJECT_SOURCE_DIR}/src/lib/webgpu/webgpu.js\" "
     "--shell-file \"${PROJECT_SOURCE_DIR}/etc/lovr.html\""
   )
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os -sSUPPORT_LONGJMP=wasm -fno-exceptions")
@@ -64,6 +66,7 @@ if(EMSCRIPTEN)
   set(LOVR_USE_WEBGPU ON)
   set(LOVR_USE_TINCTURE ON)
   set(LOVR_USE_VULKAN OFF)
+  set(LOVR_ENABLE_HEADSET OFF)
 elseif(MSVC)
   add_compile_options(/MP)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
