@@ -539,7 +539,7 @@ void main() {
     Tangent = vec4(NormalMatrix * VertexTangent.xyz, VertexTangent.w);
   }
 
-  PointSize = flag_pointSize;
+  PointSize = 1.0;
   Position = lovrmain();
 
   if (flag_uvTransform) {
