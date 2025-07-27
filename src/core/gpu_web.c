@@ -649,6 +649,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
 
   WGpuMultisampleState multisample = {
     .count = info->multisample.count,
+    .mask = ~0u,
     .alphaToCoverageEnabled = info->multisample.alphaToCoverage
   };
 
