@@ -1165,6 +1165,7 @@ const char* gpu_get_error(void) {
 
 bool gpu_begin(uint32_t* tick) {
   *tick = state.tick++;
+  state.streamCount = 0;
   return true;
 }
 
