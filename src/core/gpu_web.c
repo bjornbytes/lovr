@@ -775,7 +775,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     colorAttachments[i] = (WGpuRenderPassColorAttachment) {
       .view = canvas->color[i].texture->view,
       .depthSlice = -1,
-      .resolveTarget = canvas->color[i].resolve->view,
+      .resolveTarget = canvas->color[i].resolve ? canvas->color[i].resolve->view : 0,
       .loadOp = loadOps[canvas->color[i].load],
       .storeOp = storeOps[canvas->color[i].save],
       .clearValue.r = canvas->color[i].clear[0],
