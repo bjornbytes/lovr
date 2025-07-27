@@ -187,7 +187,7 @@ mat3 cofactor3(mat4x3 m) {
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
-#define DefaultColor (flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color)
+#define DefaultColor (flag_colorTexture ? (Color * texture(sampler2D(ColorTexture, Sampler), UV)) : Color)
 #endif
 
 // Helper for sampling textures using the default sampler set using Pass:setSampler
@@ -556,7 +556,7 @@ void main() {
 
   if (flag_glow) {
     if (flag_glowTexture) {
-      PixelColor.rgb += getPixel(GlowTexture, UV).rgb * Material.glow.rgb * Material.glow.a;
+      PixelColor.rgb += texture(sampler2D(GlowTexture, Sampler), UV).rgb * Material.glow.rgb * Material.glow.a;
     } else {
       PixelColor.rgb += Material.glow.rgb * Material.glow.a;
     }
