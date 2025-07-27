@@ -272,6 +272,7 @@ bool gpu_surface_resize(uint32_t width, uint32_t height) {
 bool gpu_surface_acquire(gpu_texture** texture, uint32_t* width, uint32_t* height) {
   state.backbuffer.handle = wgpu_canvas_context_get_current_texture(state.context);
   state.backbuffer.view = wgpu_texture_create_view_simple(state.backbuffer.handle);
+  state.backbuffer.format = navigator_gpu_get_preferred_canvas_format();
   *texture = &state.backbuffer;
   *width = wgpu_texture_width(state.backbuffer.handle);
   *height = wgpu_texture_height(state.backbuffer.handle);
