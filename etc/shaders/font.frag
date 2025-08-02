@@ -14,7 +14,7 @@ float median(float r, float g, float b) {
 }
 
 vec4 lovrmain() {
-  vec3 msdf = getPixel(ColorTexture, UV).rgb;
+  vec3 msdf = texture(sampler2D(ColorTexture, Sampler), UV).rgb;
   float sdf = median(msdf.r, msdf.g, msdf.b);
   float screenPxDistance = screenPxRange() * (sdf - .5);
   float alpha = clamp(screenPxDistance + .5, 0., 1.);
