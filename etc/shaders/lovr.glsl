@@ -29,13 +29,13 @@ struct Camera {
 };
 
 struct Draw {
-  mat4x3 transform;
+  vec4 transform[3];
   vec4 color;
 };
 
 layout(set = 0, binding = 0) uniform Globals { vec2 Resolution; float Time; };
 layout(set = 0, binding = 1) uniform CameraBuffer { Camera Cameras[6]; };
-layout(set = 0, binding = 2) uniform DrawBuffer { layout(row_major) Draw Draws[256]; };
+layout(set = 0, binding = 2) uniform DrawBuffer { Draw Draws[256]; };
 layout(set = 0, binding = 3) uniform sampler Sampler;
 
 struct MaterialData {
@@ -157,8 +157,8 @@ layout(location = 15) in vec4 Tangent;
 
 #ifdef GL_VERTEX_SHADER
 #define DrawID InstanceIndex
-#define Transform mat4(Draws[DrawID].transform)
-#define NormalMatrix (cofactor3(Draws[DrawID].transform))
+#define Transform mat4(transpose(mat3x4(Draws[DrawID].transform[0], Draws[DrawID].transform[1], Draws[DrawID].transform[2])))
+#define NormalMatrix (cofactor3(Transform))
 #define PassColor Draws[DrawID].color
 #define ClipFromLocal (ViewProjection * Transform)
 #define ClipFromWorld (ViewProjection)
@@ -171,7 +171,7 @@ layout(location = 15) in vec4 Tangent;
 #define WorldFromClip (inverse(ViewProjection))
 #define DefaultPosition (ClipFromLocal * VertexPosition)
 
-mat3 cofactor3(mat4x3 m) {
+mat3 cofactor3(mat4 m) {
   return mat3(vec3(
      (m[1][1] * m[2][2] - m[2][1] * m[1][2]),
     -(m[1][0] * m[2][2] - m[2][0] * m[1][2]),
