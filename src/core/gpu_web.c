@@ -83,6 +83,13 @@ static struct {
   uint32_t streamCount;
   uint32_t tick;
   uint32_t lastTickFinished;
+  struct {
+    WGpuShaderModule shader;
+    WGpuBindGroupLayout bindGroupLayout;
+    WGpuPipelineLayout pipelineLayout;
+    WGpuRenderPipeline pipeline;
+    WGpuSampler sampler;
+  } blit;
 } state;
 
 // Helpers
@@ -203,7 +210,24 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     }
   }
 
-  // TODO mipgen
+  if (info->upload.generateLevels && info->mipmaps > 1) {
+    bool volumetric = info->type == GPU_TEXTURE_3D;
+    for (uint32_t i = 0; i < info->mipmaps - 1; i++) {
+      uint32_t srcOffset[4] = { 0, 0, 0, i };
+      uint32_t dstOffset[4] = { 0, 0, 0, i + 1 };
+      uint32_t srcExtent[3] = {
+        MAX(info->size[0] >> i, 1),
+        MAX(info->size[1] >> i, 1),
+        volumetric ? MAX(info->size[2] >> i, 1) : info->size[2]
+      };
+      uint32_t dstExtent[3] = {
+        MAX(info->size[0] >> (i + 1), 1),
+        MAX(info->size[1] >> (i + 1), 1),
+        volumetric ? MAX(info->size[2] >> (i + 1), 1) : info->size[2]
+      };
+      gpu_blit(info->upload.stream, texture, texture, srcOffset, dstOffset, srcExtent, dstExtent, GPU_FILTER_LINEAR);
+    }
+  }
 
   return true;
 }
@@ -1002,7 +1026,134 @@ void gpu_clear_tally(gpu_stream* stream, gpu_tally* tally, uint32_t index, uint3
 }
 
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], gpu_filter filter) {
-  // TODO Unsupported
+  if (!state.blit.shader) {
+    const char* code = ""
+      "struct VertexOutput {\n"
+      "  @builtin(position) position: vec4f,\n"
+      "  @location(0) uv: vec2f,\n"
+      "}\n"
+      "\n"
+      "@vertex\n"
+      "fn vertex(@builtin(vertex_index) VertexIndex: u32) -> VertexOutput {\n"
+      "  let x = -1f + f32((VertexIndex & 1u) << 2u);\n"
+      "  let y = -1f + f32((VertexIndex & 2u) << 1u);\n"
+      "  var output: VertexOutput;\n"
+      "  output.position = vec4f(x, y, 1f, 1f);\n"
+      "  output.uv = vec4f(vec2f(x, y) * .5 + .5, 1f, 1f);\n"
+      "  return output;\n"
+      "}\n"
+      "\n"
+      "@group(0) @binding(0) var texture: texture_2d<f32>;\n"
+      "@group(0) @binding(1) var sampler: sampler;\n"
+      "\n"
+      "@fragment\n"
+      "fn fragment(input: VertexOutput) -> @location(0) vec4f {\n"
+      "  return textureSample(texture, sampler, input.uv);\n"
+      "}\n";
+
+    state.blit.shader = wgpu_device_create_shader_module(state.device, &(WGpuShaderModuleDescriptor) {
+      .code = code
+    });
+
+    WGpuBindGroupLayoutEntry entries[] = {
+      {
+        .binding = 0,
+        .visibility = WGPU_SHADER_STAGE_FRAGMENT,
+        .type = WGPU_BIND_GROUP_LAYOUT_TYPE_TEXTURE,
+        .layout.texture.sampleType = WGPU_TEXTURE_SAMPLE_TYPE_FLOAT,
+        .layout.texture.viewDimension = WGPU_TEXTURE_VIEW_DIMENSION_2D
+      },
+      {
+        .binding = 1,
+        .visibility = WGPU_SHADER_STAGE_FRAGMENT,
+        .type = WGPU_BIND_GROUP_LAYOUT_TYPE_SAMPLER,
+        .layout.sampler.type = WGPU_SAMPLER_BINDING_TYPE_FILTERING
+      }
+    };
+
+    state.blit.bindGroupLayout = wgpu_device_create_bind_group_layout(state.device, entries, COUNTOF(entries));
+    state.blit.pipelineLayout = wgpu_device_create_pipeline_layout(state.device, &state.blit.bindGroupLayout, 1);
+    state.blit.pipeline = wgpu_device_create_render_pipeline(state.device, &(WGpuRenderPipelineDescriptor) {
+      .vertex = {
+        .module = state.blit.shader,
+        .entryPoint = "vertex"
+      },
+      .primitive = {
+        .topology = WGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .frontFace = WGPU_FRONT_FACE_CCW,
+        .cullMode = WGPU_CULL_MODE_BACK
+      },
+      .multisample = {
+        .count = 1,
+        .mask = ~0u
+      },
+      .fragment = {
+        .module = state.blit.shader,
+        .entryPoint = "fragment",
+      },
+      .layout = state.blit.pipelineLayout
+    });
+
+    state.blit.sampler = wgpu_device_create_sampler(state.device, &(WGpuSamplerDescriptor) {
+      .minFilter = WGPU_FILTER_MODE_LINEAR,
+      .magFilter = WGPU_FILTER_MODE_LINEAR,
+      .mipmapFilter = WGPU_MIPMAP_FILTER_MODE_NEAREST,
+      .addressModeU = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+      .addressModeV = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+      .addressModeW = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE
+    });
+  }
+
+  // TODO 3D textures, src uv rect, nearest
+  for (uint32_t i = 0; i < dstExtent[2]; i++) {
+    WGpuTextureView srcView = wgpu_texture_create_view(src->handle, &(WGpuTextureViewDescriptor) {
+      .format = src->format,
+      .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
+      .baseMipLevel = srcOffset[3],
+      .mipLevelCount = 1,
+      .baseArrayLayer = srcOffset[2] + i,
+      .arrayLayerCount = 1
+    });
+
+    WGpuTextureView dstView = wgpu_texture_create_view(dst->handle, &(WGpuTextureViewDescriptor) {
+      .format = dst->format,
+      .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
+      .baseMipLevel = dstOffset[3],
+      .mipLevelCount = 1,
+      .baseArrayLayer = dstOffset[2] + i,
+      .arrayLayerCount = 1
+    });
+
+    WGpuBindGroupEntry bindings[] = {
+      { .binding = 0, .resource = srcView },
+      { .binding = 1, .resource = state.blit.sampler }
+    };
+
+    WGpuBindGroup bindGroup = wgpu_device_create_bind_group(state.device, state.blit.bindGroupLayout, bindings, COUNTOF(bindings));
+
+    WGpuRenderPassColorAttachment attachment = {
+      .view = dstView,
+      .depthSlice = -1,
+      .loadOp = WGPU_LOAD_OP_CLEAR,
+      .storeOp = WGPU_STORE_OP_STORE
+    };
+
+    WGpuRenderPassEncoder pass = wgpu_command_encoder_begin_render_pass(stream->commands, &(WGpuRenderPassDescriptor) {
+      .numColorAttachments = 1,
+      .colorAttachments = &attachment,
+      .depthStencilAttachment = { 0 }
+    });
+
+    wgpu_render_pass_encoder_set_pipeline(pass, state.blit.pipeline);
+    wgpu_render_pass_encoder_set_bind_group(pass, 0, bindGroup, NULL, 0);
+    wgpu_render_pass_encoder_set_viewport(pass, dstOffset[0], dstOffset[1], dstExtent[0], dstExtent[1], 0.f, 1.f);
+    wgpu_render_pass_encoder_draw(pass, 3, 1, 0, 0);
+    wgpu_render_pass_encoder_end(pass);
+
+    wgpu_object_destroy(bindGroup);
+    wgpu_object_destroy(srcView);
+    wgpu_object_destroy(dstView);
+  }
 }
 
 void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
@@ -1052,22 +1203,22 @@ bool gpu_init(gpu_config* config) {
     config->features->int64 = false;
     config->features->int16 = false;
 
-    config->features->formats[GPU_FORMAT_R8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
-    config->features->formats[GPU_FORMAT_RG8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
-    config->features->formats[GPU_FORMAT_RGBA8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_STORAGE;
-    config->features->formats[GPU_FORMAT_BGRA8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_R8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
+    config->features->formats[GPU_FORMAT_RG8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
+    config->features->formats[GPU_FORMAT_RGBA8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT | GPU_FEATURE_STORAGE;
+    config->features->formats[GPU_FORMAT_BGRA8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
     config->features->formats[GPU_FORMAT_R16][0] = 0;
     config->features->formats[GPU_FORMAT_RG16][0] = 0;
     config->features->formats[GPU_FORMAT_RGBA16][0] = 0;
-    config->features->formats[GPU_FORMAT_R16F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
-    config->features->formats[GPU_FORMAT_RG16F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
-    config->features->formats[GPU_FORMAT_RGBA16F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_STORAGE;
+    config->features->formats[GPU_FORMAT_R16F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
+    config->features->formats[GPU_FORMAT_RG16F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
+    config->features->formats[GPU_FORMAT_RGBA16F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT | GPU_FEATURE_STORAGE;
     config->features->formats[GPU_FORMAT_R32F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_STORAGE; // not blendable
     config->features->formats[GPU_FORMAT_RG32F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_STORAGE; // not blendable
     config->features->formats[GPU_FORMAT_RGBA32F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_STORAGE; // not blendable
     config->features->formats[GPU_FORMAT_RGB565][0] = 0;
     config->features->formats[GPU_FORMAT_RGB5A1][0] = 0;
-    config->features->formats[GPU_FORMAT_RGB10A2][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_RGB10A2][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
     config->features->formats[GPU_FORMAT_RG11B10F][0] = GPU_FEATURE_SAMPLE; // need rg11b10ufloat-renderable feature for RENDER
     config->features->formats[GPU_FORMAT_D16][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
     config->features->formats[GPU_FORMAT_D24][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
@@ -1103,8 +1254,8 @@ bool gpu_init(gpu_config* config) {
       config->features->formats[i][1] = config->features->formats[i][0];
     }
 
-    config->features->formats[GPU_FORMAT_RGBA8][1] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
-    config->features->formats[GPU_FORMAT_BGRA8][1] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_RGBA8][1] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
+    config->features->formats[GPU_FORMAT_BGRA8][1] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
 
     config->features->sampleCounts = 1 | 4;
   }
@@ -1155,6 +1306,14 @@ bool gpu_init(gpu_config* config) {
 }
 
 void gpu_destroy(void) {
+  if (state.blit.shader) {
+    wgpu_object_destroy(state.blit.shader);
+    wgpu_object_destroy(state.blit.bindGroupLayout);
+    wgpu_object_destroy(state.blit.pipelineLayout);
+    wgpu_object_destroy(state.blit.pipeline);
+    wgpu_object_destroy(state.blit.sampler);
+  }
+
   wgpu_object_destroy(state.device);
   memset(&state, 0, sizeof(state));
 }
