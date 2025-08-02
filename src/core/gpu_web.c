@@ -269,7 +269,9 @@ bool gpu_surface_init(gpu_surface_info* info) {
     .usage = WGPU_TEXTURE_USAGE_RENDER_ATTACHMENT,
     .colorSpace = HTML_PREDEFINED_COLOR_SPACE_SRGB,
     .toneMapping.mode = WGPU_CANVAS_TONE_MAPPING_MODE_STANDARD,
-    .alphaMode = WGPU_CANVAS_ALPHA_MODE_OPAQUE
+    .alphaMode = WGPU_CANVAS_ALPHA_MODE_OPAQUE,
+    .numViewFormats = 1,
+    .viewFormats = &(WGPU_TEXTURE_FORMAT) { convertFormat(gpu_surface_get_format(), true) }
   };
 
   wgpu_canvas_context_configure(state.context, &config);
@@ -294,9 +296,20 @@ bool gpu_surface_resize(uint32_t width, uint32_t height) {
 }
 
 bool gpu_surface_acquire(gpu_texture** texture, uint32_t* width, uint32_t* height) {
+  if (state.backbuffer.handle) {
+    *texture = &state.backbuffer;
+    return true;
+  }
+
+  WGPU_TEXTURE_FORMAT format = convertFormat(gpu_surface_get_format(), true);
   state.backbuffer.handle = wgpu_canvas_context_get_current_texture(state.context);
-  state.backbuffer.view = wgpu_texture_create_view_simple(state.backbuffer.handle);
-  state.backbuffer.format = navigator_gpu_get_preferred_canvas_format();
+  state.backbuffer.view = wgpu_texture_create_view(state.backbuffer.handle, &(WGpuTextureViewDescriptor) {
+    .format = format,
+    .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
+    .mipLevelCount = 1,
+    .arrayLayerCount = 1
+  });
+  state.backbuffer.format = format;
   *texture = &state.backbuffer;
   *width = wgpu_texture_width(state.backbuffer.handle);
   *height = wgpu_texture_height(state.backbuffer.handle);
@@ -304,6 +317,12 @@ bool gpu_surface_acquire(gpu_texture** texture, uint32_t* width, uint32_t* heigh
 }
 
 bool gpu_surface_present(void) {
+  if (state.backbuffer.handle) {
+    wgpu_object_destroy(state.backbuffer.view);
+    state.backbuffer.handle = 0;
+    state.backbuffer.view = 0;
+  }
+
   return true;
 }
 

@@ -2377,9 +2377,7 @@ bool lovrGraphicsGetWindowTexture(Texture** texture) {
       .mipmaps = 1,
       .samples = 1,
       .usage = TEXTURE_RENDER,
-#ifdef LOVR_VK
       .srgb = true
-#endif
     };
 
     bool vsync = state.config.vsync;

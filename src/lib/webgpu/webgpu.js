@@ -463,11 +463,19 @@ let api = {
 
     {{{ replacePtrToIdx('config', 2); }}}
 
+    let viewFormats = [],
+      numViewFormats = HEAP32[config + 3],
+      viewFormatsIdx = {{{ shiftPtr('HEAPU32[config+4]', 2) }}}; // TODO: Wasm64
+
+    while(numViewFormats--) {
+      viewFormats.push(GPUTextureAndVertexFormats[HEAPU32[viewFormatsIdx++]]);
+    }
+
     let desc = {
       'device': wgpu[HEAPU32[config]],
       'format': GPUTextureAndVertexFormats[HEAPU32[config+1]],
       'usage': HEAPU32[config+2],
-      'viewFormats': wgpuReadArrayOfWgpuObjects({{{ readPtrFromIdx32('config', 4) }}}, HEAPU32[config+3]),
+      'viewFormats': viewFormats,
       'colorSpace': HTMLPredefinedColorSpaces[HEAPU32[config+6]],
       'toneMapping': {
         'mode': [, 'standard', 'extended'][HEAPU32[config+7]]
@@ -1610,8 +1618,16 @@ let api = {
     {{{ wassert('HEAPU32[descriptor+8] >= 1'); }}} // 'dimension' must be one of 1d, 2d or 3d.
     {{{ wassert('HEAPU32[descriptor+8] <= 3'); }}} // 'dimension' must be one of 1d, 2d or 3d.
 
+    let viewFormats = [],
+      numViewFormats = HEAP32[descriptor + 2],
+      viewFormatsIdx = {{{ shiftPtr('HEAPU32[descriptor]', 2) }}}; // TODO: Wasm64
+
+    while(numViewFormats--) {
+      viewFormats.push(GPUTextureAndVertexFormats[HEAPU32[viewFormatsIdx++]]);
+    }
+
     let desc = {
-      'viewFormats': wgpuReadArrayOfWgpuObjects({{{ readPtrFromIdx32('descriptor') }}}, HEAPU32[descriptor+2]),
+      'viewFormats': viewFormats,
       'size': [HEAP32[descriptor+3], HEAP32[descriptor+4], HEAP32[descriptor+5]],
       'mipLevelCount': HEAP32[descriptor+6],
       'sampleCount': HEAP32[descriptor+7],
