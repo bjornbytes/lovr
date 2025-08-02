@@ -1981,11 +1981,6 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     state.newPipelines = NULL;
   }
 
-  lovrAssertGoto(fail, gpu_submit(streams, streamCount, state.tick++), "Failed to submit GPU command buffers: %s", gpu_get_error());
-
-  state.stream = gpu_stream_begin("Internal");
-  lovrAssertGoto(fail, state.stream, "Failed to begin new command buffer: %s", gpu_get_error());
-
   // All of the buffers after the front of the 'current' list are the buffers that filled up while
   // this frame was being recorded.  Set their tick to the current tick and chain them onto the end
   // of the freelist.
@@ -2004,6 +1999,11 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       allocator->current->next = NULL;
     }
   }
+
+  lovrAssertGoto(fail, gpu_submit(streams, streamCount, state.tick++), "Failed to submit GPU command buffers: %s", gpu_get_error());
+
+  state.stream = gpu_stream_begin("Internal");
+  lovrAssertGoto(fail, state.stream, "Failed to begin new command buffer: %s", gpu_get_error());
 
   memset(&state.barrier, 0, sizeof(gpu_barrier));
   memset(&state.streamBarrier, 0, sizeof(gpu_barrier));
