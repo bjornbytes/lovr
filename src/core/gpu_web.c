@@ -156,7 +156,7 @@ void gpu_buffer_destroy(gpu_buffer* buffer) {
 
 void gpu_buffer_flush(gpu_buffer* buffer, uint32_t offset, uint32_t extent) {
   if (extent > 0) {
-    wgpu_queue_write_buffer(state.queue, buffer->handle, offset, buffer->memory, extent);
+    wgpu_queue_write_buffer(state.queue, buffer->handle, offset, (char*) buffer->memory + offset, extent);
   }
 }
 
