@@ -1037,11 +1037,42 @@ void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, u
 }
 
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
-  // TODO Unsupported, probably need compute shader
+  for (uint32_t i = 0; i < levelCount; i++) {
+    for (uint32_t j = 0; j < layerCount; j++) {
+      WGpuTextureView view = wgpu_texture_create_view(texture->handle, &(WGpuTextureViewDescriptor) {
+        .format = texture->format,
+        .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
+        .baseMipLevel = level + i,
+        .mipLevelCount = 1,
+        .baseArrayLayer = layer + j,
+        .arrayLayerCount = 1
+      });
+
+      WGpuRenderPassColorAttachment attachment = {
+        .view = view,
+        .depthSlice = -1,
+        .loadOp = WGPU_LOAD_OP_CLEAR,
+        .storeOp = WGPU_STORE_OP_STORE,
+        .clearValue.r = value[0],
+        .clearValue.g = value[1],
+        .clearValue.b = value[2],
+        .clearValue.a = value[3]
+      };
+
+      WGpuRenderPassEncoder pass = wgpu_command_encoder_begin_render_pass(stream->commands, &(WGpuRenderPassDescriptor) {
+        .numColorAttachments = 1,
+        .colorAttachments = &attachment,
+        .depthStencilAttachment = { 0 }
+      });
+
+      wgpu_render_pass_encoder_end(pass);
+      wgpu_object_destroy(view);
+    }
+  }
 }
 
 void gpu_clear_tally(gpu_stream* stream, gpu_tally* tally, uint32_t index, uint32_t count) {
-  // TODO
+  //
 }
 
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], gpu_filter filter) {
@@ -1338,7 +1369,7 @@ void gpu_destroy(void) {
 }
 
 const char* gpu_get_error(void) {
-  return NULL; // TODO
+  return NULL;
 }
 
 bool gpu_begin(uint32_t* tick) {
