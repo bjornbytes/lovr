@@ -33,7 +33,7 @@ struct Draw {
   vec4 color;
 };
 
-layout(set = 0, binding = 0) uniform Globals { vec2 Resolution; float Time; };
+layout(set = 0, binding = 0) uniform Globals { vec2 Resolution; float Time; float ClipSignY; };
 layout(set = 0, binding = 1) uniform CameraBuffer { Camera Cameras[6]; };
 layout(set = 0, binding = 2) uniform DrawBuffer { Draw Draws[256]; };
 layout(set = 0, binding = 3) uniform sampler Sampler;
@@ -541,6 +541,7 @@ void main() {
 
   PointSize = 1.0;
   Position = lovrmain();
+  Position.y *= ClipSignY;
 
   if (flag_uvTransform) {
     UV *= Material.uvScale;
