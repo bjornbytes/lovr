@@ -497,14 +497,11 @@ void gpu_bundle_pool_destroy(gpu_bundle_pool* pool) {
 void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t count) {
   WGpuBindGroupEntry entries[32];
 
-  for (uint32_t i = 0; i < count; i++) {
+  for (uint32_t i = 0; i < count && i < COUNTOF(entries); i++) {
     gpu_bundle_info* info = &infos[i];
     WGpuBindGroupEntry* entry = entries;
     gpu_binding* binding = info->bindings;
     uint32_t dynamicBufferCount = 0;
-
-    // TODO: error if binding array is given
-    // TODO: error if binding count is bigger than 32
 
     for (uint32_t j = 0; j < info->count; j++, entry++, binding++) {
       memset(entry, 0, sizeof(*entry));
