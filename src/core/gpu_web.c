@@ -1368,7 +1368,7 @@ bool gpu_submit(gpu_stream** streams, uint32_t count) {
   }
 
   wgpu_queue_submit_multiple_and_destroy(state.queue, commandBuffers, count);
-  wgpu_queue_set_on_submitted_work_done_callback(state.queue, onSubmittedWorkDone, (void*) (uintptr_t) state.tick);
+  wgpu_queue_set_on_submitted_work_done_callback(state.queue, onSubmittedWorkDone, (void*) (uintptr_t) (state.tick - 1));
   return true;
 }
 
