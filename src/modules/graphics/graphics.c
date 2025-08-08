@@ -707,25 +707,25 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   map_init(&state.pipelineLookup, 64);
 
   gpu_slot builtinSlots[] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Globals
-    { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS }, // Cameras
-    { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS }, // DrawData
-    { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS } // Sampler
+    { .number = 0, .type = GPU_SLOT_UNIFORM_BUFFER, .stages = GPU_STAGE_GRAPHICS }, // Globals
+    { .number = 1, .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .stages = GPU_STAGE_GRAPHICS }, // Cameras
+    { .number = 2, .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .stages = GPU_STAGE_GRAPHICS }, // DrawData
+    { .number = 3, .type = GPU_SLOT_SAMPLER, .stages = GPU_STAGE_GRAPHICS } // Sampler
   };
 
   gpu_slot materialSlots[] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Data
-    { 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Color
-    { 2, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Glow
-    { 3, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Occlusion
-    { 4, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Metalness
-    { 5, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Roughness
-    { 6, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Clearcoat
-    { 7, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS } // Normal
+    { .number = 0, .type = GPU_SLOT_UNIFORM_BUFFER, .stages = GPU_STAGE_GRAPHICS }, // Data
+    { .number = 1, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Color
+    { .number = 2, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Glow
+    { .number = 3, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Occlusion
+    { .number = 4, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Metalness
+    { .number = 5, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Roughness
+    { .number = 6, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Clearcoat
+    { .number = 7, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS } // Normal
   };
 
   gpu_slot uniformSlots[] = {
-    { 0, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS | GPU_STAGE_COMPUTE }
+    { .number = 0, .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .stages = GPU_STAGE_GRAPHICS | GPU_STAGE_COMPUTE }
   };
 
   state.builtinLayout = getLayout(builtinSlots, COUNTOF(builtinSlots));
@@ -3529,6 +3529,13 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
   uint32_t resourceSet = info->type == SHADER_COMPUTE ? 0 : 2;
   uint32_t uniformSet = info->type == SHADER_COMPUTE ? 1 : 3;
+  gpu_slot* slots = allocate(&thread.stack, shader->resourceCount * sizeof(gpu_slot));
+
+  const uint32_t stageFlags[] = {
+    [STAGE_VERTEX] = GPU_STAGE_VERTEX,
+    [STAGE_FRAGMENT] = GPU_STAGE_FRAGMENT,
+    [STAGE_COMPUTE] = GPU_STAGE_COMPUTE
+  };
 
   // Resources
   for (uint32_t s = 0, lastResourceCount = 0; s < info->stageCount; s++, lastResourceCount = shader->resourceCount) {
@@ -3594,6 +3601,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
           *set = resourceSet;
           *binding = shader->resources[j].binding;
           shader->resources[j].phase |= phase;
+          slots[j].stages |= stageFlags[stage];
           merged = true;
           break;
         }
@@ -3648,8 +3656,23 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         .cache = cache
       };
 
+      slots[index] = (gpu_slot) {
+        .number = *binding,
+        .type = type,
+        .stages = stageFlags[stage]
+      };
+
       if (texture) {
         shader->resources[index].textureFlags = resource->textureFlags;
+
+        switch (resource->sampleType) {
+          case SPV_F32: slots[index].sampleType = GPU_SAMPLE_FLOAT; break;
+          case SPV_I32: slots[index].sampleType = GPU_SAMPLE_INT; break;
+          case SPV_U32: slots[index].sampleType = GPU_SAMPLE_UINT; break;
+          default: break;
+        }
+
+        slots[index].multisampled = !!(resource->textureFlags & SPV_TEXTURE_MULTISAMPLE);
       }
 
       if (buffer && resource->bufferFields) {
@@ -3762,20 +3785,6 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
     }
   }
 
-  // Layout
-  gpu_slot* slots = allocate(&thread.stack, shader->resourceCount * sizeof(gpu_slot));
-  for (uint32_t i = 0; i < shader->resourceCount; i++) {
-    ShaderResource* resource = &shader->resources[i];
-    slots[i] = (gpu_slot) {
-      .number = resource->binding,
-      .type = resource->type,
-      .stages =
-        ((resource->phase & GPU_PHASE_SHADER_VERTEX) ? GPU_STAGE_VERTEX : 0) |
-        ((resource->phase & GPU_PHASE_SHADER_FRAGMENT) ? GPU_STAGE_FRAGMENT : 0) |
-        ((resource->phase & GPU_PHASE_SHADER_COMPUTE) ? GPU_STAGE_COMPUTE : 0)
-    };
-  }
-
   shader->layout = getLayout(slots, shader->resourceCount);
 
   if (!shader->layout) {
@@ -3789,14 +3798,8 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   };
 
   for (uint32_t i = 0; i < info->stageCount; i++) {
-    const uint32_t stageMap[] = {
-      [STAGE_VERTEX] = GPU_STAGE_VERTEX,
-      [STAGE_FRAGMENT] = GPU_STAGE_FRAGMENT,
-      [STAGE_COMPUTE] = GPU_STAGE_COMPUTE
-    };
-
     gpu.stages[i] = (gpu_shader_source) {
-      .stage = stageMap[info->stages[i].stage],
+      .stage = stageFlags[info->stages[i].stage],
       .code = source[i],
       .length = info->stages[i].size
     };

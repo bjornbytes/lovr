@@ -355,10 +355,19 @@ enum {
   GPU_STAGE_GRAPHICS = GPU_STAGE_VERTEX | GPU_STAGE_FRAGMENT
 };
 
+typedef enum {
+  GPU_SAMPLE_FLOAT,
+  GPU_SAMPLE_INT,
+  GPU_SAMPLE_UINT
+} gpu_sample_type;
+
 typedef struct {
   uint32_t number;
   gpu_slot_type type;
-  uint32_t stages;
+  uint8_t stages;
+  uint8_t textureType;
+  uint8_t sampleType;
+  bool multisampled;
 } gpu_slot;
 
 typedef struct {

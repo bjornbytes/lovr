@@ -394,6 +394,12 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = WGPU_BUFFER_BINDING_TYPE_STORAGE
   };
 
+  static const WGPU_TEXTURE_SAMPLE_TYPE sampleTypes[] = {
+    [GPU_SAMPLE_FLOAT] = WGPU_TEXTURE_SAMPLE_TYPE_FLOAT,
+    [GPU_SAMPLE_INT] = WGPU_TEXTURE_SAMPLE_TYPE_SINT,
+    [GPU_SAMPLE_UINT] = WGPU_TEXTURE_SAMPLE_TYPE_UINT
+  };
+
   gpu_slot* slot = info->slots;
   WGpuBindGroupLayoutEntry entries[32];
   for (uint32_t i = 0; i < info->count; i++, slot++) {
@@ -421,9 +427,9 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
 
       // FIXME need more metadata
       case GPU_SLOT_SAMPLED_TEXTURE:
-        entries[i].layout.texture.sampleType = WGPU_TEXTURE_SAMPLE_TYPE_FLOAT;
+        entries[i].layout.texture.sampleType = sampleTypes[info->slots[i].sampleType];
         entries[i].layout.texture.viewDimension = WGPU_TEXTURE_VIEW_DIMENSION_2D;
-        entries[i].layout.texture.multisampled = false;
+        entries[i].layout.texture.multisampled = info->slots[i].multisampled;
         break;
 
       // FIXME need more metadata
