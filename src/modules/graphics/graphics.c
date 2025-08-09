@@ -3529,7 +3529,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
 
   uint32_t resourceSet = info->type == SHADER_COMPUTE ? 0 : 2;
   uint32_t uniformSet = info->type == SHADER_COMPUTE ? 1 : 3;
-  gpu_slot* slots = allocate(&thread.stack, shader->resourceCount * sizeof(gpu_slot));
+  gpu_slot* slots = allocate(&thread.stack, maxResources * sizeof(gpu_slot));
 
   const uint32_t stageFlags[] = {
     [STAGE_VERTEX] = GPU_STAGE_VERTEX,
