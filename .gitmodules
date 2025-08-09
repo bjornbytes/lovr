@@ -37,3 +37,6 @@
 [submodule "deps/phonon"]
 	path = deps/phonon
 	url = https://github.com/bjornbytes/steam-audio
+[submodule "deps/tincture"]
+	path = deps/tincture
+	url = https://github.com/bjornbytes/tincture
