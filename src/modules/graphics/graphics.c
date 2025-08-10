@@ -4312,7 +4312,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
       .layers = 1,
       .mipmaps = 1,
       .samples = 1,
-      .usage = TEXTURE_SAMPLE | TEXTURE_TRANSFER,
+      .usage = TEXTURE_SAMPLE | TEXTURE_RENDER | TEXTURE_TRANSFER,
       .label = "Font Atlas"
     });
 
