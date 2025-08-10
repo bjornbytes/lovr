@@ -1040,6 +1040,9 @@ void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, u
 }
 
 void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount) {
+  layerCount = layerCount == ~0u ? wgpu_texture_depth_or_array_layers(texture->handle) - layer : layerCount;
+  levelCount = levelCount == ~0u ? wgpu_texture_mip_level_count(texture->handle) - level : levelCount;
+
   for (uint32_t i = 0; i < levelCount; i++) {
     for (uint32_t j = 0; j < layerCount; j++) {
       WGpuTextureView view = wgpu_texture_create_view(texture->handle, &(WGpuTextureViewDescriptor) {
