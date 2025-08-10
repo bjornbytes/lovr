@@ -4336,8 +4336,10 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
 
     mtx_lock(&state.lock);
 
+#ifndef EMSCRIPTEN // This would overwrite the gpu_texture_write call below since it runs later on WebGPU (FIXME)
     float clear[4] = { 0.f, 0.f, 0.f, 0.f };
     gpu_clear_texture(state.stream, atlas->gpu, clear, 0, ~0u, 0, ~0u);
+#endif
 
     // This barrier serves 2 purposes:
     // - Ensure new atlas clear is finished/flushed before copying to it
