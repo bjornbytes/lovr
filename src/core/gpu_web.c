@@ -1244,6 +1244,11 @@ bool gpu_init(gpu_config* config) {
   }
 
   state.adapter = navigator_gpu_request_adapter_sync_simple();
+
+  if (!state.adapter) {
+    return false;
+  }
+
   state.device = wgpu_adapter_request_device_sync_simple(state.adapter);
   state.queue = wgpu_device_get_queue(state.device);
 
