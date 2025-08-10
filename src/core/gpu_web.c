@@ -992,8 +992,6 @@ void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, u
     .origin = { dstOffset[0], dstOffset[1], dstOffset[2] }
   };
 
-  WGpuExtent3D size = { extent[0], extent[1], extent[2] };
-
   wgpu_command_encoder_copy_texture_to_texture(stream->commands, &srcRegion, &dstRegion, extent[0], extent[1], extent[2]);
 }
 
