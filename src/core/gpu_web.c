@@ -1376,9 +1376,9 @@ bool gpu_init(gpu_config* config) {
     config->limits->vertexBuffers = supported.maxVertexBuffers;
     config->limits->vertexBufferStride = supported.maxVertexBufferArrayStride;
     config->limits->vertexShaderOutputs = supported.maxInterStageShaderVariables;
-    config->limits->clipDistances = 0; // TODO
+    config->limits->clipDistances = wgpu_device_supports_feature(state.device, WGPU_FEATURE_CLIP_DISTANCES) ? 8 : 0;
     config->limits->cullDistances = 0;
-    config->limits->clipAndCullDistances = 0; // TODO
+    config->limits->clipAndCullDistances = config->limits->clipDistances;
     config->limits->workgroupCount[0] = supported.maxComputeWorkgroupsPerDimension;
     config->limits->workgroupCount[1] = supported.maxComputeWorkgroupsPerDimension;
     config->limits->workgroupCount[2] = supported.maxComputeWorkgroupsPerDimension;
