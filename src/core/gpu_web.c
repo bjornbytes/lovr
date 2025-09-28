@@ -99,7 +99,7 @@ static struct {
 #define MAX(a, b) (a > b ? a : b)
 
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb);
-static uint32_t getRowSize(gpu_texture_format format, uint32_t width);
+static uint32_t getRowSize(WGPU_TEXTURE_FORMAT format, uint32_t width);
 
 // Buffer
 
@@ -1480,9 +1480,9 @@ static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb) {
     [GPU_FORMAT_RG8] = { WGPU_TEXTURE_FORMAT_RG8UNORM, WGPU_TEXTURE_FORMAT_RG8UNORM },
     [GPU_FORMAT_RGBA8] = { WGPU_TEXTURE_FORMAT_RGBA8UNORM, WGPU_TEXTURE_FORMAT_RGBA8UNORM_SRGB },
     [GPU_FORMAT_BGRA8] = { WGPU_TEXTURE_FORMAT_BGRA8UNORM, WGPU_TEXTURE_FORMAT_BGRA8UNORM_SRGB },
-    [GPU_FORMAT_R16] = { WGPU_TEXTURE_FORMAT_INVALID, WGPU_TEXTURE_FORMAT_INVALID },
-    [GPU_FORMAT_RG16] = { WGPU_TEXTURE_FORMAT_INVALID, WGPU_TEXTURE_FORMAT_INVALID },
-    [GPU_FORMAT_RGBA16] = { WGPU_TEXTURE_FORMAT_INVALID, WGPU_TEXTURE_FORMAT_INVALID },
+    [GPU_FORMAT_R16] = { WGPU_TEXTURE_FORMAT_R16UNORM, WGPU_TEXTURE_FORMAT_R16UNORM },
+    [GPU_FORMAT_RG16] = { WGPU_TEXTURE_FORMAT_RG16UNORM, WGPU_TEXTURE_FORMAT_RG16UNORM },
+    [GPU_FORMAT_RGBA16] = { WGPU_TEXTURE_FORMAT_RGBA16UNORM, WGPU_TEXTURE_FORMAT_RGBA16UNORM },
     [GPU_FORMAT_R16F] = { WGPU_TEXTURE_FORMAT_R16FLOAT, WGPU_TEXTURE_FORMAT_R16FLOAT },
     [GPU_FORMAT_RG16F] = { WGPU_TEXTURE_FORMAT_RG16FLOAT, WGPU_TEXTURE_FORMAT_RG16FLOAT },
     [GPU_FORMAT_RGBA16F] = { WGPU_TEXTURE_FORMAT_RGBA16FLOAT, WGPU_TEXTURE_FORMAT_RGBA16FLOAT },
@@ -1527,54 +1527,72 @@ static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb) {
   return formats[format][srgb];
 }
 
-static uint32_t getRowSize(gpu_texture_format format, uint32_t width) {
+static uint32_t getRowSize(WGPU_TEXTURE_FORMAT format, uint32_t width) {
   switch (format) {
-    case GPU_FORMAT_R8: return width; break;
-    case GPU_FORMAT_RG8:
-    case GPU_FORMAT_R16:
-    case GPU_FORMAT_R16F:
-    case GPU_FORMAT_RGB565:
-    case GPU_FORMAT_RGB5A1:
-    case GPU_FORMAT_D16: return width * 2; break;
-    case GPU_FORMAT_RGBA8:
-    case GPU_FORMAT_BGRA8:
-    case GPU_FORMAT_RG16:
-    case GPU_FORMAT_RG16F:
-    case GPU_FORMAT_R32F:
-    case GPU_FORMAT_RG11B10F:
-    case GPU_FORMAT_RGB10A2:
-    case GPU_FORMAT_D24:
-    case GPU_FORMAT_D24S8:
-    case GPU_FORMAT_D32F: return width * 4; break;
-    case GPU_FORMAT_D32FS8: return width * 5; break;
-    case GPU_FORMAT_RGBA16:
-    case GPU_FORMAT_RGBA16F:
-    case GPU_FORMAT_RG32F: return width * 8; break;
-    case GPU_FORMAT_RGBA32F: return width * 16; break;
-    case GPU_FORMAT_BC1: return ((width + 3) / 4) * 8; break;
-    case GPU_FORMAT_BC2: return ((width + 3) / 4) * 16; break;
-    case GPU_FORMAT_BC3: return ((width + 3) / 4) * 16; break;
-    case GPU_FORMAT_BC4U: return ((width + 3) / 4) * 8; break;
-    case GPU_FORMAT_BC4S: return ((width + 3) / 4) * 8; break;
-    case GPU_FORMAT_BC5U: return ((width + 3) / 4) * 16; break;
-    case GPU_FORMAT_BC5S: return ((width + 3) / 4) * 16; break;
-    case GPU_FORMAT_BC6UF: return ((width + 3) / 4) * 16; break;
-    case GPU_FORMAT_BC6SF: return ((width + 3) / 4) * 16; break;
-    case GPU_FORMAT_BC7: return ((width + 3) / 4) * 16; break;
-    case GPU_FORMAT_ASTC_4x4: return ((width + 3) / 4) * 16; break;
-    case GPU_FORMAT_ASTC_5x4: return ((width + 4) / 5) * 16; break;
-    case GPU_FORMAT_ASTC_5x5: return ((width + 4) / 5) * 16; break;
-    case GPU_FORMAT_ASTC_6x5: return ((width + 5) / 6) * 16; break;
-    case GPU_FORMAT_ASTC_6x6: return ((width + 5) / 6) * 16; break;
-    case GPU_FORMAT_ASTC_8x5: return ((width + 7) / 8) * 16; break;
-    case GPU_FORMAT_ASTC_8x6: return ((width + 7) / 8) * 16; break;
-    case GPU_FORMAT_ASTC_8x8: return ((width + 7) / 8) * 16; break;
-    case GPU_FORMAT_ASTC_10x5: return ((width + 9) / 10) * 16; break;
-    case GPU_FORMAT_ASTC_10x6: return ((width + 9) / 10) * 16; break;
-    case GPU_FORMAT_ASTC_10x8: return ((width + 9) / 10) * 16; break;
-    case GPU_FORMAT_ASTC_10x10: return ((width + 9) / 10) * 16; break;
-    case GPU_FORMAT_ASTC_12x10: return ((width + 11) / 12) * 16; break;
-    case GPU_FORMAT_ASTC_12x12: return ((width + 11) / 12) * 16; break;
+    case WGPU_TEXTURE_FORMAT_R8UNORM:
+      return width;
+    case WGPU_TEXTURE_FORMAT_RG8UNORM:
+    case WGPU_TEXTURE_FORMAT_R16UNORM:
+    case WGPU_TEXTURE_FORMAT_R16FLOAT:
+    case WGPU_TEXTURE_FORMAT_DEPTH16UNORM:
+      return width * 2;
+    case WGPU_TEXTURE_FORMAT_RGBA8UNORM:
+    case WGPU_TEXTURE_FORMAT_RGBA8UNORM_SRGB:
+    case WGPU_TEXTURE_FORMAT_BGRA8UNORM:
+    case WGPU_TEXTURE_FORMAT_BGRA8UNORM_SRGB:
+    case WGPU_TEXTURE_FORMAT_RG16UNORM:
+    case WGPU_TEXTURE_FORMAT_RG16FLOAT:
+    case WGPU_TEXTURE_FORMAT_R32FLOAT:
+    case WGPU_TEXTURE_FORMAT_RG11B10UFLOAT:
+    case WGPU_TEXTURE_FORMAT_RGB10A2UNORM:
+    case WGPU_TEXTURE_FORMAT_DEPTH24PLUS:
+    case WGPU_TEXTURE_FORMAT_DEPTH24PLUS_STENCIL8:
+    case WGPU_TEXTURE_FORMAT_DEPTH32FLOAT:
+      return width * 4;
+    case WGPU_TEXTURE_FORMAT_DEPTH32FLOAT_STENCIL8:
+      return width * 5;
+    case WGPU_TEXTURE_FORMAT_RGBA16UNORM:
+    case WGPU_TEXTURE_FORMAT_RGBA16FLOAT:
+    case WGPU_TEXTURE_FORMAT_RG32FLOAT:
+      return width * 8;
+    case WGPU_TEXTURE_FORMAT_RGBA32FLOAT:
+      return width * 16;
+    case WGPU_TEXTURE_FORMAT_BC1_RGBA_UNORM: case WGPU_TEXTURE_FORMAT_BC1_RGBA_UNORM_SRGB:
+    case WGPU_TEXTURE_FORMAT_BC2_RGBA_UNORM: case WGPU_TEXTURE_FORMAT_BC2_RGBA_UNORM_SRGB:
+    case WGPU_TEXTURE_FORMAT_BC3_RGBA_UNORM: case WGPU_TEXTURE_FORMAT_BC3_RGBA_UNORM_SRGB:
+    case WGPU_TEXTURE_FORMAT_BC4_R_UNORM: case WGPU_TEXTURE_FORMAT_BC4_R_SNORM:
+    case WGPU_TEXTURE_FORMAT_BC5_RG_UNORM: case WGPU_TEXTURE_FORMAT_BC5_RG_SNORM:
+    case WGPU_TEXTURE_FORMAT_BC6H_RGB_UFLOAT: case WGPU_TEXTURE_FORMAT_BC6H_RGB_FLOAT:
+    case WGPU_TEXTURE_FORMAT_BC7_RGBA_UNORM: case WGPU_TEXTURE_FORMAT_BC7_RGBA_UNORM_SRGB:
+      return ((width + 3) / 4) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM_SRGB:
+      return ((width + 3) / 4) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_5X4_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_5X4_UNORM_SRGB:
+      return ((width + 4) / 5) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_5X5_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_5X5_UNORM_SRGB:
+      return ((width + 4) / 5) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_6X5_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_6X5_UNORM_SRGB:
+      return ((width + 5) / 6) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_6X6_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_6X6_UNORM_SRGB:
+      return ((width + 5) / 6) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_8X5_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_8X5_UNORM_SRGB:
+      return ((width + 7) / 8) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_8X6_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_8X6_UNORM_SRGB:
+      return ((width + 7) / 8) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_8X8_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_8X8_UNORM_SRGB:
+      return ((width + 7) / 8) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_10X5_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_10X5_UNORM_SRGB:
+      return ((width + 9) / 10) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_10X6_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_10X6_UNORM_SRGB:
+      return ((width + 9) / 10) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_10X8_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_10X8_UNORM_SRGB:
+      return ((width + 9) / 10) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_10X10_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_10X10_UNORM_SRGB:
+      return ((width + 9) / 10) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_12X10_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_12X10_UNORM_SRGB:
+      return ((width + 11) / 12) * 16;
+    case WGPU_TEXTURE_FORMAT_ASTC_12X12_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_12X12_UNORM_SRGB:
+      return ((width + 11) / 12) * 16;
     default: return 0;
   }
 }
