@@ -21,7 +21,13 @@
 #pragma warning(disable : 4200) // Disable MSVC complaining about zero-sized arrays for copy/move assignment in WGpuCompilationInfo
 #endif
 
+#pragma once
+
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // The type 'double_int53_t' shall be an integer-like
 // type that can represent at least 53-bits of consecutive
@@ -146,10 +152,10 @@ typedef WGpuObjectBase WGpuCommandBuffer;
 typedef struct WGpuCommandBufferDescriptor WGpuCommandBufferDescriptor;
 typedef WGpuObjectBase WGpuCommandEncoder;
 typedef struct WGpuCommandEncoderDescriptor WGpuCommandEncoderDescriptor;
-typedef struct WGpuImageCopyBuffer WGpuImageCopyBuffer;
-typedef struct WGpuImageCopyTexture WGpuImageCopyTexture;
-typedef struct WGpuImageCopyTextureTagged WGpuImageCopyTextureTagged;
-typedef struct WGpuImageCopyExternalImage WGpuImageCopyExternalImage;
+typedef struct WGpuTexelCopyBufferInfo WGpuTexelCopyBufferInfo;
+typedef struct WGpuTexelCopyTextureInfo WGpuTexelCopyTextureInfo;
+typedef struct WGpuCopyExternalImageDestInfo WGpuCopyExternalImageDestInfo;
+typedef struct WGpuCopyExternalImageSourceInfo WGpuCopyExternalImageSourceInfo;
 typedef WGpuObjectBase WGpuBindingCommandsMixin;
 typedef WGpuObjectBase WGpuComputePassEncoder;
 typedef struct WGpuComputePassDescriptor WGpuComputePassDescriptor;
@@ -197,6 +203,10 @@ typedef void (*WGpuLoadImageBitmapCallback)(WGpuImageBitmap bitmap, int width, i
 
 #ifdef __EMSCRIPTEN__
 typedef int OffscreenCanvasId;
+#endif
+
+#ifdef __cplusplus
+} // ~extern "C"
 #endif
 
 // Some WebGPU JS API functions have default parameters so that the user can omit passing them.
@@ -398,7 +408,7 @@ typedef struct WGpuSupportedLimits
   uint32_t maxComputeWorkgroupSizeX; // required >= 256
   uint32_t maxComputeWorkgroupSizeY; // required >= 256
   uint32_t maxComputeWorkgroupSizeZ; // required >= 64
-  uint32_t unused_padding;
+  uint32_t maxComputeWorkgroupsPerDimension; // required >= 65535
 } WGpuSupportedLimits;
 
 VERIFY_STRUCT_SIZE(WGpuSupportedLimits, 34*sizeof(uint32_t));
@@ -411,39 +421,53 @@ interface GPUSupportedFeatures {
 */
 /*
 enum GPUFeatureName {
+    "core-features-and-limits",
     "depth-clip-control",
     "depth32float-stencil8",
     "texture-compression-bc",
     "texture-compression-bc-sliced-3d",
     "texture-compression-etc2",
     "texture-compression-astc",
+    "texture-compression-astc-sliced-3d",
     "timestamp-query",
     "indirect-first-instance",
     "shader-f16",
     "rg11b10ufloat-renderable",
     "bgra8unorm-storage",
     "float32-filterable",
+    "float32-blendable",
     "clip-distances",
     "dual-source-blending",
+    "subgroups",
+    "texture-formats-tier1",
+    "texture-formats-tier2",
+    "primitive-index",
 };
 */
 typedef int WGPU_FEATURES_BITFIELD;
-#define WGPU_FEATURE_DEPTH_CLIP_CONTROL                   0x01
-#define WGPU_FEATURE_DEPTH32FLOAT_STENCIL8                0x02
-#define WGPU_FEATURE_TEXTURE_COMPRESSION_BC               0x04
-#define WGPU_FEATURE_TEXTURE_COMPRESSION_BC_SLICED_3D     0x08
-#define WGPU_FEATURE_TEXTURE_COMPRESSION_ETC2             0x10
-#define WGPU_FEATURE_TEXTURE_COMPRESSION_ASTC             0x20
-#define WGPU_FEATURE_TIMESTAMP_QUERY                      0x40
-#define WGPU_FEATURE_INDIRECT_FIRST_INSTANCE              0x80
-#define WGPU_FEATURE_SHADER_F16                          0x100
-#define WGPU_FEATURE_RG11B10UFLOAT_RENDERABLE            0x200
-#define WGPU_FEATURE_BGRA8UNORM_STORAGE                  0x400
-#define WGPU_FEATURE_FLOAT32_FILTERABLE                  0x800
-#define WGPU_FEATURE_CLIP_DISTANCES                     0x1000
-#define WGPU_FEATURE_DUAL_SOURCE_BLENDING               0x2000
+#define WGPU_FEATURE_CORE_FEATURES_AND_LIMITS              0x1
+#define WGPU_FEATURE_DEPTH_CLIP_CONTROL                    0x2
+#define WGPU_FEATURE_DEPTH32FLOAT_STENCIL8                 0x4
+#define WGPU_FEATURE_TEXTURE_COMPRESSION_BC                0x8
+#define WGPU_FEATURE_TEXTURE_COMPRESSION_BC_SLICED_3D     0x10
+#define WGPU_FEATURE_TEXTURE_COMPRESSION_ETC2             0x20
+#define WGPU_FEATURE_TEXTURE_COMPRESSION_ASTC             0x40
+#define WGPU_FEATURE_TEXTURE_COMPRESSION_ASTC_SLICED_3D   0x90
+#define WGPU_FEATURE_TIMESTAMP_QUERY                     0x100
+#define WGPU_FEATURE_INDIRECT_FIRST_INSTANCE             0x200
+#define WGPU_FEATURE_SHADER_F16                          0x400
+#define WGPU_FEATURE_RG11B10UFLOAT_RENDERABLE            0x800
+#define WGPU_FEATURE_BGRA8UNORM_STORAGE                 0x1000
+#define WGPU_FEATURE_FLOAT32_FILTERABLE                 0x2000
+#define WGPU_FEATURE_FLOAT32_BLENDABLE                  0x4000
+#define WGPU_FEATURE_CLIP_DISTANCES                     0x8000
+#define WGPU_FEATURE_DUAL_SOURCE_BLENDING              0x10000
+#define WGPU_FEATURE_SUBGROUPS                         0x20000
+#define WGPU_FEATURE_TEXTURE_FORMATS_TIER1             0x40000
+#define WGPU_FEATURE_TEXTURE_FORMATS_TIER2             0x80000
+#define WGPU_FEATURE_PRIMITIVE_INDEX                  0x100000
 
-#define WGPU_FEATURE_FIRST_UNUSED_BIT                   0x4000 // Allows examining the number of actually used bits in a WGPU_FEATURES_BITFIELD value.
+#define WGPU_FEATURE_FIRST_UNUSED_BIT                 0x200000 // Allows examining the number of actually used bits in a WGPU_FEATURES_BITFIELD value.
 
 /*
 // WebGPU reuses the color space enum from the HTML Canvas specification:
@@ -466,6 +490,9 @@ interface GPUAdapterInfo {
     readonly attribute DOMString architecture;
     readonly attribute DOMString device;
     readonly attribute DOMString description;
+    readonly attribute unsigned long subgroupMinSize;
+    readonly attribute unsigned long subgroupMaxSize;
+    readonly attribute boolean isFallbackAdapter;
 };
 */
 typedef struct WGpuAdapterInfo
@@ -474,6 +501,9 @@ typedef struct WGpuAdapterInfo
   char architecture[512];
   char device[512];
   char description[512];
+  uint32_t subgroupMinSize;
+  uint32_t subgroupMaxSize;
+  WGPU_BOOL isFallbackAdapter;
 } WGpuAdapterInfo;
 
 /*
@@ -553,8 +583,10 @@ const char * const * navigator_gpu_get_wgsl_language_features(void);
 WGPU_BOOL navigator_gpu_is_wgsl_language_feature_supported(const char *feature);
 /*
 dictionary GPURequestAdapterOptions {
+    DOMString featureLevel = "core"; // TODO: Currently unused, since no actual implementations exist.
     GPUPowerPreference powerPreference;
     boolean forceFallbackAdapter = false;
+    boolean xrCompatible = false;
 };
 */
 typedef struct WGpuRequestAdapterOptions
@@ -568,6 +600,7 @@ typedef struct WGpuRequestAdapterOptions
   //       state and powerPreference, the user agent is likely to select the same adapter.
   WGPU_POWER_PREFERENCE powerPreference;
   WGPU_BOOL forceFallbackAdapter;
+  WGPU_BOOL xrCompatible;
 } WGpuRequestAdapterOptions;
 extern const WGpuRequestAdapterOptions WGPU_REQUEST_ADAPTER_OPTIONS_DEFAULT_INITIALIZER;
 
@@ -598,21 +631,20 @@ typedef WGpuObjectBase WGpuAdapter;
 WGPU_BOOL wgpu_is_adapter(WGpuObjectBase object);
 
 // Returns a bitfield of all the supported features on this adapter.
-WGPU_FEATURES_BITFIELD wgpu_adapter_or_device_get_features(WGpuAdapter adapter);
+WGPU_FEATURES_BITFIELD wgpu_adapter_or_device_get_features(WGpuAdapter adapterOrDevice);
 #define wgpu_adapter_get_features wgpu_adapter_or_device_get_features
 
 // Returns true if the given feature is supported by this adapter.
-WGPU_BOOL wgpu_adapter_or_device_supports_feature(WGpuAdapter adapter, WGPU_FEATURES_BITFIELD feature);
+WGPU_BOOL wgpu_adapter_or_device_supports_feature(WGpuAdapter adapterOrDevice, WGPU_FEATURES_BITFIELD feature);
 #define wgpu_adapter_supports_feature wgpu_adapter_or_device_supports_feature
 
 // Populates the adapter.limits field of the given adapter to the provided structure.
-void wgpu_adapter_or_device_get_limits(WGpuAdapter adapter, WGpuSupportedLimits *limits NOTNULL);
+void wgpu_adapter_or_device_get_limits(WGpuAdapter adapterOrDevice, WGpuSupportedLimits *limits NOTNULL);
 #define wgpu_adapter_get_limits wgpu_adapter_or_device_get_limits
 
 // Returns the WebGPU adapter 'info' field.
-void wgpu_adapter_get_info(WGpuAdapter adapter, WGpuAdapterInfo *adapterInfo NOTNULL);
-
-WGPU_BOOL wgpu_adapter_is_fallback_adapter(WGpuAdapter adapter);
+void wgpu_adapter_or_device_get_info(WGpuAdapter adapterOrDevice, WGpuAdapterInfo *adapterInfo NOTNULL);
+#define wgpu_adapter_get_info wgpu_adapter_or_device_get_info
 
 typedef void (*WGpuRequestDeviceCallback)(WGpuDevice device, void *userData);
 
@@ -657,6 +689,7 @@ extern const WGpuDeviceDescriptor WGPU_DEVICE_DESCRIPTOR_DEFAULT_INITIALIZER;
 interface GPUDevice : EventTarget {
     [SameObject] readonly attribute GPUSupportedFeatures features;
     [SameObject] readonly attribute GPUSupportedLimits limits;
+    [SameObject] readonly attribute GPUAdapterInfo adapterInfo;
 
     [SameObject] readonly attribute GPUQueue queue;
 
@@ -690,6 +723,7 @@ WGPU_BOOL wgpu_is_device(WGpuObjectBase object);
 
 #define wgpu_device_get_features wgpu_adapter_or_device_get_features
 #define wgpu_device_supports_feature wgpu_adapter_or_device_supports_feature
+#define wgpu_device_get_adapter_info wgpu_adapter_or_device_get_info
 #define wgpu_device_get_limits wgpu_adapter_or_device_get_limits
 
 WGpuQueue wgpu_device_get_queue(WGpuDevice device);
@@ -1037,15 +1071,17 @@ typedef int WGPU_TEXTURE_ASPECT;
 /*
 enum GPUTextureFormat {
     // 8-bit formats
-    "r8unorm",
+    "r8unorm", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
     "r8snorm",
-    "r8uint",
-    "r8sint",
+    "r8uint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+    "r8sint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
 
     // 16-bit formats
-    "r16uint",
-    "r16sint",
-    "r16float",
+    "r16unorm", // Supported with "texture-formats-tier1"
+    "r16snorm", // Supported with "texture-formats-tier1"
+    "r16uint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+    "r16sint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+    "r16float", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
     "rg8unorm",
     "rg8snorm",
     "rg8uint",
@@ -1055,14 +1091,16 @@ enum GPUTextureFormat {
     "r32uint",
     "r32sint",
     "r32float",
+    "rg16unorm", // Supported with "texture-formats-tier1"
+    "rg16snorm", // Supported with "texture-formats-tier1"
     "rg16uint",
     "rg16sint",
     "rg16float",
-    "rgba8unorm",
+    "rgba8unorm", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
     "rgba8unorm-srgb",
     "rgba8snorm",
-    "rgba8uint",
-    "rgba8sint",
+    "rgba8uint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+    "rgba8sint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
     "bgra8unorm",
     "bgra8unorm-srgb",
 
@@ -1076,14 +1114,16 @@ enum GPUTextureFormat {
     "rg32uint",
     "rg32sint",
     "rg32float",
-    "rgba16uint",
-    "rgba16sint",
-    "rgba16float",
+    "rgba16unorm", // Supported with "texture-formats-tier1"
+    "rgba16snorm", // Supported with "texture-formats-tier1"
+    "rgba16uint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+    "rgba16sint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+    "rgba16float", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
 
     // 128-bit formats
-    "rgba32uint",
-    "rgba32sint",
-    "rgba32float",
+    "rgba32uint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+    "rgba32sint", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+    "rgba32float", // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
 
     // Depth/stencil formats
     "stencil8",
@@ -1160,114 +1200,120 @@ enum GPUTextureFormat {
 typedef int WGPU_TEXTURE_FORMAT;
 #define WGPU_TEXTURE_FORMAT_INVALID               0
     // 8-bit formats
-#define WGPU_TEXTURE_FORMAT_R8UNORM               1
+#define WGPU_TEXTURE_FORMAT_R8UNORM               1 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
 #define WGPU_TEXTURE_FORMAT_R8SNORM               2
-#define WGPU_TEXTURE_FORMAT_R8UINT                3
-#define WGPU_TEXTURE_FORMAT_R8SINT                4
+#define WGPU_TEXTURE_FORMAT_R8UINT                3 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_R8SINT                4 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
     // 16-bit formats
-#define WGPU_TEXTURE_FORMAT_R16UINT               5
-#define WGPU_TEXTURE_FORMAT_R16SINT               6
-#define WGPU_TEXTURE_FORMAT_R16FLOAT              7
-#define WGPU_TEXTURE_FORMAT_RG8UNORM              8
-#define WGPU_TEXTURE_FORMAT_RG8SNORM              9
-#define WGPU_TEXTURE_FORMAT_RG8UINT               10
-#define WGPU_TEXTURE_FORMAT_RG8SINT               11
+#define WGPU_TEXTURE_FORMAT_R16UNORM              5 // Supported with "texture-formats-tier1"
+#define WGPU_TEXTURE_FORMAT_R16SNORM              6 // Supported with "texture-formats-tier1"
+#define WGPU_TEXTURE_FORMAT_R16UINT               7 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_R16SINT               8 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_R16FLOAT              9 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_RG8UNORM              10
+#define WGPU_TEXTURE_FORMAT_RG8SNORM              11
+#define WGPU_TEXTURE_FORMAT_RG8UINT               12
+#define WGPU_TEXTURE_FORMAT_RG8SINT               13
     // 32-bit formats
-#define WGPU_TEXTURE_FORMAT_R32UINT               12
-#define WGPU_TEXTURE_FORMAT_R32SINT               13
-#define WGPU_TEXTURE_FORMAT_R32FLOAT              14
-#define WGPU_TEXTURE_FORMAT_RG16UINT              15
-#define WGPU_TEXTURE_FORMAT_RG16SINT              16
-#define WGPU_TEXTURE_FORMAT_RG16FLOAT             17
-#define WGPU_TEXTURE_FORMAT_RGBA8UNORM            18
-#define WGPU_TEXTURE_FORMAT_RGBA8UNORM_SRGB       19
-#define WGPU_TEXTURE_FORMAT_RGBA8SNORM            20
-#define WGPU_TEXTURE_FORMAT_RGBA8UINT             21
-#define WGPU_TEXTURE_FORMAT_RGBA8SINT             22
-#define WGPU_TEXTURE_FORMAT_BGRA8UNORM            23
-#define WGPU_TEXTURE_FORMAT_BGRA8UNORM_SRGB       24
+#define WGPU_TEXTURE_FORMAT_R32UINT               14
+#define WGPU_TEXTURE_FORMAT_R32SINT               15
+#define WGPU_TEXTURE_FORMAT_R32FLOAT              16
+#define WGPU_TEXTURE_FORMAT_RG16UNORM             17 // Supported with "texture-formats-tier1"
+#define WGPU_TEXTURE_FORMAT_RG16SNORM             18 // Supported with "texture-formats-tier1"
+#define WGPU_TEXTURE_FORMAT_RG16UINT              19
+#define WGPU_TEXTURE_FORMAT_RG16SINT              20
+#define WGPU_TEXTURE_FORMAT_RG16FLOAT             21
+#define WGPU_TEXTURE_FORMAT_RGBA8UNORM            22 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_RGBA8UNORM_SRGB       23
+#define WGPU_TEXTURE_FORMAT_RGBA8SNORM            24
+#define WGPU_TEXTURE_FORMAT_RGBA8UINT             25 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_RGBA8SINT             26 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_BGRA8UNORM            27
+#define WGPU_TEXTURE_FORMAT_BGRA8UNORM_SRGB       28
     // Packed 32-bit formats
-#define WGPU_TEXTURE_FORMAT_RGB9E5UFLOAT          25
-#define WGPU_TEXTURE_FORMAT_RGB10A2UINT           26
-#define WGPU_TEXTURE_FORMAT_RGB10A2UNORM          27
-#define WGPU_TEXTURE_FORMAT_RG11B10UFLOAT         28
+#define WGPU_TEXTURE_FORMAT_RGB9E5UFLOAT          29
+#define WGPU_TEXTURE_FORMAT_RGB10A2UINT           30
+#define WGPU_TEXTURE_FORMAT_RGB10A2UNORM          31
+#define WGPU_TEXTURE_FORMAT_RG11B10UFLOAT         32
     // 64-bit formats
-#define WGPU_TEXTURE_FORMAT_RG32UINT              29
-#define WGPU_TEXTURE_FORMAT_RG32SINT              30
-#define WGPU_TEXTURE_FORMAT_RG32FLOAT             31
-#define WGPU_TEXTURE_FORMAT_RGBA16UINT            32
-#define WGPU_TEXTURE_FORMAT_RGBA16SINT            33
-#define WGPU_TEXTURE_FORMAT_RGBA16FLOAT           34
+#define WGPU_TEXTURE_FORMAT_RG32UINT              33
+#define WGPU_TEXTURE_FORMAT_RG32SINT              34
+#define WGPU_TEXTURE_FORMAT_RG32FLOAT             35
+#define WGPU_TEXTURE_FORMAT_RGBA16UNORM           36 // Supported with "texture-formats-tier1"
+#define WGPU_TEXTURE_FORMAT_RGBA16SNORM           37 // Supported with "texture-formats-tier1"
+#define WGPU_TEXTURE_FORMAT_RGBA16UINT            38 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_RGBA16SINT            39 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_RGBA16FLOAT           40 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
     // 128-bit formats
-#define WGPU_TEXTURE_FORMAT_RGBA32UINT            35
-#define WGPU_TEXTURE_FORMAT_RGBA32SINT            36
-#define WGPU_TEXTURE_FORMAT_RGBA32FLOAT           37
+#define WGPU_TEXTURE_FORMAT_RGBA32UINT            41 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_RGBA32SINT            42 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
+#define WGPU_TEXTURE_FORMAT_RGBA32FLOAT           43 // Read-write GPUStorageTextureAccess is available if "texture-formats-tier2" is enabled
     // Depth/stencil formats
-#define WGPU_TEXTURE_FORMAT_STENCIL8              38
-#define WGPU_TEXTURE_FORMAT_DEPTH16UNORM          39
-#define WGPU_TEXTURE_FORMAT_DEPTH24PLUS           40
-#define WGPU_TEXTURE_FORMAT_DEPTH24PLUS_STENCIL8  41
-#define WGPU_TEXTURE_FORMAT_DEPTH32FLOAT          42
-#define WGPU_TEXTURE_FORMAT_DEPTH32FLOAT_STENCIL8 43
+#define WGPU_TEXTURE_FORMAT_STENCIL8              44
+#define WGPU_TEXTURE_FORMAT_DEPTH16UNORM          45
+#define WGPU_TEXTURE_FORMAT_DEPTH24PLUS           46
+#define WGPU_TEXTURE_FORMAT_DEPTH24PLUS_STENCIL8  47
+#define WGPU_TEXTURE_FORMAT_DEPTH32FLOAT          48
+#define WGPU_TEXTURE_FORMAT_DEPTH32FLOAT_STENCIL8 49
     // BC compressed formats usable if "texture-compression-bc" is both
     // supported by the device/user agent and enabled in requestDevice.
-#define WGPU_TEXTURE_FORMAT_BC1_RGBA_UNORM        44
-#define WGPU_TEXTURE_FORMAT_BC1_RGBA_UNORM_SRGB   45
-#define WGPU_TEXTURE_FORMAT_BC2_RGBA_UNORM        46
-#define WGPU_TEXTURE_FORMAT_BC2_RGBA_UNORM_SRGB   47
-#define WGPU_TEXTURE_FORMAT_BC3_RGBA_UNORM        48
-#define WGPU_TEXTURE_FORMAT_BC3_RGBA_UNORM_SRGB   49
-#define WGPU_TEXTURE_FORMAT_BC4_R_UNORM           50
-#define WGPU_TEXTURE_FORMAT_BC4_R_SNORM           51
-#define WGPU_TEXTURE_FORMAT_BC5_RG_UNORM          52
-#define WGPU_TEXTURE_FORMAT_BC5_RG_SNORM          53
-#define WGPU_TEXTURE_FORMAT_BC6H_RGB_UFLOAT       54
-#define WGPU_TEXTURE_FORMAT_BC6H_RGB_FLOAT        55
-#define WGPU_TEXTURE_FORMAT_BC7_RGBA_UNORM        56
-#define WGPU_TEXTURE_FORMAT_BC7_RGBA_UNORM_SRGB   57
+#define WGPU_TEXTURE_FORMAT_BC1_RGBA_UNORM        50
+#define WGPU_TEXTURE_FORMAT_BC1_RGBA_UNORM_SRGB   51
+#define WGPU_TEXTURE_FORMAT_BC2_RGBA_UNORM        52
+#define WGPU_TEXTURE_FORMAT_BC2_RGBA_UNORM_SRGB   53
+#define WGPU_TEXTURE_FORMAT_BC3_RGBA_UNORM        54
+#define WGPU_TEXTURE_FORMAT_BC3_RGBA_UNORM_SRGB   55
+#define WGPU_TEXTURE_FORMAT_BC4_R_UNORM           56
+#define WGPU_TEXTURE_FORMAT_BC4_R_SNORM           57
+#define WGPU_TEXTURE_FORMAT_BC5_RG_UNORM          58
+#define WGPU_TEXTURE_FORMAT_BC5_RG_SNORM          59
+#define WGPU_TEXTURE_FORMAT_BC6H_RGB_UFLOAT       60
+#define WGPU_TEXTURE_FORMAT_BC6H_RGB_FLOAT        61
+#define WGPU_TEXTURE_FORMAT_BC7_RGBA_UNORM        62
+#define WGPU_TEXTURE_FORMAT_BC7_RGBA_UNORM_SRGB   63
     // ETC2 compressed formats usable if "texture-compression-etc2" is both
     // supported by the device/user agent and enabled in requestDevice.
-#define WGPU_TEXTURE_FORMAT_ETC2_RGB8UNORM        58
-#define WGPU_TEXTURE_FORMAT_ETC2_RGB8UNORM_SRGB   59
-#define WGPU_TEXTURE_FORMAT_ETC2_RGB8A1UNORM      60
-#define WGPU_TEXTURE_FORMAT_ETC2_RGB8A1UNORM_SRGB 61
-#define WGPU_TEXTURE_FORMAT_ETC2_RGBA8UNORM       62
-#define WGPU_TEXTURE_FORMAT_ETC2_RGBA8UNORM_SRGB  63
-#define WGPU_TEXTURE_FORMAT_EAC_R11UNORM          64
-#define WGPU_TEXTURE_FORMAT_EAC_R11SNORM          65
-#define WGPU_TEXTURE_FORMAT_EAC_RG11UNORM         66
-#define WGPU_TEXTURE_FORMAT_EAC_RG11SNORM         67
+#define WGPU_TEXTURE_FORMAT_ETC2_RGB8UNORM        64
+#define WGPU_TEXTURE_FORMAT_ETC2_RGB8UNORM_SRGB   65
+#define WGPU_TEXTURE_FORMAT_ETC2_RGB8A1UNORM      66
+#define WGPU_TEXTURE_FORMAT_ETC2_RGB8A1UNORM_SRGB 67
+#define WGPU_TEXTURE_FORMAT_ETC2_RGBA8UNORM       68
+#define WGPU_TEXTURE_FORMAT_ETC2_RGBA8UNORM_SRGB  69
+#define WGPU_TEXTURE_FORMAT_EAC_R11UNORM          70
+#define WGPU_TEXTURE_FORMAT_EAC_R11SNORM          71
+#define WGPU_TEXTURE_FORMAT_EAC_RG11UNORM         72
+#define WGPU_TEXTURE_FORMAT_EAC_RG11SNORM         73
     // ASTC compressed formats usable if "texture-compression-astc" is both
     // supported by the device/user agent and enabled in requestDevice.
-#define WGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM        68
-#define WGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM_SRGB   69
-#define WGPU_TEXTURE_FORMAT_ASTC_5X4_UNORM        70
-#define WGPU_TEXTURE_FORMAT_ASTC_5X4_UNORM_SRGB   71
-#define WGPU_TEXTURE_FORMAT_ASTC_5X5_UNORM        72
-#define WGPU_TEXTURE_FORMAT_ASTC_5X5_UNORM_SRGB   73
-#define WGPU_TEXTURE_FORMAT_ASTC_6X5_UNORM        74
-#define WGPU_TEXTURE_FORMAT_ASTC_6X5_UNORM_SRGB   75
-#define WGPU_TEXTURE_FORMAT_ASTC_6X6_UNORM        76
-#define WGPU_TEXTURE_FORMAT_ASTC_6X6_UNORM_SRGB   77
-#define WGPU_TEXTURE_FORMAT_ASTC_8X5_UNORM        78
-#define WGPU_TEXTURE_FORMAT_ASTC_8X5_UNORM_SRGB   79
-#define WGPU_TEXTURE_FORMAT_ASTC_8X6_UNORM        80
-#define WGPU_TEXTURE_FORMAT_ASTC_8X6_UNORM_SRGB   81
-#define WGPU_TEXTURE_FORMAT_ASTC_8X8_UNORM        82
-#define WGPU_TEXTURE_FORMAT_ASTC_8X8_UNORM_SRGB   83
-#define WGPU_TEXTURE_FORMAT_ASTC_10X5_UNORM       84
-#define WGPU_TEXTURE_FORMAT_ASTC_10X5_UNORM_SRGB  85
-#define WGPU_TEXTURE_FORMAT_ASTC_10X6_UNORM       86
-#define WGPU_TEXTURE_FORMAT_ASTC_10X6_UNORM_SRGB  87
-#define WGPU_TEXTURE_FORMAT_ASTC_10X8_UNORM       88
-#define WGPU_TEXTURE_FORMAT_ASTC_10X8_UNORM_SRGB  89
-#define WGPU_TEXTURE_FORMAT_ASTC_10X10_UNORM      90
-#define WGPU_TEXTURE_FORMAT_ASTC_10X10_UNORM_SRGB 91
-#define WGPU_TEXTURE_FORMAT_ASTC_12X10_UNORM      92
-#define WGPU_TEXTURE_FORMAT_ASTC_12X10_UNORM_SRGB 93
-#define WGPU_TEXTURE_FORMAT_ASTC_12X12_UNORM      94
-#define WGPU_TEXTURE_FORMAT_ASTC_12X12_UNORM_SRGB 95
-#define WGPU_TEXTURE_FORMAT_LAST_VALUE            95  // This needs to be equal to the highest texture format number above
+#define WGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM        74
+#define WGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM_SRGB   75
+#define WGPU_TEXTURE_FORMAT_ASTC_5X4_UNORM        76
+#define WGPU_TEXTURE_FORMAT_ASTC_5X4_UNORM_SRGB   77
+#define WGPU_TEXTURE_FORMAT_ASTC_5X5_UNORM        78
+#define WGPU_TEXTURE_FORMAT_ASTC_5X5_UNORM_SRGB   79
+#define WGPU_TEXTURE_FORMAT_ASTC_6X5_UNORM        80
+#define WGPU_TEXTURE_FORMAT_ASTC_6X5_UNORM_SRGB   81
+#define WGPU_TEXTURE_FORMAT_ASTC_6X6_UNORM        82
+#define WGPU_TEXTURE_FORMAT_ASTC_6X6_UNORM_SRGB   83
+#define WGPU_TEXTURE_FORMAT_ASTC_8X5_UNORM        84
+#define WGPU_TEXTURE_FORMAT_ASTC_8X5_UNORM_SRGB   85
+#define WGPU_TEXTURE_FORMAT_ASTC_8X6_UNORM        86
+#define WGPU_TEXTURE_FORMAT_ASTC_8X6_UNORM_SRGB   87
+#define WGPU_TEXTURE_FORMAT_ASTC_8X8_UNORM        88
+#define WGPU_TEXTURE_FORMAT_ASTC_8X8_UNORM_SRGB   89
+#define WGPU_TEXTURE_FORMAT_ASTC_10X5_UNORM       90
+#define WGPU_TEXTURE_FORMAT_ASTC_10X5_UNORM_SRGB  91
+#define WGPU_TEXTURE_FORMAT_ASTC_10X6_UNORM       92
+#define WGPU_TEXTURE_FORMAT_ASTC_10X6_UNORM_SRGB  93
+#define WGPU_TEXTURE_FORMAT_ASTC_10X8_UNORM       94
+#define WGPU_TEXTURE_FORMAT_ASTC_10X8_UNORM_SRGB  95
+#define WGPU_TEXTURE_FORMAT_ASTC_10X10_UNORM      96
+#define WGPU_TEXTURE_FORMAT_ASTC_10X10_UNORM_SRGB 97
+#define WGPU_TEXTURE_FORMAT_ASTC_12X10_UNORM      98
+#define WGPU_TEXTURE_FORMAT_ASTC_12X10_UNORM_SRGB 99
+#define WGPU_TEXTURE_FORMAT_ASTC_12X12_UNORM      100
+#define WGPU_TEXTURE_FORMAT_ASTC_12X12_UNORM_SRGB 101
+#define WGPU_TEXTURE_FORMAT_LAST_VALUE            101 // This needs to be equal to the highest texture format number above
 
 /*
 [Exposed=(Window, DedicatedWorker), SecureContext]
@@ -1585,7 +1631,12 @@ dictionary GPUBindGroupDescriptor : GPUObjectDescriptorBase {
 // Currently unused
 
 /*
-typedef (GPUSampler or GPUTextureView or GPUBufferBinding or GPUExternalTexture) GPUBindingResource;
+typedef (GPUSampler or
+         GPUTexture or
+         GPUTextureView or
+         GPUBuffer or
+         GPUBufferBinding or
+         GPUExternalTexture) GPUBindingResource;
 
 dictionary GPUBindGroupEntry {
     required GPUIndex32 binding;
@@ -1625,7 +1676,7 @@ WGPU_BOOL wgpu_is_pipeline_layout(WGpuObjectBase object);
 
 /*
 dictionary GPUPipelineLayoutDescriptor : GPUObjectDescriptorBase {
-    required sequence<GPUBindGroupLayout> bindGroupLayouts;
+    required sequence<GPUBindGroupLayout?> bindGroupLayouts;
 };
 */
 // Currently unused.
@@ -1790,7 +1841,7 @@ WGpuBindGroupLayout wgpu_pipeline_get_bind_group_layout(WGpuObjectBase pipelineB
 dictionary GPUProgrammableStage {
     required GPUShaderModule module;
     USVString entryPoint;
-    record<USVString, GPUPipelineConstantValue> constants;
+    record<USVString, GPUPipelineConstantValue> constants = {};
 };
 typedef double GPUPipelineConstantValue; // May represent WGSL’s bool, f32, i32, u32, and f16 if enabled.
 */
@@ -2128,22 +2179,31 @@ typedef int WGPU_INDEX_FORMAT;
 
 /*
 enum GPUVertexFormat {
+    "uint8",
     "uint8x2",
     "uint8x4",
+    "sint8",
     "sint8x2",
     "sint8x4",
+    "unorm8",
     "unorm8x2",
     "unorm8x4",
+    "snorm8",
     "snorm8x2",
     "snorm8x4",
+    "uint16",
     "uint16x2",
     "uint16x4",
+    "sint16",
     "sint16x2",
     "sint16x4",
+    "unorm16",
     "unorm16x2",
     "unorm16x4",
+    "snorm16",
     "snorm16x2",
     "snorm16x4",
+    "float16",
     "float16x2",
     "float16x4",
     "float32",
@@ -2158,45 +2218,56 @@ enum GPUVertexFormat {
     "sint32x2",
     "sint32x3",
     "sint32x4",
-    "unorm10-10-10-2"
+    "unorm10-10-10-2",
+    "unorm8x4-bgra",
 };
 */
 // The numbering on these types continues at the end of WGPU_TEXTURE_FORMAT
 // for optimization reasons.
 typedef int WGPU_VERTEX_FORMAT;
 #define WGPU_VERTEX_FORMAT_INVALID           0
-#define WGPU_VERTEX_FORMAT_FIRST_VALUE      96
-#define WGPU_VERTEX_FORMAT_UINT8X2          96
-#define WGPU_VERTEX_FORMAT_UINT8X4          97
-#define WGPU_VERTEX_FORMAT_SINT8X2          98
-#define WGPU_VERTEX_FORMAT_SINT8X4          99
-#define WGPU_VERTEX_FORMAT_UNORM8X2        100
-#define WGPU_VERTEX_FORMAT_UNORM8X4        101
-#define WGPU_VERTEX_FORMAT_SNORM8X2        102
-#define WGPU_VERTEX_FORMAT_SNORM8X4        103
-#define WGPU_VERTEX_FORMAT_UINT16X2        104
-#define WGPU_VERTEX_FORMAT_UINT16X4        105
-#define WGPU_VERTEX_FORMAT_SINT16X2        106
-#define WGPU_VERTEX_FORMAT_SINT16X4        107
-#define WGPU_VERTEX_FORMAT_UNORM16X2       108
-#define WGPU_VERTEX_FORMAT_UNORM16X4       109
-#define WGPU_VERTEX_FORMAT_SNORM16X2       110
-#define WGPU_VERTEX_FORMAT_SNORM16X4       111
-#define WGPU_VERTEX_FORMAT_FLOAT16X2       112
-#define WGPU_VERTEX_FORMAT_FLOAT16X4       113
-#define WGPU_VERTEX_FORMAT_FLOAT32         114
-#define WGPU_VERTEX_FORMAT_FLOAT32X2       115
-#define WGPU_VERTEX_FORMAT_FLOAT32X3       116
-#define WGPU_VERTEX_FORMAT_FLOAT32X4       117
-#define WGPU_VERTEX_FORMAT_UINT32          118
-#define WGPU_VERTEX_FORMAT_UINT32X2        119
-#define WGPU_VERTEX_FORMAT_UINT32X3        120
-#define WGPU_VERTEX_FORMAT_UINT32X4        121
-#define WGPU_VERTEX_FORMAT_SINT32          122
-#define WGPU_VERTEX_FORMAT_SINT32X2        123
-#define WGPU_VERTEX_FORMAT_SINT32X3        124
-#define WGPU_VERTEX_FORMAT_SINT32X4        125
-#define WGPU_VERTEX_FORMAT_UNORM10_10_10_2 126
+#define WGPU_VERTEX_FORMAT_FIRST_VALUE     102
+#define WGPU_VERTEX_FORMAT_UINT8           102
+#define WGPU_VERTEX_FORMAT_UINT8X2         103
+#define WGPU_VERTEX_FORMAT_UINT8X4         104
+#define WGPU_VERTEX_FORMAT_SINT8           105
+#define WGPU_VERTEX_FORMAT_SINT8X2         106
+#define WGPU_VERTEX_FORMAT_SINT8X4         107
+#define WGPU_VERTEX_FORMAT_UNORM8          108
+#define WGPU_VERTEX_FORMAT_UNORM8X2        109
+#define WGPU_VERTEX_FORMAT_UNORM8X4        110
+#define WGPU_VERTEX_FORMAT_SNORM8          111
+#define WGPU_VERTEX_FORMAT_SNORM8X2        112
+#define WGPU_VERTEX_FORMAT_SNORM8X4        113
+#define WGPU_VERTEX_FORMAT_UINT16          114
+#define WGPU_VERTEX_FORMAT_UINT16X2        115
+#define WGPU_VERTEX_FORMAT_UINT16X4        116
+#define WGPU_VERTEX_FORMAT_SINT16          117
+#define WGPU_VERTEX_FORMAT_SINT16X2        118
+#define WGPU_VERTEX_FORMAT_SINT16X4        119
+#define WGPU_VERTEX_FORMAT_UNORM16         120
+#define WGPU_VERTEX_FORMAT_UNORM16X2       121
+#define WGPU_VERTEX_FORMAT_UNORM16X4       122
+#define WGPU_VERTEX_FORMAT_SNORM16         123
+#define WGPU_VERTEX_FORMAT_SNORM16X2       124
+#define WGPU_VERTEX_FORMAT_SNORM16X4       125
+#define WGPU_VERTEX_FORMAT_FLOAT16         126
+#define WGPU_VERTEX_FORMAT_FLOAT16X2       127
+#define WGPU_VERTEX_FORMAT_FLOAT16X4       128
+#define WGPU_VERTEX_FORMAT_FLOAT32         129
+#define WGPU_VERTEX_FORMAT_FLOAT32X2       130
+#define WGPU_VERTEX_FORMAT_FLOAT32X3       131
+#define WGPU_VERTEX_FORMAT_FLOAT32X4       132
+#define WGPU_VERTEX_FORMAT_UINT32          133
+#define WGPU_VERTEX_FORMAT_UINT32X2        134
+#define WGPU_VERTEX_FORMAT_UINT32X3        135
+#define WGPU_VERTEX_FORMAT_UINT32X4        136
+#define WGPU_VERTEX_FORMAT_SINT32          137
+#define WGPU_VERTEX_FORMAT_SINT32X2        138
+#define WGPU_VERTEX_FORMAT_SINT32X3        139
+#define WGPU_VERTEX_FORMAT_SINT32X4        140
+#define WGPU_VERTEX_FORMAT_UNORM10_10_10_2 141
+#define WGPU_VERTEX_FORMAT_UNORM8X4_BGRA   142
 
 #if __cplusplus >= 201103L
 static_assert(WGPU_VERTEX_FORMAT_FIRST_VALUE == WGPU_TEXTURE_FORMAT_LAST_VALUE + 1, "WGPU_VERTEX_FORMAT enums must have values after WGPU_TEXTURE_FORMAT values!");
@@ -2317,18 +2388,18 @@ interface GPUCommandEncoder {
         GPUSize64 size);
 
     undefined copyBufferToTexture(
-        GPUImageCopyBuffer source,
-        GPUImageCopyTexture destination,
+        GPUTexelCopyBufferInfo source,
+        GPUTexelCopyTextureInfo destination,
         GPUExtent3D copySize);
 
     undefined copyTextureToBuffer(
-        GPUImageCopyTexture source,
-        GPUImageCopyBuffer destination,
+        GPUTexelCopyTextureInfo source,
+        GPUTexelCopyBufferInfo destination,
         GPUExtent3D copySize);
 
     undefined copyTextureToTexture(
-        GPUImageCopyTexture source,
-        GPUImageCopyTexture destination,
+        GPUTexelCopyTextureInfo source,
+        GPUTexelCopyTextureInfo destination,
         GPUExtent3D copySize);
 
     undefined clearBuffer(
@@ -2355,10 +2426,11 @@ WGPU_BOOL wgpu_is_command_encoder(WGpuObjectBase object);
 
 WGpuRenderPassEncoder wgpu_command_encoder_begin_render_pass(WGpuCommandEncoder commandEncoder, const WGpuRenderPassDescriptor *renderPassDesc NOTNULL);
 WGpuComputePassEncoder wgpu_command_encoder_begin_compute_pass(WGpuCommandEncoder commandEncoder, const WGpuComputePassDescriptor *computePassDesc _WGPU_DEFAULT_VALUE(0));
-void wgpu_command_encoder_copy_buffer_to_buffer(WGpuCommandEncoder commandEncoder, WGpuBuffer source, double_int53_t sourceOffset, WGpuBuffer destination, double_int53_t destinationOffset, double_int53_t size);
-void wgpu_command_encoder_copy_buffer_to_texture(WGpuCommandEncoder commandEncoder, const WGpuImageCopyBuffer *source NOTNULL, const WGpuImageCopyTexture *destination NOTNULL, uint32_t copyWidth, uint32_t copyHeight _WGPU_DEFAULT_VALUE(1), uint32_t copyDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
-void wgpu_command_encoder_copy_texture_to_buffer(WGpuCommandEncoder commandEncoder, const WGpuImageCopyTexture *source NOTNULL, const WGpuImageCopyBuffer *destination NOTNULL, uint32_t copyWidth, uint32_t copyHeight _WGPU_DEFAULT_VALUE(1), uint32_t copyDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
-void wgpu_command_encoder_copy_texture_to_texture(WGpuCommandEncoder commandEncoder, const WGpuImageCopyTexture *source NOTNULL, const WGpuImageCopyTexture *destination NOTNULL, uint32_t copyWidth, uint32_t copyHeight _WGPU_DEFAULT_VALUE(1), uint32_t copyDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
+// Copies a buffer to another. Passing WGPU_INFINITY as the size (or omitting it altogether as a default value in C++) copies the whole buffer, without needing to pass the size.
+void wgpu_command_encoder_copy_buffer_to_buffer(WGpuCommandEncoder commandEncoder, WGpuBuffer source, double_int53_t sourceOffset, WGpuBuffer destination, double_int53_t destinationOffset, double_int53_t size _WGPU_DEFAULT_VALUE(WGPU_INFINITY));
+void wgpu_command_encoder_copy_buffer_to_texture(WGpuCommandEncoder commandEncoder, const WGpuTexelCopyBufferInfo *source NOTNULL, const WGpuTexelCopyTextureInfo *destination NOTNULL, uint32_t copyWidth, uint32_t copyHeight _WGPU_DEFAULT_VALUE(1), uint32_t copyDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
+void wgpu_command_encoder_copy_texture_to_buffer(WGpuCommandEncoder commandEncoder, const WGpuTexelCopyTextureInfo *source NOTNULL, const WGpuTexelCopyBufferInfo *destination NOTNULL, uint32_t copyWidth, uint32_t copyHeight _WGPU_DEFAULT_VALUE(1), uint32_t copyDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
+void wgpu_command_encoder_copy_texture_to_texture(WGpuCommandEncoder commandEncoder, const WGpuTexelCopyTextureInfo *source NOTNULL, const WGpuTexelCopyTextureInfo *destination NOTNULL, uint32_t copyWidth, uint32_t copyHeight _WGPU_DEFAULT_VALUE(1), uint32_t copyDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
 void wgpu_command_encoder_clear_buffer(WGpuCommandEncoder commandEncoder, WGpuBuffer buffer, double_int53_t offset _WGPU_DEFAULT_VALUE(0), double_int53_t size _WGPU_DEFAULT_VALUE(WGPU_MAX_SIZE));
 void wgpu_command_encoder_resolve_query_set(WGpuCommandEncoder commandEncoder, WGpuQuerySet querySet, uint32_t firstQuery, uint32_t queryCount, WGpuBuffer destination, double_int53_t destinationOffset);
 
@@ -2382,31 +2454,31 @@ typedef struct WGpuCommandEncoderDescriptor
 extern const WGpuCommandEncoderDescriptor WGPU_COMMAND_ENCODER_DESCRIPTOR_DEFAULT_INITIALIZER;
 
 /*
-dictionary GPUImageDataLayout {
+dictionary GPUTexelCopyBufferLayout {
     GPUSize64 offset = 0;
     GPUSize32 bytesPerRow;
     GPUSize32 rowsPerImage;
 };
-// unused: fused to WGpuImageCopyBuffer
+// unused: fused to WGpuTexelCopyBufferInfo
 */
 
 /*
-dictionary GPUImageCopyBuffer : GPUImageDataLayout {
+dictionary GPUTexelCopyBufferInfo : GPUTexelCopyBufferLayout {
     required GPUBuffer buffer;
 };
 */
-typedef struct WGpuImageCopyBuffer
+typedef struct WGpuTexelCopyBufferInfo
 {
   uint64_t offset;
   uint32_t bytesPerRow;
   uint32_t rowsPerImage;
   WGpuBuffer buffer;
   uint32_t unused_padding;
-} WGpuImageCopyBuffer;
-extern const WGpuImageCopyBuffer WGPU_IMAGE_COPY_BUFFER_DEFAULT_INITIALIZER;
+} WGpuTexelCopyBufferInfo;
+extern const WGpuTexelCopyBufferInfo WGPU_TEXEL_COPY_BUFFER_INFO_DEFAULT_INITIALIZER;
 
 /*
-dictionary GPUImageCopyTexture {
+dictionary GPUTexelCopyTextureInfo {
     required GPUTexture texture;
     GPUIntegerCoordinate mipLevel = 0;
     GPUOrigin3D origin = {};
@@ -2416,7 +2488,7 @@ dictionary GPUImageCopyTexture {
 // Defined at the end of this file
 
 /*
-dictionary GPUImageCopyTextureTagged : GPUImageCopyTexture {
+dictionary WGPUCopyExternalImageDestInfo : GPUTexelCopyTextureInfo {
     PredefinedColorSpace colorSpace = "srgb";
     boolean premultipliedAlpha = false;
 };
@@ -2424,7 +2496,7 @@ dictionary GPUImageCopyTextureTagged : GPUImageCopyTexture {
 // Defined at the end of this file
 
 /*
-dictionary GPUImageCopyExternalImage {
+dictionary GPUCopyExternalImageSourceInfo {
     required (ImageBitmap or HTMLVideoElement or HTMLCanvasElement or OffscreenCanvas) source;
     GPUOrigin2D origin = {};
     boolean flipY = false;
@@ -2438,7 +2510,7 @@ interface mixin GPUBindingCommandsMixin {
                       optional sequence<GPUBufferDynamicOffset> dynamicOffsets = []);
 
     undefined setBindGroup(GPUIndex32 index, GPUBindGroup bindGroup,
-                      Uint32Array dynamicOffsetsData,
+        [AllowShared] Uint32Array dynamicOffsetsData,
                       GPUSize64 dynamicOffsetsDataStart,
                       GPUSize32 dynamicOffsetsDataLength);
 };
@@ -2603,9 +2675,9 @@ void wgpu_render_pass_encoder_execute_bundles(WGpuRenderPassEncoder encoder, con
 
 /*
 dictionary GPURenderPassColorAttachment {
-    required GPUTextureView view;
+    required (GPUTexture or GPUTextureView) view;
     GPUIntegerCoordinate depthSlice;
-    GPUTextureView resolveTarget;
+    (GPUTexture or GPUTextureView) resolveTarget;
 
     GPUColor clearValue;
     required GPULoadOp loadOp;
@@ -2616,7 +2688,7 @@ dictionary GPURenderPassColorAttachment {
 
 /*
 dictionary GPURenderPassDepthStencilAttachment {
-    required GPUTextureView view;
+    required (GPUTexture or GPUTextureView) view;
 
     float depthClearValue;
     GPULoadOp depthLoadOp;
@@ -2631,7 +2703,7 @@ dictionary GPURenderPassDepthStencilAttachment {
 */
 typedef struct WGpuRenderPassDepthStencilAttachment
 {
-  WGpuTextureView view;
+  WGpuObjectBase view; // WGpuTexture, or WGpuTextureView
 
   WGPU_LOAD_OP depthLoadOp; // Either WGPU_LOAD_OP_LOAD (== default, 0) or WGPU_LOAD_OP_CLEAR
   float depthClearValue;
@@ -2760,14 +2832,14 @@ interface GPUQueue {
         optional GPUSize64 size);
 
     undefined writeTexture(
-      GPUImageCopyTexture destination,
+      GPUTexelCopyTextureInfo destination,
       [AllowShared] BufferSource data,
-      GPUImageDataLayout dataLayout,
+      GPUTexelCopyBufferLayout dataLayout,
       GPUExtent3D size);
 
     undefined copyExternalImageToTexture(
-        GPUImageCopyExternalImage source,
-        GPUImageCopyTextureTagged destination,
+        GPUCopyExternalImageSourceInfo source,
+        GPUCopyExternalImageDestInfo destination,
         GPUExtent3D copySize);
 };
 GPUQueue includes GPUObjectBase;
@@ -2792,8 +2864,8 @@ void wgpu_queue_set_on_submitted_work_done_callback(WGpuQueue queue, WGpuOnSubmi
 // Uploads data to the given GPUBuffer. Data is copied from memory in byte addresses data[0], data[1], ... data[size-1], and uploaded
 // to the GPU buffer at byte offset bufferOffset, bufferOffset+1, ..., bufferOffset+size-1.
 void wgpu_queue_write_buffer(WGpuQueue queue, WGpuBuffer buffer, double_int53_t bufferOffset, const void *data NOTNULL, double_int53_t size);
-void wgpu_queue_write_texture(WGpuQueue queue, const WGpuImageCopyTexture *destination NOTNULL, const void *data NOTNULL, uint32_t bytesPerBlockRow, uint32_t blockRowsPerImage, uint32_t writeWidth, uint32_t writeHeight _WGPU_DEFAULT_VALUE(1), uint32_t writeDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
-void wgpu_queue_copy_external_image_to_texture(WGpuQueue queue, const WGpuImageCopyExternalImage *source NOTNULL, const WGpuImageCopyTextureTagged *destination NOTNULL, uint32_t copyWidth, uint32_t copyHeight _WGPU_DEFAULT_VALUE(1), uint32_t copyDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
+void wgpu_queue_write_texture(WGpuQueue queue, const WGpuTexelCopyTextureInfo *destination NOTNULL, const void *data NOTNULL, uint32_t bytesPerBlockRow, uint32_t blockRowsPerImage, uint32_t writeWidth, uint32_t writeHeight _WGPU_DEFAULT_VALUE(1), uint32_t writeDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
+void wgpu_queue_copy_external_image_to_texture(WGpuQueue queue, const WGpuCopyExternalImageSourceInfo *source NOTNULL, const WGpuCopyExternalImageDestInfo *destination NOTNULL, uint32_t copyWidth, uint32_t copyHeight _WGPU_DEFAULT_VALUE(1), uint32_t copyDepthOrArrayLayers _WGPU_DEFAULT_VALUE(1));
 
 /*
 [Exposed=(Window, DedicatedWorker), SecureContext]
@@ -2853,6 +2925,7 @@ interface GPUCanvasContext {
     undefined configure(GPUCanvasConfiguration configuration);
     undefined unconfigure();
 
+    GPUCanvasConfiguration? getConfiguration();
     GPUTexture getCurrentTexture();
 };
 */
@@ -2865,6 +2938,11 @@ WGPU_BOOL wgpu_is_canvas_context(WGpuObjectBase object);
 // Configures the swap chain for this context.
 #ifdef __EMSCRIPTEN__
 void wgpu_canvas_context_configure(WGpuCanvasContext canvasContext, const WGpuCanvasConfiguration *config NOTNULL);
+
+// Reads the configuration of the given canvas context.
+// Note: If getConfiguration() returns an empty object, then this function will return a null pointer.
+// IMPORTANT! The return value from this function is malloc()ed. Call free() on the returned pointer to avoid leaking memory.
+WGpuCanvasConfiguration *wgpu_canvas_context_get_configuration(WGpuCanvasContext canvasContext);
 #else
 void wgpu_canvas_context_configure(WGpuCanvasContext canvasContext, const WGpuCanvasConfiguration *config NOTNULL, int width _WGPU_DEFAULT_VALUE(0), int height _WGPU_DEFAULT_VALUE(0));
 #endif
@@ -3000,7 +3078,6 @@ dictionary GPUUncapturedErrorEventInit : EventInit {
 };
 
 partial interface GPUDevice {
-    [Exposed=(Window, DedicatedWorker)]
     attribute EventHandler onuncapturederror;
 };
 */
@@ -3168,9 +3245,9 @@ extern const WGpuRenderPassDescriptor WGPU_RENDER_PASS_DESCRIPTOR_DEFAULT_INITIA
 
 typedef struct WGpuRenderPassColorAttachment
 {
-  WGpuTextureView view;
+  WGpuObjectBase view; // WGpuTexture, or WGpuTextureView
   int depthSlice;
-  WGpuTextureView resolveTarget;
+  WGpuObjectBase resolveTarget; // WGpuTexture, or WGpuTextureView
 
   WGPU_STORE_OP storeOp; // Required, be sure to set to WGPU_STORE_OP_STORE (default) or WGPU_STORE_OP_DISCARD
   WGPU_LOAD_OP loadOp; // Either WGPU_LOAD_OP_LOAD (== default, 0) or WGPU_LOAD_OP_CLEAR.
@@ -3181,26 +3258,26 @@ extern const WGpuRenderPassColorAttachment WGPU_RENDER_PASS_COLOR_ATTACHMENT_DEF
 
 VERIFY_STRUCT_SIZE(WGpuRenderPassColorAttachment, 14*sizeof(uint32_t));
 
-typedef struct WGpuImageCopyExternalImage
+typedef struct WGpuCopyExternalImageSourceInfo
 {
   WGpuObjectBase source; // must point to a WGpuImageBitmap (could also point to a HTMLVideoElement, HTMLCanvasElement or OffscreenCanvas, but those are currently unimplemented)
   WGpuOrigin2D origin;
   WGPU_BOOL flipY; // defaults to false.
-} WGpuImageCopyExternalImage;
-extern const WGpuImageCopyExternalImage WGPU_IMAGE_COPY_EXTERNAL_IMAGE_DEFAULT_INITIALIZER;
+} WGpuCopyExternalImageSourceInfo;
+extern const WGpuCopyExternalImageSourceInfo WGPU_COPY_EXTERNAL_IMAGE_SOURCE_INFO_DEFAULT_INITIALIZER;
 
-typedef struct WGpuImageCopyTexture
+typedef struct WGpuTexelCopyTextureInfo
 {
   WGpuTexture texture;
   uint32_t mipLevel;
   WGpuOrigin3D origin;
   WGPU_TEXTURE_ASPECT aspect;
-} WGpuImageCopyTexture;
-extern const WGpuImageCopyTexture WGPU_IMAGE_COPY_TEXTURE_DEFAULT_INITIALIZER;
+} WGpuTexelCopyTextureInfo;
+extern const WGpuTexelCopyTextureInfo WGPU_TEXEL_COPY_TEXTURE_INFO_DEFAULT_INITIALIZER;
 
-typedef struct WGpuImageCopyTextureTagged
+typedef struct WGpuCopyExternalImageDestInfo
 {
-  // WGpuImageCopyTexture part:
+  // WGpuTexelCopyTextureInfo part:
   WGpuTexture texture;
   uint32_t mipLevel;
   WGpuOrigin3D origin;
@@ -3208,8 +3285,8 @@ typedef struct WGpuImageCopyTextureTagged
 
   HTML_PREDEFINED_COLOR_SPACE colorSpace; // = "srgb";
   WGPU_BOOL premultipliedAlpha; // = false;
-} WGpuImageCopyTextureTagged;
-extern const WGpuImageCopyTextureTagged WGPU_IMAGE_COPY_TEXTURE_TAGGED_DEFAULT_INITIALIZER;
+} WGpuCopyExternalImageDestInfo;
+extern const WGpuCopyExternalImageDestInfo WGPU_COPY_EXTERNAL_IMAGE_DEST_INFO_DEFAULT_INITIALIZER;
 
 typedef struct WGpuDepthStencilState
 {

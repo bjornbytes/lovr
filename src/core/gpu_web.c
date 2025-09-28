@@ -965,10 +965,11 @@ bool gpu_write_texture(gpu_stream* stream, gpu_texture* texture, void* data, uin
     rowsPerImage = extent[1];
   }
 
-  WGpuImageCopyTexture dst = {
+  WGpuTexelCopyTextureInfo dst = {
     .texture = texture->handle,
     .mipLevel = offset[3],
-    .origin = { offset[0], offset[1], offset[2] }
+    .origin = { offset[0], offset[1], offset[2] },
+    .aspect = WGPU_TEXTURE_ASPECT_ALL
   };
 
   wgpu_queue_write_texture(state.queue, &dst, data, rowSize, rowsPerImage, extent[0], extent[1], extent[2]);
@@ -980,46 +981,50 @@ void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint
 }
 
 void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
-  WGpuImageCopyTexture srcRegion = {
+  WGpuTexelCopyTextureInfo srcRegion = {
     .texture = src->handle,
     .mipLevel = srcOffset[3],
-    .origin = { srcOffset[0], srcOffset[1], srcOffset[2] }
+    .origin = { srcOffset[0], srcOffset[1], srcOffset[2] },
+    .aspect = WGPU_TEXTURE_ASPECT_ALL
   };
 
-  WGpuImageCopyTexture dstRegion = {
+  WGpuTexelCopyTextureInfo dstRegion = {
     .texture = dst->handle,
     .mipLevel = dstOffset[3],
-    .origin = { dstOffset[0], dstOffset[1], dstOffset[2] }
+    .origin = { dstOffset[0], dstOffset[1], dstOffset[2] },
+    .aspect = WGPU_TEXTURE_ASPECT_ALL
   };
 
   wgpu_command_encoder_copy_texture_to_texture(stream->commands, &srcRegion, &dstRegion, extent[0], extent[1], extent[2]);
 }
 
 void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]) {
-  WGpuImageCopyBuffer srcRegion = {
+  WGpuTexelCopyBufferInfo srcRegion = {
     .offset = srcOffset,
     .bytesPerRow = getRowSize(dst->format, extent[0]),
     .rowsPerImage = extent[1],
     .buffer = src->handle
   };
 
-  WGpuImageCopyTexture dstRegion = {
+  WGpuTexelCopyTextureInfo dstRegion = {
     .texture = dst->handle,
     .mipLevel = dstOffset[3],
-    .origin = { dstOffset[0], dstOffset[1], dstOffset[2] }
+    .origin = { dstOffset[0], dstOffset[1], dstOffset[2] },
+    .aspect = WGPU_TEXTURE_ASPECT_ALL
   };
 
   wgpu_command_encoder_copy_buffer_to_texture(stream->commands, &srcRegion, &dstRegion, extent[0], extent[1], extent[2]);
 }
 
 void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* dst, uint32_t srcOffset[4], uint32_t dstOffset, uint32_t extent[3]) {
-  WGpuImageCopyTexture srcRegion = {
+  WGpuTexelCopyTextureInfo srcRegion = {
     .texture = src->handle,
     .mipLevel = srcOffset[3],
-    .origin = { srcOffset[0], srcOffset[1], srcOffset[2] }
+    .origin = { srcOffset[0], srcOffset[1], srcOffset[2] },
+    .aspect = WGPU_TEXTURE_ASPECT_ALL
   };
 
-  WGpuImageCopyBuffer dstRegion = {
+  WGpuTexelCopyBufferInfo dstRegion = {
     .offset = dstOffset,
     .bytesPerRow = getRowSize(src->format, extent[0]),
     .rowsPerImage = extent[1],
