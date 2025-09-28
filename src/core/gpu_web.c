@@ -1373,9 +1373,9 @@ bool gpu_init(gpu_config* config) {
     config->limits->clipDistances = 0; // TODO
     config->limits->cullDistances = 0;
     config->limits->clipAndCullDistances = 0; // TODO
-    config->limits->workgroupCount[0] = 0; // TODO supported.maxComputeWorkgroupsPerDimension;
-    config->limits->workgroupCount[1] = 0; // TODO supported.maxComputeWorkgroupsPerDimension;
-    config->limits->workgroupCount[2] = 0; // TODO supported.maxComputeWorkgroupsPerDimension;
+    config->limits->workgroupCount[0] = supported.maxComputeWorkgroupsPerDimension;
+    config->limits->workgroupCount[1] = supported.maxComputeWorkgroupsPerDimension;
+    config->limits->workgroupCount[2] = supported.maxComputeWorkgroupsPerDimension;
     config->limits->workgroupSize[0] = supported.maxComputeWorkgroupSizeX;
     config->limits->workgroupSize[1] = supported.maxComputeWorkgroupSizeY;
     config->limits->workgroupSize[2] = supported.maxComputeWorkgroupSizeZ;
