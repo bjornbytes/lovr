@@ -1289,6 +1289,21 @@ bool gpu_init(gpu_config* config) {
     config->features->formats[GPU_FORMAT_D32F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
     config->features->formats[GPU_FORMAT_D24S8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
 
+    // We can't actually advertise support for render/sample on r16/rg16/rgba16 with tier1, because:
+    // - They don't support resolves (so no RENDER)
+    // - They don't support linear filtering (so no SAMPLE)
+    if (wgpu_device_supports_feature(state.device, WGPU_FEATURE_TEXTURE_FORMATS_TIER1)) {
+      config->features->formats[GPU_FORMAT_R8][0] |= GPU_FEATURE_STORAGE;
+      config->features->formats[GPU_FORMAT_RG8][0] |= GPU_FEATURE_STORAGE;
+      config->features->formats[GPU_FORMAT_R16][0] |= GPU_FEATURE_STORAGE;
+      config->features->formats[GPU_FORMAT_RG16][0] |= GPU_FEATURE_STORAGE;
+      config->features->formats[GPU_FORMAT_RGBA16][0] |= GPU_FEATURE_STORAGE;
+      config->features->formats[GPU_FORMAT_R16F][0] |= GPU_FEATURE_STORAGE;
+      config->features->formats[GPU_FORMAT_RG16F][0] |= GPU_FEATURE_STORAGE;
+      config->features->formats[GPU_FORMAT_RGB10A2][0] |= GPU_FEATURE_STORAGE;
+      config->features->formats[GPU_FORMAT_RG11B10F][0] |= GPU_FEATURE_STORAGE;
+    }
+
     if (wgpu_device_supports_feature(state.device, WGPU_FEATURE_DEPTH32FLOAT_STENCIL8)) {
       config->features->formats[GPU_FORMAT_D32FS8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
     }
