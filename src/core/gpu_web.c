@@ -1337,6 +1337,12 @@ bool gpu_init(gpu_config* config) {
       config->features->formats[GPU_FORMAT_RGBA32F][0] |= GPU_FEATURE_SAMPLE;
     }
 
+    if (wgpu_device_supports_feature(state.device, WGPU_FEATURE_FLOAT32_BLENDABLE)) {
+      config->features->formats[GPU_FORMAT_R32F][0] |= GPU_FEATURE_RENDER;
+      config->features->formats[GPU_FORMAT_RG32F][0] |= GPU_FEATURE_RENDER;
+      config->features->formats[GPU_FORMAT_RGBA32F][0] |= GPU_FEATURE_RENDER;
+    }
+
     for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
       config->features->formats[i][1] = config->features->formats[i][0];
     }
