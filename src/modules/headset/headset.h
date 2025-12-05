@@ -4,15 +4,15 @@
 
 #pragma once
 
-// Export/import macros for plugin functions
+// API export/import macro for plugin functions
 #ifdef _WIN32
-  #ifdef LOVR_BUILDING_PLUGIN
-    #define LOVR_PLUGIN_IMPORT __declspec(dllimport)
+  #ifdef LOVR_API_IMPORT
+    #define LOVR_API __declspec(dllimport)
   #else
-    #define LOVR_PLUGIN_IMPORT __declspec(dllexport)
+    #define LOVR_API __declspec(dllexport)
   #endif
 #else
-  #define LOVR_PLUGIN_IMPORT __attribute__((visibility("default")))
+  #define LOVR_API __attribute__((visibility("default")))
 #endif
 
 #define HAND_JOINT_COUNT 26
@@ -272,6 +272,6 @@ uint32_t lovrHeadsetCreateVulkanInstance(void* instanceCreateInfo, void* allocat
 uint32_t lovrHeadsetCreateVulkanDevice(void* instance, void* deviceCreateInfo, void* allocatoor, uintptr_t device, void* getInstanceProcAddr);
 
 // OpenXR handle accessors (for plugins)
-LOVR_PLUGIN_IMPORT uintptr_t xr_get_instance(void);
-LOVR_PLUGIN_IMPORT uintptr_t xr_get_system(void);
-LOVR_PLUGIN_IMPORT uintptr_t xr_get_session(void);
+LOVR_API uintptr_t xr_get_instance(void);
+LOVR_API uintptr_t xr_get_system(void);
+LOVR_API uintptr_t xr_get_session(void);
