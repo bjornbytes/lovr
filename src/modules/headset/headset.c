@@ -370,6 +370,13 @@ static bool loadVisibilityMask(void);
 bool lovrHeadsetInit(HeadsetConfig* config) {
   if (state.initialized) {
     lovrFree(config->extensions);
+    if (config->initProperties) {
+      for (uint32_t i = 0; i < config->initPropertyCount; i++) {
+        lovrFree(config->initProperties[i].name);
+        lovrFree(config->initProperties[i].value);
+      }
+      lovrFree(config->initProperties);
+    }
     return true;
   }
 
@@ -397,6 +404,13 @@ bool lovrHeadsetInit(HeadsetConfig* config) {
 void lovrHeadsetDestroy(void) {
   disconnect();
   lovrFree(state.config.extensions);
+  if (state.config.initProperties) {
+    for (uint32_t i = 0; i < state.config.initPropertyCount; i++) {
+      lovrFree(state.config.initProperties[i].name);
+      lovrFree(state.config.initProperties[i].value);
+    }
+    lovrFree(state.config.initProperties);
+  }
   Simulator simulator = state.simulator; // Keep simulator state between restarts, for convenience
   memset(&state, 0, sizeof(state));
   state.simulator = simulator;
@@ -434,6 +448,37 @@ bool lovrHeadsetConnect(void) {
 #elif defined(_WIN32)
   if (!config->debug && GetEnvironmentVariable("XR_LOADER_DEBUG", NULL, 0) == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
     SetEnvironmentVariable("XR_LOADER_DEBUG", "none");
+  }
+#endif
+
+  // Initialize loader with properties (for custom runtime paths, etc.)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
+  if (state.config.initPropertyCount > 0 && state.config.initProperties) {
+    static PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
+    XR_LOAD(xrInitializeLoaderKHR);
+    lovrAssert(xrInitializeLoaderKHR, "Failed to initialize loader");
+
+    // Build property list from config
+    XrLoaderInitPropertyValueEXT* propertyList = lovrMalloc(state.config.initPropertyCount * sizeof(XrLoaderInitPropertyValueEXT));
+    for (uint32_t i = 0; i < state.config.initPropertyCount; i++) {
+      propertyList[i].name = state.config.initProperties[i].name;
+      propertyList[i].value = state.config.initProperties[i].value;
+    }
+    
+    XrLoaderInitInfoPropertiesEXT loaderProperties = {
+      .type = XR_TYPE_LOADER_INIT_INFO_PROPERTIES_EXT,
+      .next = NULL,
+      .propertyValueCount = state.config.initPropertyCount,
+      .propertyValues = propertyList
+    };
+    
+    XrResult initResult = xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*) &loaderProperties);
+    lovrFree(propertyList);
+    
+    if (XR_FAILED(initResult)) {
+      lovrLog(LOG_ERROR, "OpenXR", "Failed to initialize loader with properties: %d", initResult);
+      return false;
+    }
   }
 #endif
 

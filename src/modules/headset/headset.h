@@ -4,6 +4,17 @@
 
 #pragma once
 
+// Export/import macros for plugin functions
+#ifdef _WIN32
+  #ifdef LOVR_BUILDING_PLUGIN
+    #define LOVR_PLUGIN_IMPORT __declspec(dllimport)
+  #else
+    #define LOVR_PLUGIN_IMPORT __declspec(dllexport)
+  #endif
+#else
+  #define LOVR_PLUGIN_IMPORT __attribute__((visibility("default")))
+#endif
+
 #define HAND_JOINT_COUNT 26
 #define MAX_LAYERS 10
 
@@ -21,6 +32,11 @@ typedef enum {
 } ControllerSkeletonMode;
 
 typedef struct {
+  char* name;
+  char* value;
+} InitProperty;
+
+typedef struct {
   float supersample;
   bool debug;
   bool seated;
@@ -33,6 +49,8 @@ typedef struct {
   ControllerSkeletonMode controllerSkeleton;
   uint32_t extensionCount;
   char* extensions;
+  uint32_t initPropertyCount;
+  InitProperty* initProperties;
 } HeadsetConfig;
 
 typedef struct {
@@ -252,3 +270,8 @@ bool lovrHeadsetIsSupported(void);
 void lovrHeadsetGetVulkanPhysicalDevice(void* instance, uintptr_t physicalDevice);
 uint32_t lovrHeadsetCreateVulkanInstance(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr);
 uint32_t lovrHeadsetCreateVulkanDevice(void* instance, void* deviceCreateInfo, void* allocatoor, uintptr_t device, void* getInstanceProcAddr);
+
+// OpenXR handle accessors (for plugins)
+LOVR_PLUGIN_IMPORT uintptr_t xr_get_instance(void);
+LOVR_PLUGIN_IMPORT uintptr_t xr_get_system(void);
+LOVR_PLUGIN_IMPORT uintptr_t xr_get_session(void);

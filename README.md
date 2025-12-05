@@ -132,6 +132,7 @@ Contributors
 - [@porglezomp](https://github.com/porglezomp)
 - [@jmiskovic](https://github.com/jmiskovic)
 - [@wallbraker](https://github.com/wallbraker)
+- NVIDIA Corporation & Affiliates
 
 License
 ---

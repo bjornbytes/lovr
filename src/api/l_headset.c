@@ -1126,12 +1126,41 @@ int luaopen_lovr_headset(lua_State* L) {
             lua_call(L, 2, 1);
             size_t length;
             const char* string = lua_tolstring(L, -1, &length);
-            char* extensions = lovrMalloc(length);
-            memcpy(extensions, string, length);
+            char* extensions = lovrMalloc(length + 1);
+            memcpy(extensions, string, length + 1);
             config.extensionCount = count;
             config.extensions = extensions;
           }
           lua_pop(L, 2);
+        }
+      }
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "initproperties");
+      if (lua_istable(L, -1)) {
+        int count = luax_len(L, -1);
+        if (count > 0) {
+          InitProperty* properties = lovrMalloc(count * sizeof(InitProperty));
+          for (int i = 0; i < count; i++) {
+            lua_rawgeti(L, -1, i + 1);
+            if (lua_istable(L, -1)) {
+              lua_getfield(L, -1, "name");
+              const char* name = lua_tostring(L, -1);
+              properties[i].name = name ? lovrStrdup(name) : NULL;
+              lua_pop(L, 1);
+
+              lua_getfield(L, -1, "value");
+              const char* value = lua_tostring(L, -1);
+              properties[i].value = value ? lovrStrdup(value) : NULL;
+              lua_pop(L, 1);
+            } else {
+              properties[i].name = NULL;
+              properties[i].value = NULL;
+            }
+            lua_pop(L, 1);
+          }
+          config.initPropertyCount = count;
+          config.initProperties = properties;
         }
       }
       lua_pop(L, 1);
