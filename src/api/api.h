@@ -117,6 +117,7 @@ typedef struct {
 #define luax_pushnilerror(L) lua_pushnil(L), lua_pushstring(L, lovrGetError()), 2
 
 void luax_preload(lua_State* L);
+int luax_release(lua_State* L);
 void _luax_registertype(lua_State* L, int type, const char* name, void (*destructor)(void*), const luaL_Reg* functions);
 void* _luax_totype(lua_State* L, int index, int type);
 void* _luax_checktype(lua_State* L, int index, int type);

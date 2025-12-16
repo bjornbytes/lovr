@@ -55,27 +55,6 @@ static void luax_destructor(lua_State* L, void* userdata) {
 }
 #endif
 
-static int luax_release(lua_State* L) {
-  Object* object = lua_touserdata(L, 1);
-
-  if (!object) {
-    return 0;
-  }
-
-  // Remove from userdata cache
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
-  lua_pushlightuserdata(L, object->pointer);
-  lua_pushnil(L);
-  lua_rawset(L, -3);
-  lua_pop(L, 1);
-
-  // Release
-  lovrRelease(object->pointer, lovrTypeInfo[object->type].destructor);
-  object->pointer = NULL;
-
-  return 0;
-}
-
 void luax_preload(lua_State* L) {
   static const luaL_Reg lovrModules[] = {
     { "lovr", luaopen_lovr },
@@ -124,6 +103,27 @@ void luax_preload(lua_State* L) {
   lua_pop(L, 2);
 }
 
+int luax_release(lua_State* L) {
+  Object* object = lua_touserdata(L, 1);
+
+  if (!object) {
+    return 0;
+  }
+
+  // Remove from userdata cache
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrobjects");
+  lua_pushlightuserdata(L, object->pointer);
+  lua_pushnil(L);
+  lua_rawset(L, -3);
+  lua_pop(L, 1);
+
+  // Release
+  lovrRelease(object->pointer, lovrTypeInfo[object->type].destructor);
+  object->pointer = NULL;
+
+  return 0;
+}
+
 void _luax_registertype(lua_State* L, int type, const char* name, void (*destructor)(void*), const luaL_Reg* functions) {
   lovrTypeInfo[type] = (TypeInfo) { name, destructor };
 
@@ -139,14 +139,13 @@ void _luax_registertype(lua_State* L, int type, const char* name, void (*destruc
   lua_setuserdatadtor(L, type, luax_destructor);
   lua_pushvalue(L, -1);
   lua_setuserdatametatable(L, type);
+
+  lua_pushcfunction(L, luax_release);
+  lua_setfield(L, -2, "release");
 #else
   // m.__gc = luax_release
   lua_pushcfunction(L, luax_release);
   lua_setfield(L, -2, "__gc");
-
-  // m.__close = gc
-  lua_pushcfunction(L, luax_release);
-  lua_setfield(L, -2, "__close");
 #endif
 
   // m.__tostring
@@ -158,9 +157,15 @@ void _luax_registertype(lua_State* L, int type, const char* name, void (*destruc
     luax_register(L, functions);
   }
 
+#ifndef LOVR_USE_LUAU
+  // m.__close = __gc
+  lua_getfield(L, -1, "__gc");
+  lua_setfield(L, -2, "__close");
+
   // :release method
-  lua_pushcfunction(L, luax_release);
+  lua_getfield(L, -1, "__gc");
   lua_setfield(L, -2, "release");
+#endif
 
   // :type method
   lua_pushcfunction(L, luax_type);
