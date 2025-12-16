@@ -203,3 +203,8 @@ struct Shape* luax_newconvexshape(lua_State* L, int index);
 struct Shape* luax_newmeshshape(lua_State* L, int index);
 struct Shape* luax_newterrainshape(lua_State* L, int index);
 #endif
+
+#ifndef LOVR_DISABLE_TASK
+#include "task/task.h"
+int luax_runasync(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context);
+#endif

@@ -15,6 +15,7 @@ option(LOVR_ENABLE_HEADSET "Enable the headset module" ON)
 option(LOVR_ENABLE_MATH "Enable the math module" ON)
 option(LOVR_ENABLE_PHYSICS "Enable the physics module" ON)
 option(LOVR_ENABLE_SYSTEM "Enable the system module" ON)
+option(LOVR_ENABLE_TASK "Enable the task module" ON)
 option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
@@ -538,6 +539,16 @@ if(LOVR_ENABLE_SYSTEM)
   endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_SYSTEM)
+endif()
+
+if(LOVR_ENABLE_TASK)
+  target_sources(lovr PRIVATE
+    src/modules/task/task.c
+    src/api/l_task.c
+    src/api/l_task_task.c
+  )
+else()
+  target_compile_definitions(lovr PRIVATE LOVR_DISABLE_TASK)
 endif()
 
 if(LOVR_ENABLE_THREAD)

@@ -30,6 +30,7 @@ LOVR_EXPORT int luaopen_lovr_headset(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_math(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_physics(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_system(lua_State* L);
+LOVR_EXPORT int luaopen_lovr_task(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_thread(lua_State* L);
 LOVR_EXPORT int luaopen_lovr_timer(lua_State* L);
 
@@ -84,6 +85,9 @@ void luax_preload(lua_State* L) {
 #endif
 #ifndef LOVR_DISABLE_SYSTEM
     { "lovr.system", luaopen_lovr_system },
+#endif
+#ifndef LOVR_DISABLE_TASK
+    { "lovr.task", luaopen_lovr_task },
 #endif
 #ifndef LOVR_DISABLE_THREAD
     { "lovr.thread", luaopen_lovr_thread },

@@ -111,6 +111,21 @@ static int l_lovrDataNewBlobView(lua_State* L) {
   return 1;
 }
 
+static int luax_pushimage(lua_State* L, void* context) {
+  Image* image = context;
+  luax_pushtype(L, Image, image);
+  lovrRelease(image, lovrImageDestroy);
+  return 1;
+}
+
+static bool luax_loadimage(void** context) {
+  Blob* blob = *context;
+  Image* image = lovrImageCreateFromFile(blob);
+  lovrRelease(blob, lovrBlobDestroy);
+  *context = image;
+  return !!image;
+}
+
 static int l_lovrDataNewImage(lua_State* L) {
   Image* image = NULL;
   if (lua_type(L, 1) == LUA_TNUMBER) {
@@ -139,9 +154,7 @@ static int l_lovrDataNewImage(lua_State* L) {
       memcpy(lovrImageGetLayerData(image, 0, 0), lovrImageGetLayerData(source, 0, 0), lovrImageGetLayerSize(image, 0));
     } else {
       Blob* blob = luax_readblob(L, 1, "Texture");
-      image = lovrImageCreateFromFile(blob);
-      lovrRelease(blob, lovrBlobDestroy);
-      luax_assert(L, image);
+      return luax_runasync(L, luax_loadimage, luax_pushimage, blob);
     }
   }
 

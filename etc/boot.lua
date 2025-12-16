@@ -15,6 +15,7 @@ local conf = {
     math = true,
     physics = true,
     system = true,
+    task = true,
     thread = true,
     timer = true
   },
@@ -200,6 +201,11 @@ function lovr.run()
     if lovr.headset then
       dt = lovr.headset.update()
       if not lovr.headset.isActive() then lovr.simulate(dt) end
+    end
+    if lovr.task then
+      for task in lovr.task.poll() do
+        lovr.taskready(task)
+      end
     end
     if lovr.update then lovr.update(dt) end
     if lovr.audio then lovr.audio.update(dt) end
@@ -401,6 +407,10 @@ end
 
 function lovr.threaderror(thread, err)
   error('Thread error\n\n' .. err, 0)
+end
+
+function lovr.taskready(task)
+  assert(task:resume())
 end
 
 function lovr.filechanged(path, action, oldpath)
