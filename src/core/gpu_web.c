@@ -1400,21 +1400,19 @@ void gpu_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-const char* gpu_get_error(void) {
+char* gpu_get_error(void) {
   return NULL;
 }
 
-bool gpu_begin(uint32_t* tick) {
-  *tick = state.tick++;
-  state.streamCount = 0;
-  return true;
+bool gpu_get_memory_info(uint64_t* budget, uint64_t* usage) {
+  return false;
 }
 
 static void onSubmittedWorkDone(WGpuQueue queue, void* userdata) {
   state.lastTickFinished = (uint32_t) (uintptr_t) userdata;
 }
 
-bool gpu_submit(gpu_stream** streams, uint32_t count) {
+bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
   while (state.mappings) {
     gpu_mapping* mapping = state.mappings;
     wgpu_queue_write_buffer(state.queue, mapping->buffer, mapping->offset, mapping->data, mapping->extent);
@@ -1431,7 +1429,8 @@ bool gpu_submit(gpu_stream** streams, uint32_t count) {
   }
 
   wgpu_queue_submit_multiple_and_destroy(state.queue, commandBuffers, count);
-  wgpu_queue_set_on_submitted_work_done_callback(state.queue, onSubmittedWorkDone, (void*) (uintptr_t) (state.tick - 1));
+  wgpu_queue_set_on_submitted_work_done_callback(state.queue, onSubmittedWorkDone, (void*) (uintptr_t) tick);
+  state.streamCount = 0;
   return true;
 }
 
@@ -1439,8 +1438,8 @@ bool gpu_is_complete(uint32_t tick) {
   return state.lastTickFinished >= tick;
 }
 
-bool gpu_wait_tick(uint32_t tick, bool* waited) {
-  return *waited = false, true; // TODO unsupported?
+bool gpu_wait_tick(uint32_t tick) {
+  return true; // TODO unsupported?
 }
 
 bool gpu_wait_idle(void) {
