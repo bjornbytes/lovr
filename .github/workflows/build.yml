@@ -134,6 +134,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: 'recursive'
+      - name: Init x86_64
+        run: cmake -B build-x86_64 -D LOVR_BUILD_BUNDLE=ON -D LOVR_VERSION_HASH=${GITHUB_SHA::6} -D CMAKE_OSX_ARCHITECTURES=x86_64
+      - name: Build x86_64
+        run: cmake --build build-x86_64 -j
       - name: Init
         run: cmake -B build -D LOVR_BUILD_BUNDLE=ON -D LOVR_VERSION_HASH=${GITHUB_SHA::6}
       - name: Build
@@ -149,6 +153,7 @@ jobs:
           sed -i '' 's|../../../lib/libMoltenVK.dylib|../../../MacOS/libMoltenVK.dylib|' build/lovr.app/Contents/Resources/vulkan/icd.d/MoltenVK_icd.json &&
           codesign -f -s - --preserve-metadata=identifier,entitlements,flags,runtime build/lovr.app/Contents/MacOS/* &&
           codesign -f -s - --preserve-metadata=identifier,entitlements,flags,runtime build/lovr.app &&
+          lipo -create build-x86_64/lovr.app/Contents/MacOS/lovr build/lovr.app/Contents/MacOS/lovr -output build/lovr.app/Contents/MacOS/lovr &&
           ditto -c -k --keepParent build/lovr.app lovr.zip
       - name: Upload
         uses: actions/upload-artifact@v4
