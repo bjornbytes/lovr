@@ -221,10 +221,19 @@ enum {
   ACTION_TRIGGER_DOWN,
   ACTION_TRIGGER_TOUCH,
   ACTION_TRIGGER_AXIS,
+  ACTION_TRACKPAD_CLICK,
+  ACTION_TRACKPAD_UP,
   ACTION_TRACKPAD_DOWN,
+  ACTION_TRACKPAD_LEFT,
+  ACTION_TRACKPAD_RIGHT,
+  ACTION_TRACKPAD_CENTER,
   ACTION_TRACKPAD_TOUCH,
   ACTION_TRACKPAD_AXIS,
+  ACTION_THUMBSTICK_CLICK,
+  ACTION_THUMBSTICK_UP,
   ACTION_THUMBSTICK_DOWN,
+  ACTION_THUMBSTICK_LEFT,
+  ACTION_THUMBSTICK_RIGHT,
   ACTION_THUMBSTICK_TOUCH,
   ACTION_THUMBSTICK_AXIS,
   ACTION_THUMBREST_TOUCH,
@@ -307,6 +316,8 @@ static struct {
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
+  bool dpadButtons[2][MAX_BUTTONS];
+  bool prevDpadButtons[2][MAX_BUTTONS];
   XrBodyTrackerBD bodyTracker;
   XrRenderModelIdEXT* modelKeys;
   RenderModel* models;
@@ -319,9 +330,11 @@ static struct {
   bool mounted;
   XrDebugUtilsMessengerEXT messenger;
   struct {
+    bool bindingModification;
     bool controllerModel;
     bool debug;
     bool depth;
+    bool dpad;
     bool foveatedInset;
     bool foveation;
     bool foveationConfig;
@@ -477,6 +490,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_KHR_android_create_instance", NULL, true },
     { "XR_KHR_android_thread_settings", &state.extensions.threadHint, true },
 #endif
+    { "XR_KHR_binding_modification", &state.extensions.bindingModification, true },
     { "XR_KHR_composition_layer_color_scale_bias", &state.extensions.layerColor, true },
     { "XR_KHR_composition_layer_cylinder", &state.extensions.layerCurve, true },
     { "XR_KHR_composition_layer_cube", &state.extensions.layerCube, true },
@@ -495,6 +509,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_KHR_win32_convert_performance_counter_time", NULL, true },
 #endif
     { "XR_EXT_debug_utils", &state.extensions.debug, true },
+    { "XR_EXT_dpad_binding", &state.extensions.dpad, true },
     { "XR_EXT_eye_gaze_interaction", &state.extensions.gaze, true },
     { "XR_EXT_hand_interaction", &state.extensions.handInteraction, true },
     { "XR_EXT_hand_joints_motion_range", &state.extensions.handTrackingMotionRange, true },
@@ -786,13 +801,22 @@ bool lovrHeadsetConnect(void) {
     { 0, NULL, "gaze_pose",        XR_ACTION_TYPE_POSE_INPUT,       0, NULL, "Gaze Pose" },
     { 0, NULL, "trigger_down",     XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trigger Down" },
     { 0, NULL, "trigger_touch",    XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trigger Touch" },
-    { 0, NULL, "trigger_axis" ,    XR_ACTION_TYPE_FLOAT_INPUT,      2, hands, "Trigger Axis" },
-    { 0, NULL, "trackpad_down" ,   XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Down" },
+    { 0, NULL, "trigger_axis",     XR_ACTION_TYPE_FLOAT_INPUT,      2, hands, "Trigger Axis" },
+    { 0, NULL, "trackpad_click",   XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Click" },
+    { 0, NULL, "trackpad_up",      XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Up" },
+    { 0, NULL, "trackpad_down",    XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Down" },
+    { 0, NULL, "trackpad_left",    XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Left" },
+    { 0, NULL, "trackpad_right",   XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Right" },
+    { 0, NULL, "trackpad_center",  XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Center" },
     { 0, NULL, "trackpad_touch",   XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Trackpad Touch" },
     { 0, NULL, "trackpad_axis",    XR_ACTION_TYPE_VECTOR2F_INPUT,   2, hands, "Trackpad Axis" },
+    { 0, NULL, "thumbstick_click", XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbstick Click" },
+    { 0, NULL, "thumbstick_up",    XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbstick Up" },
     { 0, NULL, "thumbstick_down",  XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbstick Down" },
+    { 0, NULL, "thumbstick_left",  XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbstick Left" },
+    { 0, NULL, "thumbstick_right", XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbstick Right" },
     { 0, NULL, "thumbstick_touch", XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbstick Touch" },
-    { 0, NULL, "thumbstick_axis" , XR_ACTION_TYPE_VECTOR2F_INPUT,   2, hands, "Thumbstick Axis" },
+    { 0, NULL, "thumbstick_axis",  XR_ACTION_TYPE_VECTOR2F_INPUT,   2, hands, "Thumbstick Axis" },
     { 0, NULL, "thumbrest_touch",  XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Thumbrest Touch" },
     { 0, NULL, "thumbrest_axis",   XR_ACTION_TYPE_FLOAT_INPUT  ,    2, hands, "Thumbrest Axis" },
     { 0, NULL, "menu_down",        XR_ACTION_TYPE_BOOLEAN_INPUT,    2, hands, "Menu Down" },
@@ -919,8 +943,16 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/left/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/left/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/right/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/left/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/right/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/left/input/thumbstick/dpad_right" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/right/input/thumbstick/dpad_right" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/right/input/thumbstick" },
       { ACTION_GRIP_DOWN, "/user/hand/left/input/squeeze/value" },
@@ -950,8 +982,18 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/click" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/click" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/left/input/trackpad/click" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/right/input/trackpad/click" },
+      { ACTION_TRACKPAD_UP, "/user/hand/left/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_UP, "/user/hand/right/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/left/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/right/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/left/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/right/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/left/input/trackpad/dpad_center" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/right/input/trackpad/dpad_center" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
       { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
@@ -981,8 +1023,16 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/left/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/left/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/right/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/left/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/right/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/left/input/thumbstick/dpad_right" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/right/input/thumbstick/dpad_right" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
@@ -1024,8 +1074,16 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/left/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/left/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/right/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/left/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/right/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/left/input/thumbstick/dpad_right" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/right/input/thumbstick/dpad_right" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
@@ -1069,8 +1127,18 @@ bool lovrHeadsetConnect(void) {
       { ACTION_PALM_POSE, "/user/hand/right/input/palm_ext/pose" },
       { ACTION_TRIGGER_DOWN, "/user/hand/left/input/trigger/click" },
       { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/click" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/click" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/left/input/trackpad/click" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/right/input/trackpad/click" },
+      { ACTION_TRACKPAD_UP, "/user/hand/left/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_UP, "/user/hand/right/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/left/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/right/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/left/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/right/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/left/input/trackpad/dpad_center" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/right/input/trackpad/dpad_center" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
       { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
@@ -1094,14 +1162,32 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/force" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/force" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/left/input/trackpad/click" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/right/input/trackpad/click" },
+      { ACTION_TRACKPAD_UP, "/user/hand/left/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_UP, "/user/hand/right/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/left/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/right/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/left/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/right/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/left/input/trackpad/dpad_center" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/right/input/trackpad/dpad_center" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
       { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
       { ACTION_TRACKPAD_AXIS, "/user/hand/right/input/trackpad" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/left/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/left/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/right/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/left/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/right/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/left/input/thumbstick/dpad_right" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/right/input/thumbstick/dpad_right" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
@@ -1139,14 +1225,32 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/click" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/left/input/trackpad/click" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/right/input/trackpad/click" },
+      { ACTION_TRACKPAD_UP, "/user/hand/left/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_UP, "/user/hand/right/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/left/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/right/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/left/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/right/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/left/input/trackpad/dpad_center" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/right/input/trackpad/dpad_center" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
       { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
       { ACTION_TRACKPAD_AXIS, "/user/hand/right/input/trackpad" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/left/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/left/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/right/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/left/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/right/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/left/input/thumbstick/dpad_right" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/right/input/thumbstick/dpad_right" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/right/input/thumbstick" },
       { ACTION_MENU_DOWN, "/user/hand/left/input/menu/click" },
@@ -1174,8 +1278,18 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_DOWN, "/user/hand/right/input/trigger/click" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/click" },
-      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/click" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/left/input/trackpad/click" },
+      { ACTION_TRACKPAD_CLICK, "/user/hand/right/input/trackpad/click" },
+      { ACTION_TRACKPAD_UP, "/user/hand/left/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_UP, "/user/hand/right/input/trackpad/dpad_up" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/trackpad/dpad_down" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/left/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/right/input/trackpad/dpad_left" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/left/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/right/input/trackpad/dpad_right" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/left/input/trackpad/dpad_center" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/right/input/trackpad/dpad_center" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/left/input/trackpad/touch" },
       { ACTION_TRACKPAD_TOUCH, "/user/hand/right/input/trackpad/touch" },
       { ACTION_TRACKPAD_AXIS, "/user/hand/left/input/trackpad" },
@@ -1205,8 +1319,16 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/left/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/left/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/right/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/left/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/right/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/left/input/thumbstick/dpad_right" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/right/input/thumbstick/dpad_right" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
@@ -1246,8 +1368,16 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/left/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/left/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/right/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/left/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/right/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/left/input/thumbstick/dpad_right" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/right/input/thumbstick/dpad_right" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
@@ -1327,14 +1457,16 @@ bool lovrHeadsetConnect(void) {
       { ACTION_GRIP_DOWN, "/user/hand/right/input/grasp_ext/value" },
       { ACTION_GRIP_AXIS, "/user/hand/left/input/grasp_ext/value" },
       { ACTION_GRIP_AXIS, "/user/hand/right/input/grasp_ext/value" },
-      { ACTION_DPAD_UP_DOWN, "/user/hand/left/input/swipe_forward_meta/click" },
-      { ACTION_DPAD_UP_DOWN, "/user/hand/right/input/swipe_forward_meta/click" },
-      { ACTION_DPAD_DOWN_DOWN, "/user/hand/left/input/swipe_backward_meta/click" },
-      { ACTION_DPAD_DOWN_DOWN, "/user/hand/right/input/swipe_backward_meta/click" },
-      { ACTION_DPAD_LEFT_DOWN, "/user/hand/left/input/swipe_left_meta/click" },
-      { ACTION_DPAD_LEFT_DOWN, "/user/hand/right/input/swipe_left_meta/click" },
-      { ACTION_DPAD_RIGHT_DOWN, "/user/hand/left/input/swipe_right_meta/click" },
-      { ACTION_DPAD_RIGHT_DOWN, "/user/hand/right/input/swipe_right_meta/click" },
+      { ACTION_TRACKPAD_UP, "/user/hand/left/input/swipe_forward_meta/click" },
+      { ACTION_TRACKPAD_UP, "/user/hand/right/input/swipe_forward_meta/click" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/left/input/swipe_backward_meta/click" },
+      { ACTION_TRACKPAD_DOWN, "/user/hand/right/input/swipe_backward_meta/click" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/left/input/swipe_left_meta/click" },
+      { ACTION_TRACKPAD_LEFT, "/user/hand/right/input/swipe_left_meta/click" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/left/input/swipe_right_meta/click" },
+      { ACTION_TRACKPAD_RIGHT, "/user/hand/right/input/swipe_right_meta/click" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/left/input/thumb_tap_meta/click" },
+      { ACTION_TRACKPAD_CENTER, "/user/hand/right/input/thumb_tap_meta/click" },
       { 0, NULL }
     },
     [PROFILE_FRAME] = (Binding[]) {
@@ -1354,8 +1486,16 @@ bool lovrHeadsetConnect(void) {
       { ACTION_TRIGGER_TOUCH, "/user/hand/right/input/trigger/touch" },
       { ACTION_TRIGGER_AXIS, "/user/hand/left/input/trigger/value" },
       { ACTION_TRIGGER_AXIS, "/user/hand/right/input/trigger/value" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/click" },
-      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/left/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_CLICK, "/user/hand/right/input/thumbstick/click" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/left/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_UP, "/user/hand/right/input/thumbstick/dpad_up" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/left/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_DOWN, "/user/hand/right/input/thumbstick/dpad_down" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/left/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_LEFT, "/user/hand/right/input/thumbstick/dpad_left" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/left/input/thumbstick/dpad_right" },
+      { ACTION_THUMBSTICK_RIGHT, "/user/hand/right/input/thumbstick/dpad_right" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/left/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_TOUCH, "/user/hand/right/input/thumbstick/touch" },
       { ACTION_THUMBSTICK_AXIS, "/user/hand/left/input/thumbstick" },
@@ -1473,11 +1613,31 @@ bool lovrHeadsetConnect(void) {
     }
   }
 
+  if (!state.extensions.dpad) {
+    for (uint32_t i = 0; i < MAX_PROFILES; i++) {
+      for (uint32_t j = 0; j < bindingCount[i]; j++) {
+        if (i != PROFILE_HAND) {
+          if (bindings[i][j].action == ACTION_TRACKPAD_UP) {
+            REMOVE_BINDINGS(bindings[i], bindingCount[i], j, 10);
+            bindingCount[i] -= 10;
+            break;
+          }
+
+          if (bindings[i][j].action == ACTION_THUMBSTICK_UP) {
+            REMOVE_BINDINGS(bindings[i], bindingCount[i], j, 8);
+            bindingCount[i] -= 8;
+            break;
+          }
+        }
+      }
+    }
+  }
+
   if (!state.extensions.microgestures) {
     for (uint32_t i = 0; i < bindingCount[PROFILE_HAND]; i++) {
-      if (bindings[PROFILE_HAND][i].action == ACTION_DPAD_UP_DOWN) {
-        REMOVE_BINDINGS(bindings[PROFILE_HAND], bindingCount[PROFILE_HAND], i, 8);
-        bindingCount[PROFILE_HAND] -= 8;
+      if (bindings[PROFILE_HAND][i].action == ACTION_TRACKPAD_UP) {
+        REMOVE_BINDINGS(bindings[PROFILE_HAND], bindingCount[PROFILE_HAND], i, 10);
+        bindingCount[PROFILE_HAND] -= 10;
         break;
       }
     }
@@ -2044,6 +2204,34 @@ bool lovrHeadsetUpdate(double* dt) {
     };
 
     XR(xrSyncActions(state.session, &syncInfo), "xrSyncActions");
+
+    if (!state.extensions.dpad) {
+      for (uint32_t i = 0; i < 2; i++) {
+        memcpy(state.prevDpadButtons[i], state.dpadButtons[i], sizeof(state.dpadButtons[i]));
+
+        Device device = DEVICE_HAND_LEFT + i;
+        bool down, changed;
+        float axis[2];
+
+        if (lovrHeadsetIsDown(device, BUTTON_TOUCHPAD, &down, &changed) && down && lovrHeadsetGetAxis(device, AXIS_TOUCHPAD, axis)) {
+          if (axis[0] * axis[0] + axis[1] * axis[1] < .5f * .5f) {
+            state.dpadButtons[i][BUTTON_TOUCHPAD_CENTER] = true;
+          } else if (fabsf(axis[1]) > fabsf(axis[0]))  {
+            state.dpadButtons[i][axis[1] > 0.f ? BUTTON_TOUCHPAD_UP : BUTTON_TOUCHPAD_DOWN] = true;
+          } else {
+            state.dpadButtons[i][axis[0] > 0.f ? BUTTON_TOUCHPAD_RIGHT : BUTTON_TOUCHPAD_LEFT] = true;
+          }
+        }
+
+        if (lovrHeadsetGetAxis(device, AXIS_THUMBSTICK, axis) && axis[0] * axis[0] + axis[1] * axis[1] >= .5f * .5f) {
+          if (fabsf(axis[1]) > fabsf(axis[0]))  {
+            state.dpadButtons[i][axis[1] > 0.f ? BUTTON_THUMBSTICK_UP : BUTTON_THUMBSTICK_DOWN] = true;
+          } else {
+            state.dpadButtons[i][axis[0] > 0.f ? BUTTON_THUMBSTICK_RIGHT : BUTTON_THUMBSTICK_LEFT] = true;
+          }
+        }
+      }
+    }
   }
 
   // Throttle when session is idle (but not too much, a desktop window might be rendering stuff)
@@ -2498,8 +2686,17 @@ bool lovrHeadsetIsDown(Device device, DeviceButton button, bool* down, bool* cha
   static const uint8_t actions[MAX_DEVICES][MAX_BUTTONS] = {
     [DEVICE_HAND_LEFT] = {
       [BUTTON_TRIGGER] = ACTION_TRIGGER_DOWN,
-      [BUTTON_THUMBSTICK] = ACTION_THUMBSTICK_DOWN,
-      [BUTTON_TOUCHPAD] = ACTION_TRACKPAD_DOWN,
+      [BUTTON_THUMBSTICK] = ACTION_THUMBSTICK_CLICK,
+      [BUTTON_THUMBSTICK_UP] = ACTION_THUMBSTICK_UP,
+      [BUTTON_THUMBSTICK_DOWN] = ACTION_THUMBSTICK_DOWN,
+      [BUTTON_THUMBSTICK_LEFT] = ACTION_THUMBSTICK_LEFT,
+      [BUTTON_THUMBSTICK_RIGHT] = ACTION_THUMBSTICK_RIGHT,
+      [BUTTON_TOUCHPAD] = ACTION_TRACKPAD_CLICK,
+      [BUTTON_TOUCHPAD_UP] = ACTION_TRACKPAD_UP,
+      [BUTTON_TOUCHPAD_DOWN] = ACTION_TRACKPAD_DOWN,
+      [BUTTON_TOUCHPAD_LEFT] = ACTION_TRACKPAD_LEFT,
+      [BUTTON_TOUCHPAD_RIGHT] = ACTION_TRACKPAD_RIGHT,
+      [BUTTON_TOUCHPAD_CENTER] = ACTION_TRACKPAD_CENTER,
       [BUTTON_MENU] = ACTION_MENU_DOWN,
       [BUTTON_GRIP] = ACTION_GRIP_DOWN,
       [BUTTON_A] = ACTION_A_DOWN,
@@ -2516,7 +2713,16 @@ bool lovrHeadsetIsDown(Device device, DeviceButton button, bool* down, bool* cha
     [DEVICE_HAND_RIGHT] = {
       [BUTTON_TRIGGER] = ACTION_TRIGGER_DOWN,
       [BUTTON_THUMBSTICK] = ACTION_THUMBSTICK_DOWN,
+      [BUTTON_THUMBSTICK_UP] = ACTION_THUMBSTICK_UP,
+      [BUTTON_THUMBSTICK_DOWN] = ACTION_THUMBSTICK_DOWN,
+      [BUTTON_THUMBSTICK_LEFT] = ACTION_THUMBSTICK_LEFT,
+      [BUTTON_THUMBSTICK_RIGHT] = ACTION_THUMBSTICK_RIGHT,
       [BUTTON_TOUCHPAD] = ACTION_TRACKPAD_DOWN,
+      [BUTTON_TOUCHPAD_UP] = ACTION_TRACKPAD_UP,
+      [BUTTON_TOUCHPAD_DOWN] = ACTION_TRACKPAD_DOWN,
+      [BUTTON_TOUCHPAD_LEFT] = ACTION_TRACKPAD_LEFT,
+      [BUTTON_TOUCHPAD_RIGHT] = ACTION_TRACKPAD_RIGHT,
+      [BUTTON_TOUCHPAD_CENTER] = ACTION_TRACKPAD_CENTER,
       [BUTTON_MENU] = ACTION_MENU_DOWN,
       [BUTTON_GRIP] = ACTION_GRIP_DOWN,
       [BUTTON_A] = ACTION_A_DOWN,
@@ -2551,6 +2757,16 @@ bool lovrHeadsetIsDown(Device device, DeviceButton button, bool* down, bool* cha
   XrActionStateBoolean actionState = { .type = XR_TYPE_ACTION_STATE_BOOLEAN };
   if (XR_FAILED(xrGetActionStateBoolean(state.session, &info, &actionState))) {
     return false;
+  }
+
+  bool dpad = (button >= BUTTON_THUMBSTICK_UP && button <= BUTTON_THUMBSTICK_RIGHT) || (button >= BUTTON_TOUCHPAD_UP && button <= BUTTON_TOUCHPAD_CENTER);
+  bool hand = device == DEVICE_HAND_LEFT || device == DEVICE_HAND_RIGHT;
+
+  if (hand && dpad && !state.extensions.dpad) {
+    int index = device == DEVICE_HAND_LEFT ? 0 : 1;
+    *down = state.dpadButtons[index][button];
+    *changed = state.dpadButtons[index][button] != state.prevDpadButtons[index][button];
+    return true;
   }
 
   *down = actionState.currentState;
