@@ -4,10 +4,11 @@
 #include "core/os.h"
 #include "util.h"
 #include <lualib.h>
+#include <threads.h>
 #include <stdlib.h>
 #include <string.h>
 
-static char* threadRunner(Thread* thread, Blob* body, Variant* arguments, uint32_t argumentCount) {
+static char* threadBody(Thread* thread, Blob* body, Variant* arguments, uint32_t argumentCount) {
   lua_State* L = luaL_newstate();
   luaL_openlibs(L);
   luax_preload(L);
@@ -55,7 +56,7 @@ static int l_lovrThreadNewThread(lua_State* L) {
   } else {
     lovrRetain(blob);
   }
-  Thread* thread = lovrThreadCreate(threadRunner, blob);
+  Thread* thread = lovrThreadCreate(threadBody, blob);
   luax_pushtype(L, Thread, thread);
   lovrRelease(thread, lovrThreadDestroy);
   lovrRelease(blob, lovrBlobDestroy);
@@ -77,10 +78,129 @@ static int l_lovrThreadGetChannel(lua_State* L) {
   return 1;
 }
 
+typedef struct {
+  arr_t(char) code;
+  uint32_t argumentCount;
+  Variant* arguments;
+  uint32_t resultCount;
+  Variant* results;
+  char* error;
+} RunContext;
+
+static thread_local lua_State* workerState;
+
+static bool luax_runlua(void** arg) {
+  RunContext* context = *arg;
+  lua_State* L = workerState;
+
+  if (!L) {
+    L = luaL_newstate();
+    luaL_openlibs(L);
+    luax_preload(L);
+    workerState = L;
+  }
+
+  int base = lua_gettop(L);
+  lua_pushcfunction(L, luax_getstack);
+
+  if (luax_loadbufferx(L, context->code.data, context->code.length, "", "b")) {
+    for (uint32_t i = 0; i < context->argumentCount; i++) {
+      lovrVariantDestroy(&context->arguments[i]);
+    }
+    lovrSetError(lua_tostring(L, -1));
+    lua_settop(L, base);
+    return false;
+  }
+
+  for (uint32_t i = 0; i < context->argumentCount; i++) {
+    luax_pushvariant(L, &context->arguments[i]);
+    lovrVariantDestroy(&context->arguments[i]);
+  }
+
+  if (lua_pcall(L, context->argumentCount, LUA_MULTRET, base + 1) != LUA_OK) {
+    lovrSetError(lua_tostring(L, -1));
+    lua_settop(L, base);
+    return false;
+  }
+
+  int n = lua_gettop(L) - base - 1;
+
+  if (n > 0) {
+    context->resultCount = n;
+    context->results = lovrRealloc(context->arguments, n * sizeof(Variant));
+    context->argumentCount = 0;
+    context->arguments = NULL;
+    for (int i = 1; i <= n; i++) {
+      luax_checkvariant(L, i + 1, &context->results[i]);
+    }
+  }
+
+  lua_settop(L, base);
+
+  return true;
+}
+
+static int luax_pushresults(lua_State* L, void* arg) {
+  RunContext* context = arg;
+
+  if (context->error) {
+    lua_pushstring(L, context->error);
+    lovrFree(context->error);
+    lovrFree(context->arguments);
+    arr_free(&context->code);
+    lovrFree(context);
+    return lua_error(L);
+  }
+
+  int n = context->resultCount;
+
+  for (int i = 0; i < n; i++) {
+    luax_pushvariant(L, &context->results[i]);
+    lovrVariantDestroy(&context->results[i]);
+  }
+
+  lovrFree(context->arguments);
+  lovrFree(context->results);
+  arr_free(&context->code);
+  lovrFree(context);
+  return n;
+}
+
+static int writer(lua_State* L, const void* data, size_t size, void* userdata) {
+  RunContext* context = userdata;
+  arr_append(&context->code, data, size);
+  return 0;
+}
+
+static int l_lovrThreadRun(lua_State* L) {
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  luax_check(L, !lua_iscfunction(L, 1), "Cannot run C function on thread");
+
+  RunContext* context = lovrCalloc(sizeof(RunContext));
+  arr_init(&context->code);
+
+  lua_pushvalue(L, 1);
+  luax_check(L, !lua_dump(L, writer, context), "Failed to dump function to bytecode");
+  lua_pop(L, 1);
+
+  int n = lua_gettop(L) - 1;
+
+  if (n > 0) {
+    context->argumentCount = n;
+    context->arguments = lovrMalloc(n * sizeof(Variant));
+    for (int i = 1; i <= n; i++) {
+      luax_checkvariant(L, i + 1, &context->arguments[i]);
+    }
+  }
+
+  return luax_runasync(L, luax_runlua, luax_pushresults, context);
+}
+
 static const luaL_Reg lovrThreadModule[] = {
   { "newThread", l_lovrThreadNewThread },
   { "newChannel", l_lovrThreadNewChannel },
   { "getChannel", l_lovrThreadGetChannel },
+  { "run", l_lovrThreadRun },
   { NULL, NULL }
 };
 
