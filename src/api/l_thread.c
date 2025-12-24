@@ -78,15 +78,17 @@ static int l_lovrThreadGetChannel(lua_State* L) {
   return 1;
 }
 
-typedef struct {
+typedef struct RunContext {
+  struct RunContext* next;
   arr_t(char) code;
   uint32_t argumentCount;
-  Variant* arguments;
   uint32_t resultCount;
+  Variant* arguments;
   Variant* results;
   char* error;
 } RunContext;
 
+static thread_local RunContext* contextPool;
 static thread_local lua_State* workerState;
 
 static bool luax_runlua(void** arg) {
@@ -98,18 +100,35 @@ static bool luax_runlua(void** arg) {
     luaL_openlibs(L);
     luax_preload(L);
     workerState = L;
+
+    lua_newtable(L);
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrchunks");
   }
 
   int base = lua_gettop(L);
   lua_pushcfunction(L, luax_getstack);
 
-  if (luax_loadbufferx(L, context->code.data, context->code.length, "", "b")) {
-    for (uint32_t i = 0; i < context->argumentCount; i++) {
-      lovrVariantDestroy(&context->arguments[i]);
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrchunks");
+  lua_pushlstring(L, context->code.data, context->code.length);
+  lua_rawget(L, -2);
+
+  if (lua_isfunction(L, -1)) {
+    lua_remove(L, -2);
+  } else {
+    if (luax_loadbufferx(L, context->code.data, context->code.length, "", "b")) {
+      for (uint32_t i = 0; i < context->argumentCount; i++) {
+        lovrVariantDestroy(&context->arguments[i]);
+      }
+      lovrSetError(lua_tostring(L, -1));
+      lua_settop(L, base);
+      return false;
     }
-    lovrSetError(lua_tostring(L, -1));
-    lua_settop(L, base);
-    return false;
+
+    lua_replace(L, -2);
+    lua_pushlstring(L, context->code.data, context->code.length);
+    lua_pushvalue(L, -2);
+    lua_rawset(L, -4);
+    lua_remove(L, -2);
   }
 
   for (uint32_t i = 0; i < context->argumentCount; i++) {
@@ -130,8 +149,8 @@ static bool luax_runlua(void** arg) {
     context->results = lovrRealloc(context->arguments, n * sizeof(Variant));
     context->argumentCount = 0;
     context->arguments = NULL;
-    for (int i = 1; i <= n; i++) {
-      luax_checkvariant(L, i + 1, &context->results[i]);
+    for (int i = 0; i < n; i++) {
+      luax_checkvariant(L, base + 2 + i, &context->results[i]);
     }
   }
 
@@ -147,8 +166,8 @@ static int luax_pushresults(lua_State* L, void* arg) {
     lua_pushstring(L, context->error);
     lovrFree(context->error);
     lovrFree(context->arguments);
-    arr_free(&context->code);
-    lovrFree(context);
+    context->next = contextPool;
+    contextPool = context;
     return lua_error(L);
   }
 
@@ -161,8 +180,8 @@ static int luax_pushresults(lua_State* L, void* arg) {
 
   lovrFree(context->arguments);
   lovrFree(context->results);
-  arr_free(&context->code);
-  lovrFree(context);
+  context->next = contextPool;
+  contextPool = context;
   return n;
 }
 
@@ -176,20 +195,43 @@ static int l_lovrThreadRun(lua_State* L) {
   luaL_checktype(L, 1, LUA_TFUNCTION);
   luax_check(L, !lua_iscfunction(L, 1), "Cannot run C function on thread");
 
-  RunContext* context = lovrCalloc(sizeof(RunContext));
-  arr_init(&context->code);
+  RunContext* context = contextPool;
 
+  if (context) {
+    contextPool = context->next;
+    arr_clear(&context->code);
+    context->argumentCount = 0;
+    context->resultCount = 0;
+    context->error = NULL;
+  } else {
+    context = lovrCalloc(sizeof(RunContext));
+    arr_init(&context->code);
+  }
+
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrbytecode");
   lua_pushvalue(L, 1);
-  luax_check(L, !lua_dump(L, writer, context), "Failed to dump function to bytecode");
-  lua_pop(L, 1);
+  lua_rawget(L, -2);
+
+  if (lua_isnil(L, -1)) {
+    lua_pushvalue(L, 1);
+    luax_check(L, !lua_dump(L, writer, context), "Failed to dump function to bytecode");
+    lua_pushlstring(L, context->code.data, context->code.length);
+    lua_rawset(L, -4);
+    lua_pop(L, 2);
+  } else {
+    size_t length;
+    const char* code = lua_tolstring(L, -1, &length);
+    arr_append(&context->code, code, length);
+    lua_pop(L, 2);
+  }
 
   int n = lua_gettop(L) - 1;
 
   if (n > 0) {
     context->argumentCount = n;
     context->arguments = lovrMalloc(n * sizeof(Variant));
-    for (int i = 1; i <= n; i++) {
-      luax_checkvariant(L, i + 1, &context->arguments[i]);
+    for (int i = 0; i < n; i++) {
+      luax_checkvariant(L, i + 2, &context->arguments[i]);
     }
   }
 
@@ -228,6 +270,9 @@ int luaopen_lovr_thread(lua_State* L) {
     lua_pop(L, 1);
   }
   lua_pop(L, 1);
+
+  lua_newtable(L);
+  lua_setfield(L, LUA_REGISTRYINDEX, "_lovrbytecode");
 
   lovrThreadModuleInit(workers);
   luax_atexit(L, lovrThreadModuleDestroy);
