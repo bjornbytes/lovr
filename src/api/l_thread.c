@@ -81,6 +81,7 @@ static int l_lovrThreadGetChannel(lua_State* L) {
 typedef struct RunContext {
   struct RunContext* next;
   arr_t(char) code;
+  lua_CFunction function;
   uint32_t argumentCount;
   uint32_t resultCount;
   Variant* arguments;
@@ -108,27 +109,31 @@ static bool luax_runlua(void** arg) {
   int base = lua_gettop(L);
   lua_pushcfunction(L, luax_getstack);
 
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrchunks");
-  lua_pushlstring(L, context->code.data, context->code.length);
-  lua_rawget(L, -2);
-
-  if (lua_isfunction(L, -1)) {
-    lua_remove(L, -2);
+  if (context->function) {
+    lua_pushcfunction(L, context->function);
   } else {
-    if (luax_loadbufferx(L, context->code.data, context->code.length, "", "b")) {
-      for (uint32_t i = 0; i < context->argumentCount; i++) {
-        lovrVariantDestroy(&context->arguments[i]);
-      }
-      lovrSetError(lua_tostring(L, -1));
-      lua_settop(L, base);
-      return false;
-    }
-
-    lua_replace(L, -2);
+    lua_getfield(L, LUA_REGISTRYINDEX, "_lovrchunks");
     lua_pushlstring(L, context->code.data, context->code.length);
-    lua_pushvalue(L, -2);
-    lua_rawset(L, -4);
-    lua_remove(L, -2);
+    lua_rawget(L, -2);
+
+    if (lua_isfunction(L, -1)) {
+      lua_remove(L, -2);
+    } else {
+      if (luax_loadbufferx(L, context->code.data, context->code.length, "", "b")) {
+        for (uint32_t i = 0; i < context->argumentCount; i++) {
+          lovrVariantDestroy(&context->arguments[i]);
+        }
+        lovrSetError(lua_tostring(L, -1));
+        lua_settop(L, base);
+        return false;
+      }
+
+      lua_replace(L, -2);
+      lua_pushlstring(L, context->code.data, context->code.length);
+      lua_pushvalue(L, -2);
+      lua_rawset(L, -4);
+      lua_remove(L, -2);
+    }
   }
 
   for (uint32_t i = 0; i < context->argumentCount; i++) {
@@ -192,14 +197,12 @@ static int writer(lua_State* L, const void* data, size_t size, void* userdata) {
 }
 
 static int l_lovrThreadRun(lua_State* L) {
-  luaL_checktype(L, 1, LUA_TFUNCTION);
-  luax_check(L, !lua_iscfunction(L, 1), "Cannot run C function on thread");
-
   RunContext* context = contextPool;
 
   if (context) {
     contextPool = context->next;
     arr_clear(&context->code);
+    context->function = NULL;
     context->argumentCount = 0;
     context->resultCount = 0;
     context->error = NULL;
@@ -208,21 +211,26 @@ static int l_lovrThreadRun(lua_State* L) {
     arr_init(&context->code);
   }
 
-  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrbytecode");
-  lua_pushvalue(L, 1);
-  lua_rawget(L, -2);
-
-  if (lua_isnil(L, -1)) {
-    lua_pushvalue(L, 1);
-    luax_check(L, !lua_dump(L, writer, context), "Failed to dump function to bytecode");
-    lua_pushlstring(L, context->code.data, context->code.length);
-    lua_rawset(L, -4);
-    lua_pop(L, 2);
+  if (lua_iscfunction(L, 1)) {
+    context->function = lua_tocfunction(L, 1);
   } else {
-    size_t length;
-    const char* code = lua_tolstring(L, -1, &length);
-    arr_append(&context->code, code, length);
-    lua_pop(L, 2);
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    lua_getfield(L, LUA_REGISTRYINDEX, "_lovrbytecode");
+    lua_pushvalue(L, 1);
+    lua_rawget(L, -2);
+
+    if (lua_isnil(L, -1)) {
+      lua_pushvalue(L, 1);
+      luax_check(L, !lua_dump(L, writer, context), "Failed to dump function to bytecode");
+      lua_pushlstring(L, context->code.data, context->code.length);
+      lua_rawset(L, -4);
+      lua_pop(L, 2);
+    } else {
+      size_t length;
+      const char* code = lua_tolstring(L, -1, &length);
+      arr_append(&context->code, code, length);
+      lua_pop(L, 2);
+    }
   }
 
   int n = lua_gettop(L) - 1;
