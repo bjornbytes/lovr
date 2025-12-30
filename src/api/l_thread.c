@@ -92,6 +92,20 @@ typedef struct RunContext {
 static thread_local RunContext* contextPool;
 static thread_local lua_State* workerState;
 
+static void onWorkerQuit(void) {
+  if (workerState) {
+    lua_close(workerState);
+    workerState = NULL;
+  }
+
+  while (contextPool) {
+    RunContext* context = contextPool;
+    contextPool = context->next;
+    arr_free(&context->code);
+    lovrFree(context);
+  }
+}
+
 static bool luax_runlua(void** arg) {
   RunContext* context = *arg;
   lua_State* L = workerState;
@@ -282,7 +296,7 @@ int luaopen_lovr_thread(lua_State* L) {
   lua_newtable(L);
   lua_setfield(L, LUA_REGISTRYINDEX, "_lovrbytecode");
 
-  lovrThreadModuleInit(workers);
+  lovrThreadModuleInit(workers, onWorkerQuit);
   luax_atexit(L, lovrThreadModuleDestroy);
   return 1;
 }

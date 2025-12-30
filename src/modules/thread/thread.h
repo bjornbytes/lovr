@@ -14,7 +14,7 @@ union Variant;
 typedef struct Thread Thread;
 typedef struct Channel Channel;
 
-bool lovrThreadModuleInit(int32_t workers);
+bool lovrThreadModuleInit(int32_t workers, void (*onWorkerQuit)(void));
 void lovrThreadModuleDestroy(void);
 uint32_t lovrThreadGetWorkerCount(void);
 struct Channel* lovrThreadGetChannel(const char* name);

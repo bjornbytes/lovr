@@ -39,24 +39,33 @@ static atomic_uint ref;
 
 static struct {
   uint32_t workers;
+  void (*onWorkerQuit)(void);
   mtx_t channelLock;
   map_t channels;
 } state;
 
-static void setupWorker(uint32_t id) {
+static void workerInit(uint32_t id) {
   lovrProfileSetThreadName("Worker");
   os_thread_set_name("Worker");
 }
 
-bool lovrThreadModuleInit(int32_t workers) {
+static void workerQuit(uint32_t id) {
+  if (state.onWorkerQuit) {
+    state.onWorkerQuit();
+  }
+}
+
+bool lovrThreadModuleInit(int32_t workers, void (*onWorkerQuit)(void)) {
   if (!lovrModuleAcquire(&ref)) return true;
+
   mtx_init(&state.channelLock, mtx_plain);
   map_init(&state.channels, 0);
 
   uint32_t cores = os_get_core_count();
   if (workers < 0) workers += cores;
   state.workers = MAX(workers, 0);
-  job_init(state.workers, setupWorker);
+  state.onWorkerQuit = onWorkerQuit;
+  job_init(state.workers, workerInit, workerQuit);
 
   lovrModuleReady(&ref);
   return true;
