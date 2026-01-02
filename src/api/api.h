@@ -105,6 +105,7 @@ typedef struct {
 #endif
 
 #define luax_registertype(L, T) _luax_registertype(L, T_ ## T, #T, lovr ## T ## Destroy, lovr ## T)
+#define luax_registerasync(L, T) _luax_registerasync(L, #T, lovr ## T ## Async)
 #define luax_totype(L, i, T) (T*) _luax_totype(L, i, T_ ## T)
 #define luax_checktype(L, i, T) (T*) _luax_checktype(L, i, T_ ## T)
 #define luax_pushtype(L, T, o) _luax_pushtype(L, T_ ## T, o)
@@ -125,6 +126,7 @@ int luax_typeerror(lua_State* L, int index, const char* expected);
 void _luax_pushtype(lua_State* L, int type, void* object);
 int _luax_checkenum(lua_State* L, int index, const StringEntry* map, const char* fallback, const char* label);
 void luax_registerloader(lua_State* L, int (*loader)(lua_State* L), int index);
+void _luax_registerasync(lua_State* L, const char* type, const char** methods);
 int luax_resume(lua_State* T, int n);
 int luax_loadbufferx(lua_State* L, const char* buffer, size_t size, const char* name, const char* mode);
 void luax_vthrow(void* L, const char* format, va_list args);
@@ -206,5 +208,10 @@ struct Shape* luax_newterrainshape(lua_State* L, int index);
 
 #ifndef LOVR_DISABLE_TASK
 #include "task/task.h"
+Task* luax_gettask(lua_State* L);
 int luax_runasync(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context);
+#endif
+
+#ifndef LOVR_DISABLE_THREAD
+int luax_callthread(lua_State* L, int n);
 #endif

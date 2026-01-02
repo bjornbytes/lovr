@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static Task* luax_gettask(lua_State* L) {
+Task* luax_gettask(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrtasks");
   if (lua_isnil(L, -1)) return lua_pop(L, 1), NULL;
   lua_pushthread(L);

@@ -210,7 +210,7 @@ static int writer(lua_State* L, const void* data, size_t size, void* userdata) {
   return 0;
 }
 
-static int l_lovrThreadRun(lua_State* L) {
+int luax_callthread(lua_State* L, int n) {
   RunContext* context = contextPool;
 
   if (context) {
@@ -225,16 +225,18 @@ static int l_lovrThreadRun(lua_State* L) {
     arr_init(&context->code);
   }
 
-  if (lua_iscfunction(L, 1)) {
-    context->function = lua_tocfunction(L, 1);
+  int function = lua_gettop(L) - n;
+
+  if (lua_iscfunction(L, function)) {
+    context->function = lua_tocfunction(L, function);
   } else {
-    luaL_checktype(L, 1, LUA_TFUNCTION);
+    luaL_checktype(L, function, LUA_TFUNCTION);
     lua_getfield(L, LUA_REGISTRYINDEX, "_lovrbytecode");
-    lua_pushvalue(L, 1);
+    lua_pushvalue(L, function);
     lua_rawget(L, -2);
 
     if (lua_isnil(L, -1)) {
-      lua_pushvalue(L, 1);
+      lua_pushvalue(L, function);
       luax_check(L, !lua_dump(L, writer, context), "Failed to dump function to bytecode");
       lua_pushlstring(L, context->code.data, context->code.length);
       lua_rawset(L, -4);
@@ -247,8 +249,6 @@ static int l_lovrThreadRun(lua_State* L) {
     }
   }
 
-  int n = lua_gettop(L) - 1;
-
   if (n > 0) {
     context->argumentCount = n;
     context->arguments = lovrMalloc(n * sizeof(Variant));
@@ -258,6 +258,10 @@ static int l_lovrThreadRun(lua_State* L) {
   }
 
   return luax_runasync(L, luax_runlua, luax_pushresults, context);
+}
+
+static int l_lovrThreadRun(lua_State* L) {
+  return luax_callthread(L, lua_gettop(L) - 1);
 }
 
 static const luaL_Reg lovrThreadModule[] = {
