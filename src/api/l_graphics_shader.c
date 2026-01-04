@@ -15,7 +15,12 @@ static int l_lovrShaderClone(lua_State* L) {
     ShaderFlag flag = { 0 };
     flag.value = lua_isboolean(L, -1) ? (double) lua_toboolean(L, -1) : lua_tonumber(L, -1);
     switch (lua_type(L, -2)) {
-      case LUA_TSTRING: flag.name = lua_tostring(L, -2); break;
+      case LUA_TSTRING:
+        size_t length;
+        const char* name = lua_tolstring(L, -2, &length);
+        size_t offset = length > 5 && !memcmp(name, "flag_", 5) ? 5 : 0;
+        flag.name = name + offset;
+        break;
       case LUA_TNUMBER: flag.id = lua_tointeger(L, -2); break;
       default:
         arr_free(&flags);
