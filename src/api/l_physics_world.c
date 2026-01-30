@@ -708,8 +708,3 @@ const luaL_Reg lovrWorld[] = {
 
   { NULL, NULL }
 };
-
-const char* lovrWorldAsync[] = {
-  "raycast",
-  NULL
-};

@@ -372,7 +372,6 @@ int luaopen_lovr_physics(lua_State* L) {
   luax_registertype(L, DistanceJoint);
   luax_registertype(L, HingeJoint);
   luax_registertype(L, SliderJoint);
-  luax_registerasync(L, World);
   lovrPhysicsInit(luax_unref);
   luax_atexit(L, lovrPhysicsDestroy);
   return 1;
