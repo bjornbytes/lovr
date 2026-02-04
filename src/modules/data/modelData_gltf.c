@@ -285,7 +285,25 @@ static uint32_t typeSizes[] = {
   [SN10x3] = 4
 };
 
-void copyAttribute(void* destination, gltfAccessor* accessor, ComponentType type, uint32_t components, bool normalized, size_t offset, size_t stride, uint32_t count, uint8_t clear) {
+void computeAttributeMinMax(gltfAccessor* accessor) {
+  if (!accessor || (accessor->hasMin && accessor->hasMax)) {
+    return;
+  }
+
+  char* data = accessor->data;
+  size_t stride = accessor->stride;
+  if (accessor->type == F32 && accessor->components == 2) {
+    for (uint32_t i = 0; i < accessor->count; i++, data += stride) {
+      float* f = (float*) data;
+      accessor->min[0] = MIN(accessor->min[0], f[0]);
+      accessor->min[1] = MIN(accessor->min[1], f[1]);
+      accessor->max[0] = MAX(accessor->max[0], f[0]);
+      accessor->max[1] = MAX(accessor->max[1], f[1]);
+    }
+  }
+}
+
+void copyAttribute(void* destination, gltfAccessor* accessor, ComponentType type, uint32_t components, bool normalized, size_t offset, size_t stride, uint32_t count, uint8_t clear, bool supernormalized) {
   char* src = accessor ? accessor->data : NULL;
   size_t size = components * typeSizes[type];
   size_t srcStride = accessor && accessor->stride ? accessor->stride : size;
@@ -355,10 +373,22 @@ void copyAttribute(void* destination, gltfAccessor* accessor, ComponentType type
     } else {
       lovrUnreachable();
     }
-  } else if (type == U16 && components == 1 && !normalized && !accessor->normalized) {
-    if (accessor->type == U8) {
+  } else if (type == U16) {
+    if (accessor->type == U8 && !accessor->normalized && !normalized && components == 1) {
       for (uint32_t i = 0; i < count; i++, src += srcStride, dst += stride) {
         *((uint16_t*) dst) = *(uint8_t*) src;
+      }
+    } else if (accessor->type == U8 && accessor->normalized && normalized) {
+      for (uint32_t i = 0; i < count; i++, src += accessor->stride, dst += stride) {
+        for (uint32_t j = 0; j < components; j++) {
+          ((uint16_t*) dst)[j] = (uint16_t) ((((uint8_t*) src)[j] / 255.f) * 65535.f + .5f);
+        }
+      }
+    } else if (accessor->type == F32 && normalized && supernormalized) {
+      for (uint32_t i = 0; i < count; i++, src += srcStride, dst += stride) {
+        for (uint32_t j = 0; j < components; j++) {
+          ((uint16_t*) dst)[j] = (uint16_t) ((((float*) src)[j] - accessor->min[j]) / (accessor->max[j] - accessor->min[j]) * 65535.f + .5f);
+        }
       }
     } else {
       lovrUnreachable();
@@ -918,13 +948,13 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
 
                 gltfAccessor* times = &accessors[sampler->input];
                 channel->times = keyframeData;
-                copyAttribute(keyframeData, times, F32, 1, false, 0, 4, times->count, 0);
+                copyAttribute(keyframeData, times, F32, 1, false, 0, 4, times->count, 0, false);
                 animation->duration = MAX(animation->duration, channel->times[times->count - 1]);
                 keyframeData += times->count;
 
                 gltfAccessor* values = &accessors[sampler->output];
                 channel->data = keyframeData;
-                copyAttribute(keyframeData, values, F32, values->components, false, 0, values->components * 4, values->count, 0);
+                copyAttribute(keyframeData, values, F32, values->components, false, 0, values->components * 4, values->count, 0, false);
                 keyframeData += values->count * values->components;
 
                 channel->smoothing = sampler->smoothing;
@@ -1052,6 +1082,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
             gltfAccessor* positions = NULL;
             gltfAccessor* normals = NULL;
             gltfAccessor* uvs = NULL;
+            gltfAccessor* uv2s = NULL;
             gltfAccessor* colors = NULL;
             gltfAccessor* tangents = NULL;
             gltfAccessor* indices = NULL;
@@ -1078,6 +1109,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
                   if (STR_EQ(name, "POSITION")) positions = &accessors[accessor];
                   else if (STR_EQ(name, "NORMAL")) normals = &accessors[accessor];
                   else if (STR_EQ(name, "TEXCOORD_0")) uvs = &accessors[accessor];
+                  else if (STR_EQ(name, "TEXCOORD_1")) uv2s = &accessors[accessor];
                   else if (STR_EQ(name, "COLOR_0")) colors = &accessors[accessor];
                   else if (STR_EQ(name, "TANGENT")) tangents = &accessors[accessor];
                   else if (STR_EQ(name, "JOINTS_0")) joints = &accessors[accessor];
@@ -1104,9 +1136,9 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
                   }
 
                   BlendData* blendData = model->blendData + blendDataOffset;
-                  copyAttribute(blendData, blendPositions, F32, 3, false, 0, sizeof(BlendData), count, 0);
-                  copyAttribute(blendData, blendNormals, F32, 3, false, 12, sizeof(BlendData), count, 0);
-                  copyAttribute(blendData, blendTangents, F32, 3, false, 24, sizeof(BlendData), count, 0);
+                  copyAttribute(blendData, blendPositions, F32, 3, false, 0, sizeof(BlendData), count, 0, false);
+                  copyAttribute(blendData, blendNormals, F32, 3, false, 12, sizeof(BlendData), count, 0, false);
+                  copyAttribute(blendData, blendTangents, F32, 3, false, 24, sizeof(BlendData), count, 0, false);
                   blendDataOffset += blendPositions->count;
                 }
               } else if (STR_EQ(key, "material")) {
@@ -1129,13 +1161,27 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
                 part->count = positions->count;
               }
 
+              if (uvs && uvs->type == F32) {
+                computeAttributeMinMax(uvs);
+                part->quad[0] = uvs->min[0];
+                part->quad[1] = uvs->min[1];
+                part->quad[2] = uvs->max[0] - uvs->min[0];
+                part->quad[3] = uvs->max[1] - uvs->min[1];
+              } else {
+                part->quad[0] = 0.f;
+                part->quad[1] = 0.f;
+                part->quad[2] = 1.f;
+                part->quad[3] = 1.f;
+              }
+
               uint32_t vertexCount = positions->count;
               ModelVertex* vertices = model->vertices + vertexOffset;
-              copyAttribute(vertices, positions, F32, 3, false, 0, sizeof(ModelVertex), vertexCount, 0);
-              copyAttribute(vertices, normals, SN10x3, 1, false, 12, sizeof(ModelVertex), vertexCount, 0);
-              copyAttribute(vertices, uvs, F32, 2, false, 16, sizeof(ModelVertex), vertexCount, 0);
-              copyAttribute(vertices, colors, U8, 4, true, 24, sizeof(ModelVertex), vertexCount, 0xff);
-              copyAttribute(vertices, tangents, SN10x3, 1, false, 28, sizeof(ModelVertex), vertexCount, 0);
+              copyAttribute(vertices, positions, F32, 3, false, 0, sizeof(ModelVertex), vertexCount, 0, false);
+              copyAttribute(vertices, normals, SN10x3, 1, false, 12, sizeof(ModelVertex), vertexCount, 0, false);
+              copyAttribute(vertices, uvs, U16, 2, true, 16, sizeof(ModelVertex), vertexCount, 0, true);
+              copyAttribute(vertices, uv2s, U16, 2, true, 20, sizeof(ModelVertex), vertexCount, 0, false);
+              copyAttribute(vertices, colors, U8, 4, true, 24, sizeof(ModelVertex), vertexCount, 0xff, false);
+              copyAttribute(vertices, tangents, SN10x3, 1, false, 28, sizeof(ModelVertex), vertexCount, 0, false);
               mesh->vertexCount += vertexCount;
               vertexOffset += vertexCount;
 
@@ -1168,15 +1214,15 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
                 uint32_t indexCount = indices->count;
                 int type = meta->indexSize == 4 ? U32 : U16;
                 void* indexData = (char*) model->indices + (indexOffset * meta->indexSize);
-                copyAttribute(indexData, indices, type, 1, false, 0, meta->indexSize, indexCount, 0);
+                copyAttribute(indexData, indices, type, 1, false, 0, meta->indexSize, indexCount, 0, false);
                 mesh->indexCount += indexCount;
                 indexOffset += indexCount;
               }
 
               if (joints && weights) {
                 SkinData* skinData = model->skinData + skinDataOffset;
-                copyAttribute(skinData, joints, U8, 4, false, 0, sizeof(SkinData), vertexCount, 0);
-                copyAttribute(skinData, weights, U8, 4, true, 4, sizeof(SkinData), vertexCount, 0);
+                copyAttribute(skinData, joints, U8, 4, false, 0, sizeof(SkinData), vertexCount, 0, false);
+                copyAttribute(skinData, weights, U8, 4, true, 4, sizeof(SkinData), vertexCount, 0, false);
                 if (mesh->skinDataOffset == ~0u) mesh->skinDataOffset = skinDataOffset;
                 skinDataOffset += vertexCount;
               }

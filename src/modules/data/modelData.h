@@ -10,7 +10,8 @@ struct Image;
 typedef struct {
   struct { float x, y, z; } position;
   uint32_t normal;
-  struct { float u, v; } uv;
+  struct { uint16_t u, v; } uv;
+  struct { uint16_t u, v; } uv2;
   struct { uint8_t r, g, b, a; } color;
   uint32_t tangent;
 } ModelVertex;
@@ -43,6 +44,7 @@ typedef struct {
   uint32_t material;
   ModelDrawMode mode;
   float bounds[6];
+  float quad[4];
 } ModelPart;
 
 typedef struct {

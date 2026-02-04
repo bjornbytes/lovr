@@ -385,8 +385,10 @@ static int l_lovrModelDataGetMeshVertex(lua_State* L) {
   lua_pushnumber(L, MAX(((int32_t) (vertex->normal << 22) >> 22) / 511.f, -1.f));
   lua_pushnumber(L, MAX(((int32_t) (vertex->normal << 12) >> 22) / 511.f, -1.f));
   lua_pushnumber(L, MAX(((int32_t) (vertex->normal <<  2) >> 22) / 511.f, -1.f));
-  lua_pushnumber(L, vertex->uv.u);
-  lua_pushnumber(L, vertex->uv.v);
+  lua_pushnumber(L, vertex->uv.u / 65535.f);
+  lua_pushnumber(L, vertex->uv.v / 65535.f);
+  lua_pushnumber(L, vertex->uv2.u / 65535.f);
+  lua_pushnumber(L, vertex->uv2.v / 65535.f);
   lua_pushinteger(L, vertex->color.r);
   lua_pushinteger(L, vertex->color.g);
   lua_pushinteger(L, vertex->color.b);
@@ -394,7 +396,7 @@ static int l_lovrModelDataGetMeshVertex(lua_State* L) {
   lua_pushnumber(L, MAX(((int32_t) (vertex->tangent << 22) >> 22) / 511.f, -1.f));
   lua_pushnumber(L, MAX(((int32_t) (vertex->tangent << 12) >> 22) / 511.f, -1.f));
   lua_pushnumber(L, MAX(((int32_t) (vertex->tangent <<  2) >> 22) / 511.f, -1.f));
-  return 15;
+  return 17;
 }
 
 static int l_lovrModelDataGetMeshIndex(lua_State* L) {

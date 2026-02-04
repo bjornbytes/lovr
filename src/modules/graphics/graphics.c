@@ -812,56 +812,61 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   state.vertexFormats[VERTEX_SHAPE] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .bufferStrides[0] = sizeof(ShapeVertex),
     .attributes[0] = { 0, 10, offsetof(ShapeVertex, position), GPU_TYPE_F32x3 },
     .attributes[1] = { 0, 11, offsetof(ShapeVertex, normal), GPU_TYPE_F32x3 },
     .attributes[2] = { 0, 12, offsetof(ShapeVertex, uv), GPU_TYPE_F32x2 },
-    .attributes[3] = { 1, 13, 16, GPU_TYPE_F32x4 },
-    .attributes[4] = { 1, 14, 0, GPU_TYPE_F32x4 }
+    .attributes[3] = { 1, 13, 0, GPU_TYPE_F32x2 },
+    .attributes[4] = { 1, 14, 16, GPU_TYPE_F32x4 },
+    .attributes[5] = { 1, 15, 0, GPU_TYPE_F32x4 }
   };
 
   state.vertexFormats[VERTEX_POINT] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .bufferStrides[0] = 12,
     .attributes[0] = { 0, 10, 0, GPU_TYPE_F32x3 },
     .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x4 },
     .attributes[2] = { 1, 12, 0, GPU_TYPE_F32x4 },
-    .attributes[3] = { 1, 13, 16, GPU_TYPE_F32x4 },
-    .attributes[4] = { 1, 14, 0, GPU_TYPE_F32x4 }
+    .attributes[3] = { 1, 13, 0, GPU_TYPE_F32x4 },
+    .attributes[4] = { 1, 14, 16, GPU_TYPE_F32x4 },
+    .attributes[5] = { 1, 15, 0, GPU_TYPE_F32x4 }
   };
 
   state.vertexFormats[VERTEX_GLYPH] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .bufferStrides[0] = sizeof(GlyphVertex),
     .attributes[0] = { 0, 10, offsetof(GlyphVertex, position), GPU_TYPE_F32x2 },
     .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x4 },
     .attributes[2] = { 0, 12, offsetof(GlyphVertex, uv), GPU_TYPE_UN16x2 },
-    .attributes[3] = { 0, 13, offsetof(GlyphVertex, color), GPU_TYPE_UN8x4 },
-    .attributes[4] = { 1, 14, 0, GPU_TYPE_F32x4 }
+    .attributes[3] = { 1, 13, 0, GPU_TYPE_F32x2 },
+    .attributes[4] = { 0, 14, offsetof(GlyphVertex, color), GPU_TYPE_UN8x4 },
+    .attributes[5] = { 1, 15, 0, GPU_TYPE_F32x4 }
   };
 
   state.vertexFormats[VERTEX_MODEL] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .bufferStrides[0] = sizeof(ModelVertex),
     .attributes[0] = { 0, 10, offsetof(ModelVertex, position), GPU_TYPE_F32x3 },
     .attributes[1] = { 0, 11, offsetof(ModelVertex, normal), GPU_TYPE_SN10x3 },
-    .attributes[2] = { 0, 12, offsetof(ModelVertex, uv), GPU_TYPE_F32x2 },
-    .attributes[3] = { 0, 13, offsetof(ModelVertex, color), GPU_TYPE_UN8x4 },
-    .attributes[4] = { 0, 14, offsetof(ModelVertex, tangent), GPU_TYPE_SN10x3 }
+    .attributes[2] = { 0, 12, offsetof(ModelVertex, uv), GPU_TYPE_UN16x2 },
+    .attributes[3] = { 0, 13, offsetof(ModelVertex, uv2), GPU_TYPE_UN16x2 },
+    .attributes[4] = { 0, 14, offsetof(ModelVertex, color), GPU_TYPE_UN8x4 },
+    .attributes[5] = { 0, 15, offsetof(ModelVertex, tangent), GPU_TYPE_SN10x3 }
   };
 
   state.vertexFormats[VERTEX_EMPTY] = (gpu_vertex_format) {
     .bufferCount = 2,
-    .attributeCount = 5,
+    .attributeCount = 6,
     .attributes[0] = { 1, 10, 0, GPU_TYPE_F32x3 },
     .attributes[1] = { 1, 11, 0, GPU_TYPE_F32x3 },
     .attributes[2] = { 1, 12, 0, GPU_TYPE_F32x2 },
-    .attributes[3] = { 1, 13, 16, GPU_TYPE_F32x4 },
-    .attributes[4] = { 1, 14, 0, GPU_TYPE_F32x4 }
+    .attributes[3] = { 1, 13, 0, GPU_TYPE_F32x2 },
+    .attributes[4] = { 1, 14, 16, GPU_TYPE_F32x4 },
+    .attributes[5] = { 1, 15, 0, GPU_TYPE_F32x4 }
   };
 
   float16Init();
@@ -5186,10 +5191,11 @@ Model* lovrModelCreate(const ModelInfo* info) {
   if (meta->vertexCount > 0) {
     BufferInfo bufferInfo = {
       .format = (DataField[]) {
-        { .length = meta->vertexCount, .stride = sizeof(ModelVertex), .fieldCount = 5 },
+        { .length = meta->vertexCount, .stride = sizeof(ModelVertex), .fieldCount = 6 },
         { .name = "VertexPosition", .type = TYPE_F32x3, .offset = offsetof(ModelVertex, position) },
         { .name = "VertexNormal", .type = TYPE_SN10x3, .offset = offsetof(ModelVertex, normal) },
-        { .name = "VertexUV", .type = TYPE_F32x2, .offset = offsetof(ModelVertex, uv) },
+        { .name = "VertexUV", .type = TYPE_UN16x2, .offset = offsetof(ModelVertex, uv) },
+        { .name = "VertexUV2", .type = TYPE_UN16x2, .offset = offsetof(ModelVertex, uv2) },
         { .name = "VertexColor", .type = TYPE_UN8x4, .offset = offsetof(ModelVertex, color) },
         { .name = "VertexTangent", .type = TYPE_SN10x3, .offset = offsetof(ModelVertex, tangent) }
       }

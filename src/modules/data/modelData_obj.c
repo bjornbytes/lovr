@@ -279,7 +279,7 @@ bool lovrModelDataInitObj(ModelData** result, Blob* source, ModelDataIO* io) {
         ModelVertex vertex = {
           .position = { position[0], position[1], position[2] },
           .normal = packNormal(normal),
-          .uv = { uv[0], uv[1] },
+          .uv = { (uint16_t) (uv[0] * 65535.f + .5f), (uint16_t) (uv[1] * 65535.f + .5f) },
           .color = { 0xff, 0xff, 0xff, 0xff }
         };
 

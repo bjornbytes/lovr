@@ -74,8 +74,9 @@ layout(push_constant) uniform PushConstants {
 layout(location = 10) in vec4 VertexPosition;
 layout(location = 11) in vec3 VertexNormal;
 layout(location = 12) in vec2 VertexUV;
-layout(location = 13) in vec4 VertexColor;
-layout(location = 14) in vec4 VertexTangent;
+layout(location = 13) in vec2 VertexUV2;
+layout(location = 14) in vec4 VertexColor;
+layout(location = 15) in vec4 VertexTangent;
 #endif
 
 // Framebuffer
@@ -88,16 +89,18 @@ layout(location = 0) out vec4 PixelColor;
 layout(location = 10) out vec3 PositionWorld;
 layout(location = 11) out vec3 Normal;
 layout(location = 12) out vec2 UV;
-layout(location = 13) out vec4 Color;
-layout(location = 14) out vec4 Tangent;
+layout(location = 13) out vec2 UV2;
+layout(location = 14) out vec4 Color;
+layout(location = 15) out vec4 Tangent;
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
 layout(location = 10) in vec3 PositionWorld;
 layout(location = 11) in vec3 Normal;
 layout(location = 12) in vec2 UV;
-layout(location = 13) in vec4 Color;
-layout(location = 14) in vec4 Tangent;
+layout(location = 13) in vec2 UV2;
+layout(location = 14) in vec4 Color;
+layout(location = 15) in vec4 Tangent;
 #endif
 
 // Builtins
@@ -526,6 +529,7 @@ void main() {
   PositionWorld = vec3(WorldFromLocal * VertexPosition);
   Normal = NormalMatrix * VertexNormal;
   UV = VertexUV;
+  UV2 = VertexUV2;
 
   Color = vec4(1.0);
   if (flag_passColor) Color *= PassColor;
