@@ -702,6 +702,7 @@ void lovrPassSetFaceCull(Pass* pass, CullMode mode);
 void lovrPassSetFont(Pass* pass, Font* font);
 void lovrPassSetMaterial(Pass* pass, Material* material);
 void lovrPassSetMeshMode(Pass* pass, DrawMode mode);
+void lovrPassSetQuad(Pass* pass, float x, float y, float w, float h);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);
 void lovrPassSetScissor(Pass* pass, uint32_t scissor[4]);
 void lovrPassSetShader(Pass* pass, Shader* shader);

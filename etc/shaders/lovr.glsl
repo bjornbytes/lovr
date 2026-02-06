@@ -35,7 +35,8 @@ struct Draw {
 layout(set = 0, binding = 0) uniform Globals { vec2 Resolution; float Time; };
 layout(set = 0, binding = 1) uniform CameraBuffer { Camera Cameras[6]; };
 layout(set = 0, binding = 2) uniform DrawBuffer { layout(row_major) Draw Draws[256]; };
-layout(set = 0, binding = 3) uniform sampler Sampler;
+layout(set = 0, binding = 3) uniform QuadBuffer { vec4 Quads[256]; };
+layout(set = 0, binding = 4) uniform sampler Sampler;
 
 struct MaterialData {
   vec4 color;
@@ -161,6 +162,7 @@ layout(location = 15) in vec4 Tangent;
 #define Transform mat4(Draws[_drawID].transform)
 #define NormalMatrix (cofactor3(Draws[_drawID].transform))
 #define PassColor Draws[_drawID].color
+#define Quad Quads[_drawID]
 #define ClipFromLocal (ViewProjection * Transform)
 #define ClipFromWorld (ViewProjection)
 #define ClipFromView (Projection)
@@ -528,7 +530,7 @@ vec4 lovrmain();
 void main() {
   PositionWorld = vec3(WorldFromLocal * VertexPosition);
   Normal = NormalMatrix * VertexNormal;
-  UV = VertexUV;
+  UV = Quad.xy + VertexUV * Quad.zw;
   UV2 = VertexUV2;
 
   Color = vec4(1.0);

@@ -259,6 +259,7 @@ typedef struct {
   Material* material;
   float* transform;
   float* bounds;
+  float* quad;
   struct {
     Buffer* buffer;
     VertexFormat format;
@@ -436,6 +437,7 @@ typedef struct {
   bool viewCull;
   DrawMode mode;
   float color[4];
+  float quad[4];
   Buffer* lastVertexBuffer;
   VertexFormat lastVertexFormat;
   gpu_pipeline_info info;
@@ -508,6 +510,7 @@ typedef struct {
   };
   float transform[16];
   float color[4];
+  float quad[4];
   float bounds[6];
 } Draw;
 
@@ -705,7 +708,8 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     { 0, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Globals
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS }, // Cameras
     { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS }, // DrawData
-    { 3, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS } // Sampler
+    { 3, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS }, // Quads
+    { 4, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS } // Sampler
   };
 
   gpu_slot materialSlots[] = {
@@ -1377,7 +1381,8 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream) {
     { 0, GPU_SLOT_UNIFORM_BUFFER, .buffer = { 0 } },
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .buffer = { 0 } },
     { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .buffer = { 0 } },
-    { 3, GPU_SLOT_SAMPLER, .texture.sampler = pass->sampler ? pass->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu }
+    { 3, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .buffer = { 0 } },
+    { 4, GPU_SLOT_SAMPLER, .texture.sampler = pass->sampler ? pass->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu }
   };
 
   BufferView view;
@@ -1408,27 +1413,34 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream) {
   view = getBuffer(GPU_BUFFER_STREAM, alignedDrawCount * sizeof(DrawData), align);
   if (!view.buffer) return false;
   builtins[2].buffer = (gpu_buffer_binding) { view.buffer, view.offset, 256 * sizeof(DrawData) };
-  DrawData* data = view.pointer;
+  DrawData* drawData = view.pointer;
 
-  for (uint32_t i = 0; i < activeDrawCount; i++, data++) {
+  // Quads
+  view = getBuffer(GPU_BUFFER_STREAM, alignedDrawCount * 4 * sizeof(float), align);
+  if (!view.buffer) return false;
+  builtins[3].buffer = (gpu_buffer_binding) { view.buffer, view.offset, 256 * 4 * sizeof(float) };
+  float* quad = view.pointer;
+
+  for (uint32_t i = 0; i < activeDrawCount; i++, drawData++, quad += 4) {
     Draw* draw = &pass->draws[activeDraws[i]];
     // transform is provided as 4x3 row-major matrix for packing reasons, need to transpose
-    data->transform[0] = draw->transform[0];
-    data->transform[1] = draw->transform[4];
-    data->transform[2] = draw->transform[8];
-    data->transform[3] = draw->transform[12];
-    data->transform[4] = draw->transform[1];
-    data->transform[5] = draw->transform[5];
-    data->transform[6] = draw->transform[9];
-    data->transform[7] = draw->transform[13];
-    data->transform[8] = draw->transform[2];
-    data->transform[9] = draw->transform[6];
-    data->transform[10] = draw->transform[10];
-    data->transform[11] = draw->transform[14];
-    data->color[0] = draw->color[0];
-    data->color[1] = draw->color[1];
-    data->color[2] = draw->color[2];
-    data->color[3] = draw->color[3];
+    drawData->transform[0] = draw->transform[0];
+    drawData->transform[1] = draw->transform[4];
+    drawData->transform[2] = draw->transform[8];
+    drawData->transform[3] = draw->transform[12];
+    drawData->transform[4] = draw->transform[1];
+    drawData->transform[5] = draw->transform[5];
+    drawData->transform[6] = draw->transform[9];
+    drawData->transform[7] = draw->transform[13];
+    drawData->transform[8] = draw->transform[2];
+    drawData->transform[9] = draw->transform[6];
+    drawData->transform[10] = draw->transform[10];
+    drawData->transform[11] = draw->transform[14];
+    drawData->color[0] = draw->color[0];
+    drawData->color[1] = draw->color[1];
+    drawData->color[2] = draw->color[2];
+    drawData->color[3] = draw->color[3];
+    memcpy(quad, draw->quad, 4 * sizeof(float));
   }
 
   gpu_bundle* builtinBundle = getBundle(state.builtinLayout, builtins, COUNTOF(builtins));
@@ -1540,7 +1552,11 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream) {
     }
 
     if ((i & 0xff) == 0 || draw->camera != cameraIndex) {
-      uint32_t dynamicOffsets[] = { draw->camera * pass->views * sizeof(Camera), (i >> 8) * 256 * sizeof(DrawData) };
+      uint32_t dynamicOffsets[] = {
+        draw->camera * pass->views * sizeof(Camera),
+        (i >> 8) * 256 * sizeof(DrawData),
+        (i >> 8) * 256 * 4 * sizeof(float)
+      };
       gpu_bind_bundles(stream, draw->shader->gpu, &builtinBundle, 0, 1, dynamicOffsets, COUNTOF(dynamicOffsets));
       cameraIndex = draw->camera;
     }
@@ -6451,6 +6467,10 @@ void lovrPassReset(Pass* pass) {
   pass->pipeline->color[1] = 1.f;
   pass->pipeline->color[2] = 1.f;
   pass->pipeline->color[3] = 1.f;
+  pass->pipeline->quad[0] = 0.f;
+  pass->pipeline->quad[1] = 0.f;
+  pass->pipeline->quad[2] = 1.f;
+  pass->pipeline->quad[3] = 1.f;
   pass->pipeline->info.depth.test = GPU_COMPARE_GEQUAL;
   pass->pipeline->info.depth.write = true;
   pass->pipeline->info.stencil.testMask = 0xff;
@@ -7074,6 +7094,13 @@ void lovrPassSetMeshMode(Pass* pass, DrawMode mode) {
   pass->pipeline->mode = mode;
 }
 
+void lovrPassSetQuad(Pass* pass, float x, float y, float w, float h) {
+  pass->pipeline->quad[0] = x;
+  pass->pipeline->quad[1] = y;
+  pass->pipeline->quad[2] = w;
+  pass->pipeline->quad[3] = h;
+}
+
 void lovrPassSetSampler(Pass* pass, Sampler* sampler) {
   if (sampler != pass->sampler) {
     lovrRetain(sampler);
@@ -7649,6 +7676,14 @@ bool lovrPassDraw(Pass* pass, DrawInfo* info) {
   mat4_init(draw->transform, pass->transform);
   if (info->transform) mat4_mul(draw->transform, info->transform);
   memcpy(draw->color, pass->pipeline->color, 4 * sizeof(float));
+  memcpy(draw->quad, pass->pipeline->quad, 4 * sizeof(float));
+
+  if (info->quad) {
+    draw->quad[0] += info->quad[0];
+    draw->quad[1] += info->quad[1];
+    draw->quad[2] *= info->quad[2];
+    draw->quad[3] *= info->quad[3];
+  }
 
   lovrRetain(draw->material);
   lovrRetain(draw->shader);
@@ -8686,6 +8721,7 @@ static bool drawNode(Pass* pass, Model* model, uint32_t index, uint32_t instance
         .material = model->materials && part->material != ~0u ? model->materials[part->material] : NULL,
         .transform = node->skin == ~0u ? globalTransform : NULL,
         .bounds = bounds,
+        .quad = part->quad,
         .vertex.buffer = model->vertexBuffer,
         .index.buffer = mesh->indexCount > 0 ? model->indexBuffer : NULL,
         .start = (mesh->indexCount > 0 ? mesh->indexOffset : mesh->vertexOffset) + part->start,
@@ -8755,6 +8791,7 @@ bool lovrPassDrawPart(Pass* pass, Model* model, uint32_t meshIndex, uint32_t par
       .material = model->materials && part->material != ~0u ? model->materials[part->material] : NULL,
       .transform = transform, // TODO fix skinned mesh transforms?
       .bounds = part->bounds,
+      .quad = part->quad,
       .vertex.buffer = model->vertexBuffer,
       .index.buffer = mesh->indexCount > 0 ? model->indexBuffer : NULL,
       .start = (mesh->indexCount > 0 ? mesh->indexOffset : mesh->vertexOffset) + part->start,

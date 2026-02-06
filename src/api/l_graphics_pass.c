@@ -598,6 +598,16 @@ static int l_lovrPassSetMeshMode(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassSetQuad(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  float x = luax_optfloat(L, 2, 0.);
+  float y = luax_optfloat(L, 3, 0.);
+  float w = luax_optfloat(L, 4, 1.);
+  float h = luax_optfloat(L, 5, 1.);
+  lovrPassSetQuad(pass, x, y, w, h);
+  return 0;
+}
+
 static int l_lovrPassSetSampler(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   if (lua_type(L, 2) != LUA_TUSERDATA) {
@@ -1253,6 +1263,7 @@ const luaL_Reg lovrPass[] = {
   { "setFont", l_lovrPassSetFont },
   { "setMaterial", l_lovrPassSetMaterial },
   { "setMeshMode", l_lovrPassSetMeshMode },
+  { "setQuad", l_lovrPassSetQuad },
   { "setSampler", l_lovrPassSetSampler },
   { "setScissor", l_lovrPassSetScissor },
   { "setShader", l_lovrPassSetShader },
