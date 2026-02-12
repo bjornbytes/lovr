@@ -616,7 +616,15 @@ bool lovrHeadsetConnect(void) {
     .formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY
   };
 
-  XRG(xrGetSystem(state.instance, &systemInfo, &state.system), "xrGetSystem", fail);
+  XrResult getSystemRes = xrGetSystem(state.instance, &systemInfo, &state.system);
+  if (getSystemRes == XR_ERROR_FORM_FACTOR_UNAVAILABLE) {
+    lovrLog(LOG_INFO, "XR", "Got XR_ERROR_FORM_FACTOR_UNAVAILABLE, retrying until xrGetSystem succeeds");
+    while (getSystemRes == XR_ERROR_FORM_FACTOR_UNAVAILABLE) {
+      os_sleep(1.0);
+      getSystemRes = xrGetSystem(state.instance, &systemInfo, &state.system);
+    }
+  }
+  XRG(getSystemRes, "xrGetSystem", fail);
 
   XrSystemEyeGazeInteractionPropertiesEXT eyeGazeProperties = { .type = XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT };
   XrSystemHandTrackingPropertiesEXT handTrackingProperties = { .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT };
