@@ -51,6 +51,7 @@ struct gpu_stream {
 };
 
 size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
+size_t gpu_sizeof_tree(void) { return 1; }
 size_t gpu_sizeof_texture(void) { return sizeof(gpu_texture); }
 size_t gpu_sizeof_sampler(void) { return sizeof(gpu_sampler); }
 size_t gpu_sizeof_layout(void) { return sizeof(gpu_layout); }
@@ -158,6 +159,24 @@ void gpu_buffer_flush(gpu_buffer* buffer, uint32_t offset, uint32_t extent) {
   if (extent > 0) {
     wgpu_queue_write_buffer(state.queue, buffer->handle, offset, (char*) buffer->memory + offset, extent);
   }
+}
+
+gpu_address gpu_buffer_get_address(gpu_buffer* buffer, uint32_t offset) {
+  return 0;
+}
+
+// Tree
+
+bool gpu_tree_init(gpu_tree* tree, gpu_tree_info* info) {
+  return false;
+}
+
+void gpu_tree_destroy(gpu_tree* tree) {
+  //
+}
+
+gpu_address gpu_tree_get_address(gpu_tree* tree) {
+  return 0;
 }
 
 // Texture
@@ -384,7 +403,8 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     [GPU_SLOT_TEXTURE_WITH_SAMPLER] = WGPU_BIND_GROUP_LAYOUT_TYPE_INVALID, // Not supported
     [GPU_SLOT_SAMPLED_TEXTURE] = WGPU_BIND_GROUP_LAYOUT_TYPE_TEXTURE,
     [GPU_SLOT_STORAGE_TEXTURE] = WGPU_BIND_GROUP_LAYOUT_TYPE_STORAGE_TEXTURE,
-    [GPU_SLOT_SAMPLER] = WGPU_BIND_GROUP_LAYOUT_TYPE_SAMPLER
+    [GPU_SLOT_SAMPLER] = WGPU_BIND_GROUP_LAYOUT_TYPE_SAMPLER,
+    [GPU_SLOT_TREE] = WGPU_BIND_GROUP_LAYOUT_TYPE_INVALID // Not supported
   };
 
   static const WGPU_BUFFER_BINDING_TYPE bufferTypes[] = {
@@ -442,6 +462,9 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
       // FIXME need more metadata?
       case GPU_SLOT_SAMPLER:
         entries[i].layout.sampler.type = WGPU_SAMPLER_BINDING_TYPE_FILTERING;
+        break;
+
+      case GPU_SLOT_TREE:
         break;
     }
   }
@@ -533,6 +556,8 @@ void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t cou
         case GPU_SLOT_SAMPLER:
           entry->resource = binding->texture.sampler->handle;
           break;
+        case GPU_SLOT_TREE:
+          break; // Unsupported
       }
     }
 
@@ -1213,6 +1238,10 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
     wgpu_object_destroy(srcView);
     wgpu_object_destroy(dstView);
   }
+}
+
+void gpu_build_tree(gpu_stream* stream, gpu_tree* tree, gpu_build_info* info) {
+  //
 }
 
 void gpu_sync(gpu_stream* stream, gpu_barrier* barriers, uint32_t count) {
