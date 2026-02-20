@@ -9293,7 +9293,7 @@ static bool getBundles(Layout* layout, gpu_bundle** bundles, uint32_t count) {
 
 static gpu_texture* createTemporaryTexture(const TextureInfo* size, TextureFormat format, bool srgb, uint32_t samples) {
   gpu_texture_info info = {
-    .type = GPU_TEXTURE_ARRAY,
+    .type = size->layers > 1 ? GPU_TEXTURE_ARRAY : GPU_TEXTURE_2D,
     .format = (gpu_texture_format) format,
     .srgb = srgb,
     .size = { size->width, size->height, size->layers },

@@ -12,7 +12,8 @@ struct gpu_buffer {
 struct gpu_texture {
   WGpuTexture handle;
   WGpuTextureView view;
-  WGPU_TEXTURE_FORMAT format;
+  gpu_texture_format format;
+  bool srgb;
 };
 
 struct gpu_sampler {
@@ -100,7 +101,7 @@ static struct {
 #define MAX(a, b) (a > b ? a : b)
 
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb);
-static uint32_t getRowSize(WGPU_TEXTURE_FORMAT format, uint32_t width);
+static uint32_t getRowSize(gpu_texture_format format, uint32_t width);
 
 // Buffer
 
@@ -189,6 +190,9 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     [GPU_TEXTURE_ARRAY] = WGPU_TEXTURE_DIMENSION_2D
   };
 
+  texture->format = info->format;
+  texture->srgb = info->srgb;
+
   texture->handle = wgpu_device_create_texture(state.device, &(WGpuTextureDescriptor) {
     .usage =
       ((info->usage & GPU_TEXTURE_RENDER) ? WGPU_TEXTURE_USAGE_RENDER_ATTACHMENT : 0) |
@@ -201,9 +205,11 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .width = info->size[0],
     .height = info->size[1],
     .depthOrArrayLayers = info->size[2],
-    .format = convertFormat(info->format, info->srgb),
+    .format = convertFormat(info->format, false),
     .mipLevelCount = info->mipmaps,
-    .sampleCount = MAX(info->samples, 1)
+    .sampleCount = MAX(info->samples, 1),
+    .numViewFormats = info->srgb ? 1 : 0,
+    .viewFormats = &(WGPU_TEXTURE_FORMAT) { convertFormat(info->format, info->srgb) }
   });
 
   if (!texture->handle) {
@@ -212,10 +218,15 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   wgpu_object_set_label(texture->handle, info->label);
 
-  texture->format = wgpu_texture_format(texture->handle);
-  texture->view = wgpu_texture_create_view_simple(texture->handle);
+  gpu_texture_view_info viewInfo = {
+    .source = texture,
+    .type = info->type,
+    .srgb = info->srgb,
+    .layerCount = info->size[2],
+    .levelCount = info->mipmaps
+  };
 
-  if (!texture->view) {
+  if (!gpu_texture_init_view(texture, &viewInfo)) {
     wgpu_object_destroy(texture->handle);
     return false;
   }
@@ -259,11 +270,14 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     [GPU_TEXTURE_ARRAY] = WGPU_TEXTURE_VIEW_DIMENSION_2D_ARRAY
   };
 
-  texture->handle = 0;
-  texture->format = info->source->format;
+  if (texture != info->source) {
+    texture->handle = 0;
+    texture->format = info->source->format;
+    texture->srgb = info->srgb;
+  }
 
   return texture->view = wgpu_texture_create_view(info->source->handle, &(WGpuTextureViewDescriptor) {
-    .format = texture->format,
+    .format = convertFormat(texture->format, texture->srgb),
     .dimension = types[info->type],
     .baseMipLevel = info->levelIndex,
     .mipLevelCount = info->levelCount,
@@ -320,15 +334,15 @@ bool gpu_surface_acquire(gpu_texture** texture, uint32_t* width, uint32_t* heigh
     return true;
   }
 
-  WGPU_TEXTURE_FORMAT format = convertFormat(gpu_surface_get_format(), true);
+  state.backbuffer.format = gpu_surface_get_format();
+  state.backbuffer.srgb = true;
   state.backbuffer.handle = wgpu_canvas_context_get_current_texture(state.context);
   state.backbuffer.view = wgpu_texture_create_view(state.backbuffer.handle, &(WGpuTextureViewDescriptor) {
-    .format = format,
+    .format = convertFormat(state.backbuffer.format, true),
     .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
     .mipLevelCount = 1,
     .arrayLayerCount = 1
   });
-  state.backbuffer.format = format;
   *texture = &state.backbuffer;
   *width = wgpu_texture_width(state.backbuffer.handle);
   *height = wgpu_texture_height(state.backbuffer.handle);
@@ -856,7 +870,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
     };
   }
 
-  WGPU_TEXTURE_FORMAT depthFormat = canvas->depth.texture ? canvas->depth.texture->format : WGPU_TEXTURE_FORMAT_INVALID;
+  WGPU_TEXTURE_FORMAT depthFormat = canvas->depth.texture ? convertFormat(canvas->depth.texture->format, false) : WGPU_TEXTURE_FORMAT_INVALID;
   bool stencil = depthFormat == WGPU_TEXTURE_FORMAT_DEPTH24PLUS_STENCIL8 || depthFormat == WGPU_TEXTURE_FORMAT_DEPTH32FLOAT_STENCIL8;
 
   WGpuRenderPassDepthStencilAttachment depth = {
@@ -1074,7 +1088,7 @@ void gpu_clear_texture(gpu_stream* stream, gpu_texture* texture, float value[4],
   for (uint32_t i = 0; i < levelCount; i++) {
     for (uint32_t j = 0; j < layerCount; j++) {
       WGpuTextureView view = wgpu_texture_create_view(texture->handle, &(WGpuTextureViewDescriptor) {
-        .format = texture->format,
+        .format = convertFormat(texture->format, texture->srgb),
         .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
         .baseMipLevel = level + i,
         .mipLevelCount = 1,
@@ -1191,7 +1205,7 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
   // TODO 3D textures, src uv rect, nearest
   for (uint32_t i = 0; i < dstExtent[2]; i++) {
     WGpuTextureView srcView = wgpu_texture_create_view(src->handle, &(WGpuTextureViewDescriptor) {
-      .format = src->format,
+      .format = convertFormat(src->format, src->srgb),
       .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
       .baseMipLevel = srcOffset[3],
       .mipLevelCount = 1,
@@ -1200,7 +1214,7 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
     });
 
     WGpuTextureView dstView = wgpu_texture_create_view(dst->handle, &(WGpuTextureViewDescriptor) {
-      .format = dst->format,
+      .format = convertFormat(dst->format, dst->srgb),
       .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
       .baseMipLevel = dstOffset[3],
       .mipLevelCount = 1,
@@ -1556,71 +1570,71 @@ static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb) {
   return formats[format][srgb];
 }
 
-static uint32_t getRowSize(WGPU_TEXTURE_FORMAT format, uint32_t width) {
+static uint32_t getRowSize(gpu_texture_format format, uint32_t width) {
   switch (format) {
-    case WGPU_TEXTURE_FORMAT_R8UNORM:
+    case GPU_FORMAT_R8:
       return width;
-    case WGPU_TEXTURE_FORMAT_RG8UNORM:
-    case WGPU_TEXTURE_FORMAT_R16UNORM:
-    case WGPU_TEXTURE_FORMAT_R16FLOAT:
-    case WGPU_TEXTURE_FORMAT_DEPTH16UNORM:
+    case GPU_FORMAT_RG8:
+    case GPU_FORMAT_R16:
+    case GPU_FORMAT_R16F:
+    case GPU_FORMAT_RGB565:
+    case GPU_FORMAT_RGB5A1:
+    case GPU_FORMAT_D16:
       return width * 2;
-    case WGPU_TEXTURE_FORMAT_RGBA8UNORM:
-    case WGPU_TEXTURE_FORMAT_RGBA8UNORM_SRGB:
-    case WGPU_TEXTURE_FORMAT_BGRA8UNORM:
-    case WGPU_TEXTURE_FORMAT_BGRA8UNORM_SRGB:
-    case WGPU_TEXTURE_FORMAT_RG16UNORM:
-    case WGPU_TEXTURE_FORMAT_RG16FLOAT:
-    case WGPU_TEXTURE_FORMAT_R32FLOAT:
-    case WGPU_TEXTURE_FORMAT_RG11B10UFLOAT:
-    case WGPU_TEXTURE_FORMAT_RGB10A2UNORM:
-    case WGPU_TEXTURE_FORMAT_DEPTH24PLUS:
-    case WGPU_TEXTURE_FORMAT_DEPTH24PLUS_STENCIL8:
-    case WGPU_TEXTURE_FORMAT_DEPTH32FLOAT:
+    case GPU_FORMAT_RGBA8:
+    case GPU_FORMAT_BGRA8:
+    case GPU_FORMAT_RG16:
+    case GPU_FORMAT_RG16F:
+    case GPU_FORMAT_R32F:
+    case GPU_FORMAT_RG11B10F:
+    case GPU_FORMAT_RGB10A2:
+    case GPU_FORMAT_D24:
+    case GPU_FORMAT_D24S8:
+    case GPU_FORMAT_D32F:
       return width * 4;
-    case WGPU_TEXTURE_FORMAT_DEPTH32FLOAT_STENCIL8:
+    case GPU_FORMAT_D32FS8:
       return width * 5;
-    case WGPU_TEXTURE_FORMAT_RGBA16UNORM:
-    case WGPU_TEXTURE_FORMAT_RGBA16FLOAT:
-    case WGPU_TEXTURE_FORMAT_RG32FLOAT:
+    case GPU_FORMAT_RGBA16:
+    case GPU_FORMAT_RGBA16F:
+    case GPU_FORMAT_RG32F:
       return width * 8;
-    case WGPU_TEXTURE_FORMAT_RGBA32FLOAT:
+    case GPU_FORMAT_RGBA32F:
       return width * 16;
-    case WGPU_TEXTURE_FORMAT_BC1_RGBA_UNORM: case WGPU_TEXTURE_FORMAT_BC1_RGBA_UNORM_SRGB:
-    case WGPU_TEXTURE_FORMAT_BC2_RGBA_UNORM: case WGPU_TEXTURE_FORMAT_BC2_RGBA_UNORM_SRGB:
-    case WGPU_TEXTURE_FORMAT_BC3_RGBA_UNORM: case WGPU_TEXTURE_FORMAT_BC3_RGBA_UNORM_SRGB:
-    case WGPU_TEXTURE_FORMAT_BC4_R_UNORM: case WGPU_TEXTURE_FORMAT_BC4_R_SNORM:
-    case WGPU_TEXTURE_FORMAT_BC5_RG_UNORM: case WGPU_TEXTURE_FORMAT_BC5_RG_SNORM:
-    case WGPU_TEXTURE_FORMAT_BC6H_RGB_UFLOAT: case WGPU_TEXTURE_FORMAT_BC6H_RGB_FLOAT:
-    case WGPU_TEXTURE_FORMAT_BC7_RGBA_UNORM: case WGPU_TEXTURE_FORMAT_BC7_RGBA_UNORM_SRGB:
+    case GPU_FORMAT_BC1:
+    case GPU_FORMAT_BC2:
+    case GPU_FORMAT_BC3:
+    case GPU_FORMAT_BC4U: case GPU_FORMAT_BC4S:
+    case GPU_FORMAT_BC5U: case GPU_FORMAT_BC5S:
+    case GPU_FORMAT_BC6UF: case GPU_FORMAT_BC6SF:
+    case GPU_FORMAT_BC7:
       return ((width + 3) / 4) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_4X4_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_4x4:
       return ((width + 3) / 4) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_5X4_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_5X4_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_5x4:
       return ((width + 4) / 5) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_5X5_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_5X5_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_5x5:
       return ((width + 4) / 5) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_6X5_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_6X5_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_6x5:
       return ((width + 5) / 6) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_6X6_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_6X6_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_6x6:
       return ((width + 5) / 6) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_8X5_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_8X5_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_8x5:
       return ((width + 7) / 8) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_8X6_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_8X6_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_8x6:
       return ((width + 7) / 8) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_8X8_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_8X8_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_8x8:
       return ((width + 7) / 8) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_10X5_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_10X5_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_10x5:
       return ((width + 9) / 10) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_10X6_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_10X6_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_10x6:
       return ((width + 9) / 10) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_10X8_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_10X8_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_10x8:
       return ((width + 9) / 10) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_10X10_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_10X10_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_10x10:
       return ((width + 9) / 10) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_12X10_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_12X10_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_12x10:
       return ((width + 11) / 12) * 16;
-    case WGPU_TEXTURE_FORMAT_ASTC_12X12_UNORM: case WGPU_TEXTURE_FORMAT_ASTC_12X12_UNORM_SRGB:
+    case GPU_FORMAT_ASTC_12x12:
       return ((width + 11) / 12) * 16;
     default: return 0;
   }
