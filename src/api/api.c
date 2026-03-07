@@ -107,7 +107,7 @@ void luax_preload(lua_State* L) {
   lua_pop(L, 2);
 }
 
-int luax_release(lua_State* L) {
+static int luax_release(lua_State* L) {
   Object* object = lua_touserdata(L, 1);
 
   if (!object) {
@@ -143,37 +143,32 @@ void _luax_registertype(lua_State* L, int type, const char* name, void (*destruc
   lua_setuserdatadtor(L, type, luax_destructor);
   lua_pushvalue(L, -1);
   lua_setuserdatametatable(L, type);
-
-  lua_pushcfunction(L, luax_release);
-  lua_setfield(L, -2, "release");
 #else
   // m.__gc = luax_release
   lua_pushcfunction(L, luax_release);
   lua_setfield(L, -2, "__gc");
+
+  // m.__close = luax_release
+  lua_pushcfunction(L, luax_release);
+  lua_setfield(L, -2, "__close");
 #endif
 
   // m.__tostring
   lua_pushcfunction(L, luax_tostring);
   lua_setfield(L, -2, "__tostring");
 
-  // Register methods
-  if (functions) {
-    luax_register(L, functions);
-  }
-
-#ifndef LOVR_USE_LUAU
-  // m.__close = __gc
-  lua_getfield(L, -1, "__gc");
-  lua_setfield(L, -2, "__close");
-
   // :release method
-  lua_getfield(L, -1, "__gc");
+  lua_pushcfunction(L, luax_release);
   lua_setfield(L, -2, "release");
-#endif
 
   // :type method
   lua_pushcfunction(L, luax_type);
   lua_setfield(L, -2, "type");
+
+  // Register methods
+  if (functions) {
+    luax_register(L, functions);
+  }
 
   // Pop metatable
   lua_pop(L, 1);
@@ -315,7 +310,7 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
 }
 
 static int luax_wrapasync(lua_State* L) {
-  if (luax_gettask(L)) {
+  if (luax_getthreaddata(L)) {
     int n = lua_gettop(L);
     lua_pushvalue(L, lua_upvalueindex(1));
     lua_insert(L, 1);
@@ -467,6 +462,52 @@ void luax_pushstash(lua_State* L, const char* name) {
     lua_pushvalue(L, -1);
     lua_setfield(L, LUA_REGISTRYINDEX, name);
   }
+}
+
+void* luax_getthreaddata(lua_State* L) {
+#ifdef LOVR_USE_LUAU
+  return lua_getthreaddata(L);
+#elif LUA_VERSION_NUM >= 503
+  return *(void**) lua_getextraspace(L);
+#else
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrthreaddata");
+  if (lua_isnil(L, -1)) return lua_pop(L, 1), NULL;
+  lua_pushthread(L);
+  lua_rawget(L, -2);
+  void* data = lua_touserdata(L, -1);
+  lua_pop(L, 2);
+  return data;
+#endif
+}
+
+void luax_setthreaddata(lua_State* L, void* data) {
+#ifdef LOVR_USE_LUAU
+  lua_setthreaddata(L, data);
+#elif LUA_VERSION_NUM >= 503
+  *(void**) lua_getextraspace(L) = data;
+#else
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrthreaddata");
+  if (lua_isnil(L, -1)) {
+    lua_pop(L, 1);
+    lua_newtable(L);
+
+    lua_newtable(L);
+    lua_pushliteral(L, "k");
+    lua_setfield(L, -2, "__mode");
+    lua_setmetatable(L, -2);
+
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "_lovrthreaddata");
+  }
+  lua_pushthread(L);
+  if (data) {
+    lua_pushlightuserdata(L, data);
+  } else {
+    lua_pushnil(L);
+  }
+  lua_rawset(L, -3);
+  lua_pop(L, 1);
+#endif
 }
 
 void luax_setmainthread(lua_State *L) {

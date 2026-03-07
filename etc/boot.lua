@@ -410,7 +410,7 @@ function lovr.threaderror(thread, err)
 end
 
 function lovr.taskready(task)
-  assert(task:resume())
+  assert(lovr.task.resume(task))
 end
 
 function lovr.filechanged(path, action, oldpath)

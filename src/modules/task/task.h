@@ -28,7 +28,6 @@ typedef enum {
 } WaitType;
 
 struct Task {
-  atomic_uint ref;
   bool complete;
   bool dequeued;
   WaitType waiting;
@@ -43,7 +42,7 @@ struct Task {
 };
 
 Task* lovrTaskCreate(struct lua_State* T);
-void lovrTaskDestroy(void* ref);
+void lovrTaskDestroy(Task* task);
 bool lovrTaskIsReady(Task* task);
 void lovrTaskEnqueue(Task* task);
 void lovrTaskDequeue(Task* task);

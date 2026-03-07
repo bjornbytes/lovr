@@ -257,7 +257,7 @@ int luax_callthread(lua_State* L, int n) {
     }
   }
 
-  return luax_runasync(L, luax_runlua, luax_pushresults, context);
+  return luax_yieldjob(L, luax_runlua, luax_pushresults, context);
 }
 
 static int l_lovrThreadRun(lua_State* L) {

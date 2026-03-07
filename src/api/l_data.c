@@ -154,7 +154,7 @@ static int l_lovrDataNewImage(lua_State* L) {
       memcpy(lovrImageGetLayerData(image, 0, 0), lovrImageGetLayerData(source, 0, 0), lovrImageGetLayerSize(image, 0));
     } else {
       Blob* blob = luax_readblob(L, 1, "Texture");
-      return luax_runasync(L, luax_loadimage, luax_pushimage, blob);
+      return luax_yieldjob(L, luax_loadimage, luax_pushimage, blob);
     }
   }
 

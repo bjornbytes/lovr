@@ -10,6 +10,7 @@ static struct {
   Waiter* waiters;
   _Atomic(Task*) pending;
   Task* queue;
+  Task* pool;
 } state;
 
 bool lovrTaskModuleInit(void) {
@@ -20,6 +21,11 @@ bool lovrTaskModuleInit(void) {
 
 void lovrTaskModuleDestroy(void) {
   if (!lovrModuleRelease(&ref)) return;
+  while (state.pool) {
+    Task* task = state.pool;
+    state.pool = task->next;
+    lovrFree(task);
+  }
   while (state.waiters) {
     Waiter* waiter = state.waiters;
     state.waiters = waiter->next;
@@ -57,14 +63,20 @@ Task* lovrTaskModulePoll(void) {
 // Task
 
 Task* lovrTaskCreate(struct lua_State* T) {
-  Task* task = lovrCalloc(sizeof(Task));
-  task->ref = 1;
+  Task* task = state.pool;
+
+  if (task) {
+    state.pool = task->next;
+    memset(task, 0, sizeof(Task));
+  } else {
+    task = lovrCalloc(sizeof(Task));
+  }
+
   task->T = T;
   return task;
 }
 
-void lovrTaskDestroy(void* ref) {
-  Task* task = ref;
+void lovrTaskDestroy(Task* task) {
   while (task->waiters) {
     Waiter* waiter = task->waiters;
     task->waiters = waiter->next;
@@ -72,7 +84,8 @@ void lovrTaskDestroy(void* ref) {
     state.waiters = waiter;
   }
   lovrFree(task->error);
-  lovrFree(task);
+  task->next = state.pool;
+  state.pool = task;
 }
 
 bool lovrTaskIsReady(Task* task) {

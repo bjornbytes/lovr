@@ -118,7 +118,6 @@ typedef struct {
 #define luax_pushnilerror(L) lua_pushnil(L), lua_pushstring(L, lovrGetError()), 2
 
 void luax_preload(lua_State* L);
-int luax_release(lua_State* L);
 void _luax_registertype(lua_State* L, int type, const char* name, void (*destructor)(void*), const luaL_Reg* functions);
 void* _luax_totype(lua_State* L, int index, int type);
 void* _luax_checktype(lua_State* L, int index, int type);
@@ -137,6 +136,8 @@ int luax_pushsuccess(lua_State* L, bool success);
 void luax_pushconf(lua_State* L);
 int luax_setconf(lua_State* L);
 void luax_pushstash(lua_State* L, const char* name);
+void* luax_getthreaddata(lua_State* L);
+void luax_setthreaddata(lua_State* L, void* data);
 void luax_setmainthread(lua_State* L);
 void luax_atexit(lua_State* L, void (*finalizer)(void));
 void luax_close(lua_State* L);
@@ -209,7 +210,7 @@ struct Shape* luax_newterrainshape(lua_State* L, int index);
 #ifndef LOVR_DISABLE_TASK
 #include "task/task.h"
 Task* luax_gettask(lua_State* L);
-int luax_runasync(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context);
+int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context);
 #endif
 
 #ifndef LOVR_DISABLE_THREAD

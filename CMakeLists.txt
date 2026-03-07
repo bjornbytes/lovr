@@ -545,7 +545,6 @@ if(LOVR_ENABLE_TASK)
   target_sources(lovr PRIVATE
     src/modules/task/task.c
     src/api/l_task.c
-    src/api/l_task_task.c
   )
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_TASK)

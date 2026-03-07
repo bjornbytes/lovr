@@ -178,7 +178,6 @@ typedef enum {
   T_DistanceJoint,
   T_HingeJoint,
   T_SliderJoint,
-  T_Task,
   T_Thread,
   T_Channel,
   T_COUNT
