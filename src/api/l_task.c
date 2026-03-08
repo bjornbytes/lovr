@@ -21,6 +21,23 @@ static void luax_unpintask(lua_State* L, Task* task) {
   lua_pop(L, 1);
 }
 
+int luax_yieldpoll(lua_State* L, fn_task* fn, fn_task* block, fn_continuation* continuation, void* context) {
+  Task* task = luax_getthreaddata(L);
+
+  if (!task) {
+    if (block(&context)) {
+      return continuation ? continuation(L, context) : 0;
+    } else {
+      lua_pushstring(L, lovrGetError());
+      return lua_error(L);
+    }
+  }
+
+  lovrTaskPoll(task, fn, block, continuation, context);
+  luax_pintask(L, task);
+  return lua_yield(L, 0);
+}
+
 static void taskRunner(void* arg) {
   Task* task = arg;
 
@@ -85,8 +102,8 @@ static int luax_runtask(Task* task, int n) {
     }
 
     // Set up resume values
-    if (task->waiting == WAIT_JOB) {
-      n = task->continuation(T, task->context);
+    if (task->waiting == WAIT_JOB || task->waiting == WAIT_POLL) {
+      n = task->continuation ? task->continuation(T, task->context) : 0;
     } else {
       n = 0;
 
@@ -201,7 +218,7 @@ static int l_lovrTaskIsWaiting(lua_State* L) {
 }
 
 static int l_lovrTaskNext(lua_State* L) {
-  Task* task = lovrTaskModulePoll();
+  Task* task = lovrTaskModuleGetNext();
   if (task) {
     lua_getfield(L, LUA_REGISTRYINDEX, "_lovrtasks");
     lua_pushlightuserdata(L, task);
@@ -228,6 +245,10 @@ static int luax_waittask(lua_State* T) {
   if (task->waiting == WAIT_JOB) {
     while (atomic_load(&task->deps) > 0) {
       job_spin();
+    }
+  } else if (task->waiting == WAIT_POLL) {
+    if (!task->block(&task->context)) {
+      task->error = lovrStrdup(lovrGetError());
     }
   } else {
     int n = lua_gettop(T);

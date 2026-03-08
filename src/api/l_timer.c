@@ -26,10 +26,21 @@ static int l_lovrTimerStep(lua_State* L) {
   return 1;
 }
 
+static bool luax_polltime(void** context) {
+  double timeout = ((union { double f64; void* p; }) { .p = *context }).f64;
+  return lovrTimerGetTime() >= timeout;
+}
+
+static bool luax_waittime(void** context) {
+  double timeout = ((union { double f64; void* p; }) { .p = *context }).f64;
+  lovrTimerSleep(timeout - lovrTimerGetTime());
+  return true;
+}
+
 static int l_lovrTimerSleep(lua_State* L) {
   double duration = luaL_checknumber(L, 1);
-  lovrTimerSleep(duration);
-  return 0;
+  void* timeout = ((union { double f64; void* p; }) { .f64 = lovrTimerGetTime() + duration }).p;
+  return luax_yieldpoll(L, luax_polltime, luax_waittime, NULL, timeout);
 }
 
 static const luaL_Reg lovrTimer[] = {

@@ -112,9 +112,8 @@ static int l_lovrDataNewBlobView(lua_State* L) {
 }
 
 static int luax_pushimage(lua_State* L, void* context) {
-  Image* image = context;
-  luax_pushtype(L, Image, image);
-  lovrRelease(image, lovrImageDestroy);
+  luax_pushtype(L, Image, context);
+  lovrRelease(context, lovrImageDestroy);
   return 1;
 }
 

@@ -10,6 +10,7 @@ static struct {
   Waiter* waiters;
   _Atomic(Task*) pending;
   Task* queue;
+  Task* polls;
   Task* pool;
 } state;
 
@@ -35,7 +36,7 @@ void lovrTaskModuleDestroy(void) {
   lovrModuleReset(&ref);
 }
 
-Task* lovrTaskModulePoll(void) {
+Task* lovrTaskModuleGetNext(void) {
   for (;;) {
     while (state.queue) {
       Task* task = state.queue;
@@ -48,7 +49,7 @@ Task* lovrTaskModulePoll(void) {
     Task* task = atomic_exchange(&state.pending, NULL);
 
     if (!task) {
-      return NULL;
+      break;
     }
 
     while (task) {
@@ -58,6 +59,21 @@ Task* lovrTaskModulePoll(void) {
       task = next;
     }
   }
+
+  Task** list = &state.polls;
+  while (*list) {
+    Task* task = *list;
+    if (task->fn(&task->context)) {
+      *list = task->next;
+      if (atomic_fetch_sub(&task->deps, 1) == 1) {
+        return task;
+      }
+    } else {
+      list = &task->next;
+    }
+  }
+
+  return NULL;
 }
 
 // Task
@@ -100,6 +116,17 @@ void lovrTaskEnqueue(Task* task) {
 
 void lovrTaskDequeue(Task* task) {
   task->dequeued = true;
+}
+
+void lovrTaskPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context) {
+  task->fn = poll;
+  task->block = block;
+  task->context = context;
+  task->continuation = continuation;
+  atomic_store(&task->deps, 1);
+  task->waiting = WAIT_POLL;
+  task->next = state.polls;
+  state.polls = task;
 }
 
 void lovrTaskFinish(Task* task) {

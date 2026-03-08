@@ -12,7 +12,7 @@ typedef struct Task Task;
 
 bool lovrTaskModuleInit(void);
 void lovrTaskModuleDestroy(void);
-Task* lovrTaskModulePoll(void);
+Task* lovrTaskModuleGetNext(void);
 
 // Task
 
@@ -24,6 +24,7 @@ typedef struct Waiter {
 typedef enum {
   WAIT_NONE,
   WAIT_TASK,
+  WAIT_POLL,
   WAIT_JOB
 } WaitType;
 
@@ -35,6 +36,7 @@ struct Task {
   struct Task* next;
   struct lua_State* T;
   fn_task* fn;
+  fn_task* block;
   fn_continuation* continuation;
   void* context;
   Waiter* waiters;
@@ -46,5 +48,6 @@ void lovrTaskDestroy(Task* task);
 bool lovrTaskIsReady(Task* task);
 void lovrTaskEnqueue(Task* task);
 void lovrTaskDequeue(Task* task);
+void lovrTaskPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context);
 void lovrTaskFinish(Task* task);
 bool lovrTaskAddDependency(Task* task, Task* dependency);
