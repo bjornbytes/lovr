@@ -21,7 +21,7 @@ static void luax_unpintask(lua_State* L, Task* task) {
   lua_pop(L, 1);
 }
 
-int luax_yieldpoll(lua_State* L, fn_task* fn, fn_task* block, fn_continuation* continuation, void* context) {
+int luax_yieldpoll(lua_State* L, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context) {
   Task* task = luax_getthreaddata(L);
 
   if (!task) {
@@ -33,7 +33,7 @@ int luax_yieldpoll(lua_State* L, fn_task* fn, fn_task* block, fn_continuation* c
     }
   }
 
-  lovrTaskPoll(task, fn, block, continuation, context);
+  lovrTaskPoll(task, poll, block, continuation, context);
   luax_pintask(L, task);
   return lua_yield(L, 0);
 }

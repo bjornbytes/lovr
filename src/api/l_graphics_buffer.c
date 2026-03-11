@@ -557,22 +557,44 @@ static int l_lovrBufferNewReadback(lua_State* L) {
   return 1;
 }
 
+static bool luax_pollreadback(void** context) {
+  return lovrReadbackPoll(*context);
+}
+
+static bool luax_waitreadback(void** context) {
+  return lovrReadbackWait(*context);
+}
+
+static int luax_pushreadbackdata(lua_State* L, void* context) {
+  DataField* format;
+  uint32_t count;
+  void* data = lovrReadbackGetData(context, &format, &count);
+  lovrRelease(context, lovrReadbackDestroy);
+  luax_assert(L, data && format);
+  return luax_pushbufferdata(L, format, count, data);
+}
+
 static int l_lovrBufferGetData(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const DataField* format = lovrBufferGetInfo(buffer)->format;
   luax_check(L, format, "Buffer:getData requires the Buffer to have a format");
+
+  uint32_t offset, extent;
   if (format->length > 0) {
     uint32_t index = luax_optu32(L, 2, 1) - 1;
     luax_check(L, index < format->length, "Buffer:getData index exceeds the Buffer's length");
     uint32_t count = luax_optu32(L, 3, format->length - index);
-    void* data = lovrBufferGetData(buffer, index * format->stride, count * format->stride);
-    luax_assert(L, data);
-    return luax_pushbufferdata(L, format, count, data);
+    offset = index * format->stride;
+    extent = count * format->stride;
   } else {
-    void* data = lovrBufferGetData(buffer, 0, format->stride);
-    luax_assert(L, data);
-    return luax_pushbufferdata(L, format, 0, data);
+    offset = 0;
+    extent = format->stride;
   }
+
+  Readback* readback = lovrReadbackCreateBuffer(buffer, offset, extent);
+  luax_assert(L, readback);
+
+  return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackdata, readback);
 }
 
 static int l_lovrBufferSetData(lua_State* L) {

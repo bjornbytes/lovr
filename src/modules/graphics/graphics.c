@@ -892,6 +892,7 @@ void lovrGraphicsDestroy(void) {
   }
   if (state.timestamps) gpu_tally_destroy(state.timestamps);
   lovrFree(state.timestamps);
+  if (state.window) lovrFree(state.window->sync);
   lovrRelease(state.window, lovrTextureDestroy);
   lovrRelease(state.windowPass, lovrPassDestroy);
   lovrRelease(state.defaultFont, lovrFontDestroy);
@@ -2264,28 +2265,6 @@ const BufferInfo* lovrBufferGetInfo(Buffer* buffer) {
   return &buffer->info;
 }
 
-void* lovrBufferGetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
-  if (extent == ~0u) extent = buffer->info.size - offset;
-  lovrCheck(offset + extent <= buffer->info.size, "Buffer read range goes past the end of the Buffer");
-
-  mtx_lock(&state.lock);
-
-  gpu_barrier barrier = syncStream(buffer->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
-  gpu_sync(state.stream, &barrier, 1);
-
-  BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, 4);
-  if (!view.buffer) return mtx_unlock(&state.lock), NULL;
-
-  gpu_copy_buffers(state.stream, buffer->gpu, view.buffer, buffer->base + offset, view.offset, extent);
-  mtx_unlock(&state.lock);
-
-  if (!lovrGraphicsSubmit(NULL, 0) || !lovrGraphicsWait()) {
-    return NULL;
-  }
-
-  return view.pointer;
-}
-
 void* lovrBufferSetData(Buffer* buffer, uint32_t offset, uint32_t extent) {
   if (extent == ~0u) extent = buffer->info.size - offset;
   lovrCheck(offset + extent <= buffer->info.size, "Attempt to write past the end of the Buffer");
@@ -2828,41 +2807,6 @@ void lovrTextureDestroy(void* ref) {
 
 const TextureInfo* lovrTextureGetInfo(Texture* texture) {
   return &texture->info;
-}
-
-Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t extent[3]) {
-  if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
-  if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
-  lovrCheck(extent[2] == 1, "Currently only a single layer can be read from a Texture");
-  lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
-  lovrCheck(texture->info.samples == 1, "Can't get pixels of a multisampled texture");
-  if (!checkTextureBounds(&texture->info, offset, extent)) return NULL;
-
-  mtx_lock(&state.lock);
-
-  gpu_barrier barrier = syncStream(texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
-  gpu_sync(state.stream, &barrier, 1);
-
-  uint32_t rootOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
-
-  BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
-  if (!view.buffer) return mtx_unlock(&state.lock), NULL;
-
-  gpu_copy_texture_buffer(state.stream, texture->root->gpu, view.buffer, rootOffset, view.offset, extent);
-  mtx_unlock(&state.lock);
-
-  if (!lovrGraphicsSubmit(NULL, 0) || !lovrGraphicsWait()) {
-    return NULL;
-  }
-
-  Image* image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
-
-  if (image) {
-    void* data = lovrImageGetLayerData(image, offset[3], offset[2]);
-    memcpy(data, view.pointer, view.extent);
-  }
-
-  return image;
 }
 
 bool lovrTextureSetPixels(Texture* texture, Image* image, uint32_t dstOffset[4], uint32_t srcOffset[4], uint32_t extent[3]) {
@@ -4773,6 +4717,10 @@ void lovrMeshDestroy(void* ref) {
   lovrFree(mesh);
 }
 
+MeshStorage lovrMeshGetStorage(Mesh* mesh) {
+  return mesh->storage;
+}
+
 const DataField* lovrMeshGetVertexFormat(Mesh* mesh) {
   return mesh->vertexBuffer->info.format;
 }
@@ -4815,12 +4763,8 @@ void* lovrMeshGetVertices(Mesh* mesh, uint32_t index, uint32_t count) {
   const DataField* format = lovrMeshGetVertexFormat(mesh);
   if (count == ~0u) count = format->length - index;
   lovrCheck(index < format->length && count <= format->length - index, "Mesh vertex range [%d,%d] overflows mesh capacity", index + 1, index + 1 + count - 1);
-
-  if (mesh->storage == MESH_CPU) {
-    return (char*) mesh->vertices + index * format->stride;
-  } else {
-    return lovrBufferGetData(mesh->vertexBuffer, index * format->stride, count * format->stride);
-  }
+  lovrCheck(mesh->storage == MESH_CPU, "Can't get vertices of GPU mesh");
+  return (char*) mesh->vertices + index * format->stride;
 }
 
 void* lovrMeshSetVertices(Mesh* mesh, uint32_t index, uint32_t count) {
@@ -4838,21 +4782,16 @@ void* lovrMeshSetVertices(Mesh* mesh, uint32_t index, uint32_t count) {
 }
 
 bool lovrMeshGetIndices(Mesh* mesh, void** indices, uint32_t* count, DataType* type) {
-  if (mesh->indexCount == 0 || !mesh->indexBuffer) {
+  lovrCheck(mesh->storage == MESH_CPU, "Can't get indices of GPU mesh");
+
+  if (mesh->indexCount == 0 || !mesh->indexBuffer || mesh->storage == MESH_GPU) {
     *indices = NULL;
     return true;
   }
 
   *count = mesh->indexCount;
   *type = mesh->indexBuffer->info.format->type;
-
-  if (mesh->storage == MESH_CPU) {
-    *indices = mesh->indices;
-    return true;
-  } else {
-    *indices = lovrBufferGetData(mesh->indexBuffer, 0, mesh->indexCount * mesh->indexBuffer->info.format->stride);
-    return *indices != NULL;
-  }
+  *indices = mesh->indices;
 }
 
 void* lovrMeshSetIndices(Mesh* mesh, uint32_t count, DataType type) {
@@ -6199,25 +6138,21 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
   if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
   lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
-  lovrCheck(texture->root == texture, "Can not read from a Texture view");
-  lovrCheck(texture->info.samples == 1, "Can not read from a multisampled texture");
+  lovrCheck(texture->info.samples == 1, "Can't get pixels of a multisampled texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
-  checkTextureBounds(&texture->info, offset, extent);
+  if (!checkTextureBounds(&texture->info, offset, extent)) return NULL;
+  Image* image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
+  lovrAssert(image, "Failed to create image: %s", lovrGetError());
   mtx_lock(&state.lock);
   BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, measureTexture(texture->info.format, extent[0], extent[1], 1), 64);
   if (!view.buffer) return mtx_unlock(&state.lock), NULL;
-  Image* image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
-  if (!image) {
-    mtx_unlock(&state.lock);
-    lovrSetError("Failed to create image: %s", lovrGetError());
-    return NULL;
-  }
   Readback* readback = lovrReadbackCreate(READBACK_TEXTURE);
   readback->image = image;
   readback->view = view;
   gpu_barrier barrier = syncStream(texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
-  gpu_copy_texture_buffer(state.stream, texture->gpu, readback->view.buffer, offset, readback->view.offset, extent);
+  uint32_t rootOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLayer };
+  gpu_copy_texture_buffer(state.stream, texture->gpu, readback->view.buffer, rootOffset, readback->view.offset, extent);
   mtx_unlock(&state.lock);
   return readback;
 }

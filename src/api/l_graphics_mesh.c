@@ -60,12 +60,19 @@ static int l_lovrMeshSetIndexBuffer(lua_State* L) {
 
 static int l_lovrMeshGetVertices(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
+
+  if (lovrMeshGetStorage(mesh) == MESH_GPU) {
+    lua_pushnil(L);
+    return 1;
+  }
+
   uint32_t index = luax_optu32(L, 2, 1) - 1;
   uint32_t count = luax_optu32(L, 3, ~0u);
   char* data = lovrMeshGetVertices(mesh, index, count);
   luax_assert(L, data);
   const DataField* format = lovrMeshGetVertexFormat(mesh);
   count = count == ~0u ? format->length - index : count;
+
   lua_createtable(L, (int) count, 0);
   for (uint32_t i = 0; i < count; i++, data += format->stride) {
     lua_newtable(L);
@@ -80,6 +87,7 @@ static int l_lovrMeshGetVertices(lua_State* L) {
     }
     lua_rawseti(L, -2, (int) i + 1);
   }
+
   return 1;
 }
 
@@ -115,6 +123,11 @@ static int l_lovrMeshSetVertices(lua_State* L) {
 
 static int l_lovrMeshGetIndices(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
+
+  if (lovrMeshGetStorage(mesh)) {
+    lua_pushnil(L);
+    return 1;
+  }
 
   uint32_t count;
   DataType type;

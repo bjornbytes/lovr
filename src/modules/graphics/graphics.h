@@ -194,7 +194,6 @@ typedef struct {
 Buffer* lovrBufferCreate(const BufferInfo* info, void** data);
 void lovrBufferDestroy(void* ref);
 const BufferInfo* lovrBufferGetInfo(Buffer* buffer);
-void* lovrBufferGetData(Buffer* buffer, uint32_t offset, uint32_t extent);
 void* lovrBufferSetData(Buffer* buffer, uint32_t offset, uint32_t extent);
 void lovrBufferFlush(Buffer* buffer);
 bool lovrBufferCopy(Buffer* src, Buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent);
@@ -253,7 +252,6 @@ Texture* lovrTextureCreate(const TextureInfo* info);
 Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
-struct Image* lovrTextureGetPixels(Texture* texture, uint32_t offset[4], uint32_t extent[3]);
 bool lovrTextureSetPixels(Texture* texture, struct Image* image, uint32_t texOffset[4], uint32_t imgOffset[4], uint32_t extent[3]);
 bool lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 bool lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
@@ -466,6 +464,7 @@ typedef struct {
 
 Mesh* lovrMeshCreate(const MeshInfo* info, void** data);
 void lovrMeshDestroy(void* ref);
+MeshStorage lovrMeshGetStorage(Mesh* mesh);
 const DataField* lovrMeshGetVertexFormat(Mesh* mesh);
 Buffer* lovrMeshGetVertexBuffer(Mesh* mesh);
 Buffer* lovrMeshGetIndexBuffer(Mesh* mesh);

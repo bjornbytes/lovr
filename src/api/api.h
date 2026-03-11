@@ -210,7 +210,7 @@ struct Shape* luax_newterrainshape(lua_State* L, int index);
 #ifndef LOVR_DISABLE_TASK
 #include "task/task.h"
 Task* luax_gettask(lua_State* L);
-int luax_yieldpoll(lua_State* L, fn_task* fn, fn_task* block, fn_continuation* continuation, void* context);
+int luax_yieldpoll(lua_State* L, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context);
 int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context);
 #endif
 
