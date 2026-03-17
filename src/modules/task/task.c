@@ -1,5 +1,4 @@
 #include "task/task.h"
-#include "core/job.h"
 #include "util.h"
 #include <string.h>
 #include <stdlib.h>
