@@ -233,14 +233,6 @@ static int l_lovrTaskResume(lua_State* L) {
   }
 }
 
-static int l_lovrTaskIsWaiting(lua_State* L) {
-  luaL_checktype(L, 1, LUA_TTHREAD);
-  lua_State* T = lua_tothread(L, 1);
-  Task* task = luax_getthreaddata(T);
-  lua_pushboolean(L, task && task->deps > 0);
-  return 1;
-}
-
 static int l_lovrTaskNext(lua_State* L) {
   Task* task = lovrTaskModuleGetNext();
   if (task) {
@@ -366,13 +358,33 @@ static int l_lovrTaskWait(lua_State* L) {
   return results + 1;
 }
 
+static int l_lovrTaskGetStatus(lua_State* L) {
+  luaL_checktype(L, 1, LUA_TTHREAD);
+  lua_State* T = lua_tothread(L, 1);
+  Task* task = luax_getthreaddata(T);
+
+  if (T == L) {
+    lua_pushliteral(L, "running");
+  } else if (task->complete) {
+    lua_pushliteral(L, "complete");
+  } else if (task->error) {
+    lua_pushliteral(L, "failed");
+  } else if (task->waiting && atomic_load(&task->deps) > 0) {
+    lua_pushliteral(L, "waiting");
+  } else {
+    lua_pushliteral(L, "ready");
+  }
+
+  return 1;
+}
+
 extern const luaL_Reg lovrTask[];
 
 static const luaL_Reg lovrTaskModule[] = {
   { "start", l_lovrTaskStart },
   { "resume", l_lovrTaskResume },
-  { "isWaiting", l_lovrTaskIsWaiting },
   { "wait", l_lovrTaskWait },
+  { "getStatus", l_lovrTaskGetStatus },
   { NULL, NULL }
 };
 
