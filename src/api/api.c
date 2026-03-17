@@ -309,33 +309,6 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
   lua_pop(L, 1);
 }
 
-static int luax_wrapasync(lua_State* L) {
-  if (luax_getthreaddata(L)) {
-    int n = lua_gettop(L);
-    lua_pushvalue(L, lua_upvalueindex(1));
-    lua_insert(L, 1);
-    return luax_callthread(L, n);
-  } else {
-    lua_CFunction function = lua_tocfunction(L, lua_upvalueindex(1));
-    return function(L);
-  }
-}
-
-void _luax_registerasync(lua_State* L, const char* name, const char** methods) {
-  luaL_getmetatable(L, name);
-
-  if (lua_istable(L, -1)) {
-    while (*methods) {
-      const char* method = *methods++;
-      lua_getfield(L, -1, method);
-      lua_pushcclosure(L, luax_wrapasync, 1);
-      lua_setfield(L, -2, method);
-    }
-  }
-
-  lua_pop(L, 1);
-}
-
 int luax_resume(lua_State* T, int n) {
 #if LUA_VERSION_NUM >= 504
   int results;
