@@ -146,6 +146,30 @@ static int luax_runtask(Task* task, int n) {
   return status;
 }
 
+static int l_lovrTaskStart(lua_State* L) {
+  int args = lua_gettop(L) - 1;
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  lua_State* T = lua_newthread(L);
+  lua_insert(L, 1);
+  lua_xmove(L, T, args + 1);
+  Task* task = lovrTaskCreate(T);
+  luax_setthreaddata(T, task);
+  int status = luax_runtask(task, args);
+
+  if (!task->waiting) {
+    luax_setthreaddata(T, NULL);
+    lovrTaskDestroy(task);
+
+    if (status != LUA_OK && status != LUA_YIELD) {
+      lua_pushvalue(T, -1);
+      lua_xmove(T, L, 1);
+      return lua_error(L);
+    }
+  }
+
+  return 1;
+}
+
 static int l_lovrTaskResume(lua_State* L) {
   luaL_checktype(L, 1, LUA_TTHREAD);
   lua_State* T = lua_tothread(L, 1);
@@ -345,6 +369,7 @@ static int l_lovrTaskWait(lua_State* L) {
 extern const luaL_Reg lovrTask[];
 
 static const luaL_Reg lovrTaskModule[] = {
+  { "start", l_lovrTaskStart },
   { "resume", l_lovrTaskResume },
   { "isWaiting", l_lovrTaskIsWaiting },
   { "wait", l_lovrTaskWait },
