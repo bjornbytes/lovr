@@ -11,6 +11,7 @@
 #include "core/os.h"
 #include "util.h"
 #include <stdatomic.h>
+#include <threads.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -311,6 +312,7 @@ static struct {
   XrRenderModelIdEXT* modelKeys;
   RenderModel* models;
   uint32_t modelCount;
+  mtx_t modelLock;
   FoveationLevel foveationLevel;
   bool foveationDynamic;
   XrPassthroughFB passthrough;
@@ -1813,6 +1815,10 @@ bool lovrHeadsetStart(void) {
     lovrEventPush((Event) { .type = EVENT_MODELSCHANGED });
   }
 
+  if (state.extensions.renderModel) {
+    mtx_init(&state.modelLock, mtx_plain);
+  }
+
   if (state.extensions.bodyTracking) {
     XrBodyTrackerCreateInfoBD info = {
       .type = XR_TYPE_BODY_TRACKER_CREATE_INFO_BD,
@@ -1826,7 +1832,6 @@ bool lovrHeadsetStart(void) {
   }
 
   state.showMainLayer = true;
-
   return true;
 
 stop:
@@ -1867,6 +1872,7 @@ void lovrHeadsetStop(void) {
   state.mask = NULL;
 
   if (state.extensions.renderModel) {
+    mtx_destroy(&state.modelLock);
     for (uint32_t i = 0; i < state.modelCount; i++) {
       if (state.models[i].handle) xrDestroyRenderModelEXT(state.models[i].handle);
       if (state.models[i].space) xrDestroySpace(state.models[i].space);
@@ -2834,84 +2840,93 @@ uint64_t* lovrHeadsetGetModelKeys(uint32_t* count) {
 }
 
 static ModelData* newModelDataEXT(uint64_t key) {
+  XrUuidEXT cacheId;
+  uint32_t nodeCount;
+  bool found = false;
+
+  mtx_lock(&state.modelLock);
   for (uint32_t i = 0; i < state.modelCount; i++) {
-    if (state.modelKeys[i] != key) {
-      continue;
+    if (state.modelKeys[i] == key) {
+      cacheId = state.models[i].properties.cacheId;
+      nodeCount = state.models[i].properties.animatableNodeCount;
+      found = true;
+      break;
     }
+  }
+  mtx_unlock(&state.modelLock);
 
-    RenderModel* model = &state.models[i];
+  if (!found) {
+    return NULL;
+  }
 
-    XrRenderModelAssetCreateInfoEXT assetInfo = {
-      .type = XR_TYPE_RENDER_MODEL_ASSET_CREATE_INFO_EXT,
-      .cacheId = model->properties.cacheId
-    };
+  XrRenderModelAssetCreateInfoEXT assetInfo = {
+    .type = XR_TYPE_RENDER_MODEL_ASSET_CREATE_INFO_EXT,
+    .cacheId = cacheId
+  };
 
-    XrRenderModelAssetEXT asset;
-    XR(xrCreateRenderModelAssetEXT(state.session, &assetInfo, &asset), "xrCreateRenderModelAssetEXT");
+  XrRenderModelAssetEXT asset;
+  XR(xrCreateRenderModelAssetEXT(state.session, &assetInfo, &asset), "xrCreateRenderModelAssetEXT");
 
-    XrRenderModelAssetNodePropertiesEXT* nodeProperties = NULL;
+  XrRenderModelAssetPropertiesGetInfoEXT propertyInfo = { .type = XR_TYPE_RENDER_MODEL_ASSET_PROPERTIES_GET_INFO_EXT };
+  XrRenderModelAssetNodePropertiesEXT* nodeProperties = lovrMalloc(nodeCount * sizeof(XrRenderModelAssetNodePropertiesEXT));
 
-    if (!model->nodes) {
-      uint32_t nodeCount = model->properties.animatableNodeCount;
-      XrRenderModelAssetPropertiesGetInfoEXT propertyInfo = { .type = XR_TYPE_RENDER_MODEL_ASSET_PROPERTIES_GET_INFO_EXT };
-      nodeProperties = lovrMalloc(nodeCount * sizeof(XrRenderModelAssetNodePropertiesEXT));
+  XrRenderModelAssetPropertiesEXT assetProperties = {
+    .type = XR_TYPE_RENDER_MODEL_ASSET_PROPERTIES_EXT,
+    .nodePropertyCount = nodeCount,
+    .nodeProperties = nodeProperties
+  };
 
-      XrRenderModelAssetPropertiesEXT properties = {
-        .type = XR_TYPE_RENDER_MODEL_ASSET_PROPERTIES_EXT,
-        .nodePropertyCount = nodeCount,
-        .nodeProperties = nodeProperties
-      };
+  XrResult result = xrGetRenderModelAssetPropertiesEXT(asset, &propertyInfo, &assetProperties);
 
-      XrResult result = xrGetRenderModelAssetPropertiesEXT(asset, &propertyInfo, &properties);
-
-      if (XR_FAILED(result)) {
-        xrthrow(result, "xrGetRenderModelAssetPropertiesEXT");
-        xrDestroyRenderModelAssetEXT(asset);
-        lovrFree(nodeProperties);
-        return NULL;
-      }
-    }
-
-    XrRenderModelAssetDataGetInfoEXT dataInfo = { .type = XR_TYPE_RENDER_MODEL_ASSET_DATA_GET_INFO_EXT };
-    XrRenderModelAssetDataEXT data = { .type = XR_TYPE_RENDER_MODEL_ASSET_DATA_EXT };
-    XR(xrGetRenderModelAssetDataEXT(asset, &dataInfo, &data), "xrGetRenderModelAssetDataEXT");
-
-    data.bufferCapacityInput = data.bufferCountOutput;
-    data.buffer = lovrMalloc(data.bufferCountOutput);
-
-    XR(xrGetRenderModelAssetDataEXT(asset, &dataInfo, &data), "xrGetRenderModelAssetDataEXT");
-    Blob* blob = lovrBlobCreate(data.buffer, data.bufferCountOutput, "Headset Render Model Data");
+  if (XR_FAILED(result)) {
+    xrthrow(result, "xrGetRenderModelAssetPropertiesEXT");
     xrDestroyRenderModelAssetEXT(asset);
+    lovrFree(nodeProperties);
+    return NULL;
+  }
 
-    ModelData* modelData = lovrModelDataCreate(blob, NULL);
-    lovrRelease(blob, lovrBlobDestroy);
+  XrRenderModelAssetDataGetInfoEXT dataInfo = { .type = XR_TYPE_RENDER_MODEL_ASSET_DATA_GET_INFO_EXT };
+  XrRenderModelAssetDataEXT data = { .type = XR_TYPE_RENDER_MODEL_ASSET_DATA_EXT };
+  XR(xrGetRenderModelAssetDataEXT(asset, &dataInfo, &data), "xrGetRenderModelAssetDataEXT");
 
-    if (modelData) {
-      modelData->meta.id = key;
+  data.bufferCapacityInput = data.bufferCountOutput;
+  data.buffer = lovrMalloc(data.bufferCountOutput);
 
-      if (!model->nodes) {
-        uint32_t nodeCount = model->properties.animatableNodeCount;
-        model->nodes = lovrMalloc(nodeCount * sizeof(uint32_t));
-        model->nodeStates = lovrMalloc(nodeCount * sizeof(XrRenderModelNodeStateEXT));
+  XR(xrGetRenderModelAssetDataEXT(asset, &dataInfo, &data), "xrGetRenderModelAssetDataEXT");
+  Blob* blob = lovrBlobCreate(data.buffer, data.bufferCountOutput, "Headset Render Model Data");
+  xrDestroyRenderModelAssetEXT(asset);
 
-        for (uint32_t n = 0; n < nodeCount; n++) {
-          const char* name = nodeProperties[n].uniqueName;
-          uint32_t hash = (uint32_t) hash64(name, strlen(name));
-          for (uint32_t m = 0; m < modelData->meta.nodeCount; m++) {
-            if (modelData->meta.nodeLookup[m] == hash) {
-              model->nodes[n] = m;
-              break;
-            }
+  ModelData* modelData = lovrModelDataCreate(blob, NULL);
+  lovrRelease(blob, lovrBlobDestroy);
+
+  if (!modelData) {
+    lovrFree(nodeProperties);
+    return NULL;
+  }
+
+  modelData->meta.id = key;
+
+  // Fill out node lookup
+  mtx_lock(&state.modelLock);
+  for (uint32_t i = 0; i < state.modelCount; i++) {
+    if (state.modelKeys[i] == key) {
+      for (uint32_t n = 0; n < nodeCount; n++) {
+        const char* name = nodeProperties[n].uniqueName;
+        uint32_t hash = (uint32_t) hash64(name, strlen(name));
+        for (uint32_t m = 0; m < modelData->meta.nodeCount; m++) {
+          if (modelData->meta.nodeLookup[m] == hash) {
+            state.models[i].nodes[n] = m;
+            break;
           }
         }
       }
+      break;
     }
-
-    lovrFree(nodeProperties);
-    return modelData;
   }
+  lovrFree(nodeProperties);
+  mtx_unlock(&state.modelLock);
 
-  return NULL;
+  return modelData;
 }
 
 static ModelData* newModelDataFB(uint64_t key) {
@@ -3104,6 +3119,8 @@ bool lovrHeadsetGetModelPose(Model* model, float* position, float* orientation) 
   if (state.extensions.renderModel) {
     uint64_t key = lovrModelGetMetadata(model)->id;
 
+    mtx_lock(&state.modelLock);
+
     for (uint32_t i = 0; i < state.modelCount; i++) {
       if (state.modelKeys[i] != key) {
         continue;
@@ -3114,9 +3131,11 @@ bool lovrHeadsetGetModelPose(Model* model, float* position, float* orientation) 
       xrLocateSpace(renderModel->space, state.referenceSpace, state.frameState.predictedDisplayTime, &location);
       memcpy(orientation, &location.pose.orientation, 4 * sizeof(float));
       memcpy(position, &location.pose.position, 3 * sizeof(float));
+      mtx_unlock(&state.modelLock);
       return location.locationFlags & (XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
     }
 
+    mtx_unlock(&state.modelLock);
     return false;
   } else if (state.extensions.handTrackingMesh) {
     Device device = lovrModelGetMetadata(model)->id == 1 ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
@@ -3128,6 +3147,8 @@ bool lovrHeadsetGetModelPose(Model* model, float* position, float* orientation) 
 
 static bool animateEXT(Model* model) {
   uint64_t key = lovrModelGetMetadata(model)->id;
+
+  mtx_lock(&state.modelLock);
 
   for (uint32_t i = 0; i < state.modelCount; i++) {
     if (state.modelKeys[i] != key) {
@@ -3147,7 +3168,7 @@ static bool animateEXT(Model* model) {
       .nodeStates = renderModel->nodeStates
     };
 
-    XR(xrGetRenderModelStateEXT(renderModel->handle, &request, &modelState), "xrGetRenderModelStateEXT");
+    XRG(xrGetRenderModelStateEXT(renderModel->handle, &request, &modelState), "xrGetRenderModelStateEXT", fail);
 
     lovrModelResetNodeTransforms(model);
 
@@ -3165,9 +3186,12 @@ static bool animateEXT(Model* model) {
       lovrModelSetNodeVisible(model, renderModel->nodes[n], nodeState.isVisible);
     }
 
+    mtx_unlock(&state.modelLock);
     return true;
   }
 
+fail:
+  mtx_unlock(&state.modelLock);
   return false;
 }
 
@@ -4261,6 +4285,8 @@ static bool loadControllerModels(void) {
   XrRenderModelIdEXT* keys = lovrMalloc(count * sizeof(XrRenderModelIdEXT));
   XR(xrEnumerateInteractionRenderModelIdsEXT(state.session, &enumerateInfo, count, &count, keys), "xrEnumerateInteractionRenderModelIdsEXT");
 
+  mtx_lock(&state.modelLock);
+
   // Destroy models that were removed
   for (uint32_t i = 0; i < state.modelCount; i++) {
     bool destroy = true;
@@ -4290,6 +4316,7 @@ static bool loadControllerModels(void) {
     lovrFree(keys);
     state.models = NULL;
     state.modelKeys = NULL;
+    mtx_unlock(&state.modelLock);
     return true;
   }
 
@@ -4323,25 +4350,30 @@ static bool loadControllerModels(void) {
         .gltfExtensions = gltfExtensions
       };
 
-      XR(xrCreateRenderModelEXT(state.session, &createInfo, &model->handle), "xrCreateRenderModelEXT");
+      XRG(xrCreateRenderModelEXT(state.session, &createInfo, &model->handle), "xrCreateRenderModelEXT", fail);
 
       XrRenderModelPropertiesGetInfoEXT info = { .type = XR_TYPE_RENDER_MODEL_PROPERTIES_GET_INFO_EXT };
-      XR(xrGetRenderModelPropertiesEXT(model->handle, &info, &model->properties), "xrGetRenderModelPropertiesEXT");
+      XRG(xrGetRenderModelPropertiesEXT(model->handle, &info, &model->properties), "xrGetRenderModelPropertiesEXT", fail);
+
+      model->nodes = lovrMalloc(model->properties.animatableNodeCount * sizeof(uint32_t));
+      model->nodeStates = lovrMalloc(model->properties.animatableNodeCount * sizeof(XrRenderModelNodeStateEXT));
+      memset(model->nodes, 0xff, model->properties.animatableNodeCount * sizeof(uint32_t));
 
       XrRenderModelSpaceCreateInfoEXT spaceInfo = {
         .type = XR_TYPE_RENDER_MODEL_SPACE_CREATE_INFO_EXT,
         .renderModel = model->handle
       };
 
-      XR(xrCreateRenderModelSpaceEXT(state.session, &spaceInfo, &model->space), "xrCreateRenderModelSpaceEXT");
-
-      model->nodeStates = NULL;
-      model->nodes = NULL;
+      XRG(xrCreateRenderModelSpaceEXT(state.session, &spaceInfo, &model->space), "xrCreateRenderModelSpaceEXT", fail);
     }
   }
 
+  mtx_unlock(&state.modelLock);
   lovrFree(keys);
   return true;
+fail:
+  mtx_unlock(&state.modelLock);
+  return false;
 }
 
 static bool loadVisibilityMask(void) {
