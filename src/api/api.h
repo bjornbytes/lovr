@@ -211,7 +211,3 @@ Task* luax_gettask(lua_State* L);
 int luax_yieldpoll(lua_State* L, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context);
 int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context);
 #endif
-
-#ifndef LOVR_DISABLE_THREAD
-int luax_callthread(lua_State* L, int n);
-#endif
