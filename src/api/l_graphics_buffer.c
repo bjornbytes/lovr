@@ -565,6 +565,12 @@ static bool luax_waitreadback(void** context) {
   return lovrReadbackWait(*context);
 }
 
+static int luax_pushreadbackblob(lua_State* L, void* context) {
+  Blob* blob = lovrReadbackGetBlob(context);
+  luax_pushtype(L, Blob, blob);
+  return 1;
+}
+
 static int luax_pushreadbackdata(lua_State* L, void* context) {
   DataField* format;
   uint32_t count;
@@ -574,7 +580,25 @@ static int luax_pushreadbackdata(lua_State* L, void* context) {
   return luax_pushbufferdata(L, format, count, data);
 }
 
-static int l_lovrBufferGetData(lua_State* L) {
+int l_lovrBufferNewBlob(lua_State* L) {
+  bool async = lua_toboolean(L, lua_upvalueindex(1));
+  Buffer* buffer = luax_checktype(L, 1, Buffer);
+  uint32_t offset = luax_optu32(L, 2, 0);
+  uint32_t extent = luax_optu32(L, 3, ~0u);
+  Readback* readback = lovrReadbackCreateBuffer(buffer, offset, extent);
+  luax_assert(L, readback);
+
+  if (async) {
+    luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
+    return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackblob, readback);
+  } else {
+    lovrReadbackWait(readback);
+    return luax_pushreadbackblob(L, readback);
+  }
+}
+
+int l_lovrBufferGetData(lua_State* L) {
+  bool async = lua_toboolean(L, lua_upvalueindex(1));
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const DataField* format = lovrBufferGetInfo(buffer)->format;
   luax_check(L, format, "Buffer:getData requires the Buffer to have a format");
@@ -594,7 +618,13 @@ static int l_lovrBufferGetData(lua_State* L) {
   Readback* readback = lovrReadbackCreateBuffer(buffer, offset, extent);
   luax_assert(L, readback);
 
-  return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackdata, readback);
+  if (async) {
+    luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
+    return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackdata, readback);
+  } else {
+    lovrReadbackWait(readback);
+    return luax_pushreadbackdata(L, readback);
+  }
 }
 
 static int l_lovrBufferSetData(lua_State* L) {
@@ -691,6 +721,7 @@ const luaL_Reg lovrBuffer[] = {
   { "getStride", l_lovrBufferGetStride },
   { "getFormat", l_lovrBufferGetFormat },
   { "newReadback", l_lovrBufferNewReadback },
+  { "newBlob", l_lovrBufferNewBlob },
   { "getData", l_lovrBufferGetData },
   { "setData", l_lovrBufferSetData },
   { "clear", l_lovrBufferClear },

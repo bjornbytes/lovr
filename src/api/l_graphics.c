@@ -1690,6 +1690,9 @@ static const luaL_Reg lovrGraphics[] = {
   { NULL, NULL }
 };
 
+extern int l_lovrBufferNewBlob(lua_State* L);
+extern int l_lovrBufferGetData(lua_State* L);
+extern int l_lovrTextureGetPixels(lua_State* L);
 extern int l_lovrModelMeshes(lua_State* L);
 extern int luax_modelmeshiterator(lua_State* L);
 
@@ -1719,6 +1722,18 @@ int luaopen_lovr_graphics(lua_State* L) {
   luax_registertype(L, Raytracer);
   luax_registertype(L, Readback);
   luax_registertype(L, Pass);
+
+  lua_pushboolean(L, true);
+  lua_pushcclosure(L, l_lovrBufferNewBlob, 1);
+  lua_setfield(L, -2, "newBlobAsync");
+
+  lua_pushboolean(L, true);
+  lua_pushcclosure(L, l_lovrBufferGetData, 1);
+  lua_setfield(L, -2, "getDataAsync");
+
+  lua_pushboolean(L, true);
+  lua_pushcclosure(L, l_lovrTextureGetPixels, 1);
+  lua_setfield(L, -2, "getPixelsAsync");
 
   luaL_getmetatable(L, "Model");
   lua_pushcfunction(L, luax_modelmeshiterator);
