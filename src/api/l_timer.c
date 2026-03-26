@@ -39,8 +39,13 @@ static bool luax_waittime(void** context) {
 
 static int l_lovrTimerSleep(lua_State* L) {
   double duration = luaL_checknumber(L, 1);
-  void* timeout = ((union { double f64; void* p; }) { .f64 = lovrTimerGetTime() + duration }).p;
-  return luax_yieldpoll(L, luax_polltime, luax_waittime, NULL, timeout);
+  if (luax_getthreaddata(L)) {
+    void* timeout = ((union { double f64; void* p; }) { .f64 = lovrTimerGetTime() + duration }).p;
+    return luax_yieldpoll(L, luax_polltime, luax_waittime, NULL, timeout);
+  } else {
+    lovrTimerSleep(duration);
+    return 0;
+  }
 }
 
 static const luaL_Reg lovrTimer[] = {

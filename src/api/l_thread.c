@@ -133,12 +133,7 @@ static bool luax_runlua(void** arg) {
       lua_remove(L, -2);
     } else {
       if (luax_loadbufferx(L, context->code.data, context->code.length, "", "b")) {
-        for (uint32_t i = 0; i < context->argumentCount; i++) {
-          lovrVariantDestroy(&context->arguments[i]);
-        }
-        lovrSetError(lua_tostring(L, -1));
-        lua_settop(L, base);
-        return false;
+        goto fail;
       }
 
       lua_replace(L, -2);
@@ -155,9 +150,7 @@ static bool luax_runlua(void** arg) {
   }
 
   if (lua_pcall(L, context->argumentCount, LUA_MULTRET, base + 1) != LUA_OK) {
-    lovrSetError(lua_tostring(L, -1));
-    lua_settop(L, base);
-    return false;
+    goto fail;
   }
 
   int n = lua_gettop(L) - base - 1;
@@ -173,23 +166,22 @@ static bool luax_runlua(void** arg) {
   }
 
   lua_settop(L, base);
-
   return true;
+fail:
+  for (uint32_t i = 0; i < context->argumentCount; i++) {
+    lovrVariantDestroy(&context->arguments[i]);
+  }
+  arr_free(&context->code);
+  lovrSetError(lua_tostring(L, -1));
+  lua_settop(L, base);
+  lovrFree(context);
+  return false;
 }
 
 static int luax_pushresults(lua_State* L, bool success, void* arg) {
   RunContext* context = arg;
 
-  if (!success) {
-    lovrFree(context->arguments);
-    context->next = contextPool;
-    contextPool = context;
-    return 0;
-  }
-
-  int n = context->resultCount;
-
-  for (int i = 0; i < n; i++) {
+  for (uint32_t i = 0; i < context->resultCount; i++) {
     luax_pushvariant(L, &context->results[i]);
     lovrVariantDestroy(&context->results[i]);
   }
@@ -198,7 +190,7 @@ static int luax_pushresults(lua_State* L, bool success, void* arg) {
   lovrFree(context->results);
   context->next = contextPool;
   contextPool = context;
-  return n;
+  return (int) context->resultCount;
 }
 
 static int writer(lua_State* L, const void* data, size_t size, void* userdata) {
@@ -255,7 +247,7 @@ static int l_lovrThreadRunAsync(lua_State* L) {
     }
   }
 
-  return luax_yieldjob(L, luax_runlua, luax_pushresults, context);
+  return luax_yieldjob(L, luax_runlua, luax_pushresults, context, 1);
 }
 
 static const luaL_Reg lovrThreadModule[] = {

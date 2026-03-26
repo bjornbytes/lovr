@@ -1,4 +1,3 @@
-#include <stdint.h>
 #include <stdbool.h>
 #include <stdatomic.h>
 
@@ -40,7 +39,7 @@ struct Task {
   fn_continuation* continuation;
   void* context;
   Waiter* waiters;
-  char* error;
+  _Atomic(char*) error;
 };
 
 Task* lovrTaskCreate(struct lua_State* T);

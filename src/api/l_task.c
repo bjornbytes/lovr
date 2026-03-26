@@ -28,39 +28,52 @@ int luax_yieldpoll(lua_State* L, fn_task* poll, fn_task* block, fn_continuation*
   return lua_yield(L, 0);
 }
 
-static void taskRunner(void* arg) {
+static void runJob(void* arg) {
   Task* task = arg;
 
   if (!task->fn(&task->context)) {
-    task->error = lovrStrdup(lovrGetError());
+    char* expected = NULL;
+    char* error = lovrStrdup(lovrGetError());
+    if (!atomic_compare_exchange_strong(&task->error, &expected, error)) {
+      lovrFree(error);
+    }
   }
 
-  lovrTaskEnqueue(task);
-  atomic_fetch_sub(&task->deps, 1);
+  if (atomic_fetch_sub(&task->deps, 1) == 1) {
+    lovrTaskEnqueue(task);
+  }
 }
 
-int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context) {
+int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context, uint32_t count) {
   Task* task = luax_getthreaddata(L);
+
   task->fn = fn;
   task->context = context;
   task->continuation = continuation;
-  atomic_store(&task->deps, 1);
+  atomic_store(&task->deps, count);
   task->waiting = WAIT_JOB;
 
-  if (!job_start(taskRunner, task)) {
-    task->waiting = WAIT_NONE;
-    atomic_store(&task->deps, 0);
-    if (fn(&context)) {
-      return continuation(L, true, context);
-    } else {
-      continuation(L, false, context);
-      lua_pushstring(L, lovrGetError());
-      return lua_error(L);
+  for (uint32_t i = 0; i < count; i++) {
+    if (!job_start(runJob, task)) {
+      runJob(task);
     }
-  } else {
-    luax_pintask(L, task);
-    return lua_yield(L, 0);
   }
+
+  if (atomic_load(&task->deps) == 0) {
+    lovrTaskDequeue(task);
+    task->waiting = WAIT_NONE;
+    const char* error = atomic_load(&task->error);
+
+    if (error) {
+      continuation(L, false, task->context);
+      return luaL_error(L, error);
+    } else {
+      return continuation(L, true, task->context);
+    }
+  }
+
+  luax_pintask(L, task);
+  return lua_yield(L, 0);
 }
 
 static int luax_runtask(Task* task, int n) {

@@ -159,7 +159,7 @@ static int l_lovrDataNewImage(lua_State* L) {
       Blob* blob = luax_readblob(L, 1, "Texture");
 
       if (async) {
-        return luax_yieldjob(L, luax_loadimage, luax_pushimage, blob);
+        return luax_yieldjob(L, luax_loadimage, luax_pushimage, blob, 1);
       } else {
         void* context = blob;
         luax_assert(L, luax_loadimage(&context));
@@ -194,7 +194,7 @@ static int l_lovrDataNewModelData(lua_State* L) {
 
   if (async) {
     luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
-    return luax_yieldjob(L, luax_loadmodel, luax_pushmodel, blob);
+    return luax_yieldjob(L, luax_loadmodel, luax_pushmodel, blob, 1);
   } else {
     void* context = blob;
     luax_assert(L, luax_loadmodel(&context));
@@ -267,7 +267,7 @@ static int l_lovrDataNewSound(lua_State* L) {
   bool decode = lua_toboolean(L, 2);
 
   if (async && decode) {
-    return luax_yieldjob(L, luax_loadsound, luax_pushsound, blob);
+    return luax_yieldjob(L, luax_loadsound, luax_pushsound, blob, 1);
   } else {
     Sound* sound = lovrSoundLoad(blob, decode);
     lovrRelease(blob, lovrBlobDestroy);

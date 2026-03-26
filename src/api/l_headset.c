@@ -726,7 +726,7 @@ static int l_lovrHeadsetNewModelAsync(lua_State* L) {
   luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
   luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
   void* key = lua_touserdata(L, 1);
-  return luax_yieldjob(L, luax_loadmodel, luax_pushmodel, key);
+  return luax_yieldjob(L, luax_loadmodel, luax_pushmodel, key, 1);
 }
 
 static int l_lovrHeadsetAnimate(lua_State* L) {
