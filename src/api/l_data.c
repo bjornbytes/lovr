@@ -119,7 +119,8 @@ static bool luax_loadimage(void** context) {
   return !!image;
 }
 
-static int luax_pushimage(lua_State* L, void* context) {
+static int luax_pushimage(lua_State* L, bool success, void* context) {
+  if (!success) return 0;
   luax_pushtype(L, Image, context);
   lovrRelease(context, lovrImageDestroy);
   return 1;
@@ -162,7 +163,7 @@ static int l_lovrDataNewImage(lua_State* L) {
       } else {
         void* context = blob;
         luax_assert(L, luax_loadimage(&context));
-        return luax_pushimage(L, context);
+        return luax_pushimage(L, true, context);
       }
     }
   }
@@ -180,7 +181,8 @@ static bool luax_loadmodel(void** context) {
   return !!modelData;
 }
 
-static int luax_pushmodel(lua_State* L, void* context) {
+static int luax_pushmodel(lua_State* L, bool success, void* context) {
+  if (!success) return 0;
   luax_pushtype(L, ModelData, context);
   lovrRelease(context, lovrModelDataDestroy);
   return 1;
@@ -196,7 +198,7 @@ static int l_lovrDataNewModelData(lua_State* L) {
   } else {
     void* context = blob;
     luax_assert(L, luax_loadmodel(&context));
-    return luax_pushmodel(L, context);
+    return luax_pushmodel(L, true, context);
   }
 }
 
@@ -227,7 +229,8 @@ static bool luax_loadsound(void** context) {
   return !!sound;
 }
 
-static int luax_pushsound(lua_State* L, void* context) {
+static int luax_pushsound(lua_State* L, bool success, void* context) {
+  if (!success) return 0;
   luax_pushtype(L, Sound, context);
   lovrRelease(context, lovrSoundDestroy);
   return 1;

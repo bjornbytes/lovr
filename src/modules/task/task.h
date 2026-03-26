@@ -6,7 +6,7 @@
 
 struct lua_State;
 typedef bool fn_task(void** context);
-typedef int fn_continuation(struct lua_State* L, void* context);
+typedef int fn_continuation(struct lua_State* L, bool success, void* context);
 
 typedef struct Task Task;
 

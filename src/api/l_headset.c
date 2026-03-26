@@ -715,7 +715,8 @@ static bool luax_loadmodel(void** context) {
   return !!model;
 }
 
-static int luax_pushmodel(lua_State* L, void* context) {
+static int luax_pushmodel(lua_State* L, bool success, void* context) {
+  if (!success) return 0;
   luax_pushtype(L, Model, context);
   lovrRelease(context, lovrModelDestroy);
   return 1;

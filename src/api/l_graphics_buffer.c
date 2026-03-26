@@ -565,19 +565,30 @@ static bool luax_waitreadback(void** context) {
   return lovrReadbackWait(*context);
 }
 
-static int luax_pushreadbackblob(lua_State* L, void* context) {
-  Blob* blob = lovrReadbackGetBlob(context);
-  luax_pushtype(L, Blob, blob);
-  return 1;
+static int luax_pushreadbackblob(lua_State* L, bool success, void* readback) {
+  if (success) {
+    Blob* blob = lovrReadbackGetBlob(readback);
+    luax_pushtype(L, Blob, blob);
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 1;
+  } else {
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 0;
+  }
 }
 
-static int luax_pushreadbackdata(lua_State* L, void* context) {
-  DataField* format;
-  uint32_t count;
-  void* data = lovrReadbackGetData(context, &format, &count);
-  lovrRelease(context, lovrReadbackDestroy);
-  luax_assert(L, data && format);
-  return luax_pushbufferdata(L, format, count, data);
+static int luax_pushreadbackdata(lua_State* L, bool success, void* readback) {
+  if (success) {
+    DataField* format;
+    uint32_t count;
+    void* data = lovrReadbackGetData(readback, &format, &count);
+    lovrRelease(readback, lovrReadbackDestroy);
+    luax_assert(L, data && format);
+    return luax_pushbufferdata(L, format, count, data);
+  } else {
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 0;
+  }
 }
 
 int l_lovrBufferNewBlob(lua_State* L) {
@@ -592,8 +603,8 @@ int l_lovrBufferNewBlob(lua_State* L) {
     luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
     return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackblob, readback);
   } else {
-    lovrReadbackWait(readback);
-    return luax_pushreadbackblob(L, readback);
+    luax_assert(L, lovrReadbackWait(readback));
+    return luax_pushreadbackblob(L, true, readback);
   }
 }
 
@@ -622,8 +633,8 @@ int l_lovrBufferGetData(lua_State* L) {
     luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
     return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackdata, readback);
   } else {
-    lovrReadbackWait(readback);
-    return luax_pushreadbackdata(L, readback);
+    luax_assert(L, lovrReadbackWait(readback));
+    return luax_pushreadbackdata(L, true, readback);
   }
 }
 

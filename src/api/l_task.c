@@ -23,16 +23,6 @@ static void luax_unpintask(lua_State* L, Task* task) {
 
 int luax_yieldpoll(lua_State* L, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context) {
   Task* task = luax_getthreaddata(L);
-
-  if (!task) {
-    if (block(&context)) {
-      return continuation ? continuation(L, context) : 0;
-    } else {
-      lua_pushstring(L, lovrGetError());
-      return lua_error(L);
-    }
-  }
-
   lovrTaskPoll(task, poll, block, continuation, context);
   luax_pintask(L, task);
   return lua_yield(L, 0);
@@ -51,16 +41,6 @@ static void taskRunner(void* arg) {
 
 int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context) {
   Task* task = luax_getthreaddata(L);
-
-  if (!task) {
-    if (fn(&context)) {
-      return continuation(L, context);
-    } else {
-      lua_pushstring(L, lovrGetError());
-      return lua_error(L);
-    }
-  }
-
   task->fn = fn;
   task->context = context;
   task->continuation = continuation;
@@ -71,8 +51,9 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
     task->waiting = WAIT_NONE;
     atomic_store(&task->deps, 0);
     if (fn(&context)) {
-      return continuation(L, context);
+      return continuation(L, true, context);
     } else {
+      continuation(L, false, context);
       lua_pushstring(L, lovrGetError());
       return lua_error(L);
     }
@@ -92,19 +73,8 @@ static int luax_runtask(Task* task, int n) {
     // Remove it from the ready queue if it's there
     lovrTaskDequeue(task);
 
-    // Handle error: can't actually throw an error in T without Lua 5.2 continuations
-    if (task->error) {
-      task->waiting = WAIT_NONE;
-      lua_settop(T, 0);
-      lua_pushstring(T, task->error);
-      lovrTaskFinish(task);
-      return LUA_ERRRUN;
-    }
-
     // Set up resume values
-    if (task->waiting == WAIT_JOB || task->waiting == WAIT_POLL) {
-      n = task->continuation ? task->continuation(T, task->context) : 0;
-    } else {
+    if (task->waiting == WAIT_TASK) {
       n = 0;
 
       // Copy the first result from each dependency, replacing each coroutine with its result
@@ -127,9 +97,19 @@ static int luax_runtask(Task* task, int n) {
       lua_pop(T, 1);
       lua_xmove(D, T, rest);
       n += rest;
+    } else {
+      n = task->continuation ? task->continuation(T, !task->error, task->context) : 0;
     }
 
     task->waiting = WAIT_NONE;
+
+    // Handle error: can't actually throw an error in T without Lua 5.2 continuations
+    if (task->error) {
+      lua_settop(T, 0);
+      lua_pushstring(T, task->error);
+      lovrTaskFinish(task);
+      return LUA_ERRRUN;
+    }
   }
 
   int status = luax_resume(T, n);

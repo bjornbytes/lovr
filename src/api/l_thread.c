@@ -86,7 +86,6 @@ typedef struct RunContext {
   uint32_t resultCount;
   Variant* arguments;
   Variant* results;
-  char* error;
 } RunContext;
 
 static thread_local RunContext* contextPool;
@@ -178,16 +177,14 @@ static bool luax_runlua(void** arg) {
   return true;
 }
 
-static int luax_pushresults(lua_State* L, void* arg) {
+static int luax_pushresults(lua_State* L, bool success, void* arg) {
   RunContext* context = arg;
 
-  if (context->error) {
-    lua_pushstring(L, context->error);
-    lovrFree(context->error);
+  if (!success) {
     lovrFree(context->arguments);
     context->next = contextPool;
     contextPool = context;
-    return lua_error(L);
+    return 0;
   }
 
   int n = context->resultCount;
@@ -221,7 +218,6 @@ static int l_lovrThreadRunAsync(lua_State* L) {
     context->function = NULL;
     context->argumentCount = 0;
     context->resultCount = 0;
-    context->error = NULL;
   } else {
     context = lovrCalloc(sizeof(RunContext));
     arr_init(&context->code);

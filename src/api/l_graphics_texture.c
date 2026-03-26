@@ -110,12 +110,17 @@ static bool luax_waitreadback(void** context) {
   return lovrReadbackWait(*context);
 }
 
-static int luax_pushreadbackimage(lua_State* L, void* context) {
-  Image* image = lovrReadbackGetImage(context);
-  lovrRelease(context, lovrReadbackDestroy);
-  luax_assert(L, image);
-  luax_pushtype(L, Image, image);
-  return 1;
+static int luax_pushreadbackimage(lua_State* L, bool success, void* readback) {
+  if (success) {
+    Image* image = lovrReadbackGetImage(readback);
+    lovrRelease(readback, lovrReadbackDestroy);
+    luax_assert(L, image);
+    luax_pushtype(L, Image, image);
+    return 1;
+  } else {
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 0;
+  }
 }
 
 int l_lovrTextureGetPixels(lua_State* L) {
@@ -137,8 +142,7 @@ int l_lovrTextureGetPixels(lua_State* L) {
     luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
     return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackimage, readback);
   } else {
-    lovrReadbackWait(readback);
-    return luax_pushreadbackimage(L, readback);
+    return luax_pushreadbackimage(L, lovrReadbackWait(readback), readback);
   }
 }
 
