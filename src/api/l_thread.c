@@ -78,17 +78,21 @@ static int l_lovrThreadGetChannel(lua_State* L) {
   return 1;
 }
 
-typedef struct RunContext {
-  struct RunContext* next;
+typedef struct CallContext {
+  struct CallContext* next;
   arr_t(char) code;
   lua_CFunction function;
+  Variant table;
+  uint32_t count;
+  uint32_t stride;
+  atomic_uint cursor;
   uint32_t argumentCount;
   uint32_t resultCount;
   Variant* arguments;
   Variant* results;
-} RunContext;
+} CallContext;
 
-static thread_local RunContext* contextPool;
+static thread_local CallContext* contextPool;
 static thread_local lua_State* workerState;
 
 static void onWorkerQuit(void) {
@@ -98,15 +102,15 @@ static void onWorkerQuit(void) {
   }
 
   while (contextPool) {
-    RunContext* context = contextPool;
+    CallContext* context = contextPool;
     contextPool = context->next;
     arr_free(&context->code);
     lovrFree(context);
   }
 }
 
-static bool luax_runlua(void** arg) {
-  RunContext* context = *arg;
+static bool luax_callthread(void** arg) {
+  CallContext* context = *arg;
   lua_State* L = workerState;
 
   if (!L) {
@@ -133,7 +137,9 @@ static bool luax_runlua(void** arg) {
       lua_remove(L, -2);
     } else {
       if (luax_loadbufferx(L, context->code.data, context->code.length, "", "b")) {
-        goto fail;
+        lovrSetError(lua_tostring(L, -1));
+        lua_settop(L, base);
+        return false;
       }
 
       lua_replace(L, -2);
@@ -146,86 +152,137 @@ static bool luax_runlua(void** arg) {
 
   for (uint32_t i = 0; i < context->argumentCount; i++) {
     luax_pushvariant(L, &context->arguments[i]);
-    lovrVariantDestroy(&context->arguments[i]);
   }
 
-  if (lua_pcall(L, context->argumentCount, LUA_MULTRET, base + 1) != LUA_OK) {
-    goto fail;
-  }
+  if (context->count > 0) {
+    uint32_t start = atomic_fetch_add(&context->cursor, context->stride);
+    uint32_t end = MIN(start + context->stride, context->count);
+    bool hasTable = context->table.type == TYPE_TABLE;
+    int argumentCount = 1 + hasTable + context->argumentCount;
 
-  int n = lua_gettop(L) - base - 1;
+    for (uint32_t i = start; i < end; i++) {
+      lua_pushvalue(L, base + 2); // Function
+      lua_pushinteger(L, i + 1);
 
-  if (n > 0) {
-    context->resultCount = n;
-    context->results = lovrRealloc(context->arguments, n * sizeof(Variant));
-    context->argumentCount = 0;
-    context->arguments = NULL;
-    for (int i = 0; i < n; i++) {
-      luax_checkvariant(L, base + 2 + i, &context->results[i]);
+      // When iterating over a table, pass a value from the table as the 2nd callback argument
+      if (hasTable) {
+        luax_pushvariant(L, &context->table.table.pairs[2 * i + 1]);
+      }
+
+      // Push copies of the arguments
+      for (int j = 0; j < context->argumentCount; j++) {
+        lua_pushvalue(L, base + 3 + j);
+      }
+
+      if (lua_pcall(L, argumentCount, context->results ? 1 : 0, base + 1) != LUA_OK) {
+        lovrSetError(lua_tostring(L, -1));
+        lua_settop(L, base);
+        return false;
+      }
+
+      if (context->results) {
+        luax_checkvariant(L, -1, &context->results[i]);
+        lua_pop(L, 1);
+      }
+    }
+  } else {
+    if (lua_pcall(L, context->argumentCount, LUA_MULTRET, base + 1) != LUA_OK) {
+      lovrSetError(lua_tostring(L, -1));
+      lua_settop(L, base);
+      return false;
+    }
+
+    int n = lua_gettop(L) - base - 1;
+
+    if (n > 0) {
+      context->resultCount = n;
+      context->results = lovrMalloc(n * sizeof(Variant));
+      for (int i = 0; i < n; i++) {
+        luax_checkvariant(L, base + 2 + i, &context->results[i]);
+      }
     }
   }
 
   lua_settop(L, base);
   return true;
-fail:
+}
+
+static int luax_pushcallresults(lua_State* L, bool success, void* arg) {
+  CallContext* context = arg;
+  context->next = contextPool;
+  contextPool = context;
+
   for (uint32_t i = 0; i < context->argumentCount; i++) {
     lovrVariantDestroy(&context->arguments[i]);
   }
-  arr_free(&context->code);
-  lovrSetError(lua_tostring(L, -1));
-  lua_settop(L, base);
-  lovrFree(context);
-  return false;
-}
 
-static int luax_pushresults(lua_State* L, bool success, void* arg) {
-  RunContext* context = arg;
+  int n = 0;
 
-  for (uint32_t i = 0; i < context->resultCount; i++) {
-    luax_pushvariant(L, &context->results[i]);
-    lovrVariantDestroy(&context->results[i]);
+  if (success && context->results) {
+    // Map wraps results in a table, call pushes them as-is
+    if (context->count > 0) {
+      lua_createtable(L, context->count, 0);
+      for (int i = 0; i < context->count; i++) {
+        luax_pushvariant(L, &context->results[i]);
+        lovrVariantDestroy(&context->results[i]);
+        lua_rawseti(L, -2, i + 1);
+      }
+      n = 1;
+    } else {
+      for (uint32_t i = 0; i < context->resultCount; i++) {
+        luax_pushvariant(L, &context->results[i]);
+        lovrVariantDestroy(&context->results[i]);
+      }
+      n = context->resultCount;
+    }
   }
 
   lovrFree(context->arguments);
   lovrFree(context->results);
-  context->next = contextPool;
-  contextPool = context;
-  return (int) context->resultCount;
+
+  if (context->table.type == TYPE_TABLE) {
+    lovrVariantDestroy(&context->table);
+  }
+
+  return n;
 }
 
-static int writer(lua_State* L, const void* data, size_t size, void* userdata) {
-  RunContext* context = userdata;
+static int luax_dump(lua_State* L, const void* data, size_t size, void* userdata) {
+  CallContext* context = userdata;
   arr_append(&context->code, data, size);
   return 0;
 }
 
-static int l_lovrThreadRunAsync(lua_State* L) {
-  luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
-
-  RunContext* context = contextPool;
+static CallContext* luax_newcontext(lua_State* L, int index) {
+  CallContext* context = contextPool;
 
   if (context) {
     contextPool = context->next;
     arr_clear(&context->code);
     context->function = NULL;
+    context->count = 0;
+    context->table.type = TYPE_NIL;
+    atomic_store(&context->cursor, 0);
     context->argumentCount = 0;
     context->resultCount = 0;
+    context->arguments = NULL;
+    context->results = NULL;
   } else {
-    context = lovrCalloc(sizeof(RunContext));
+    context = lovrCalloc(sizeof(CallContext));
     arr_init(&context->code);
   }
 
-  if (lua_iscfunction(L, 1)) {
-    context->function = lua_tocfunction(L, 1);
+  if (lua_iscfunction(L, index)) {
+    context->function = lua_tocfunction(L, index);
   } else {
-    luaL_checktype(L, 1, LUA_TFUNCTION);
+    luaL_checktype(L, index, LUA_TFUNCTION);
     lua_getfield(L, LUA_REGISTRYINDEX, "_lovrbytecode");
-    lua_pushvalue(L, 1);
+    lua_pushvalue(L, index);
     lua_rawget(L, -2);
 
     if (lua_isnil(L, -1)) {
-      lua_pushvalue(L, 1);
-      luax_check(L, !lua_dump(L, writer, context), "Failed to dump function to bytecode");
+      lua_pushvalue(L, index);
+      luax_check(L, !lua_dump(L, luax_dump, context), "Failed to dump function to bytecode");
       lua_pushlstring(L, context->code.data, context->code.length);
       lua_rawset(L, -4);
       lua_pop(L, 2);
@@ -237,24 +294,89 @@ static int l_lovrThreadRunAsync(lua_State* L) {
     }
   }
 
+  return context;
+}
+
+static int l_lovrThreadCall(lua_State* L) {
+  CallContext* context = luax_newcontext(L, 1);
+
   int n = lua_gettop(L) - 1;
 
   if (n > 0) {
     context->argumentCount = n;
     context->arguments = lovrMalloc(n * sizeof(Variant));
     for (int i = 0; i < n; i++) {
-      luax_checkvariant(L, i + 2, &context->arguments[i]);
+      luax_checkvariant(L, 2 + i, &context->arguments[i]);
     }
   }
 
-  return luax_yieldjob(L, luax_runlua, luax_pushresults, context, 1);
+  return luax_yieldjob(L, luax_callthread, luax_pushcallresults, context, 1);
+}
+
+static int l_lovrThreadForeach(lua_State* L) {
+  CallContext* context = luax_newcontext(L, 2);
+  uint32_t workers = lovrThreadGetWorkerCount();
+
+  if (lua_istable(L, 1)) {
+    luax_checkvariant(L, 1, &context->table);
+    context->count = context->table.table.count;
+  } else {
+    context->count = luax_checku32(L, 1);
+  }
+
+  int n = lua_gettop(L) - 2;
+
+  if (n > 0) {
+    context->argumentCount = n;
+    context->arguments = lovrMalloc(n * sizeof(Variant));
+    for (uint32_t i = 0; i < n; i++) {
+      luax_checkvariant(L, 3 + i, &context->arguments[i]);
+    }
+  }
+
+  context->stride = (context->count + workers - 1) / workers;
+  uint32_t jobs = MIN(context->count, workers);
+
+  return luax_yieldjob(L, luax_callthread, luax_pushcallresults, context, jobs);
+}
+
+static int l_lovrThreadMap(lua_State* L) {
+  CallContext* context = luax_newcontext(L, 2);
+  uint32_t workers = lovrThreadGetWorkerCount();
+
+  if (lua_istable(L, 1)) {
+    luax_checkvariant(L, 1, &context->table);
+    context->count = context->table.table.count;
+  } else {
+    context->count = luax_checku32(L, 1);
+  }
+
+  int n = lua_gettop(L) - 2;
+
+  if (n > 0) {
+    context->argumentCount = n;
+    context->arguments = lovrMalloc(n * sizeof(Variant));
+    for (uint32_t i = 0; i < n; i++) {
+      luax_checkvariant(L, 3 + i, &context->arguments[i]);
+    }
+  }
+
+  context->resultCount = context->count;
+  context->results = lovrMalloc(context->count * sizeof(Variant));
+
+  context->stride = (context->count + workers - 1) / workers;
+  uint32_t jobs = MIN(context->count, workers);
+
+  return luax_yieldjob(L, luax_callthread, luax_pushcallresults, context, jobs);
 }
 
 static const luaL_Reg lovrThreadModule[] = {
   { "newThread", l_lovrThreadNewThread },
   { "newChannel", l_lovrThreadNewChannel },
   { "getChannel", l_lovrThreadGetChannel },
-  { "runAsync", l_lovrThreadRunAsync },
+  { "call", l_lovrThreadCall },
+  { "foreach", l_lovrThreadForeach },
+  { "map", l_lovrThreadMap },
   { NULL, NULL }
 };
 
