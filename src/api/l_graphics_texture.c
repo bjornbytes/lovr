@@ -123,8 +123,7 @@ static int luax_pushreadbackimage(lua_State* L, bool success, void* readback) {
   }
 }
 
-int l_lovrTextureGetPixels(lua_State* L) {
-  bool async = lua_toboolean(L, lua_upvalueindex(1));
+static int l_lovrTextureGetPixels(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   uint32_t offset[4], extent[3];
   offset[0] = luax_optu32(L, 2, 0);
@@ -138,12 +137,7 @@ int l_lovrTextureGetPixels(lua_State* L) {
   Readback* readback = lovrReadbackCreateTexture(texture, offset, extent);
   luax_assert(L, readback);
 
-  if (async) {
-    luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
-    return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackimage, readback);
-  } else {
-    return luax_pushreadbackimage(L, lovrReadbackWait(readback), readback);
-  }
+  return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackimage, readback);
 }
 
 static int l_lovrTextureSetPixels(lua_State* L) {

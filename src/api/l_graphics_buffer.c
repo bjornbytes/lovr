@@ -591,25 +591,16 @@ static int luax_pushreadbackdata(lua_State* L, bool success, void* readback) {
   }
 }
 
-int l_lovrBufferNewBlob(lua_State* L) {
-  bool async = lua_toboolean(L, lua_upvalueindex(1));
+static int l_lovrBufferNewBlob(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   uint32_t offset = luax_optu32(L, 2, 0);
   uint32_t extent = luax_optu32(L, 3, ~0u);
   Readback* readback = lovrReadbackCreateBuffer(buffer, offset, extent);
   luax_assert(L, readback);
-
-  if (async) {
-    luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
-    return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackblob, readback);
-  } else {
-    luax_assert(L, lovrReadbackWait(readback));
-    return luax_pushreadbackblob(L, true, readback);
-  }
+  return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackblob, readback);
 }
 
-int l_lovrBufferGetData(lua_State* L) {
-  bool async = lua_toboolean(L, lua_upvalueindex(1));
+static int l_lovrBufferGetData(lua_State* L) {
   Buffer* buffer = luax_checktype(L, 1, Buffer);
   const DataField* format = lovrBufferGetInfo(buffer)->format;
   luax_check(L, format, "Buffer:getData requires the Buffer to have a format");
@@ -629,13 +620,7 @@ int l_lovrBufferGetData(lua_State* L) {
   Readback* readback = lovrReadbackCreateBuffer(buffer, offset, extent);
   luax_assert(L, readback);
 
-  if (async) {
-    luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
-    return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackdata, readback);
-  } else {
-    luax_assert(L, lovrReadbackWait(readback));
-    return luax_pushreadbackdata(L, true, readback);
-  }
+  return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackdata, readback);
 }
 
 static int l_lovrBufferSetData(lua_State* L) {

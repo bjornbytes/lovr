@@ -23,6 +23,17 @@ static void luax_unpintask(lua_State* L, Task* task) {
 
 int luax_yieldpoll(lua_State* L, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context) {
   Task* task = luax_getthreaddata(L);
+
+  if (!task) {
+    if (block(&context)) {
+      return continuation ? continuation(L, true, context) : 0;
+    } else {
+      if (continuation) continuation(L, false, context);
+      lua_pushstring(L, lovrGetError());
+      return lua_error(L);
+    }
+  }
+
   lovrTaskPoll(task, poll, block, continuation, context);
   luax_pintask(L, task);
   return lua_yield(L, 0);
@@ -39,13 +50,51 @@ static void runJob(void* arg) {
     }
   }
 
-  if (atomic_fetch_sub(&task->deps, 1) == 1) {
+  if (atomic_fetch_sub(&task->deps, 1) == 1 && task->waiting == WAIT_JOB) {
     lovrTaskEnqueue(task);
   }
 }
 
 int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context, uint32_t count) {
   Task* task = luax_getthreaddata(L);
+
+  if (!task) {
+    if (count == 1) {
+      if (fn(&context)) {
+        return continuation ? continuation(L, true, context) : 0;
+      } else {
+        if (continuation) continuation(L, false, context);
+        return luaL_error(L, lovrGetError());
+      }
+    } else {
+      Task stack = { 0 };
+      task = &stack;
+      task->fn = fn;
+      task->context = context;
+      atomic_store(&task->deps, count);
+
+      for (uint32_t i = 0; i < count; i++) {
+        if (!job_start(runJob, task)) {
+          runJob(task);
+        }
+      }
+
+      while (atomic_load(&task->deps) > 0) {
+        job_spin();
+      }
+
+      char* error = atomic_load(&task->error);
+
+      if (error) {
+        if (continuation) continuation(L, false, task->context);
+        lua_pushstring(L, error);
+        lovrFree(error);
+        return lua_error(L);
+      } else {
+        return continuation ? continuation(L, true, task->context) : 0;
+      }
+    }
+  }
 
   task->fn = fn;
   task->context = context;
@@ -65,10 +114,10 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
     const char* error = atomic_load(&task->error);
 
     if (error) {
-      continuation(L, false, task->context);
+      if (continuation) continuation(L, false, task->context);
       return luaL_error(L, error);
     } else {
-      return continuation(L, true, task->context);
+      return continuation ? continuation(L, true, task->context) : 0;
     }
   }
 

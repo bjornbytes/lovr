@@ -663,41 +663,6 @@ static int l_lovrHeadsetGetModelKeys(lua_State* L) {
   return 1;
 }
 
-static int l_lovrHeadsetNewModel(lua_State* L) {
-  uint64_t key;
-
-  if (lua_islightuserdata(L, 1)) {
-    key = (uint64_t) (uintptr_t) lua_topointer(L, 1);
-  } else if (lua_type(L, 1) == LUA_TSTRING) { // Deprecated
-    switch (luax_optdevice(L, 1)) {
-      case DEVICE_HAND_LEFT: key = 1; break;
-      case DEVICE_HAND_RIGHT: key = 2; break;
-      default: return 0;
-    }
-  } else {
-    return luax_typeerror(L, 1, "lightuserdata");
-  }
-
-  ModelData* modelData = lovrHeadsetNewModelData(key);
-
-  if (modelData) {
-    ModelInfo info = {
-      .data = modelData,
-      .materials = true,
-      .mipmaps = true
-    };
-
-    Model* model = lovrModelCreate(&info);
-    lovrRelease(modelData, lovrModelDataDestroy);
-    luax_assert(L, model);
-    luax_pushtype(L, Model, model);
-    lovrRelease(model, lovrModelDestroy);
-    return 1;
-  }
-
-  return 0;
-}
-
 static bool luax_loadmodel(void** context) {
   uint64_t key = (uint64_t) (uintptr_t) *context;
   ModelData* modelData = lovrHeadsetNewModelData(key);
@@ -722,11 +687,22 @@ static int luax_pushmodel(lua_State* L, bool success, void* context) {
   return 1;
 }
 
-static int l_lovrHeadsetNewModelAsync(lua_State* L) {
-  luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
-  luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
-  void* key = lua_touserdata(L, 1);
-  return luax_yieldjob(L, luax_loadmodel, luax_pushmodel, key, 1);
+static int l_lovrHeadsetNewModel(lua_State* L) {
+  uint64_t key;
+
+  if (lua_islightuserdata(L, 1)) {
+    key = (uint64_t) (uintptr_t) lua_topointer(L, 1);
+  } else if (lua_type(L, 1) == LUA_TSTRING) { // Deprecated
+    switch (luax_optdevice(L, 1)) {
+      case DEVICE_HAND_LEFT: key = 1; break;
+      case DEVICE_HAND_RIGHT: key = 2; break;
+      default: return 0;
+    }
+  } else {
+    return luax_typeerror(L, 1, "lightuserdata");
+  }
+
+  return luax_yieldjob(L, luax_loadmodel, luax_pushmodel, (void*) (uintptr_t) key, 1);
 }
 
 static int l_lovrHeadsetAnimate(lua_State* L) {
@@ -1073,7 +1049,6 @@ static const luaL_Reg lovrHeadset[] = {
   { "stopVibration", l_lovrHeadsetStopVibration },
   { "getModelKeys", l_lovrHeadsetGetModelKeys },
   { "newModel", l_lovrHeadsetNewModel },
-  { "newModelAsync", l_lovrHeadsetNewModelAsync },
   { "animate", l_lovrHeadsetAnimate },
   { "setBackground", l_lovrHeadsetSetBackground },
   { "getLayers", l_lovrHeadsetGetLayers },

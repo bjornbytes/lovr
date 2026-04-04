@@ -343,8 +343,6 @@ extern const luaL_Reg lovrDistanceJoint[];
 extern const luaL_Reg lovrHingeJoint[];
 extern const luaL_Reg lovrSliderJoint[];
 
-extern const char* lovrWorldAsync[];
-
 static void luax_unref(void* object, uintptr_t userdata) {
   if (!userdata) return;
   lua_State* L = (lua_State*) userdata;

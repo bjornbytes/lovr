@@ -127,9 +127,6 @@ static int luax_pushimage(lua_State* L, bool success, void* context) {
 }
 
 static int l_lovrDataNewImage(lua_State* L) {
-  bool async = lua_toboolean(L, lua_upvalueindex(1));
-  luax_check(L, !async || luax_getthreaddata(L), "Async functions can only be called inside a task");
-
   Image* image = NULL;
   if (lua_type(L, 1) == LUA_TNUMBER) {
     uint32_t width = luax_checku32(L, 1);
@@ -157,14 +154,7 @@ static int l_lovrDataNewImage(lua_State* L) {
       memcpy(lovrImageGetLayerData(image, 0, 0), lovrImageGetLayerData(source, 0, 0), lovrImageGetLayerSize(image, 0));
     } else {
       Blob* blob = luax_readblob(L, 1, "Texture");
-
-      if (async) {
-        return luax_yieldjob(L, luax_loadimage, luax_pushimage, blob, 1);
-      } else {
-        void* context = blob;
-        luax_assert(L, luax_loadimage(&context));
-        return luax_pushimage(L, true, context);
-      }
+      return luax_yieldjob(L, luax_loadimage, luax_pushimage, blob, 1);
     }
   }
 
@@ -189,17 +179,8 @@ static int luax_pushmodel(lua_State* L, bool success, void* context) {
 }
 
 static int l_lovrDataNewModelData(lua_State* L) {
-  bool async = lua_toboolean(L, lua_upvalueindex(1));
   Blob* blob = luax_readblob(L, 1, "Model");
-
-  if (async) {
-    luax_check(L, luax_getthreaddata(L), "Async functions can only be called inside a task");
-    return luax_yieldjob(L, luax_loadmodel, luax_pushmodel, blob, 1);
-  } else {
-    void* context = blob;
-    luax_assert(L, luax_loadmodel(&context));
-    return luax_pushmodel(L, true, context);
-  }
+  return luax_yieldjob(L, luax_loadmodel, luax_pushmodel, blob, 1);
 }
 
 static int l_lovrDataNewRasterizer(lua_State* L) {
@@ -237,9 +218,6 @@ static int luax_pushsound(lua_State* L, bool success, void* context) {
 }
 
 static int l_lovrDataNewSound(lua_State* L) {
-  bool async = lua_toboolean(L, lua_upvalueindex(1));
-  luax_check(L, !async || luax_getthreaddata(L), "Async functions can only be called inside a task");
-
   int type = lua_type(L, 1);
 
   if (type == LUA_TNUMBER) {
@@ -266,7 +244,7 @@ static int l_lovrDataNewSound(lua_State* L) {
   Blob* blob = luax_readblob(L, 1, "Sound");
   bool decode = lua_toboolean(L, 2);
 
-  if (async && decode) {
+  if (decode) {
     return luax_yieldjob(L, luax_loadsound, luax_pushsound, blob, 1);
   } else {
     Sound* sound = lovrSoundLoad(blob, decode);
@@ -289,13 +267,6 @@ static const luaL_Reg lovrData[] = {
   { NULL, NULL }
 };
 
-static const luaL_Reg lovrDataAsync[] = {
-  { "newImageAsync", l_lovrDataNewImage },
-  { "newModelDataAsync", l_lovrDataNewModelData },
-  { "newSoundAsync", l_lovrDataNewSound },
-  { NULL, NULL }
-};
-
 extern const luaL_Reg lovrAudioStream[];
 extern const luaL_Reg lovrBlob[];
 extern const luaL_Reg lovrImage[];
@@ -312,13 +283,6 @@ int luaopen_lovr_data(lua_State* L) {
   luax_registertype(L, ModelData);
   luax_registertype(L, Rasterizer);
   luax_registertype(L, Sound);
-
-  for (int i = 0; i < COUNTOF(lovrDataAsync) && lovrDataAsync[i].name; i++) {
-    lua_pushboolean(L, true);
-    lua_pushcclosure(L, lovrDataAsync[i].func, 1);
-    lua_setfield(L, -2, lovrDataAsync[i].name);
-  }
-
   float16Init();
   return 1;
 }
