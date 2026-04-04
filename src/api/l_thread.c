@@ -319,7 +319,7 @@ static int l_lovrThreadCall(lua_State* L) {
   return luax_yieldjob(L, luax_callthread, luax_pushcallresults, context, 1);
 }
 
-static int l_lovrThreadForeach(lua_State* L) {
+static int l_lovrThreadEach(lua_State* L) {
   CallContext* context = luax_newcontext(L, 2);
   uint32_t workers = lovrThreadGetWorkerCount();
 
@@ -382,7 +382,7 @@ static const luaL_Reg lovrThreadModule[] = {
   { "getChannel", l_lovrThreadGetChannel },
   { "getWorkerCount", l_lovrThreadGetWorkerCount },
   { "call", l_lovrThreadCall },
-  { "foreach", l_lovrThreadForeach },
+  { "each", l_lovrThreadEach },
   { "map", l_lovrThreadMap },
   { NULL, NULL }
 };
