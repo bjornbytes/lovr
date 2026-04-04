@@ -78,6 +78,12 @@ static int l_lovrThreadGetChannel(lua_State* L) {
   return 1;
 }
 
+static int l_lovrThreadGetWorkerCount(lua_State* L) {
+  uint32_t workers = lovrThreadGetWorkerCount();
+  lua_pushinteger(L, workers);
+  return 1;
+}
+
 typedef struct CallContext {
   struct CallContext* next;
   arr_t(char) code;
@@ -374,6 +380,7 @@ static const luaL_Reg lovrThreadModule[] = {
   { "newThread", l_lovrThreadNewThread },
   { "newChannel", l_lovrThreadNewChannel },
   { "getChannel", l_lovrThreadGetChannel },
+  { "getWorkerCount", l_lovrThreadGetWorkerCount },
   { "call", l_lovrThreadCall },
   { "foreach", l_lovrThreadForeach },
   { "map", l_lovrThreadMap },
