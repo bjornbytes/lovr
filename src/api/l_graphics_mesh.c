@@ -124,7 +124,7 @@ static int l_lovrMeshSetVertices(lua_State* L) {
 static int l_lovrMeshGetIndices(lua_State* L) {
   Mesh* mesh = luax_checktype(L, 1, Mesh);
 
-  if (lovrMeshGetStorage(mesh)) {
+  if (lovrMeshGetStorage(mesh) == MESH_GPU) {
     lua_pushnil(L);
     return 1;
   }

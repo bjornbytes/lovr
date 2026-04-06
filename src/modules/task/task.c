@@ -117,7 +117,7 @@ void lovrTaskDequeue(Task* task) {
   task->dequeued = true;
 }
 
-void lovrTaskPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context) {
+void lovrTaskWaitPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context) {
   task->fn = poll;
   task->block = block;
   task->context = context;

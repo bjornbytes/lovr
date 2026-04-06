@@ -29,12 +29,11 @@ int luax_yieldpoll(lua_State* L, fn_task* poll, fn_task* block, fn_continuation*
       return continuation ? continuation(L, true, context) : 0;
     } else {
       if (continuation) continuation(L, false, context);
-      lua_pushstring(L, lovrGetError());
-      return lua_error(L);
+      return luaL_error(L, lovrGetError());
     }
   }
 
-  lovrTaskPoll(task, poll, block, continuation, context);
+  lovrTaskWaitPoll(task, poll, block, continuation, context);
   luax_pintask(L, task);
   return lua_yield(L, 0);
 }
@@ -232,7 +231,8 @@ static int l_lovrTaskResume(lua_State* L) {
 
   int n = 0;
 
-  // If the task wasn't waiting on anything (it yielded with coroutine.yield), give it arguments
+  // If the task wasn't waiting on anything (it yielded with coroutine.yield), pass through the rest
+  // of the arguments
   if (!task->waiting) {
     n = lua_gettop(L) - 1;
     lua_xmove(L, T, n);

@@ -47,6 +47,6 @@ void lovrTaskDestroy(Task* task);
 bool lovrTaskIsReady(Task* task);
 void lovrTaskEnqueue(Task* task);
 void lovrTaskDequeue(Task* task);
-void lovrTaskPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context);
+void lovrTaskWaitPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context);
 void lovrTaskFinish(Task* task);
 bool lovrTaskAddDependency(Task* task, Task* dependency);

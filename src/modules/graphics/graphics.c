@@ -6151,7 +6151,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   readback->view = view;
   gpu_barrier barrier = syncStream(texture->sync, GPU_PHASE_COPY, GPU_CACHE_TRANSFER_READ);
   gpu_sync(state.stream, &barrier, 1);
-  uint32_t rootOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLayer };
+  uint32_t rootOffset[4] = { offset[0], offset[1], offset[2] + texture->baseLayer, offset[3] + texture->baseLevel };
   gpu_copy_texture_buffer(state.stream, texture->gpu, readback->view.buffer, rootOffset, readback->view.offset, extent);
   mtx_unlock(&state.lock);
   return readback;
