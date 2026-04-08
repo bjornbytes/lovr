@@ -229,7 +229,7 @@ typedef struct {
   bool xr;
   uint32_t imageCount;
   struct Image** images;
-  const char* label;
+  char* label;
   uintptr_t handle;
 } TextureInfo;
 

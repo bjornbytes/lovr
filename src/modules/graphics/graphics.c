@@ -2455,6 +2455,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(samples == 1 || info->type != TEXTURE_3D, "3D textures can not be multisampled");
   lovrCheck(samples == 1 || ~info->usage & TEXTURE_STORAGE, "Currently, multisampled textures can not have the 'storage' flag");
   lovrCheck(samples == 1 || info->mipmaps == 1, "Multisampled textures can not have mipmaps");
+  lovrCheck(info->imageCount == 0 || lovrImageGetLevelCount(info->images[0]) >= mipmaps || (supports & GPU_FEATURE_BLIT), "This GPU does not support the 'blit' feature for this texture format, which is required for generating mipmaps");
   lovrCheck(~info->usage & TEXTURE_SAMPLE || (supports & GPU_FEATURE_SAMPLE), "GPU does not support the 'sample' flag for this texture format/encoding");
   lovrCheck(~info->usage & TEXTURE_RENDER || (supports & GPU_FEATURE_RENDER), "GPU does not support the 'render' flag for this texture format/encoding");
   lovrCheck(~info->usage & TEXTURE_STORAGE || (linearSupports & GPU_FEATURE_STORAGE), "GPU does not support the 'storage' flag for this texture format");
