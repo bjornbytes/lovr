@@ -1590,41 +1590,64 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
   return 1;
 }
 
-static int l_lovrGraphicsNewModel(lua_State* L) {
-  ModelInfo info = { 0 };
-  info.data = luax_totype(L, 1, ModelData);
-  info.materials = true;
-  info.mipmaps = true;
+typedef struct {
+  ModelInfo info;
+  Model* model;
+  Blob* blob;
+} ModelContext;
 
-  if (!info.data) {
-    Blob* blob = luax_readblob(L, 1, "Model");
-    info.data = lovrModelDataCreate(blob, luax_readfile);
-    lovrRelease(blob, lovrBlobDestroy);
-    luax_assert(L, info.data);
-  } else {
-    lovrRetain(info.data);
+static bool luax_loadmodel(void** userdata) {
+  ModelContext* context = *userdata;
+
+  if (context->blob) {
+    context->info.data = lovrModelDataCreate(context->blob, luax_readfile);
+    lovrRelease(context->blob, lovrBlobDestroy);
+    if (!context->info.data) return false;
   }
 
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "mipmaps");
-    info.mipmaps = lua_isnil(L, -1) || lua_toboolean(L, -1);
-    lua_pop(L, 1);
+  context->model = lovrModelCreate(&context->info);
+  lovrRelease(context->info.data, lovrModelDataDestroy);
+  return context->model;
+}
 
-    lua_getfield(L, 2, "materials");
-    info.materials = lua_isnil(L, -1) || lua_toboolean(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 2, "raytracer");
-    info.raytracerFlags = luax_checkraytracerflags(L, -1);
-    lua_pop(L, 1);
-  }
-
-  Model* model = lovrModelCreate(&info);
-  lovrRelease(info.data, lovrModelDataDestroy);
-  luax_assert(L, model);
+static int luax_pushmodel(lua_State* L, bool success, void* context) {
+  Model* model = ((ModelContext*) context)->model;
+  lovrFree(context);
+  if (!success) return 0;
   luax_pushtype(L, Model, model);
   lovrRelease(model, lovrModelDestroy);
   return 1;
+}
+
+static int l_lovrGraphicsNewModel(lua_State* L) {
+  ModelContext* context = lovrCalloc(sizeof(ModelContext));
+  ModelInfo* info = &context->info;
+
+  info->data = luax_totype(L, 1, ModelData);
+  info->materials = true;
+  info->mipmaps = true;
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "materials");
+    info->materials = lua_isnil(L, -1) || lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "mipmaps");
+    info->mipmaps = lua_isnil(L, -1) || lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "raytracer");
+    info->raytracerFlags = luax_checkraytracerflags(L, -1);
+    lua_pop(L, 1);
+  }
+
+  if (info->data) {
+    lovrRetain(info->data);
+  } else {
+    context->blob = luax_readblob(L, 1, "Model");
+  }
+
+  return luax_yieldjob(L, luax_loadmodel, luax_pushmodel, context, 1);
 }
 
 static int l_lovrGraphicsNewRaytracer(lua_State* L) {
