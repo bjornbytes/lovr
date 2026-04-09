@@ -323,6 +323,7 @@ typedef enum {
 
 typedef struct {
   ShaderStage stage;
+  struct Blob* blob;
   const void* code;
   size_t size;
 } ShaderSource;
@@ -339,7 +340,7 @@ typedef struct {
   uint32_t stageCount;
   ShaderFlag* flags;
   uint32_t flagCount;
-  const char* label;
+  char* label;
   bool isDefault;
   bool raw;
 } ShaderInfo;

@@ -3305,45 +3305,45 @@ static bool lovrShaderInit(Shader* shader) {
 ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage) {
   const ShaderSource sources[][3] = {
     [SHADER_UNLIT] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
     [SHADER_NORMAL] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_normal_frag, sizeof(lovr_shader_normal_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_normal_frag, sizeof(lovr_shader_normal_frag) }
     },
     [SHADER_FONT] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
-      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
     },
     [SHADER_CUBEMAP] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
-      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_cubemap_frag, sizeof(lovr_shader_cubemap_frag) }
     },
     [SHADER_EQUIRECT] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
-      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_cubemap_vert, sizeof(lovr_shader_cubemap_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_equirect_frag, sizeof(lovr_shader_equirect_frag) }
     },
     [SHADER_FILL_2D] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
     [SHADER_FILL_ARRAY] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
-      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_fill_vert, sizeof(lovr_shader_fill_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_fill_array_frag, sizeof(lovr_shader_fill_array_frag) }
     },
     [SHADER_MASK] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, lovr_shader_mask_vert, sizeof(lovr_shader_mask_vert) },
-      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_mask_vert, sizeof(lovr_shader_mask_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
     [SHADER_ANIMATOR] = {
-      [STAGE_COMPUTE] = { STAGE_COMPUTE, lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) }
+      [STAGE_COMPUTE] = { STAGE_COMPUTE, NULL, lovr_shader_animator_comp, sizeof(lovr_shader_animator_comp) }
     },
     [SHADER_BLENDER] = {
-      [STAGE_COMPUTE] = { STAGE_COMPUTE, lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) }
+      [STAGE_COMPUTE] = { STAGE_COMPUTE, NULL, lovr_shader_blender_comp, sizeof(lovr_shader_blender_comp) }
     },
     [SHADER_TALLY_MERGE] = {
-      [STAGE_COMPUTE] = { STAGE_COMPUTE, lovr_shader_tallymerge_comp, sizeof(lovr_shader_tallymerge_comp) }
+      [STAGE_COMPUTE] = { STAGE_COMPUTE, NULL, lovr_shader_tallymerge_comp, sizeof(lovr_shader_tallymerge_comp) }
     }
   };
 
@@ -3392,6 +3392,7 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
 }
 
 Shader* lovrShaderCreate(const ShaderInfo* info) {
+  initAllocator(&thread.stack);
   size_t stack = stackPush(&thread.stack);
 
   Shader* shader = lovrCalloc(sizeof(Shader) + gpu_sizeof_shader());
@@ -8975,9 +8976,11 @@ void lovrPassBarrier(Pass* pass) {
 // Helpers
 
 static void initAllocator(Allocator* allocator) {
-  allocator->cursor = 0;
-  allocator->limit = 1 << 26;
-  allocator->memory = lovrMalloc(allocator->limit);
+  if (!allocator->memory) {
+    allocator->cursor = 0;
+    allocator->limit = 1 << 26;
+    allocator->memory = lovrMalloc(allocator->limit);
+  }
 }
 
 static void* allocate(Allocator* allocator, size_t size) {
