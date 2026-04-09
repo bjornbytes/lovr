@@ -212,8 +212,39 @@ static int l_lovrAudioSetHRTF(lua_State* L) {
   return 0;
 }
 
+typedef struct {
+  Blob* blob;
+  bool spatial;
+  bool pitchable;
+  Source* source;
+} SourceContext;
+
+static bool luax_loadsource(void** userdata) {
+  SourceContext* context = *userdata;
+  Sound* sound = lovrSoundLoad(context->blob, true);
+  lovrRelease(context->blob, lovrBlobDestroy);
+  context->spatial |= lovrSoundGetChannelCount(sound) > 2;
+  context->source = lovrSourceCreate(sound, context->pitchable, context->spatial);
+  lovrRelease(sound, lovrSoundDestroy);
+  return context->source;
+}
+
+static int luax_pushsource(lua_State* L, bool success, void* userdata) {
+  SourceContext* context = userdata;
+  if (success) {
+    luax_pushtype(L, Source, context->source);
+    lovrRelease(context->source, lovrSourceDestroy);
+    lovrFree(context);
+    return 1;
+  } else {
+    lovrFree(context);
+    return 0;
+  }
+}
+
 static int l_lovrAudioNewSource(lua_State* L) {
   bool decode = false;
+  bool spatial = false;
   bool pitchable = true;
 
   if (lua_gettop(L) >= 2) {
@@ -221,6 +252,10 @@ static int l_lovrAudioNewSource(lua_State* L) {
 
     lua_getfield(L, 2, "decode");
     decode = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "spatial");
+    if (!lua_isnil(L, -1)) spatial = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "pitchable");
@@ -233,21 +268,22 @@ static int l_lovrAudioNewSource(lua_State* L) {
 
   if (lua_type(L, 1) == LUA_TSTRING || luax_totype(L, 1, Blob)) {
     Blob* blob = luax_readblob(L, 1, "Source");
-    sound = lovrSoundLoad(blob, decode);
-    lovrRelease(blob, lovrBlobDestroy);
-    luax_assert(L, sound);
+
+    if (decode) {
+      SourceContext* context = lovrCalloc(sizeof(SourceContext));
+      context->blob = blob;
+      context->spatial = spatial;
+      context->pitchable = pitchable;
+      return luax_yieldjob(L, luax_loadsource, luax_pushsource, context, 1);
+    } else {
+      sound = lovrSoundLoad(blob, decode);
+      lovrRelease(blob, lovrBlobDestroy);
+      luax_assert(L, sound);
+    }
   } else if (sound) {
     lovrRetain(sound);
   } else {
     return luax_typeerror(L, 1, "string, Blob, Sound, or AudioStream");
-  }
-
-  bool spatial = lovrSoundGetChannelCount(sound) > 2;
-
-  if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "spatial");
-    if (!lua_isnil(L, -1)) spatial = lua_toboolean(L, -1);
-    lua_pop(L, 1);
   }
 
   Source* source = lovrSourceCreate(sound, pitchable, spatial);
