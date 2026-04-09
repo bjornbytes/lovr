@@ -407,6 +407,8 @@ static int l_lovrTaskGetStatus(lua_State* L) {
 
   if (T == L) {
     lua_pushliteral(L, "running");
+  } else if (!task) {
+    lua_pushnil(L);
   } else if (task->complete) {
     lua_pushliteral(L, "complete");
   } else if (task->error) {
