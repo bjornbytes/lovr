@@ -2365,6 +2365,7 @@ bool lovrGraphicsGetWindowTexture(Texture** texture) {
       .height = height,
       .vsync = vsync,
       .hdr = state.config.hdr,
+#ifndef LOVR_USE_SDL3
 #if defined(_WIN32)
       .win32.window = os_get_win32_window(),
       .win32.instance = os_get_win32_instance()
@@ -2373,6 +2374,7 @@ bool lovrGraphicsGetWindowTexture(Texture** texture) {
 #elif defined(__linux__) && !defined(__ANDROID__)
       .xcb.connection = os_get_xcb_connection(),
       .xcb.window = os_get_xcb_window()
+#endif
 #endif
     };
 

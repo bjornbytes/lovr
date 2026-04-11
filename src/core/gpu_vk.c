@@ -15,7 +15,9 @@
 #include <dlfcn.h>
 #endif
 
-#if defined(_WIN32)
+#ifdef LOVR_USE_SDL3
+  // SDL3 handles platform surface creation
+#elif defined(_WIN32)
 #define VK_USE_PLATFORM_WIN32_KHR
 #elif defined(__APPLE__)
 #define VK_USE_PLATFORM_METAL_EXT
@@ -25,6 +27,10 @@
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
+
+#ifdef LOVR_USE_SDL3
+#include <SDL3/SDL_vulkan.h>
+#endif
 
 // Objects
 
@@ -952,7 +958,12 @@ bool gpu_surface_init(gpu_surface_info* info) {
 
   gpu_surface* surface = &state.surface;
 
-#if defined(_WIN32)
+#ifdef LOVR_USE_SDL3
+  extern SDL_Window* lovr_sdl_window;
+  if (!SDL_Vulkan_CreateSurface(lovr_sdl_window, state.instance, NULL, &surface->handle)) {
+    return false;
+  }
+#elif defined(_WIN32)
   VkWin32SurfaceCreateInfoKHR surfaceInfo = {
     .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
     .hinstance = (HINSTANCE) info->win32.instance,
@@ -2857,7 +2868,12 @@ bool gpu_init(gpu_config* config) {
   state.config = *config;
 
   // Load
-#ifdef _WIN32
+#ifdef LOVR_USE_SDL3
+  if (!SDL_Vulkan_LoadLibrary(NULL)) {
+    return false;
+  }
+  vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) SDL_Vulkan_GetVkGetInstanceProcAddr();
+#elif defined(_WIN32)
   state.library = LoadLibraryA("vulkan-1.dll");
   ASSERT(state.library, "Failed to load vulkan library") goto fail;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(state.library, "vkGetInstanceProcAddr");
@@ -2905,12 +2921,14 @@ bool gpu_init(gpu_config* config) {
       { "VK_EXT_debug_utils", config->debug, &state.extensions.debug },
       { "VK_EXT_swapchain_colorspace", true, &state.extensions.colorspace },
       { "VK_KHR_surface", true, &state.extensions.surface },
+#ifndef LOVR_USE_SDL3
 #if defined(_WIN32)
       { "VK_KHR_win32_surface", true, &state.extensions.surfaceOS },
 #elif defined(__APPLE__)
       { "VK_EXT_metal_surface", true, &state.extensions.surfaceOS },
 #elif defined(__linux__) && !defined(__ANDROID__)
       { "VK_KHR_xcb_surface", true, &state.extensions.surfaceOS },
+#endif
 #endif
     };
 
@@ -2921,13 +2939,31 @@ bool gpu_init(gpu_config* config) {
     VK(vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensionInfo), "vkEnumerateInstanceExtensionProperties") goto fail;
 
     uint32_t enabledExtensionCount = 0;
-    const char* enabledExtensions[COUNTOF(extensions)];
+    const char* enabledExtensions[32];
     for (uint32_t i = 0; i < COUNTOF(extensions); i++) {
       if (extensions[i].shouldEnable && hasExtension(extensionInfo, extensionCount, extensions[i].name)) {
         enabledExtensions[enabledExtensionCount++] = extensions[i].name;
         *extensions[i].flag = true;
       }
     }
+
+#ifdef LOVR_USE_SDL3
+    {
+      Uint32 sdlExtCount;
+      const char* const* sdlExts = SDL_Vulkan_GetInstanceExtensions(&sdlExtCount);
+      for (Uint32 i = 0; i < sdlExtCount; i++) {
+        bool found = false;
+        for (uint32_t j = 0; j < enabledExtensionCount; j++) {
+          if (strcmp(enabledExtensions[j], sdlExts[i]) == 0) { found = true; break; }
+        }
+        if (!found && hasExtension(extensionInfo, extensionCount, sdlExts[i])) {
+          enabledExtensions[enabledExtensionCount++] = sdlExts[i];
+        }
+        if (strcmp(sdlExts[i], "VK_KHR_surface") == 0) state.extensions.surface = true;
+        if (strstr(sdlExts[i], "_surface") && strcmp(sdlExts[i], "VK_KHR_surface") != 0) state.extensions.surfaceOS = true;
+      }
+    }
+#endif
 
     config->fnFree(extensionInfo);
 
@@ -3517,7 +3553,9 @@ void gpu_destroy(void) {
   if (state.surface.handle) vkDestroySurfaceKHR(state.instance, state.surface.handle, NULL);
   if (state.messenger) vkDestroyDebugUtilsMessengerEXT(state.instance, state.messenger, NULL);
   if (state.instance) vkDestroyInstance(state.instance, NULL);
-#ifdef _WIN32
+#ifdef LOVR_USE_SDL3
+  SDL_Vulkan_UnloadLibrary();
+#elif defined(_WIN32)
   if (state.library) FreeLibrary(state.library);
 #else
   if (state.library) dlclose(state.library);
