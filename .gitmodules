@@ -37,3 +37,6 @@
 [submodule "deps/phonon"]
 	path = deps/phonon
 	url = https://github.com/bjornbytes/steam-audio
+[submodule "deps/sdl3"]
+	path = deps/sdl3
+	url = https://github.com/libsdl-org/SDL.git
