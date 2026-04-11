@@ -74,6 +74,11 @@ function vector.lerp(v, u, t)
   return lerped
 end
 
+-- Deprecated
+function vector.rotate(v, q)
+  return q * v
+end
+
 function vector.__add(a, b)
   local x, y, z
 
@@ -175,6 +180,7 @@ end
 setmetatable(vector, {
   __call = function(self, x, y, z)
     x = x or 0
+    if type(x) == 'table' then return x end -- Deprecated
     assert(type(x) == 'number', 'vector components must be numbers')
     local instance = { x = x, y = y or x, z = z or (y and 0 or x) }
     setmetatable(instance, self)
@@ -464,7 +470,11 @@ end
 setmetatable(quaternion, {
   __call = function(self, ...)
     if ... then
-      return quaternion.angleaxis(...)
+      if type(...) == 'table' then -- Deprecated
+        return ...
+      else
+        return quaternion.angleaxis(...)
+      end
     else
       return quaternion.pack(0, 0, 0, 1)
     end

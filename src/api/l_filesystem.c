@@ -480,7 +480,10 @@ typedef jint fn_JNI_OnLoad(JavaVM* vm, void* reserved);
 extern void* os_get_java_vm();
 #endif
 
-static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
+static int libLoader(lua_State* L) {
+  bool allInOne = lua_toboolean(L, lua_upvalueindex(1));
+  const char* kind = allInOne ? "all-in-one " : "";
+
 #if defined(_WIN32)
   const char* extension = ".dll";
   const char sep = '\\';
@@ -530,7 +533,7 @@ static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
 #endif
 
   for (const char* m = module; *m && length < sizeof(path); m++, length++) {
-    if (allInOneFlag && *m == '.') break;
+    if (allInOne && *m == '.') break;
     *p++ = *m == '.' ? sep : *m;
   }
 
@@ -562,7 +565,7 @@ static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
 #endif
 
   if (!plugin) {
-    lua_pushfstring(L, "\n\tno plugin '%s'", leaf);
+    lua_pushfstring(L, "\n\tno %splugin '%s'", kind, leaf);
     return 1;
   }
 
@@ -586,7 +589,7 @@ static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
   size_t symbolLength = strlen(symbol);
 
   if (prefixLength + symbolLength >= sizeof(fullsymbol)) {
-    lua_pushfstring(L, "\n\tno plugin '%s' (name too long)", leaf);
+    lua_pushfstring(L, "\n\tno %splugin '%s' (name too long)", kind, leaf);
     return 1;
   }
 
@@ -612,22 +615,12 @@ static int libLoaderCommon(lua_State* L, bool allInOneFlag) {
 #else
     dlclose(plugin);
 #endif
-    lua_pushfstring(L, "\n\tno plugin '%s' (no symbol '%s')", leaf, symbol);
+    lua_pushfstring(L, "\n\tno %splugin '%s' (no symbol '%s')", kind, leaf, symbol);
     return 1;
   }
 
   lua_pushcfunction(L, entrypoint);
   return 1;
-}
-
-static int libLoader(lua_State* L) {
-  bool allInOneFlag = false;
-  return libLoaderCommon(L, allInOneFlag);
-}
-
-static int libLoaderAllInOne(lua_State* L) {
-  bool allInOneFlag = true;
-  return libLoaderCommon(L, allInOneFlag);
 }
 
 extern const luaL_Reg lovrFile[];
@@ -636,9 +629,11 @@ int luaopen_lovr_filesystem(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrFilesystem);
   luax_registertype(L, File);
-  luax_registerloader(L, luaLoader, 2);
-  luax_registerloader(L, libLoader, 3);
-  luax_registerloader(L, libLoaderAllInOne, 4);
+  luax_registerloader(L, luaLoader, 2, 0);
+  lua_pushboolean(L, false);
+  luax_registerloader(L, libLoader, 3, 1);
+  lua_pushboolean(L, true);
+  luax_registerloader(L, libLoader, 4, 1);
   luax_assert(L, lovrFilesystemInit());
   luax_atexit(L, lovrFilesystemDestroy);
   return 1;

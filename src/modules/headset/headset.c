@@ -3644,6 +3644,8 @@ void lovrHeadsetSetButton(Device device, DeviceButton button, bool down) {
 // Layer
 
 Layer* lovrLayerCreate(const LayerInfo* info) {
+  lovrAssert(state.session, "A headset session must be active to create a Layer");
+
   Layer* layer = lovrCalloc(sizeof(Layer));
   layer->ref = 1;
   layer->info = *info;

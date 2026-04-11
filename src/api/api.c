@@ -289,7 +289,7 @@ int _luax_checkenum(lua_State* L, int index, const StringEntry* map, const char*
   return 0;
 }
 
-void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
+void luax_registerloader(lua_State* L, lua_CFunction loader, int index, int upvalues) {
   lua_getglobal(L, "table");
   lua_getfield(L, -1, "insert");
   lua_getglobal(L, "package");
@@ -301,12 +301,15 @@ void luax_registerloader(lua_State* L, lua_CFunction loader, int index) {
   lua_remove(L, -2);
   if (lua_istable(L, -1)) {
     lua_pushinteger(L, index);
-    lua_pushcfunction(L, loader);
+    for (int i = 0; i < upvalues; i++) {
+      lua_pushvalue(L, -5);
+    }
+    lua_pushcclosure(L, loader, upvalues);
     lua_call(L, 3, 0);
   } else {
     lua_pop(L, 2);
   }
-  lua_pop(L, 1);
+  lua_pop(L, 1 + upvalues);
 }
 
 int luax_resume(lua_State* T, int n) {
