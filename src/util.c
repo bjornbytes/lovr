@@ -1,21 +1,36 @@
 #include "util.h"
 #include <string.h>
+
+#ifdef LOVR_USE_SDL3
 #include <stdlib.h>
+#include <SDL3/SDL_stdinc.h>
+#define LOVR_MALLOC SDL_malloc
+#define LOVR_CALLOC SDL_calloc
+#define LOVR_REALLOC SDL_realloc
+#define LOVR_FREE SDL_free
+#else
+#include <stdlib.h>
+#define LOVR_MALLOC malloc
+#define LOVR_CALLOC calloc
+#define LOVR_REALLOC realloc
+#define LOVR_FREE free
+#endif
+
 #include <stdbool.h>
-#include <threads.h>
+#include "core/threads.h"
 #include <stdio.h>
 
 // Allocation
 
 void* lovrMalloc(size_t size) {
-  void* data = malloc(size);
+  void* data = LOVR_MALLOC(size);
   if (!data) abort();
   lovrProfileAlloc(data, size);
   return data;
 }
 
 void* lovrCalloc(size_t size) {
-  void* data = calloc(1, size);
+  void* data = LOVR_CALLOC(1, size);
   if (!data) abort();
   lovrProfileAlloc(data, size);
   return data;
@@ -23,7 +38,7 @@ void* lovrCalloc(size_t size) {
 
 void* lovrRealloc(void* old, size_t size) {
   lovrProfileFree(old);
-  void* data = realloc(old, size);
+  void* data = LOVR_REALLOC(old, size);
   if (!data) abort();
   lovrProfileAlloc(data, size);
   return data;
@@ -31,7 +46,7 @@ void* lovrRealloc(void* old, size_t size) {
 
 void lovrFree(void* data) {
   lovrProfileFree(data);
-  free(data);
+  LOVR_FREE(data);
 }
 
 // Module
@@ -39,14 +54,14 @@ void lovrFree(void* data) {
 #define READY (1u << 31)
 #define COUNT (~READY)
 
-bool lovrModuleAcquire(atomic_uint* ref) {
+bool lovrModuleAcquire(lovr_atomic_uint* ref) {
   for (;;) {
     // If we're the first one to increment the refcount
-    if ((atomic_fetch_add(ref, 1) & COUNT) == 0) {
+    if ((lovr_atomic_fetch_add(ref, 1) & COUNT) == 0) {
 
       // Wait until any pending destructions complete
-      while (atomic_load(ref) & READY) {
-        thrd_yield();
+      while (lovr_atomic_load(ref) & READY) {
+        lovr_yield();
       }
 
       // Ok, caller can init now
@@ -55,56 +70,56 @@ bool lovrModuleAcquire(atomic_uint* ref) {
 
     // Otherwise, spin until either A) refcount is zero (someone else failed) or B) ready is true
     for (;;) {
-      uint32_t value = atomic_load(ref);
+      uint32_t value = lovr_atomic_load(ref);
 
       if ((value & COUNT) == 0) {
         break;
       } else if (value & READY) {
         return false;
       } else {
-        thrd_yield();
+        lovr_yield();
       }
     }
   }
 }
 
-bool lovrModuleRelease(atomic_uint* ref) {
+bool lovrModuleRelease(lovr_atomic_uint* ref) {
   // READY can only be false here if release was called before initialization completed, i.e. failed
   // init.  In that case we can return true to let the caller finish destroying.  But we want to
   // keep the refcount nonzero so that threads waiting for initialization will keep spinning until
   // destruction has completed.  Once the caller does lovrModuleReset, the waiters can/will retry.
-  if (!(atomic_load(ref) & READY)) {
+  if (!(lovr_atomic_load(ref) & READY)) {
     return true;
   }
 
-  return (atomic_fetch_sub(ref, 1) & COUNT) == 1;
+  return (lovr_atomic_fetch_sub(ref, 1) & COUNT) == 1;
 }
 
-void lovrModuleReady(atomic_uint* ref) {
-  atomic_fetch_or(ref, READY);
+void lovrModuleReady(lovr_atomic_uint* ref) {
+  lovr_atomic_fetch_or(ref, READY);
 }
 
-void lovrModuleReset(atomic_uint* ref) {
-  atomic_store(ref, 0);
+void lovrModuleReset(lovr_atomic_uint* ref) {
+  lovr_atomic_store(ref, 0);
 }
 
 // Refcounting
 
 void lovrRetain(void* object) {
   if (object) {
-    atomic_fetch_add_explicit((atomic_uint*) object, 1, memory_order_relaxed);
+    lovr_atomic_fetch_add((lovr_atomic_uint*) object, 1);
   }
 }
 
 void lovrRelease(void* object, void (*destructor)(void*)) {
-  if (object && atomic_fetch_sub_explicit((atomic_uint*) object, 1, memory_order_acq_rel) == 1) {
+  if (object && lovr_atomic_fetch_sub((lovr_atomic_uint*) object, 1) == 1) {
     destructor(object);
   }
 }
 
 // Errors
 
-static thread_local char error[1024];
+static lovr_thread_local char error[1024];
 
 const char* lovrGetError(void) {
   return error;

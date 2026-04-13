@@ -323,7 +323,7 @@ bool lovrModelDataInitObj(ModelData** result, Blob* source, ModelDataIO* io) {
   }
 
   model = lovrCalloc(sizeof(ModelData));
-  model->ref = 1;
+  lovr_atomic_store(&model->ref, 1);
 
   ModelMetadata* meta = &model->meta;
   meta->meshCount = 1;

@@ -4,7 +4,6 @@
 #include "core/os.h"
 #include "util.h"
 #include "lib/miniz/miniz_tinfl.h"
-#include <stdatomic.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -47,7 +46,7 @@ typedef struct {
 } Handle;
 
 struct Archive {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   struct Archive* next;
   bool (*open)(Archive* archive, const char* path, Handle* handle);
   bool (*close)(Archive* archive, Handle* handle);
@@ -67,14 +66,14 @@ struct Archive {
 };
 
 struct File {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   OpenMode mode;
   Handle handle;
   Archive* archive;
   char* path;
 };
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   Archive* archives;
@@ -1047,7 +1046,7 @@ Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char*
   }
 
   Archive* archive = lovrCalloc(sizeof(Archive));
-  archive->ref = 1;
+  lovr_atomic_store(&archive->ref, 1);
 
   if (info.type == FILE_DIRECTORY) {
     archive->open = dir_open;
@@ -1124,7 +1123,7 @@ File* lovrFileCreate(const char* p, OpenMode mode) {
   }
 
   File* file = lovrCalloc(sizeof(File));
-  file->ref = 1;
+  lovr_atomic_store(&file->ref, 1);
   file->mode = mode;
   file->handle = handle;
   file->archive = archive;

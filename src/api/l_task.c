@@ -44,12 +44,12 @@ static void runJob(void* arg) {
   if (!task->fn(&task->context)) {
     char* expected = NULL;
     char* error = lovrStrdup(lovrGetError());
-    if (!atomic_compare_exchange_strong(&task->error, &expected, error)) {
+    if (!lovr_atomic_ptr_compare_exchange(&task->error, &expected, error)) {
       lovrFree(error);
     }
   }
 
-  if (atomic_fetch_sub(&task->deps, 1) == 1 && task->waiting == WAIT_JOB) {
+  if (lovr_atomic_fetch_sub(&task->deps, 1) == 1 && task->waiting == WAIT_JOB) {
     lovrTaskEnqueue(task);
   }
 }
@@ -70,7 +70,7 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
       task = &stack;
       task->fn = fn;
       task->context = context;
-      atomic_store(&task->deps, count);
+      lovr_atomic_store(&task->deps, count);
 
       for (uint32_t i = 0; i < count; i++) {
         if (!job_start(runJob, task)) {
@@ -78,11 +78,11 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
         }
       }
 
-      while (atomic_load(&task->deps) > 0) {
+      while (lovr_atomic_load(&task->deps) > 0) {
         job_spin();
       }
 
-      char* error = atomic_load(&task->error);
+      char* error = lovr_atomic_ptr_load(&task->error);
 
       if (error) {
         if (continuation) continuation(L, false, task->context);
@@ -98,7 +98,7 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
   task->fn = fn;
   task->context = context;
   task->continuation = continuation;
-  atomic_store(&task->deps, count);
+  lovr_atomic_store(&task->deps, count);
   task->waiting = WAIT_JOB;
 
   for (uint32_t i = 0; i < count; i++) {
@@ -107,10 +107,10 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
     }
   }
 
-  if (atomic_load(&task->deps) == 0) {
+  if (lovr_atomic_load(&task->deps) == 0) {
     lovrTaskDequeue(task);
     task->waiting = WAIT_NONE;
-    const char* error = atomic_load(&task->error);
+    const char* error = lovr_atomic_ptr_load(&task->error);
 
     if (error) {
       if (continuation) continuation(L, false, task->context);
@@ -301,7 +301,7 @@ static int luax_waittask(lua_State* T) {
   }
 
   if (task->waiting == WAIT_JOB) {
-    while (atomic_load(&task->deps) > 0) {
+    while (lovr_atomic_load(&task->deps) > 0) {
       job_spin();
     }
   } else if (task->waiting == WAIT_POLL) {
@@ -413,7 +413,7 @@ static int l_lovrTaskGetStatus(lua_State* L) {
     lua_pushliteral(L, "complete");
   } else if (task->error) {
     lua_pushliteral(L, "failed");
-  } else if (task->waiting && atomic_load(&task->deps) > 0) {
+  } else if (task->waiting && lovr_atomic_load(&task->deps) > 0) {
     lua_pushliteral(L, "waiting");
   } else {
     lua_pushliteral(L, "ready");

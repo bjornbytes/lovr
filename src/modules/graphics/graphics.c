@@ -67,7 +67,7 @@ typedef struct {
 } Sync;
 
 struct Buffer {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   uint32_t base;
   Buffer* root;
   Sync* sync;
@@ -77,7 +77,7 @@ struct Buffer {
 };
 
 struct Texture {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   bool xrAcquired;
   Sync* sync;
   gpu_texture* gpu;
@@ -94,7 +94,7 @@ struct Texture {
 };
 
 struct Sampler {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   gpu_sampler* gpu;
   SamplerInfo info;
 };
@@ -139,7 +139,7 @@ typedef struct Layout {
 } Layout;
 
 struct Shader {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   Shader* parent;
   gpu_shader* gpu;
   gpu_pipeline* computePipeline;
@@ -181,7 +181,7 @@ typedef struct {
 } MaterialBlock;
 
 struct Material {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   uint32_t next;
   uint32_t tick;
   uint32_t index;
@@ -199,7 +199,7 @@ typedef struct {
 } Glyph;
 
 struct Font {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   mtx_t lock;
   FontInfo info;
   Material* material;
@@ -217,7 +217,7 @@ struct Font {
 };
 
 struct Mesh {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   MeshStorage storage;
   Buffer* vertexBuffer;
   Buffer* indexBuffer;
@@ -282,7 +282,7 @@ typedef struct {
 } NodeTransform;
 
 struct Model {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   Model* parent;
   ModelMetadata meta;
   Buffer* rawVertexBuffer;
@@ -306,7 +306,7 @@ struct Model {
 };
 
 struct Raytracer {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   uint32_t count;
   uint32_t meshCount;
   uint32_t modelCount;
@@ -330,7 +330,7 @@ typedef struct {
 } TimingInfo;
 
 struct Readback {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   uint32_t tick;
   Readback* next;
   BufferView view;
@@ -520,7 +520,7 @@ typedef struct {
 } Tally;
 
 struct Pass {
-  atomic_uint ref;
+lovr_atomic_uint ref;
   uint32_t flags;
   Allocator allocator;
   BufferAllocator buffers;
@@ -569,7 +569,7 @@ static thread_local struct {
   Allocator stack;
 } thread;
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   bool initialized;
@@ -2130,7 +2130,7 @@ Buffer* lovrBufferCreate(const BufferInfo* info, void** data) {
   charCount = ALIGN(charCount, 8);
 
   Buffer* buffer = lovrCalloc(sizeof(Buffer) + gpu_sizeof_buffer() + charCount + fieldCount * sizeof(DataField));
-  buffer->ref = 1;
+  lovr_atomic_store(&buffer->ref, 1);
   buffer->root = buffer;
   buffer->sync = lovrCalloc(sizeof(Sync));
   buffer->gpu = (gpu_buffer*) (buffer + 1);
@@ -2236,7 +2236,7 @@ Buffer* lovrBufferCreateView(Buffer* parent, uint32_t offset, uint32_t extent) {
   lovrCheck(extent % parent->info.format->stride == 0, "Buffer view extent must be a multiple of its stride");
 
   Buffer* buffer = lovrCalloc(sizeof(Buffer));
-  buffer->ref = 1;
+  lovr_atomic_store(&buffer->ref, 1);
   buffer->base = parent->base + offset;
   buffer->root = parent->root;
   buffer->sync = parent->sync;
@@ -2337,7 +2337,7 @@ bool lovrGraphicsGetWindowTexture(Texture** texture) {
     height *= density;
 
     state.window = lovrCalloc(sizeof(Texture));
-    state.window->ref = 1;
+    lovr_atomic_store(&state.window->ref, 1);
     state.window->gpu = NULL;
     state.window->sync = lovrCalloc(sizeof(Sync));
     state.window->sampleView = NULL;
@@ -2468,7 +2468,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(info->format < FORMAT_ASTC_4x4 || state.features.textureASTC, "%s textures are not supported on this GPU", "ASTC");
 
   Texture* texture = lovrCalloc(sizeof(Texture) + gpu_sizeof_texture());
-  texture->ref = 1;
+  lovr_atomic_store(&texture->ref, 1);
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->sync = lovrCalloc(sizeof(Sync));
   texture->root = texture;
@@ -2674,7 +2674,7 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
   lovrCheck(info->type != TEXTURE_3D || (info->layerIndex == 0 && layers == maxLayers), "3D texture views can not reference a subset of layers");
 
   Texture* texture = lovrCalloc(sizeof(Texture) + gpu_sizeof_texture());
-  texture->ref = 1;
+  lovr_atomic_store(&texture->ref, 1);
   texture->gpu = (gpu_texture*) (texture + 1);
   texture->sync = parent->sync;
   texture->info = *base;
@@ -2997,7 +2997,7 @@ Sampler* lovrSamplerCreate(const SamplerInfo* info) {
   lovrCheck(info->anisotropy <= state.limits.anisotropy, "Sampler anisotropy (%f) exceeds anisotropy limit (%f)", info->anisotropy, state.limits.anisotropy);
 
   Sampler* sampler = lovrCalloc(sizeof(Sampler) + gpu_sizeof_sampler());
-  sampler->ref = 1;
+  lovr_atomic_store(&sampler->ref, 1);
   sampler->gpu = (gpu_sampler*) (sampler + 1);
   sampler->info = *info;
 
@@ -3398,7 +3398,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   size_t stack = stackPush(&thread.stack);
 
   Shader* shader = lovrCalloc(sizeof(Shader) + gpu_sizeof_shader());
-  shader->ref = 1;
+  lovr_atomic_store(&shader->ref, 1);
   shader->gpu = (gpu_shader*) (shader + 1);
   shader->info = *info;
   shader->info.label = lovrStrdup(info->label);
@@ -3795,7 +3795,7 @@ fail:
 
 Shader* lovrShaderClone(Shader* parent, ShaderFlag* flags, uint32_t count) {
   Shader* shader = lovrCalloc(sizeof(Shader) + gpu_sizeof_shader());
-  shader->ref = 1;
+  lovr_atomic_store(&shader->ref, 1);
   shader->parent = parent;
   shader->gpu = parent->gpu;
   shader->info = parent->info;
@@ -3998,7 +3998,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
   }
 
   Material* material = &block->materials[block->head];
-  material->ref = 1;
+  lovr_atomic_store(&material->ref, 1);
   material->info = *info;
 
   MaterialData* data;
@@ -4097,7 +4097,7 @@ Font* lovrGraphicsGetDefaultFont(void) {
 
 Font* lovrFontCreate(const FontInfo* info) {
   Font* font = lovrCalloc(sizeof(Font));
-  font->ref = 1;
+  lovr_atomic_store(&font->ref, 1);
   font->info = *info;
   lovrRetain(info->rasterizer);
   arr_init(&font->glyphs);
@@ -4667,7 +4667,7 @@ Mesh* lovrMeshCreate(const MeshInfo* info, void** vertices) {
   }
 
   Mesh* mesh = lovrCalloc(sizeof(Mesh));
-  mesh->ref = 1;
+  lovr_atomic_store(&mesh->ref, 1);
   mesh->storage = info->storage;
   mesh->mode = DRAW_TRIANGLES;
   mesh->treeFlags = info->raytracerFlags;
@@ -5079,7 +5079,7 @@ static bool lovrMeshFlush(Mesh* mesh) {
 
 Model* lovrModelCreate(const ModelInfo* info) {
   Model* model = lovrCalloc(sizeof(Model));
-  model->ref = 1;
+  lovr_atomic_store(&model->ref, 1);
   model->meta = info->data->meta;
   model->treeFlags = info->raytracerFlags;
   lovrRetain(model->meta.blob);
@@ -5254,7 +5254,7 @@ fail:
 
 Model* lovrModelClone(Model* parent) {
   Model* model = lovrCalloc(sizeof(Model));
-  model->ref = 1;
+  lovr_atomic_store(&model->ref, 1);
   model->parent = parent;
   model->meta = parent->meta;
   lovrRetain(parent);
@@ -5939,7 +5939,7 @@ Raytracer* lovrRaytracerCreate(const RaytracerInfo* info) {
   lovrCheck(info->capacity <= (1 << 24) - 1, "Currently, the max raytracer capacity is %d", (1 << 24) - 1);
 
   Raytracer* raytracer = lovrCalloc(sizeof(Raytracer) + gpu_sizeof_tree());
-  raytracer->ref = 1;
+  lovr_atomic_store(&raytracer->ref, 1);
   raytracer->info = *info;
   raytracer->gpu = (gpu_tree*) (raytracer + 1);
   raytracer->instances = lovrMalloc(info->capacity * sizeof(gpu_tree_instance));
@@ -6108,7 +6108,7 @@ bool lovrRaytracerBuild(Raytracer* raytracer) {
 
 static Readback* lovrReadbackCreate(ReadbackType type) {
   Readback* readback = lovrCalloc(sizeof(Readback));
-  readback->ref = 1;
+  lovr_atomic_store(&readback->ref, 1);
   readback->tick = state.tick;
   readback->type = type;
   lovrRetain(readback);
@@ -6360,7 +6360,7 @@ bool lovrGraphicsGetWindowPass(Pass** pass) {
 
 Pass* lovrPassCreate(const char* label) {
   Pass* pass = lovrCalloc(sizeof(Pass));
-  pass->ref = 1;
+  lovr_atomic_store(&pass->ref, 1);
 
   initAllocator(&pass->allocator);
 

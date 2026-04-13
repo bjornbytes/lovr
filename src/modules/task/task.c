@@ -3,11 +3,11 @@
 #include <string.h>
 #include <stdlib.h>
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   Waiter* waiters;
-  _Atomic(Task*) pending;
+  lovr_atomic_ptr(Task) pending;
   Task* queue;
   Task* polls;
   Task* pool;
@@ -45,7 +45,7 @@ Task* lovrTaskModuleGetNext(void) {
       }
     }
 
-    Task* task = atomic_exchange(&state.pending, NULL);
+    Task* task = lovr_atomic_ptr_exchange(&state.pending, NULL);
 
     if (!task) {
       break;
@@ -64,7 +64,7 @@ Task* lovrTaskModuleGetNext(void) {
     Task* task = *list;
     if (task->fn(&task->context)) {
       *list = task->next;
-      if (atomic_fetch_sub(&task->deps, 1) == 1) {
+      if (lovr_atomic_fetch_sub(&task->deps, 1) == 1) {
         return task;
       }
     } else {
@@ -104,13 +104,13 @@ void lovrTaskDestroy(Task* task) {
 }
 
 bool lovrTaskIsReady(Task* task) {
-  return !task->complete && task->deps == 0;
+  return !task->complete && lovr_atomic_load(&task->deps) == 0;
 }
 
 void lovrTaskEnqueue(Task* task) {
   task->dequeued = false;
-  task->next = atomic_load(&state.pending);
-  while (!atomic_compare_exchange_strong(&state.pending, &task->next, task));
+  task->next = lovr_atomic_ptr_load(&state.pending);
+  while (!lovr_atomic_ptr_compare_exchange(&state.pending, &task->next, task));
 }
 
 void lovrTaskDequeue(Task* task) {
@@ -122,7 +122,7 @@ void lovrTaskWaitPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation
   task->block = block;
   task->context = context;
   task->continuation = continuation;
-  atomic_store(&task->deps, 1);
+  lovr_atomic_store(&task->deps, 1);
   task->waiting = WAIT_POLL;
   task->next = state.polls;
   state.polls = task;
@@ -138,7 +138,7 @@ void lovrTaskFinish(Task* task) {
       waiter->task->error = lovrStrdup(task->error);
     }
 
-    if (atomic_fetch_sub(&waiter->task->deps, 1) == 1) {
+    if (lovr_atomic_fetch_sub(&waiter->task->deps, 1) == 1) {
       lovrTaskEnqueue(waiter->task);
     }
 
@@ -157,7 +157,7 @@ bool lovrTaskAddDependency(Task* task, Task* dep) {
     return true;
   }
 
-  lovrAssert(task->deps < ~0u, "Task is waiting on too many other tasks");
+  lovrAssert(lovr_atomic_load(&task->deps) < ~0u, "Task is waiting on too many other tasks");
   Waiter* waiter = state.waiters;
 
   if (waiter) {
@@ -170,6 +170,6 @@ bool lovrTaskAddDependency(Task* task, Task* dep) {
   waiter->task = task;
   dep->waiters = waiter;
   task->waiting = WAIT_TASK;
-  atomic_fetch_add(&task->deps, 1);
+  lovr_atomic_fetch_add(&task->deps, 1);
   return true;
 }

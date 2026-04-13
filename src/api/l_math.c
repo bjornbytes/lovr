@@ -2,7 +2,7 @@
 #include "math/math.h"
 #include "l_math.lua.h"
 #include "util.h"
-#include <threads.h>
+#include "core/threads.h"
 #include <string.h>
 
 int l_lovrRandomGeneratorRandom(lua_State* L);

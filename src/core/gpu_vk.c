@@ -1,7 +1,7 @@
 #include "gpu.h"
+#include "../util.h"
 #include <string.h>
-#include <threads.h>
-#include <stdatomic.h>
+#include "core/threads.h"
 
 #ifdef _WIN32
 #define THREAD_LOCAL __declspec(thread)
@@ -157,7 +157,7 @@ typedef struct {
 } gpu_alloc_entry;
 
 typedef struct {
-  mtx_t lock;
+  lovr_mutex lock;
   gpu_memory* block;
   uint32_t pageCount;
   uint32_t heapIndex;
@@ -178,7 +178,7 @@ typedef struct {
   gpu_victim* head;
   gpu_victim* tail;
   gpu_victim* pool;
-  mtx_t lock;
+  lovr_mutex lock;
 } gpu_morgue;
 
 typedef struct {
@@ -265,7 +265,7 @@ static struct {
   gpu_allocator allocators[GPU_MEMORY_COUNT];
   uint8_t allocatorLookup[GPU_MEMORY_COUNT];
   gpu_memory memory[1024];
-  _Atomic(gpu_thread_state*) threads;
+  lovr_atomic_ptr(gpu_thread_state) threads;
   gpu_morgue morgue;
 } state;
 
@@ -2096,8 +2096,8 @@ void gpu_tally_destroy(gpu_tally* tally) {
 gpu_stream* gpu_stream_begin(const char* label) {
   if (!thread.initialized) {
     thread.initialized = true;
-    thread.next = state.threads;
-    while (!atomic_compare_exchange_strong(&state.threads, &thread.next, &thread)) {
+    thread.next = lovr_atomic_ptr_load(&state.threads);
+    while (!lovr_atomic_ptr_compare_exchange(&state.threads, &thread.next, &thread)) {
       continue;
     }
   }
@@ -3388,7 +3388,7 @@ bool gpu_init(gpu_config* config) {
         }
       }
 
-      mtx_init(&allocator->lock, mtx_plain);
+      lovr_mutex_create(&allocator->lock);
     }
 
     // Textures
@@ -3461,7 +3461,7 @@ bool gpu_init(gpu_config* config) {
 
       if (!merged) {
         uint32_t index = allocatorCount++;
-        mtx_init(&state.allocators[index].lock, mtx_plain);
+        lovr_mutex_create(&state.allocators[index].lock);
         state.allocators[index].memoryFlags = memoryFlags;
         state.allocators[index].heapIndex = memoryTypes[memoryType].heapIndex;
         state.allocators[index].fallbackMemoryType = memoryType;
@@ -3502,7 +3502,7 @@ bool gpu_init(gpu_config* config) {
 
   VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "vkCreatePipelineCache") goto fail;
 
-  mtx_init(&state.morgue.lock, mtx_plain);
+  lovr_mutex_create(&state.morgue.lock);
 
   return true;
 fail:
@@ -3513,7 +3513,7 @@ fail:
 void gpu_destroy(void) {
   if (state.device) vkDeviceWaitIdle(state.device);
   expunge(UINT64_MAX);
-  for (gpu_thread_state* t = state.threads, *next; t; t = next) {
+  for (gpu_thread_state* t = lovr_atomic_ptr_load(&state.threads), *next; t; t = next) {
     for (gpu_stream_pool* pool = t->streamPools, *next; pool; pool = next) {
       vkDestroyCommandPool(state.device, pool->handle, NULL);
       for (gpu_stream* stream = pool->head, *next; stream; stream = next) {
@@ -3530,10 +3530,10 @@ void gpu_destroy(void) {
     next = victim->next;
     state.config.fnFree(victim);
   }
-  mtx_destroy(&state.morgue.lock);
+  lovr_mutex_destroy(&state.morgue.lock);
   for (uint32_t i = 0; i < COUNTOF(state.allocators); i++) {
     if (state.allocators[i].memoryFlags) {
-      mtx_destroy(&state.allocators[i].lock);
+      lovr_mutex_destroy(&state.allocators[i].lock);
     }
   }
   if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
@@ -3613,7 +3613,7 @@ bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
     commandBuffers[i] = streams[i]->commands;
   }
 
-  for (gpu_thread_state* t = state.threads; t; t = t->next) {
+  for (gpu_thread_state* t = lovr_atomic_ptr_load(&state.threads); t; t = t->next) {
     if (t->activeStreamPool) {
       t->activeStreamPool->tick = tick;
       t->activeStreamPool = NULL;
@@ -3726,7 +3726,7 @@ static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkD
   uint32_t align = MAX(info.alignment, GPU_PAGE_SIZE);
   uint32_t requiredPages = ALIGN(info.size, align) / GPU_PAGE_SIZE;
 
-  mtx_lock(&allocator->lock);
+  lovr_mutex_lock(&allocator->lock);
 
   if (allocator->block) {
     // Search through regions for a free region of sufficient size
@@ -3761,7 +3761,7 @@ static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkD
 
         allocator->block->refs++;
         *offset = (i + offsetPages) * GPU_PAGE_SIZE;
-        mtx_unlock(&allocator->lock);
+        lovr_mutex_unlock(&allocator->lock);
         return allocator->block;
       }
     }
@@ -3800,7 +3800,7 @@ static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkD
 
         VK(result, "vkAllocateMemory") {
           allocator->block = NULL;
-          mtx_unlock(&allocator->lock);
+          lovr_mutex_unlock(&allocator->lock);
           return NULL;
         }
       }
@@ -3809,7 +3809,7 @@ static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkD
         VK(vkMapMemory(state.device, memory->handle, 0, VK_WHOLE_SIZE, 0, &memory->pointer), "vkMapMemory") {
           vkFreeMemory(state.device, memory->handle, NULL);
           memory->handle = NULL;
-          mtx_unlock(&allocator->lock);
+          lovr_mutex_unlock(&allocator->lock);
           return NULL;
         }
       } else {
@@ -3836,13 +3836,13 @@ static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkD
       }
 
       *offset = 0;
-      mtx_unlock(&allocator->lock);
+      lovr_mutex_unlock(&allocator->lock);
       return memory;
     }
   }
 
   error("Out of GPU memory blocks");
-  mtx_unlock(&allocator->lock);
+  lovr_mutex_unlock(&allocator->lock);
   return NULL;
 }
 
@@ -3853,7 +3853,7 @@ static void release(gpu_memory* memory, VkDeviceSize offset) {
 
   gpu_allocator* allocator = &state.allocators[state.allocatorLookup[memory->type]];
 
-  mtx_lock(&allocator->lock);
+  lovr_mutex_lock(&allocator->lock);
 
   if (--memory->refs == 0) {
     // If the allocator manages this block, reset it, otherwise free the memory
@@ -3894,7 +3894,7 @@ static void release(gpu_memory* memory, VkDeviceSize offset) {
     }
   }
 
-  mtx_unlock(&allocator->lock);
+  lovr_mutex_unlock(&allocator->lock);
 }
 
 static void condemn(void* handle, VkObjectType type) {
@@ -3903,7 +3903,7 @@ static void condemn(void* handle, VkObjectType type) {
   gpu_morgue* morgue = &state.morgue;
   gpu_victim* victim = morgue->pool;
 
-  mtx_lock(&morgue->lock);
+  lovr_mutex_lock(&morgue->lock);
 
   if (victim) {
     morgue->pool = victim->next;
@@ -3924,13 +3924,13 @@ static void condemn(void* handle, VkObjectType type) {
 
   morgue->tail = victim;
 
-  mtx_unlock(&morgue->lock);
+  lovr_mutex_unlock(&morgue->lock);
 }
 
 static void expunge(uint64_t tick) {
   gpu_morgue* morgue = &state.morgue;
 
-  mtx_lock(&morgue->lock);
+  lovr_mutex_lock(&morgue->lock);
 
   while (morgue->head && tick >= morgue->head->tick) {
     gpu_victim* victim = morgue->head;
@@ -3961,7 +3961,7 @@ static void expunge(uint64_t tick) {
     morgue->pool = victim;
   }
 
-  mtx_unlock(&morgue->lock);
+  lovr_mutex_unlock(&morgue->lock);
 }
 
 static uint64_t getFinishedTick(void) {

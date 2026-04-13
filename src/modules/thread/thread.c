@@ -4,17 +4,16 @@
 #include "core/job.h"
 #include "core/os.h"
 #include "util.h"
+#include "core/threads.h"
 #include <math.h>
-#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
-#include <threads.h>
 
 struct Thread {
-  atomic_uint ref;
-  thrd_t handle;
-  mtx_t lock;
-  mtx_t waitLock;
+  lovr_atomic_uint ref;
+  lovr_thread handle;
+  lovr_mutex lock;
+  lovr_mutex waitLock;
   ThreadFunction* function;
   Blob* body;
   Variant arguments[MAX_THREAD_ARGUMENTS];
@@ -25,9 +24,9 @@ struct Thread {
 };
 
 struct Channel {
-  atomic_uint ref;
-  mtx_t lock;
-  cnd_t cond;
+  lovr_atomic_uint ref;
+  lovr_mutex lock;
+  lovr_cond cond;
   arr_t(Variant) messages;
   size_t head;
   uint64_t sent;
@@ -35,12 +34,12 @@ struct Channel {
   uint64_t hash;
 };
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   uint32_t workers;
   void (*onWorkerQuit)(void);
-  mtx_t channelLock;
+  lovr_mutex channelLock;
   map_t channels;
 } state;
 
@@ -58,7 +57,7 @@ static void workerQuit(uint32_t id) {
 bool lovrThreadModuleInit(int32_t workers, void (*onWorkerQuit)(void)) {
   if (!lovrModuleAcquire(&ref)) return true;
 
-  mtx_init(&state.channelLock, mtx_plain);
+  lovr_mutex_create(&state.channelLock);
   map_init(&state.channels, 0);
 
   uint32_t cores = os_get_core_count();
@@ -78,7 +77,7 @@ void lovrThreadModuleDestroy(void) {
       lovrRelease((Channel*) (uintptr_t) state.channels.values[i], lovrChannelDestroy);
     }
   }
-  mtx_destroy(&state.channelLock);
+  lovr_mutex_destroy(&state.channelLock);
   map_free(&state.channels);
   job_destroy();
   memset(&state, 0, sizeof(state));
@@ -93,7 +92,7 @@ Channel* lovrThreadGetChannel(const char* name) {
   uint64_t hash = hash64(name, strlen(name));
   Channel* channel = NULL;
 
-  mtx_lock(&state.channelLock);
+  lovr_mutex_lock(&state.channelLock);
   uint64_t entry = map_get(&state.channels, hash);
 
   if (entry == MAP_NIL) {
@@ -103,7 +102,7 @@ Channel* lovrThreadGetChannel(const char* name) {
     channel = (Channel*) (uintptr_t) entry;
   }
 
-  mtx_unlock(&state.channelLock);
+  lovr_mutex_unlock(&state.channelLock);
   return channel;
 }
 
@@ -118,7 +117,7 @@ static int threadFunction(void* data) {
 
   os_thread_detach();
 
-  mtx_lock(&thread->lock);
+  lovr_mutex_lock(&thread->lock);
   thread->running = false;
   if (error) {
     thread->error = error;
@@ -127,7 +126,7 @@ static int threadFunction(void* data) {
       .data.thread = { thread, thread->error }
     });
   }
-  mtx_unlock(&thread->lock);
+  lovr_mutex_unlock(&thread->lock);
 
   lovrRelease(thread, lovrThreadDestroy);
   return 0;
@@ -135,20 +134,20 @@ static int threadFunction(void* data) {
 
 Thread* lovrThreadCreate(ThreadFunction* function, Blob* body) {
   Thread* thread = lovrCalloc(sizeof(Thread));
-  thread->ref = 1;
+lovr_atomic_store(&thread->ref, 1);
   thread->body = body;
   thread->function = function;
-  mtx_init(&thread->lock, mtx_plain);
-  mtx_init(&thread->waitLock, mtx_plain);
+  lovr_mutex_create(&thread->lock);
+  lovr_mutex_create(&thread->waitLock);
   lovrRetain(body);
   return thread;
 }
 
 void lovrThreadDestroy(void* ref) {
   Thread* thread = ref;
-  mtx_destroy(&thread->lock);
-  mtx_destroy(&thread->waitLock);
-  if (thread->joinable) thrd_detach(thread->handle);
+  lovr_mutex_destroy(&thread->lock);
+  lovr_mutex_destroy(&thread->waitLock);
+  if (thread->joinable) lovr_thread_detach(thread->handle);
   for (uint32_t i = 0; i < thread->argumentCount; i++) {
     lovrVariantDestroy(&thread->arguments[i]);
   }
@@ -160,9 +159,9 @@ void lovrThreadDestroy(void* ref) {
 bool lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount) {
   lovrCheck(argumentCount <= MAX_THREAD_ARGUMENTS, "Too many Thread arguments (max is %d)", MAX_THREAD_ARGUMENTS);
 
-  mtx_lock(&thread->lock);
+  lovr_mutex_lock(&thread->lock);
   if (thread->running) {
-    mtx_unlock(&thread->lock);
+    lovr_mutex_unlock(&thread->lock);
     return true;
   }
 
@@ -178,27 +177,27 @@ bool lovrThreadStart(Thread* thread, Variant* arguments, uint32_t argumentCount)
 
   lovrRetain(thread);
 
-  if (thrd_create(&thread->handle, threadFunction, thread) != thrd_success) {
-    mtx_unlock(&thread->lock);
+  if (!lovr_thread_create(&thread->handle, threadFunction, "lovr", thread)) {
+    lovr_mutex_unlock(&thread->lock);
     lovrRelease(thread, lovrThreadDestroy);
     return lovrSetError("Could not create thread...sorry");
   }
 
   thread->joinable = true;
   thread->running = true;
-  mtx_unlock(&thread->lock);
+  lovr_mutex_unlock(&thread->lock);
   return true;
 }
 
 void lovrThreadWait(Thread* thread) {
-  mtx_lock(&thread->waitLock);
+  lovr_mutex_lock(&thread->waitLock);
 
   if (thread->joinable) {
-    thrd_join(thread->handle, NULL);
+    lovr_thread_join(thread->handle);
     thread->joinable = false;
   }
 
-  mtx_unlock(&thread->waitLock);
+  lovr_mutex_unlock(&thread->waitLock);
 }
 
 bool lovrThreadIsRunning(Thread* thread) {
@@ -213,10 +212,10 @@ const char* lovrThreadGetError(Thread* thread) {
 
 Channel* lovrChannelCreate(uint64_t hash) {
   Channel* channel = lovrCalloc(sizeof(Channel));
-  channel->ref = 1;
+lovr_atomic_store(&channel->ref, 1);
   arr_init(&channel->messages);
-  mtx_init(&channel->lock, mtx_plain);
-  cnd_init(&channel->cond);
+  lovr_mutex_create(&channel->lock);
+  lovr_cond_create(&channel->cond);
   channel->hash = hash;
   return channel;
 }
@@ -225,50 +224,40 @@ void lovrChannelDestroy(void* ref) {
   Channel* channel = ref;
   lovrChannelClear(channel);
   arr_free(&channel->messages);
-  mtx_destroy(&channel->lock);
-  cnd_destroy(&channel->cond);
+  lovr_mutex_destroy(&channel->lock);
+  lovr_cond_destroy(&channel->cond);
   lovrFree(channel);
 }
 
 bool lovrChannelPush(Channel* channel, Variant* variant, double timeout, uint64_t* id) {
-  mtx_lock(&channel->lock);
+  lovr_mutex_lock(&channel->lock);
   if (channel->messages.length == 0) {
     lovrRetain(channel);
   }
   arr_push(&channel->messages, *variant);
   *id = ++channel->sent;
-  cnd_broadcast(&channel->cond);
+  lovr_cond_broadcast(&channel->cond);
 
   if (isnan(timeout) || timeout < 0) {
-    mtx_unlock(&channel->lock);
+    lovr_mutex_unlock(&channel->lock);
     return false;
   }
 
   while (channel->received < *id && timeout >= 0) {
     if (isinf(timeout)) {
-      cnd_wait(&channel->cond, &channel->lock);
+      lovr_cond_wait(&channel->cond, &channel->lock);
     } else {
-      struct timespec start;
-      struct timespec until;
-      struct timespec stop;
-      timespec_get(&start, TIME_UTC);
-      double whole, fraction;
-      fraction = modf(timeout, &whole);
-      until.tv_sec = start.tv_sec + whole;
-      until.tv_nsec = start.tv_nsec + fraction * 1e9;
-      cnd_timedwait(&channel->cond, &channel->lock, &until);
-      timespec_get(&stop, TIME_UTC);
-      timeout -= (stop.tv_sec - start.tv_sec) + (stop.tv_nsec - start.tv_nsec) / 1e9;
+      lovr_cond_timedwait(&channel->cond, &channel->lock, &timeout);
     }
   }
 
   bool read = channel->received >= *id;
-  mtx_unlock(&channel->lock);
+  lovr_mutex_unlock(&channel->lock);
   return read;
 }
 
 bool lovrChannelPop(Channel* channel, Variant* variant, double timeout) {
-  mtx_lock(&channel->lock);
+  lovr_mutex_lock(&channel->lock);
 
   do {
     if (channel->head < channel->messages.length) {
@@ -278,67 +267,57 @@ bool lovrChannelPop(Channel* channel, Variant* variant, double timeout) {
         lovrRelease(channel, lovrChannelDestroy);
       }
       channel->received++;
-      cnd_broadcast(&channel->cond);
-      mtx_unlock(&channel->lock);
+      lovr_cond_broadcast(&channel->cond);
+      lovr_mutex_unlock(&channel->lock);
       return true;
     } else if (isnan(timeout) || timeout < 0) {
-      mtx_unlock(&channel->lock);
+      lovr_mutex_unlock(&channel->lock);
       return false;
     }
 
     if (isinf(timeout)) {
-      cnd_wait(&channel->cond, &channel->lock);
+      lovr_cond_wait(&channel->cond, &channel->lock);
     } else {
-      struct timespec start;
-      struct timespec until;
-      struct timespec stop;
-      timespec_get(&start, TIME_UTC);
-      double whole, fraction;
-      fraction = modf(timeout, &whole);
-      until.tv_sec = start.tv_sec + whole;
-      until.tv_nsec = start.tv_nsec + fraction * 1e9;
-      cnd_timedwait(&channel->cond, &channel->lock, &until);
-      timespec_get(&stop, TIME_UTC);
-      timeout -= (stop.tv_sec - start.tv_sec) + (stop.tv_nsec - start.tv_nsec) / (double) 1e9;
+      lovr_cond_timedwait(&channel->cond, &channel->lock, &timeout);
     }
   } while (1);
 }
 
 bool lovrChannelPeek(Channel* channel, Variant* variant) {
-  mtx_lock(&channel->lock);
+  lovr_mutex_lock(&channel->lock);
 
   if (channel->head < channel->messages.length) {
     *variant = channel->messages.data[channel->head];
-    mtx_unlock(&channel->lock);
+    lovr_mutex_unlock(&channel->lock);
     return true;
   }
 
-  mtx_unlock(&channel->lock);
+  lovr_mutex_unlock(&channel->lock);
   return false;
 }
 
 void lovrChannelClear(Channel* channel) {
-  mtx_lock(&channel->lock);
+  lovr_mutex_lock(&channel->lock);
   for (size_t i = channel->head; i < channel->messages.length; i++) {
     lovrVariantDestroy(&channel->messages.data[i]);
   }
   channel->received = channel->sent;
   arr_clear(&channel->messages);
   channel->head = 0;
-  cnd_broadcast(&channel->cond);
-  mtx_unlock(&channel->lock);
+  lovr_cond_broadcast(&channel->cond);
+  lovr_mutex_unlock(&channel->lock);
 }
 
 uint64_t lovrChannelGetCount(Channel* channel) {
-  mtx_lock(&channel->lock);
+  lovr_mutex_lock(&channel->lock);
   uint64_t length = channel->messages.length - channel->head;
-  mtx_unlock(&channel->lock);
+  lovr_mutex_unlock(&channel->lock);
   return length;
 }
 
 bool lovrChannelHasRead(Channel* channel, uint64_t id) {
-  mtx_lock(&channel->lock);
+  lovr_mutex_lock(&channel->lock);
   bool received = channel->received >= id;
-  mtx_unlock(&channel->lock);
+  lovr_mutex_unlock(&channel->lock);
   return received;
 }

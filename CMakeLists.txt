@@ -277,7 +277,6 @@ endif()
 # LÖVR
 
 set(LOVR_SRC
-  src/core/fs.c
   src/api/api.c
   src/api/l_lovr.c
   src/util.c
@@ -669,6 +668,7 @@ endfunction()
 # Platforms
 if(WIN32)
   target_sources(lovr PRIVATE src/core/os_win32.c etc/lovr.rc)
+  target_sources(lovr PRIVATE src/core/fs.c)
   if(MSVC)
     target_compile_options(lovr PRIVATE /wd4244 /experimental:c11atomics)
     # Excuse anonymous union for type punning
@@ -712,6 +712,7 @@ elseif(APPLE)
   target_link_libraries(lovr objc ${AVFOUNDATION})
   target_include_directories(lovr PRIVATE ${PROJECT_SOURCE_DIR}/src/lib/std)
   target_sources(lovr PRIVATE src/core/os_macos.c)
+  target_sources(lovr PRIVATE src/core/fs.c)
   set_source_files_properties(src/core/os_macos.c PROPERTIES COMPILE_FLAGS -xobjective-c)
   set_target_properties(lovr PROPERTIES
     MACOSX_RPATH TRUE
@@ -876,10 +877,12 @@ elseif(ANDROID)
 elseif(UNIX)
   if(LOVR_USE_SDL3)
     target_sources(lovr PRIVATE src/core/os_sdl3.c)
+    target_sources(lovr PRIVATE src/core/fs_sdl3.c)
     target_link_libraries(lovr ${LOVR_SDL3})
     target_compile_definitions(lovr PRIVATE LOVR_USE_SDL3)
   else()
     target_sources(lovr PRIVATE src/core/os_linux.c)
+    target_sources(lovr PRIVATE src/core/fs.c)
     if(LOVR_USE_GLFW)
       target_link_libraries(lovr X11 xcb X11-xcb)
     else()

@@ -10,8 +10,7 @@
 #include "core/maf.h"
 #include "core/os.h"
 #include "util.h"
-#include <stdatomic.h>
-#include <threads.h>
+#include "core/threads.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -178,7 +177,7 @@ typedef struct {
 } Swapchain;
 
 struct Layer {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   LayerInfo info;
   Swapchain swapchain;
   Device origin;
@@ -261,7 +260,7 @@ enum {
   MAX_ACTIONS
 };
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   HeadsetConfig config;
@@ -313,7 +312,7 @@ static struct {
   XrRenderModelIdEXT* modelKeys;
   RenderModel* models;
   uint32_t modelCount;
-  mtx_t modelLock;
+  lovr_mutex modelLock;
   FoveationLevel foveationLevel;
   bool foveationDynamic;
   XrPassthroughFB passthrough;
@@ -1820,7 +1819,7 @@ bool lovrHeadsetStart(void) {
   }
 
   if (state.extensions.renderModel) {
-    mtx_init(&state.modelLock, mtx_plain);
+    lovr_mutex_create(&state.modelLock);
   }
 
   if (state.extensions.bodyTracking) {
@@ -1876,7 +1875,7 @@ void lovrHeadsetStop(void) {
   state.mask = NULL;
 
   if (state.extensions.renderModel) {
-    mtx_destroy(&state.modelLock);
+    lovr_mutex_destroy(&state.modelLock);
     for (uint32_t i = 0; i < state.modelCount; i++) {
       if (state.models[i].handle) xrDestroyRenderModelEXT(state.models[i].handle);
       if (state.models[i].space) xrDestroySpace(state.models[i].space);
@@ -2848,7 +2847,7 @@ static ModelData* newModelDataEXT(uint64_t key) {
   uint32_t nodeCount;
   bool found = false;
 
-  mtx_lock(&state.modelLock);
+  lovr_mutex_lock(&state.modelLock);
   for (uint32_t i = 0; i < state.modelCount; i++) {
     if (state.modelKeys[i] == key) {
       cacheId = state.models[i].properties.cacheId;
@@ -2857,7 +2856,7 @@ static ModelData* newModelDataEXT(uint64_t key) {
       break;
     }
   }
-  mtx_unlock(&state.modelLock);
+  lovr_mutex_unlock(&state.modelLock);
 
   if (!found) {
     return NULL;
@@ -2911,7 +2910,7 @@ static ModelData* newModelDataEXT(uint64_t key) {
   modelData->meta.id = key;
 
   // Fill out node lookup
-  mtx_lock(&state.modelLock);
+  lovr_mutex_lock(&state.modelLock);
   for (uint32_t i = 0; i < state.modelCount; i++) {
     if (state.modelKeys[i] == key) {
       for (uint32_t n = 0; n < nodeCount; n++) {
@@ -2928,7 +2927,7 @@ static ModelData* newModelDataEXT(uint64_t key) {
     }
   }
   lovrFree(nodeProperties);
-  mtx_unlock(&state.modelLock);
+  lovr_mutex_unlock(&state.modelLock);
 
   return modelData;
 }
@@ -2993,7 +2992,7 @@ static ModelData* newModelDataFB(uint64_t key) {
   }
 
   ModelData* model = lovrCalloc(sizeof(ModelData));
-  model->ref = 1;
+lovr_atomic_store(&model->ref, 1);
   model->meta.id = key;
   model->meta.meshCount = 1;
   model->meta.skinCount = 1;
@@ -3123,7 +3122,7 @@ bool lovrHeadsetGetModelPose(Model* model, float* position, float* orientation) 
   if (state.extensions.renderModel) {
     uint64_t key = lovrModelGetMetadata(model)->id;
 
-    mtx_lock(&state.modelLock);
+    lovr_mutex_lock(&state.modelLock);
 
     for (uint32_t i = 0; i < state.modelCount; i++) {
       if (state.modelKeys[i] != key) {
@@ -3135,11 +3134,11 @@ bool lovrHeadsetGetModelPose(Model* model, float* position, float* orientation) 
       xrLocateSpace(renderModel->space, state.referenceSpace, state.frameState.predictedDisplayTime, &location);
       memcpy(orientation, &location.pose.orientation, 4 * sizeof(float));
       memcpy(position, &location.pose.position, 3 * sizeof(float));
-      mtx_unlock(&state.modelLock);
+      lovr_mutex_unlock(&state.modelLock);
       return location.locationFlags & (XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
     }
 
-    mtx_unlock(&state.modelLock);
+    lovr_mutex_unlock(&state.modelLock);
     return false;
   } else if (state.extensions.handTrackingMesh) {
     Device device = lovrModelGetMetadata(model)->id == 1 ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
@@ -3152,7 +3151,7 @@ bool lovrHeadsetGetModelPose(Model* model, float* position, float* orientation) 
 static bool animateEXT(Model* model) {
   uint64_t key = lovrModelGetMetadata(model)->id;
 
-  mtx_lock(&state.modelLock);
+  lovr_mutex_lock(&state.modelLock);
 
   for (uint32_t i = 0; i < state.modelCount; i++) {
     if (state.modelKeys[i] != key) {
@@ -3190,12 +3189,12 @@ static bool animateEXT(Model* model) {
       lovrModelSetNodeVisible(model, renderModel->nodes[n], nodeState.isVisible);
     }
 
-    mtx_unlock(&state.modelLock);
+    lovr_mutex_unlock(&state.modelLock);
     return true;
   }
 
 fail:
-  mtx_unlock(&state.modelLock);
+  lovr_mutex_unlock(&state.modelLock);
   return false;
 }
 
@@ -3647,7 +3646,7 @@ Layer* lovrLayerCreate(const LayerInfo* info) {
   lovrAssert(state.session, "A headset session must be active to create a Layer");
 
   Layer* layer = lovrCalloc(sizeof(Layer));
-  layer->ref = 1;
+lovr_atomic_store(&layer->ref, 1);
   layer->info = *info;
   layer->origin = ~0u;
 
@@ -4291,7 +4290,7 @@ static bool loadControllerModels(void) {
   XrRenderModelIdEXT* keys = lovrMalloc(count * sizeof(XrRenderModelIdEXT));
   XR(xrEnumerateInteractionRenderModelIdsEXT(state.session, &enumerateInfo, count, &count, keys), "xrEnumerateInteractionRenderModelIdsEXT");
 
-  mtx_lock(&state.modelLock);
+  lovr_mutex_lock(&state.modelLock);
 
   // Destroy models that were removed
   for (uint32_t i = 0; i < state.modelCount; i++) {
@@ -4322,7 +4321,7 @@ static bool loadControllerModels(void) {
     lovrFree(keys);
     state.models = NULL;
     state.modelKeys = NULL;
-    mtx_unlock(&state.modelLock);
+    lovr_mutex_unlock(&state.modelLock);
     return true;
   }
 
@@ -4374,11 +4373,11 @@ static bool loadControllerModels(void) {
     }
   }
 
-  mtx_unlock(&state.modelLock);
+  lovr_mutex_unlock(&state.modelLock);
   lovrFree(keys);
   return true;
 fail:
-  mtx_unlock(&state.modelLock);
+  lovr_mutex_unlock(&state.modelLock);
   return false;
 }
 

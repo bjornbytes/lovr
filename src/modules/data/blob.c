@@ -5,7 +5,7 @@
 
 Blob* lovrBlobCreate(void* data, size_t size, const char* name) {
   Blob* blob = lovrCalloc(sizeof(Blob));
-  blob->ref = 1;
+  SDL_SetAtomicU32(&blob->ref, 1);
   blob->data = data;
   blob->size = size;
   blob->name = lovrStrdup(name);
@@ -15,7 +15,7 @@ Blob* lovrBlobCreate(void* data, size_t size, const char* name) {
 
 Blob* lovrBlobCreateView(Blob* parent, size_t offset, size_t size, const char* name) {
   Blob* blob = lovrCalloc(sizeof(Blob));
-  blob->ref = 1;
+  SDL_SetAtomicU32(&blob->ref, 1);
   blob->data = (char*) parent->data + offset;
   blob->size = size;
   blob->name = lovrStrdup(name);

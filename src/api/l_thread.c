@@ -4,7 +4,7 @@
 #include "core/os.h"
 #include "util.h"
 #include <lualib.h>
-#include <threads.h>
+#include "core/threads.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -94,8 +94,8 @@ typedef struct CallContext {
   Variant* results;
 } CallContext;
 
-static thread_local CallContext* contextPool;
-static thread_local lua_State* workerState;
+static lovr_thread_local CallContext* contextPool;
+static lovr_thread_local lua_State* workerState;
 
 static void onWorkerQuit(void) {
   if (workerState) {

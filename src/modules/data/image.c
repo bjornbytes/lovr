@@ -2,7 +2,6 @@
 #include "data/blob.h"
 #include "util.h"
 #include "lib/stb/stb_image.h"
-#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -19,7 +18,7 @@ typedef struct {
 } Mipmap;
 
 struct Image {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   uint32_t flags;
   uint32_t width;
   uint32_t height;
@@ -88,7 +87,7 @@ Image* lovrImageCreateRaw(uint32_t width, uint32_t height, TextureFormat format,
   size_t size = measure(width, height, format);
   void* data = lovrMalloc(size);
   Image* image = lovrCalloc(sizeof(Image));
-  image->ref = 1;
+  lovr_atomic_store(&image->ref, 1);
   image->flags = srgb ? IMAGE_SRGB : 0;
   image->width = width;
   image->height = height;
@@ -818,7 +817,7 @@ static bool loadDDS(Blob* blob, Image** result) {
   uint32_t levels = MAX(1, header->mipmapCount);
 
   Image* image = lovrCalloc(offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
-  image->ref = 1;
+  lovr_atomic_store(&image->ref, 1);
   image->flags = flags;
   image->width = header->width;
   image->height = header->height;
@@ -903,7 +902,7 @@ static bool loadASTC(Blob* blob, Image** result) {
   }
 
   Image* image = lovrCalloc(sizeof(Image));
-  image->ref = 1;
+  lovr_atomic_store(&image->ref, 1);
   image->width = width;
   image->height = height;
   image->format = format;
@@ -969,7 +968,7 @@ static bool loadKTX1(Blob* blob, Image** result) {
   uint32_t levels = MAX(header.numberOfMipmapLevels, 1);
 
   Image* image = lovrCalloc(offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
-  image->ref = 1;
+  lovr_atomic_store(&image->ref, 1);
   image->width = header.pixelWidth;
   image->height = header.pixelHeight;
   image->layers = layers;
@@ -1130,7 +1129,7 @@ static bool loadKTX2(Blob* blob, Image** result) {
   uint32_t levels = MAX(header->levelCount, 1);
 
   Image* image = lovrCalloc(offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
-  image->ref = 1;
+  lovr_atomic_store(&image->ref, 1);
   image->width = header->pixelWidth;
   image->height = header->pixelHeight;
   image->layers = layers;
@@ -1254,7 +1253,7 @@ static bool loadSTB(Blob* blob, Image** result) {
   size_t size = measure(width, height, format);
 
   Image* image = lovrCalloc(sizeof(Image));
-  image->ref = 1;
+  lovr_atomic_store(&image->ref, 1);
   image->flags = flags;
   image->width = width;
   image->height = height;

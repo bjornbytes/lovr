@@ -4,7 +4,6 @@
 #include "util.h"
 #include "core/job.h"
 #include "lib/jsmn/jsmn.h"
-#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -84,7 +83,7 @@ typedef struct {
 } gltfScene;
 
 typedef struct {
-  atomic_uint done;
+  lovr_atomic_uint done;
   Image* result;
   gltfImage* image;
   gltfBufferView* buffers;
@@ -212,7 +211,7 @@ static void loadImage(void* arg) {
       void* data = decodeBase64(ctx->image->uri.data, ctx->image->uri.length, &size);
       if (!data) {
         ctx->error = lovrStrdup("Could not decode base64 image");
-        atomic_store(&ctx->done, 1);
+        lovr_atomic_store(&ctx->done, 1);
         return;
       }
       blob = lovrBlobCreate(data, size, NULL);
@@ -222,7 +221,7 @@ static void loadImage(void* arg) {
 
       if (path[0] == '/') {
         ctx->error = lovrStrdup("Absolute paths in models are not supported");
-        atomic_store(&ctx->done, 1);
+        lovr_atomic_store(&ctx->done, 1);
         return;
       }
 
@@ -254,7 +253,7 @@ static void loadImage(void* arg) {
         memcpy(ctx->error, message, messageLength);
         memcpy(ctx->error + messageLength, path, length);
         ctx->error[messageLength + length + 1] = '\0';
-        atomic_store(&ctx->done, 1);
+        lovr_atomic_store(&ctx->done, 1);
         return;
       }
 
@@ -265,7 +264,7 @@ static void loadImage(void* arg) {
     lovrRelease(blob, lovrBlobDestroy);
   }
 
-  atomic_store(&ctx->done, 1);
+  lovr_atomic_store(&ctx->done, 1);
 }
 
 static void startImageJob(ModelData* model, ImageJob* jobs, uint32_t index, gltfBufferView* buffers, gltfImage* images, ModelDataIO* io, char* basePath) {
@@ -280,7 +279,7 @@ static void startImageJob(ModelData* model, ImageJob* jobs, uint32_t index, gltf
 
   if (!job_start(loadImage, &jobs[index])) {
     loadImage(&jobs[index]);
-    jobs[index].done = 1;
+    lovr_atomic_store(&jobs[index].done, 1);
   }
 }
 
@@ -487,7 +486,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
 
   ModelData* model = lovrCalloc(sizeof(ModelData));
   ModelMetadata* meta = &model->meta;
-  model->ref = 1;
+  lovr_atomic_store(&model->ref, 1);
 
   // Prepass: Basically we iterate over the tokens once and figure out how much memory we need and
   // record the locations of tokens that we'll use later to fill in the memory once it's allocated.
@@ -1399,7 +1398,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
     ImageJob* job = &imageJobs[i];
 
     if (job->image) {
-      while (!atomic_load(&job->done)) {
+      while (!lovr_atomic_load(&job->done)) {
         job_spin();
       }
 
@@ -1439,7 +1438,7 @@ fail:
   for (uint32_t i = 0; i < meta->imageCount; i++) {
     ImageJob* job = &imageJobs[i];
 
-    while (!atomic_load(&job->done)) {
+    while (!lovr_atomic_load(&job->done)) {
       job_spin();
     }
 

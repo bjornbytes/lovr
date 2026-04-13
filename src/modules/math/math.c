@@ -3,7 +3,6 @@
 #include "util.h"
 #include "lib/noise/simplexnoise1234.h"
 #include <math.h>
-#include <stdatomic.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -11,23 +10,23 @@
 #include <time.h>
 
 struct Curve {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   arr_t(float) points;
 };
 
 struct Mat4 {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   float m[16];
 };
 
 struct RandomGenerator {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   Seed seed;
   Seed state;
   double lastRandomNormal;
 };
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   RandomGenerator* generator;
@@ -129,7 +128,7 @@ static void evaluate(float* restrict P, size_t n, float t, float* p) {
 
 Curve* lovrCurveCreate(void) {
   Curve* curve = lovrCalloc(sizeof(Curve));
-  curve->ref = 1;
+lovr_atomic_store(&curve->ref, 1);
   arr_init(&curve->points);
   arr_reserve(&curve->points, 16);
   return curve;
@@ -289,7 +288,7 @@ float lovrCurveStep(Curve* curve, float distance, int iterations) {
 
 Mat4* lovrMat4Create(void) {
   Mat4* matrix = lovrMalloc(sizeof(Mat4));
-  matrix->ref = 1;
+lovr_atomic_store(&matrix->ref, 1);
   mat4_identity(matrix->m);
   return matrix;
 }
@@ -323,7 +322,7 @@ static uint64_t wangHash64(uint64_t key) {
 
 RandomGenerator* lovrRandomGeneratorCreate(void) {
   RandomGenerator* generator = lovrCalloc(sizeof(RandomGenerator));
-  generator->ref = 1;
+lovr_atomic_store(&generator->ref, 1);
   Seed seed = { .b32 = { .lo = 0xCBBF7A44, .hi = 0x0139408D } };
   lovrRandomGeneratorSetSeed(generator, seed);
   generator->lastRandomNormal = HUGE_VAL;

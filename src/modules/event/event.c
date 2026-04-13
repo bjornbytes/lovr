@@ -1,30 +1,29 @@
 #include "event/event.h"
 #include "thread/thread.h"
 #include "util.h"
-#include <threads.h>
-#include <stdatomic.h>
+#include "core/threads.h"
 #include <stdlib.h>
 #include <string.h>
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   arr_t(Event) events;
   size_t head;
-  mtx_t lock;
+  lovr_mutex lock;
 } state;
 
 bool lovrEventInit(void) {
   if (!lovrModuleAcquire(&ref)) return true;
   arr_init(&state.events);
-  mtx_init(&state.lock, mtx_plain);
+  lovr_mutex_create(&state.lock);
   lovrModuleReady(&ref);
   return true;
 }
 
 void lovrEventDestroy(void) {
   if (!lovrModuleRelease(&ref)) return;
-  mtx_lock(&state.lock);
+  lovr_mutex_lock(&state.lock);
   for (size_t i = state.head; i < state.events.length; i++) {
     Event* event = &state.events.data[i];
     switch (event->type) {
@@ -41,8 +40,8 @@ void lovrEventDestroy(void) {
     }
   }
   arr_free(&state.events);
-  mtx_unlock(&state.lock);
-  mtx_destroy(&state.lock);
+  lovr_mutex_unlock(&state.lock);
+  lovr_mutex_destroy(&state.lock);
   memset(&state, 0, sizeof(state));
   lovrModuleReset(&ref);
 }
@@ -60,27 +59,27 @@ void lovrEventPush(Event event) {
     event.data.file.oldpath = lovrStrdup(event.data.file.oldpath);
   }
 
-  mtx_lock(&state.lock);
+  lovr_mutex_lock(&state.lock);
   arr_push(&state.events, event);
-  mtx_unlock(&state.lock);
+  lovr_mutex_unlock(&state.lock);
 }
 
 bool lovrEventPoll(Event* event) {
-  mtx_lock(&state.lock);
+  lovr_mutex_lock(&state.lock);
   if (state.head == state.events.length) {
     state.head = state.events.length = 0;
-    mtx_unlock(&state.lock);
+    lovr_mutex_unlock(&state.lock);
     return false;
   }
 
   *event = state.events.data[state.head++];
-  mtx_unlock(&state.lock);
+  lovr_mutex_unlock(&state.lock);
   return true;
 }
 
 void lovrEventClear(void) {
-  mtx_lock(&state.lock);
+  lovr_mutex_lock(&state.lock);
   arr_clear(&state.events);
   state.head = 0;
-  mtx_unlock(&state.lock);
+  lovr_mutex_unlock(&state.lock);
 }

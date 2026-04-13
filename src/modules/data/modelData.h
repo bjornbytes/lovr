@@ -1,4 +1,4 @@
-#include <stdatomic.h>
+#include "util.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -193,7 +193,7 @@ typedef struct ModelMetadata {
 } ModelMetadata;
 
 typedef struct ModelData {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   ModelMetadata meta;
   ModelVertex* vertices;
   void* indices;

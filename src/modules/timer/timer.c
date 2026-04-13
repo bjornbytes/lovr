@@ -1,10 +1,9 @@
 #include "timer/timer.h"
 #include "core/os.h"
 #include "util.h"
-#include <stdatomic.h>
 #include <string.h>
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   double epoch;

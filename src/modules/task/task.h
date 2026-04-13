@@ -1,5 +1,4 @@
-#include <stdbool.h>
-#include <stdatomic.h>
+#include "../../util.h"
 
 #pragma once
 
@@ -31,7 +30,7 @@ struct Task {
   bool complete;
   bool dequeued;
   WaitType waiting;
-  atomic_uint deps;
+  lovr_atomic_uint deps;
   struct Task* next;
   struct lua_State* T;
   fn_task* fn;
@@ -39,7 +38,7 @@ struct Task {
   fn_continuation* continuation;
   void* context;
   Waiter* waiters;
-  _Atomic(char*) error;
+  lovr_atomic_ptr(char) error;
 };
 
 Task* lovrTaskCreate(struct lua_State* T);

@@ -16,7 +16,7 @@ static bool lovrModelDataInitStlBinary(ModelData** result, Blob* source, ModelDa
   uint32_t vertexCount = triangleCount * 3;
 
   ModelData* model = lovrCalloc(sizeof(ModelData));
-  model->ref = 1;
+  lovr_atomic_store(&model->ref, 1);
   model->meta.meshCount = 1;
   model->meta.vertexCount = vertexCount;
   model->meta.meshCount = 1;

@@ -5,7 +5,6 @@
 #include "VarelaRound.ttf.h"
 #include "lib/stb/stb_truetype.h"
 #include <msdfgen-c.h>
-#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -22,7 +21,7 @@ typedef struct {
 } Glyph;
 
 struct Rasterizer {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   RasterizerType type;
   float size;
   float scale;
@@ -57,7 +56,7 @@ static bool lovrRasterizerCreateTTF(Rasterizer** result, Blob* blob, float size)
   }
 
   Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
-  rasterizer->ref = 1;
+  lovr_atomic_store(&rasterizer->ref, 1);
   rasterizer->type = RASTERIZER_TTF;
 
   lovrRetain(blob);
@@ -142,7 +141,7 @@ static bool lovrRasterizerCreateBMF(Rasterizer** result, Blob* blob, RasterizerI
   size_t maxLength = sizeof(fullpath) - 1 - (filename - fullpath);
 
   Rasterizer* rasterizer = lovrCalloc(sizeof(Rasterizer));
-  rasterizer->ref = 1;
+  lovr_atomic_store(&rasterizer->ref, 1);
   rasterizer->type = RASTERIZER_BMF;
   rasterizer->scale = 1.f;
   map_init(&rasterizer->kerning, 0);

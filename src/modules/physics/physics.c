@@ -4,12 +4,11 @@
 #include "core/maf.h"
 #include "util.h"
 #include <joltc.h>
-#include <stdatomic.h>
-#include <threads.h>
+#include "core/threads.h"
 #include <stdlib.h>
 
 struct Contact {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   Collider* colliderA;
   Collider* colliderB;
   const JPH_ContactManifold* manifold;
@@ -17,7 +16,7 @@ struct Contact {
 };
 
 struct World {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   JPH_PhysicsSystem* system;
   JPH_BodyInterface* bodyInterfaceLocked;
   JPH_BodyInterface* bodyInterfaceNoLock;
@@ -41,11 +40,11 @@ struct World {
   uint32_t tagLookup[MAX_TAGS];
   char* tags[MAX_TAGS];
   JPH_JobSystem* jobSystem;
-  mtx_t lock;
+  lovr_mutex lock;
 };
 
 struct Collider {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   JPH_BodyID id;
   JPH_Body* body;
   Collider* prev;
@@ -63,7 +62,7 @@ struct Collider {
 };
 
 struct Shape {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   ShapeType type;
   JPH_Shape* handle;
   Collider* collider;
@@ -80,14 +79,14 @@ typedef struct {
 } JointNode;
 
 struct Joint {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   JointType type;
   JPH_Constraint* constraint;
   uintptr_t userdata;
   JointNode a, b, world;
 };
 
-static thread_local struct {
+static lovr_thread_local struct {
   JPH_BroadPhaseLayerFilter* broadPhaseLayerFilter;
   JPH_ObjectLayerFilter* objectLayerFilter;
   uint32_t broadPhaseLayerMask;
@@ -95,7 +94,7 @@ static thread_local struct {
   bool locked;
 } thread;
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   JPH_Shape* emptyShape;
@@ -195,16 +194,16 @@ static JPH_ObjectLayerFilter* getObjectLayerFilter(World* world, uint32_t filter
 
 static void onAwake(void* arg, JPH_BodyID id, uint64_t userData) {
   World* world = arg;
-  mtx_lock(&world->lock);
+  lovr_mutex_lock(&world->lock);
   Collider* collider = (Collider*) (uintptr_t) userData;
   collider->activeIndex = world->activeColliderCount++;
   world->activeColliders[collider->activeIndex] = collider;
-  mtx_unlock(&world->lock);
+  lovr_mutex_unlock(&world->lock);
 }
 
 static void onSleep(void* arg, JPH_BodyID id, uint64_t userData) {
   World* world = arg;
-  mtx_lock(&world->lock);
+  lovr_mutex_lock(&world->lock);
   Collider* collider = (Collider*) (uintptr_t) userData;
   if (collider->activeIndex != world->activeColliderCount - 1) {
     Collider* lastCollider = world->activeColliders[world->activeColliderCount - 1];
@@ -213,7 +212,7 @@ static void onSleep(void* arg, JPH_BodyID id, uint64_t userData) {
   }
   world->activeColliderCount--;
   collider->activeIndex = ~0u;
-  mtx_unlock(&world->lock);
+  lovr_mutex_unlock(&world->lock);
 }
 
 static JPH_ValidateResult onContactValidate(void* userdata, const JPH_Body* body1, const JPH_Body* body2, const JPH_RVec3* offset, const JPH_CollideShapeResult* result) {
@@ -221,11 +220,11 @@ static JPH_ValidateResult onContactValidate(void* userdata, const JPH_Body* body
   if (!world->callbacks.filter) return JPH_ValidateResult_AcceptAllContactsForThisBodyPair;
   Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
   Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
-  mtx_lock(&world->lock);
+  lovr_mutex_lock(&world->lock);
   thread.locked = true;
   bool accept = world->callbacks.filter(world->callbacks.userdata, world, a, b);
   thread.locked = false;
-  mtx_unlock(&world->lock);
+  lovr_mutex_unlock(&world->lock);
   return accept ?
     JPH_ValidateResult_AcceptAllContactsForThisBodyPair :
     JPH_ValidateResult_RejectAllContactsForThisBodyPair;
@@ -239,7 +238,7 @@ static void onContactPersisted(void* userdata, const JPH_Body* body1, const JPH_
   if (world->callbacks.contact) {
     Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
     Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
-    mtx_lock(&world->lock);
+    lovr_mutex_lock(&world->lock);
     thread.locked = true;
     world->contact.colliderA = a;
     world->contact.colliderB = b;
@@ -247,7 +246,7 @@ static void onContactPersisted(void* userdata, const JPH_Body* body1, const JPH_
     world->contact.settings = settings;
     world->callbacks.contact(world->callbacks.userdata, world, a, b, &world->contact);
     thread.locked = false;
-    mtx_unlock(&world->lock);
+    lovr_mutex_unlock(&world->lock);
   }
 }
 
@@ -261,7 +260,7 @@ static void onContactAdded(void* userdata, const JPH_Body* body1, const JPH_Body
   if (world->callbacks.enter && !JPH_PhysicsSystem_WereBodiesInContact(world->system, id1, id2)) {
     Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
     Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
-    mtx_lock(&world->lock);
+    lovr_mutex_lock(&world->lock);
     thread.locked = true;
     world->contact.colliderA = a;
     world->contact.colliderB = b;
@@ -269,7 +268,7 @@ static void onContactAdded(void* userdata, const JPH_Body* body1, const JPH_Body
     world->contact.settings = settings;
     world->callbacks.enter(world->callbacks.userdata, world, a, b, &world->contact);
     thread.locked = false;
-    mtx_unlock(&world->lock);
+    lovr_mutex_unlock(&world->lock);
   }
 
   onContactPersisted(userdata, body1, body2, manifold, settings);
@@ -283,11 +282,11 @@ static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
     Collider* a = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(interface, pair->Body1ID);
     Collider* b = (Collider*) (uintptr_t) JPH_BodyInterface_GetUserData(interface, pair->Body2ID);
     if (a && b) {
-      mtx_lock(&world->lock);
+      lovr_mutex_lock(&world->lock);
       thread.locked = true;
       world->callbacks.exit(world->callbacks.userdata, world, a, b);
       thread.locked = false;
-      mtx_unlock(&world->lock);
+      lovr_mutex_unlock(&world->lock);
     }
   }
 }
@@ -360,11 +359,11 @@ void lovrPhysicsDestroy(void) {
 World* lovrWorldCreate(WorldInfo* info) {
   World* world = lovrCalloc(sizeof(World));
 
-  world->ref = 1;
+lovr_atomic_store(&world->ref, 1);
   world->defaultLinearDamping = .05f;
   world->defaultAngularDamping = .05f;
   world->defaultIsSleepingAllowed = info->allowSleep;
-  mtx_init(&world->lock, mtx_plain);
+  lovr_mutex_create(&world->lock);
 
   world->tagCount = info->tagCount;
   world->staticTagMask = info->staticTagMask;
@@ -468,7 +467,7 @@ void lovrWorldDestruct(World* world) {
   for (uint32_t i = 0; i < world->tagCount; i++) {
     lovrFree(world->tags[i]);
   }
-  mtx_destroy(&world->lock);
+  lovr_mutex_destroy(&world->lock);
 
   JPH_PhysicsSystem_Destroy(world->system);
   world->system = NULL;
@@ -821,7 +820,7 @@ Collider* lovrColliderCreate(World* world, float position[3], Shape* shape) {
   lovrCheck(!shape || !shape->collider, "Shape is already attached to a collider!");
 
   Collider* collider = lovrCalloc(sizeof(Collider));
-  collider->ref = 1;
+lovr_atomic_store(&collider->ref, 1);
   collider->world = world;
   collider->tag = 0xff;
   collider->enabled = true;
@@ -2174,7 +2173,7 @@ static bool lovrShapeReplace(Shape* shape, JPH_Shape* new) {
 BoxShape* lovrBoxShapeCreate(float dimensions[3]) {
   lovrCheck(dimensions[0] > 0.f && dimensions[1] > 0.f && dimensions[2] > 0.f, "BoxShape dimensions must be positive");
   BoxShape* shape = lovrCalloc(sizeof(BoxShape));
-  shape->ref = 1;
+lovr_atomic_store(&shape->ref, 1);
   shape->type = SHAPE_BOX;
   const JPH_Vec3 halfExtent = { dimensions[0] / 2.f, dimensions[1] / 2.f, dimensions[2] / 2.f };
   float shortestSide = MIN(dimensions[0], MIN(dimensions[1], dimensions[2]));
@@ -2201,7 +2200,7 @@ bool lovrBoxShapeSetDimensions(BoxShape* shape, float dimensions[3]) {
 SphereShape* lovrSphereShapeCreate(float radius) {
   lovrCheck(radius > 0.f, "SphereShape radius must be positive");
   SphereShape* shape = lovrCalloc(sizeof(SphereShape));
-  shape->ref = 1;
+lovr_atomic_store(&shape->ref, 1);
   shape->type = SHAPE_SPHERE;
   shape->handle = (JPH_Shape*) JPH_SphereShape_Create(radius);
   JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
@@ -2231,7 +2230,7 @@ static JPH_Shape* makeCapsule(float radius, float length) {
 CapsuleShape* lovrCapsuleShapeCreate(float radius, float length) {
   lovrCheck(radius > 0.f && length > 0.f, "CapsuleShape dimensions must be positive");
   CapsuleShape* shape = lovrCalloc(sizeof(CapsuleShape));
-  shape->ref = 1;
+lovr_atomic_store(&shape->ref, 1);
   shape->type = SHAPE_CAPSULE;
   shape->handle = makeCapsule(radius, length);
   JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
@@ -2273,7 +2272,7 @@ static JPH_Shape* makeCylinder(float radius, float length) {
 CylinderShape* lovrCylinderShapeCreate(float radius, float length) {
   lovrCheck(radius > 0.f && length > 0.f, "CylinderShape dimensions must be positive");
   CylinderShape* shape = lovrCalloc(sizeof(CylinderShape));
-  shape->ref = 1;
+lovr_atomic_store(&shape->ref, 1);
   shape->type = SHAPE_CYLINDER;
   shape->handle = makeCylinder(radius, length);
   JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
@@ -2303,7 +2302,7 @@ bool lovrCylinderShapeSetLength(CylinderShape* shape, float length) {
 
 ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count, float* scale) {
   ConvexShape* shape = lovrCalloc(sizeof(ConvexShape));
-  shape->ref = 1;
+lovr_atomic_store(&shape->ref, 1);
   shape->type = SHAPE_CONVEX;
   JPH_ConvexHullShapeSettings* settings = JPH_ConvexHullShapeSettings_Create((const JPH_Vec3*) points, count, .05f);
   JPH_Shape* hull = (JPH_Shape*) JPH_ConvexHullShapeSettings_CreateShape(settings);
@@ -2318,7 +2317,7 @@ ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count, float* scale)
 
 ConvexShape* lovrConvexShapeClone(ConvexShape* parent, float* scale) {
   ConvexShape* shape = lovrCalloc(sizeof(ConvexShape));
-  shape->ref = 1;
+lovr_atomic_store(&shape->ref, 1);
   shape->type = SHAPE_CONVEX;
   const JPH_Shape* hull = JPH_DecoratedShape_GetInnerShape((const JPH_DecoratedShape*) parent->handle);
   shape->handle = (JPH_Shape*) JPH_ScaledShape_Create(hull, vec3_toJolt(scale));
@@ -2366,7 +2365,7 @@ void lovrConvexShapeGetScale(ConvexShape* shape, float* scale) {
 
 MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t indexCount, uint32_t* indices, float* scale) {
   MeshShape* shape = lovrCalloc(sizeof(MeshShape));
-  shape->ref = 1;
+lovr_atomic_store(&shape->ref, 1);
   shape->type = SHAPE_MESH;
 
   uint32_t triangleCount = indexCount / 3;
@@ -2395,7 +2394,7 @@ MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t i
 
 MeshShape* lovrMeshShapeClone(MeshShape* parent, float* scale) {
   MeshShape* shape = lovrCalloc(sizeof(MeshShape));
-  shape->ref = 1;
+lovr_atomic_store(&shape->ref, 1);
   shape->type = SHAPE_MESH;
   const JPH_Shape* mesh = JPH_DecoratedShape_GetInnerShape((const JPH_DecoratedShape*) parent->handle);
   shape->handle = (JPH_Shape*) JPH_ScaledShape_Create(mesh, vec3_toJolt(scale));
@@ -2413,7 +2412,7 @@ void lovrMeshShapeGetScale(MeshShape* shape, float* scale) {
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY) {
   TerrainShape* shape = lovrCalloc(sizeof(TerrainShape));
-  shape->ref = 1;
+lovr_atomic_store(&shape->ref, 1);
   shape->type = SHAPE_TERRAIN;
   quat_identity(shape->rotation);
 
@@ -2650,7 +2649,7 @@ WeldJoint* lovrWeldJointCreate(Collider* a, Collider* b) {
   JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   WeldJoint* joint = lovrCalloc(sizeof(WeldJoint));
-  joint->ref = 1;
+lovr_atomic_store(&joint->ref, 1);
   joint->type = JOINT_WELD;
 
   JPH_FixedConstraintSettings settings;
@@ -2670,7 +2669,7 @@ BallJoint* lovrBallJointCreate(Collider* a, Collider* b, float anchor[3]) {
   JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   BallJoint* joint = lovrCalloc(sizeof(BallJoint));
-  joint->ref = 1;
+lovr_atomic_store(&joint->ref, 1);
   joint->type = JOINT_BALL;
 
   JPH_PointConstraintSettings settings;
@@ -2694,7 +2693,7 @@ ConeJoint* lovrConeJointCreate(Collider* a, Collider* b, float anchor[3], float 
   vec3_normalize(axis);
 
   ConeJoint* joint = lovrCalloc(sizeof(ConeJoint));
-  joint->ref = 1;
+lovr_atomic_store(&joint->ref, 1);
   joint->type = JOINT_CONE;
 
   JPH_ConeConstraintSettings settings;
@@ -2746,7 +2745,7 @@ DistanceJoint* lovrDistanceJointCreate(Collider* a, Collider* b, float anchor1[3
   JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   DistanceJoint* joint = lovrCalloc(sizeof(DistanceJoint));
-  joint->ref = 1;
+lovr_atomic_store(&joint->ref, 1);
   joint->type = JOINT_DISTANCE;
 
   JPH_DistanceConstraintSettings settings;
@@ -2796,7 +2795,7 @@ HingeJoint* lovrHingeJointCreate(Collider* a, Collider* b, float anchor[3], floa
   vec3_normalize(axis);
 
   HingeJoint* joint = lovrCalloc(sizeof(HingeJoint));
-  joint->ref = 1;
+lovr_atomic_store(&joint->ref, 1);
   joint->type = JOINT_HINGE;
 
   JPH_HingeConstraintSettings settings;
@@ -2935,7 +2934,7 @@ SliderJoint* lovrSliderJointCreate(Collider* a, Collider* b, float axis[3]) {
   JPH_Body* parent = a ? a->body : JPH_Body_GetFixedToWorldBody();
 
   SliderJoint* joint = lovrCalloc(sizeof(SliderJoint));
-  joint->ref = 1;
+lovr_atomic_store(&joint->ref, 1);
   joint->type = JOINT_SLIDER;
 
   JPH_SliderConstraintSettings settings;

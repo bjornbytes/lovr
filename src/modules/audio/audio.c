@@ -8,7 +8,6 @@
 #ifdef LOVR_USE_PHONON
 #include <phonon.h>
 #endif
-#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -28,7 +27,7 @@
 #define MAX_SOURCES 64
 
 struct Source {
-  atomic_uint ref;
+  lovr_atomic_uint ref;
   uint32_t slot;
   Sound* sound;
   ma_data_converter* converter;
@@ -51,11 +50,11 @@ struct Source {
   bool looping;
   bool pitchable;
   bool spatial;
-  atomic_bool playing;
-  atomic_bool hasTail;
-  atomic_uint offset;
-  atomic_uint playRequest;
-  atomic_uint seekRequest;
+  lovr_atomic_bool playing;
+  lovr_atomic_bool hasTail;
+  lovr_atomic_uint offset;
+  lovr_atomic_uint playRequest;
+  lovr_atomic_uint seekRequest;
 #ifdef LOVR_USE_PHONON
   IPLSource handle;
   IPLDirectEffect directEffect;
@@ -81,7 +80,7 @@ struct AudioMesh {
 #endif
 };
 
-static atomic_uint ref;
+static lovr_atomic_uint ref;
 
 static struct {
   AudioConfig config;
@@ -92,9 +91,9 @@ static struct {
   ma_data_converter playbackConverter;
   AudioStream* streams[2];
   Source* activeSources[64];
-  atomic_ullong activeSourceMask;
+  lovr_atomic_u64 activeSourceMask;
   uint64_t pendingSourceMask;
-  atomic_uint backbuffer;
+  lovr_atomic_uint backbuffer;
   uint32_t frontbuffer;
   bool simulatorDirty;
   float position[3];
@@ -106,21 +105,47 @@ static struct {
   IPLSource listener;
   IPLScene scene;
   bool sceneDirty;
-  atomic_uint enabledMeshCount;
-  _Atomic(IPLHRTF) hrtf[2];
+  lovr_atomic_uint enabledMeshCount;
+  lovr_atomic_ptr(IPLHRTF) hrtf[2];
   IPLCoordinateSpace3 listenerBasis[2];
   IPLReflectionEffect reflectionEffect;
   IPLReflectionMixer reflectionMixer;
   IPLAmbisonicsDecodeEffect ambisonicsDecodeEffect;
-  atomic_bool reverbFinished;
-  atomic_ullong sourceReverbMask;
-  atomic_ullong listenerReverbMask;
+  lovr_atomic_bool reverbFinished;
+  lovr_atomic_u64 sourceReverbMask;
+  lovr_atomic_u64 listenerReverbMask;
   IPLAudioBuffer listenerReverb;
   IPLAudioBuffer parametricReverb;
   float reverbSimulationTimer;
   float reverbDecay;
 #endif
 } state;
+
+#define SOURCE_IS_PLAYING(source) lovr_atomic_bool_load(&(source)->playing)
+#define SOURCE_SET_PLAYING(source, value) lovr_atomic_bool_store(&(source)->playing, value)
+#define SOURCE_HAS_TAIL(source) lovr_atomic_bool_load(&(source)->hasTail)
+#define SOURCE_SET_HAS_TAIL(source, value) lovr_atomic_bool_store(&(source)->hasTail, value)
+#define SOURCE_OFFSET(source) lovr_atomic_load(&(source)->offset)
+#define SOURCE_SET_OFFSET(source, value) lovr_atomic_store(&(source)->offset, value)
+#define SOURCE_PLAY_REQUEST(source) lovr_atomic_load(&(source)->playRequest)
+#define SOURCE_SET_PLAY_REQUEST(source, value) lovr_atomic_store(&(source)->playRequest, value)
+#define SOURCE_EXCHANGE_PLAY_REQUEST(source, value) lovr_atomic_exchange(&(source)->playRequest, value)
+#define SOURCE_EXCHANGE_SEEK_REQUEST(source, value) lovr_atomic_exchange(&(source)->seekRequest, value)
+#define SOURCE_SET_HAS_TAIL_FROM_MIX(source, value) lovr_atomic_bool_store(&(source)->hasTail, value)
+#define ACTIVE_SOURCE_MASK() lovr_atomic_u64_load(&state.activeSourceMask)
+#define ACTIVE_SOURCE_MASK_OR(mask) lovr_atomic_u64_fetch_or(&state.activeSourceMask, mask)
+#define ACTIVE_SOURCE_MASK_AND(mask) lovr_atomic_u64_fetch_and(&state.activeSourceMask, mask)
+#define BACKBUFFER_INDEX() lovr_atomic_load(&state.backbuffer)
+#define FLIP_BACKBUFFER() lovr_atomic_fetch_xor(&state.backbuffer, 1)
+#define ENABLED_MESH_COUNT() lovr_atomic_load(&state.enabledMeshCount)
+#define REVERB_FINISHED() lovr_atomic_bool_load(&state.reverbFinished)
+#define SET_REVERB_FINISHED(value) lovr_atomic_bool_store(&state.reverbFinished, value)
+#define SOURCE_REVERB_MASK() lovr_atomic_u64_load(&state.sourceReverbMask)
+#define SET_SOURCE_REVERB_MASK(value) lovr_atomic_u64_store(&state.sourceReverbMask, value)
+#define LISTENER_REVERB_MASK() lovr_atomic_u64_load(&state.listenerReverbMask)
+#define SET_LISTENER_REVERB_MASK(value) lovr_atomic_u64_store(&state.listenerReverbMask, value)
+#define LOAD_HRTF(slot) lovr_atomic_ptr_load(&state.hrtf[slot])
+#define EXCHANGE_HRTF(slot, value) lovr_atomic_ptr_exchange(&state.hrtf[slot], value)
 
 static const ma_format miniaudioFormats[] = {
   [SAMPLE_I16] = ma_format_s16,
@@ -164,23 +189,23 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
 
   phonon_mix_begin();
 
-  FOREACH_SOURCE(state.activeSourceMask, source) {
+  FOREACH_SOURCE(ACTIVE_SOURCE_MASK(), source) {
     if (!source) {
       continue;
     }
 
-    uint32_t play = atomic_exchange(&source->playRequest, ~0u);
+    uint32_t play = SOURCE_EXCHANGE_PLAY_REQUEST(source, ~0u);
 
     if (play != ~0u) {
-      if (!source->playing && play == 1) {
+      if (!SOURCE_IS_PLAYING(source) && play == 1) {
         phonon_source_reset(source);
       }
 
-      source->playing = !!play;
+      SOURCE_SET_PLAYING(source, !!play);
     }
 
-    uint32_t seek = atomic_exchange(&source->seekRequest, ~0u);
-    if (seek != ~0u) source->offset = seek;
+    uint32_t seek = SOURCE_EXCHANGE_SEEK_REQUEST(source, ~0u);
+    if (seek != ~0u) SOURCE_SET_OFFSET(source, seek);
 
     if (source->pitchable) {
       ma_data_converter_set_rate_ratio(source->converter, source->pitchRatio);
@@ -188,7 +213,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
 
     uint32_t channels = lovrSoundGetChannelCount(source->sound);
 
-    if (source->playing) {
+    if (SOURCE_IS_PLAYING(source)) {
       // Read and convert raw frames until there's BUFFER_SIZE converted frames
       // - No converter: just read frames into raw
       // - Converter: keep reading as many frames as possible/needed into raw and convert into tmp.
@@ -203,24 +228,24 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
           uint32_t capacity = sizeof(raw) / (channels * sizeof(float));
           ma_uint64 chunk;
           ma_data_converter_get_required_input_frame_count(source->converter, framesRemaining, &chunk);
-          framesRead = lovrSoundRead(source->sound, source->offset, MIN(chunk, capacity), raw);
+          framesRead = lovrSoundRead(source->sound, SOURCE_OFFSET(source), MIN(chunk, capacity), raw);
         } else {
-          framesRead = lovrSoundRead(source->sound, source->offset, framesRemaining, cursor);
+          framesRead = lovrSoundRead(source->sound, SOURCE_OFFSET(source), framesRemaining, cursor);
         }
 
         if (framesRead == 0) {
           if (source->looping) {
-            source->offset = 0;
+            SOURCE_SET_OFFSET(source, 0);
             continue;
           } else {
-            source->offset = 0;
-            source->playing = false;
+            SOURCE_SET_OFFSET(source, 0);
+            SOURCE_SET_PLAYING(source, false);
             memset(cursor, 0, framesRemaining * channels * sizeof(float));
             break;
           }
         } else {
-          uint32_t offset = atomic_load_explicit(&source->offset, memory_order_relaxed);
-          atomic_store_explicit(&source->offset, offset + framesRead, memory_order_relaxed);
+          uint32_t offset = SOURCE_OFFSET(source);
+          SOURCE_SET_OFFSET(source, offset + framesRead);
         }
 
         if (source->converter) {
@@ -249,7 +274,7 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
 
     // Spatialize
     if (source->spatial) {
-      source->hasTail = phonon_mix_source(source, buf, mix);
+      SOURCE_SET_HAS_TAIL_FROM_MIX(source, phonon_mix_source(source, buf, mix));
       buf = mix;
     } else if (channels == 1) {
       for (uint32_t i = 0; i < BUFFER_SIZE; i++) {
@@ -334,7 +359,7 @@ void lovrAudioDestroy(void) {
     lovrFree(state.deviceInfo[i]);
   }
   Source* source;
-  FOREACH_SOURCE(state.activeSourceMask | state.pendingSourceMask, source) lovrRelease(source, lovrSourceDestroy);
+  FOREACH_SOURCE(ACTIVE_SOURCE_MASK() | state.pendingSourceMask, source) lovrRelease(source, lovrSourceDestroy);
   ma_context_uninit(&state.context);
   lovrRelease(state.streams[AUDIO_PLAYBACK], lovrAudioStreamDestroy);
   lovrRelease(state.streams[AUDIO_CAPTURE], lovrAudioStreamDestroy);
@@ -497,10 +522,10 @@ bool lovrAudioIsStarted(AudioType type) {
 
 void lovrAudioUpdate(float dt) {
   Source* source;
-  FOREACH_SOURCE(state.activeSourceMask | state.pendingSourceMask, source) {
-    if (!source->playing && source->playRequest != 1 && !source->hasTail) {
+  FOREACH_SOURCE(ACTIVE_SOURCE_MASK() | state.pendingSourceMask, source) {
+    if (!SOURCE_IS_PLAYING(source) && SOURCE_PLAY_REQUEST(source) != 1 && !SOURCE_HAS_TAIL(source)) {
       phonon_source_remove(source);
-      state.activeSourceMask &= ~(1ull << source->slot);
+      ACTIVE_SOURCE_MASK_AND(~(1ull << source->slot));
       state.pendingSourceMask &= ~(1ull << source->slot);
       state.activeSources[source->slot] = NULL;
       source->slot = ~0u;
@@ -510,7 +535,7 @@ void lovrAudioUpdate(float dt) {
 
   phonon_update(dt);
 
-  atomic_fetch_or(&state.activeSourceMask, state.pendingSourceMask);
+  ACTIVE_SOURCE_MASK_OR(state.pendingSourceMask);
   state.pendingSourceMask = 0;
 }
 
@@ -546,7 +571,7 @@ Source* lovrSourceCreate(Sound* sound, bool pitchable, bool spatial) {
   lovrCheck(lovrSoundGetChannelCount(sound) <= 2 || spatial, "Ambisonic Sources must be spatial");
 
   Source* source = lovrCalloc(sizeof(Source));
-  source->ref = 1;
+  lovr_atomic_store(&source->ref, 1);
   source->slot = ~0u;
   source->sound = sound;
   source->pitchRatio = ((float) lovrSoundGetSampleRate(source->sound) / state.config.sampleRate);
@@ -590,7 +615,7 @@ Source* lovrSourceCreate(Sound* sound, bool pitchable, bool spatial) {
 
 Source* lovrSourceClone(Source* source) {
   Source* clone = lovrCalloc(sizeof(Source));
-  clone->ref = 1;
+  lovr_atomic_store(&clone->ref, 1);
   clone->slot = ~0u;
   clone->pitchRatio = source->pitchRatio;
   clone->volume = source->volume;
@@ -672,7 +697,7 @@ bool lovrSourcePlay(Source* source) {
   }
 
   if (source->slot == ~0u) {
-    uint64_t mask = state.activeSourceMask | state.pendingSourceMask;
+    uint64_t mask = ACTIVE_SOURCE_MASK() | state.pendingSourceMask;
     if (mask == ~0ull) return false;
     uint32_t slot = mask ? CTZL(~mask) : 0;
     state.pendingSourceMask |= (1ull << slot);
@@ -682,16 +707,16 @@ bool lovrSourcePlay(Source* source) {
     phonon_source_add(source);
   }
 
-  source->playRequest = 1;
+  SOURCE_SET_PLAY_REQUEST(source, 1);
 
   return true;
 }
 
 void lovrSourcePause(Source* source) {
   if (source->slot == ~0u) {
-    source->playing = false;
+    SOURCE_SET_PLAYING(source, false);
   } else {
-    source->playRequest = 0;
+    SOURCE_SET_PLAY_REQUEST(source, 0);
   }
 }
 
@@ -701,7 +726,7 @@ void lovrSourceStop(Source* source) {
 }
 
 bool lovrSourceIsPlaying(Source* source) {
-  return source->playing || source->playRequest == 1;
+  return SOURCE_IS_PLAYING(source) || SOURCE_PLAY_REQUEST(source) == 1;
 }
 
 bool lovrSourceIsLooping(Source* source) {
@@ -735,11 +760,11 @@ void lovrSourceSetVolume(Source* source, float volume, VolumeUnit units) {
 }
 
 void lovrSourceSeek(Source* source, double time, TimeUnit units) {
-  source->seekRequest = units == UNIT_SECONDS ? (uint32_t) (time * lovrSoundGetSampleRate(source->sound) + .5) : (uint32_t) time;
+  lovr_atomic_store(&source->seekRequest, units == UNIT_SECONDS ? (uint32_t) (time * lovrSoundGetSampleRate(source->sound) + .5) : (uint32_t) time);
 }
 
 double lovrSourceTell(Source* source, TimeUnit units) {
-  return units == UNIT_SECONDS ? (double) source->offset / lovrSoundGetSampleRate(source->sound) : source->offset;
+  return units == UNIT_SECONDS ? (double) SOURCE_OFFSET(source) / lovrSoundGetSampleRate(source->sound) : SOURCE_OFFSET(source);
 }
 
 double lovrSourceGetDuration(Source* source, TimeUnit units) {
@@ -945,7 +970,7 @@ static void onSpatializerLog(IPLLogLevel iplLevel, const char* message) {
 
 static void simulateReflections(void* arg) {
   iplSimulatorRunReflections(state.simulator);
-  atomic_store(&state.reverbFinished, true);
+  SET_REVERB_FINISHED(true);
 }
 
 static bool phonon_init(void) {
@@ -1031,18 +1056,18 @@ static bool phonon_init(void) {
     return phonon_destroy(), lovrSetError("Failed to create reverb buffer");
   }
 
-  atomic_store(&state.reverbFinished, true);
+  SET_REVERB_FINISHED(true);
 
   return true;
 }
 
 static void phonon_destroy(void) {
-  while (!atomic_load(&state.reverbFinished)) {
+  while (!REVERB_FINISHED()) {
     job_spin();
   }
 
   phonon_set_hrtf(NULL);
-  IPLHRTF hrtf = state.hrtf[0];
+  IPLHRTF hrtf = LOAD_HRTF(0);
   iplHRTFRelease(&hrtf);
   iplAudioBufferFree(state.phonon, &state.parametricReverb);
   iplAudioBufferFree(state.phonon, &state.listenerReverb);
@@ -1069,12 +1094,12 @@ static void phonon_update(float dt) {
   state.simulatorDirty = false;
 
   // TODO maybe split into 2 simulators so we can have less latency on direct simulation commits
-  if (state.reverbFinished) {
+  if (REVERB_FINISHED()) {
     iplSimulatorCommit(state.simulator);
   }
 
-  uint32_t backbuffer = state.backbuffer;
-  uint64_t mask = state.activeSourceMask | state.pendingSourceMask;
+  uint32_t backbuffer = BACKBUFFER_INDEX();
+  uint64_t mask = ACTIVE_SOURCE_MASK() | state.pendingSourceMask;
 
   IPLSimulationSharedInputs sharedInputs;
   convertPose(state.position, state.orientation, &state.listenerBasis[backbuffer]);
@@ -1095,8 +1120,8 @@ static void phonon_update(float dt) {
     if (vec3_dot(source->absorption, source->absorption) > 1e-5) inputs.directFlags |= IPL_DIRECTSIMULATIONFLAGS_AIRABSORPTION;
     if (source->outerAngleVolume < 1.f) inputs.directFlags |= IPL_DIRECTSIMULATIONFLAGS_DIRECTIVITY;
     if (source->minFalloffVolume < 1.f) inputs.directFlags |= IPL_DIRECTSIMULATIONFLAGS_DISTANCEATTENUATION;
-    if (state.enabledMeshCount > 0 && source->occlusionRays > 0) inputs.directFlags |= IPL_DIRECTSIMULATIONFLAGS_OCCLUSION;
-    if (state.enabledMeshCount > 0 && source->occlusionRays > 0 && source->transmissionRays > 0) inputs.directFlags |= IPL_DIRECTSIMULATIONFLAGS_TRANSMISSION;
+    if (ENABLED_MESH_COUNT() > 0 && source->occlusionRays > 0) inputs.directFlags |= IPL_DIRECTSIMULATIONFLAGS_OCCLUSION;
+    if (ENABLED_MESH_COUNT() > 0 && source->occlusionRays > 0 && source->transmissionRays > 0) inputs.directFlags |= IPL_DIRECTSIMULATIONFLAGS_TRANSMISSION;
 
     convertPose(source->position, source->orientation, &inputs.source);
 
@@ -1132,15 +1157,15 @@ static void phonon_update(float dt) {
     if (vec3_dot(source->absorption, source->absorption) > 1e-5) flags |= IPL_DIRECTEFFECTFLAGS_APPLYAIRABSORPTION;
     if (source->outerAngleVolume < 1.f) flags |= IPL_DIRECTEFFECTFLAGS_APPLYDIRECTIVITY;
     if (source->minFalloffVolume < 1.f) flags |= IPL_DIRECTEFFECTFLAGS_APPLYDISTANCEATTENUATION;
-    if (state.enabledMeshCount > 0 && source->occlusionRays > 0) flags |= IPL_DIRECTEFFECTFLAGS_APPLYOCCLUSION;
-    if (state.enabledMeshCount > 0 && source->occlusionRays > 0 && source->transmissionRays > 0) flags |= IPL_DIRECTEFFECTFLAGS_APPLYTRANSMISSION;
+    if (ENABLED_MESH_COUNT() > 0 && source->occlusionRays > 0) flags |= IPL_DIRECTEFFECTFLAGS_APPLYOCCLUSION;
+    if (ENABLED_MESH_COUNT() > 0 && source->occlusionRays > 0 && source->transmissionRays > 0) flags |= IPL_DIRECTEFFECTFLAGS_APPLYTRANSMISSION;
     source->directParams[backbuffer].flags = flags;
   }
 
   uint64_t sourceReverbMask = 0;
   uint64_t listenerReverbMask = 0;
 
-  if (state.enabledMeshCount > 0) {
+  if (ENABLED_MESH_COUNT() > 0) {
     FOREACH_SOURCE(mask, source) {
       if (source->spatial && source->reverb > 0.f) {
         if (source->reverbMode == REVERB_SOURCE) {
@@ -1151,16 +1176,16 @@ static void phonon_update(float dt) {
       }
     }
 
-    if (listenerReverbMask && !state.listenerReverbMask) {
+    if (listenerReverbMask && !LISTENER_REVERB_MASK()) {
       iplSourceAdd(state.listener, state.simulator);
-    } else if (!listenerReverbMask && state.listenerReverbMask) {
+    } else if (!listenerReverbMask && LISTENER_REVERB_MASK()) {
       iplSourceRemove(state.listener, state.simulator);
     }
 
-    if (state.reverbFinished && (sourceReverbMask || listenerReverbMask)) {
+    if (REVERB_FINISHED() && (sourceReverbMask || listenerReverbMask)) {
       if (state.reverbSimulationTimer <= 0.f) {
         state.reverbSimulationTimer = state.config.reverb.rate;
-        atomic_store(&state.reverbFinished, false);
+        SET_REVERB_FINISHED(false);
 
         if (listenerReverbMask) {
           IPLSimulationInputs inputs;
@@ -1190,9 +1215,9 @@ static void phonon_update(float dt) {
     }
   }
 
-  state.sourceReverbMask = sourceReverbMask;
-  state.listenerReverbMask = listenerReverbMask;
-  atomic_fetch_xor_explicit(&state.backbuffer, 1, memory_order_release);
+  SET_SOURCE_REVERB_MASK(sourceReverbMask);
+  SET_LISTENER_REVERB_MASK(listenerReverbMask);
+  FLIP_BACKBUFFER();
 }
 
 static bool phonon_set_hrtf(Blob* blob) {
@@ -1212,7 +1237,7 @@ static bool phonon_set_hrtf(Blob* blob) {
     }
   }
 
-  IPLHRTF old = atomic_exchange(&state.hrtf[1], hrtf);
+  IPLHRTF old = EXCHANGE_HRTF(1, hrtf);
 
   if (old != NO_HRTF) {
     iplHRTFRelease(&old);
@@ -1222,14 +1247,14 @@ static bool phonon_set_hrtf(Blob* blob) {
 }
 
 static void phonon_mix_begin(void) {
-  state.frontbuffer = !atomic_load_explicit(&state.backbuffer, memory_order_acquire);
+  state.frontbuffer = !BACKBUFFER_INDEX();
 
-  IPLHRTF newHRTF = atomic_exchange(&state.hrtf[1], NO_HRTF);
+  IPLHRTF newHRTF = EXCHANGE_HRTF(1, NO_HRTF);
 
   if (newHRTF != NO_HRTF) {
-    IPLHRTF old = state.hrtf[0];
+    IPLHRTF old = LOAD_HRTF(0);
     iplHRTFRelease(&old);
-    state.hrtf[0] = newHRTF;
+    lovr_atomic_ptr_store(&state.hrtf[0], newHRTF);
   }
 
   memset(state.listenerReverb.data[0], 0, BUFFER_SIZE * sizeof(float));
@@ -1242,7 +1267,7 @@ static bool phonon_mix_source_ambisonic(Source* source, float* src, float* dst) 
   bool tail = false;
 
   // Tail
-  if (!source->playing) {
+  if (!SOURCE_IS_PLAYING(source)) {
     if (iplAmbisonicsDecodeEffectGetTailSize(source->ambisonicEffect) > 0) {
       tail |= !iplAmbisonicsDecodeEffectGetTail(source->ambisonicEffect, &output);
       iplAudioBufferInterleave(state.phonon, &output, dst);
@@ -1268,7 +1293,7 @@ static bool phonon_mix_source_ambisonic(Source* source, float* src, float* dst) 
   iplAudioBufferConvertAmbisonics(state.phonon, IPL_AMBISONICSTYPE_SN3D, IPL_AMBISONICSTYPE_N3D, &input, &input);
 
   // Reverb
-  if (source->reverb > 0.f && state.enabledMeshCount > 0) {
+  if (source->reverb > 0.f && ENABLED_MESH_COUNT() > 0) {
     IPLAudioBuffer reverbInput = { 1, BUFFER_SIZE };
 
     if (source->reverb == 1.f) {
@@ -1305,8 +1330,8 @@ static bool phonon_mix_source_ambisonic(Source* source, float* src, float* dst) 
   if (source->spatialization > 0.f) {
     IPLAmbisonicsDecodeEffectParams params = {
       .order = AMBISONIC_ORDER(input.numChannels),
-      .hrtf = state.hrtf[0],
-      .binaural = !!state.hrtf[0]
+      .hrtf = LOAD_HRTF(0),
+      .binaural = !!LOAD_HRTF(0)
     };
 
     float orientation[4];
@@ -1345,7 +1370,7 @@ static bool phonon_mix_source(Source* source, float* src, float* dst) {
   }
 
   // Tail
-  if (!source->playing) {
+  if (!SOURCE_IS_PLAYING(source)) {
     IPLAudioBuffer buffer = { 2, BUFFER_SIZE, (float*[2]) { left, right } };
 
     if (iplBinauralEffectGetTailSize(source->binauralEffect) > 0) {
@@ -1379,7 +1404,7 @@ static bool phonon_mix_source(Source* source, float* src, float* dst) {
   }
 
   // Reverb input
-  if (source->reverb > 0.f && state.enabledMeshCount > 0) {
+  if (source->reverb > 0.f && ENABLED_MESH_COUNT() > 0) {
     if (channels == 2) {
       for (uint32_t i = 0; i < BUFFER_SIZE; i++) {
         src[i] = (left[i] + right[i]) * .5f * source->reverb;
@@ -1418,12 +1443,12 @@ static bool phonon_mix_source(Source* source, float* src, float* dst) {
     // Can reuse src as temporary buffer for spatialization output
     IPLAudioBuffer spatialized = { 2, BUFFER_SIZE, (float*[2]) { src, src + BUFFER_SIZE } };
 
-    if (state.hrtf[0]) {
+    if (LOAD_HRTF(0)) {
       IPLBinauralEffectParams params = {
         .direction = source->relativeDirection[state.frontbuffer],
         .interpolation = IPL_HRTFINTERPOLATION_BILINEAR,
         .spatialBlend = source->spatialization,
-        .hrtf = state.hrtf[0]
+        .hrtf = LOAD_HRTF(0)
       };
       input.numChannels = 2; // For mono input, left/right channels are aliased to same buffer
       tail |= !iplBinauralEffectApply(source->binauralEffect, &params, &input, &spatialized);
@@ -1465,10 +1490,10 @@ static void phonon_mix_reverb(float* dst) {
   IPLAudioBuffer mono = { 1, BUFFER_SIZE, (float*[1]) { left } };
   IPLAudioBuffer stereo = { 2, BUFFER_SIZE, (float*[2]) { left, right } };
 
-  bool anyReverb = state.sourceReverbMask || state.listenerReverbMask || state.reverbDecay > 0.f;
+  bool anyReverb = SOURCE_REVERB_MASK() || LISTENER_REVERB_MASK() || state.reverbDecay > 0.f;
 
   // Listener-centric reverb
-  if (state.listenerReverbMask || state.reverbDecay > 0.f) {
+  if (LISTENER_REVERB_MASK() || state.reverbDecay > 0.f) {
     IPLSimulationOutputs outputs = { 0 };
     iplSourceGetOutputs(state.listener, IPL_SIMULATIONFLAGS_REFLECTIONS, &outputs);
 
@@ -1481,7 +1506,7 @@ static void phonon_mix_reverb(float* dst) {
 
     // After reverbing sources finish playing, we keep feeding the effect silence for a bit, so that
     // we can reset it once it decays, to avoid any cut off tails or pops if we have to reverb again
-    if (state.listenerReverbMask) {
+    if (LISTENER_REVERB_MASK()) {
       state.reverbDecay = state.config.reverb.duration * BUFFER_SIZE;
     }
   } else if (iplReflectionEffectGetTailSize(state.reflectionEffect) > 0) {
@@ -1511,9 +1536,9 @@ static void phonon_mix_reverb(float* dst) {
 
       IPLAmbisonicsDecodeEffectParams ambisonicsDecodeParams = {
         .order = 1,
-        .hrtf = state.hrtf[0],
+        .hrtf = LOAD_HRTF(0),
         .orientation = state.listenerBasis[state.frontbuffer],
-        .binaural = !!state.hrtf[0]
+        .binaural = !!LOAD_HRTF(0)
       };
 
       iplAmbisonicsDecodeEffectApply(state.ambisonicsDecodeEffect, &ambisonicsDecodeParams, &ambisonic, &stereo);
@@ -1553,7 +1578,7 @@ static bool phonon_source_init(Source* source) {
   };
 
   IPLBinauralEffectSettings binauralEffectSettings = {
-    .hrtf = state.hrtf[0]
+    .hrtf = LOAD_HRTF(0)
   };
 
   IPLReflectionEffectSettings reflectionSettings = {
@@ -1728,7 +1753,7 @@ static bool phonon_mesh_init(AudioMesh* mesh, float* vertices, uint32_t* indices
   }
 
   iplInstancedMeshAdd(mesh->instancedMesh, state.scene);
-  state.enabledMeshCount++;
+  lovr_atomic_fetch_add(&state.enabledMeshCount, 1);
   state.sceneDirty = true;
   return true;
 }
@@ -1749,7 +1774,7 @@ static bool phonon_mesh_init_clone(AudioMesh* mesh) {
 
   mesh->staticMesh = mesh->parent->staticMesh;
   mesh->scene = mesh->parent->scene;
-  state.enabledMeshCount++;
+  lovr_atomic_fetch_add(&state.enabledMeshCount, 1);
   state.sceneDirty = true;
   return true;
 }
@@ -1757,7 +1782,7 @@ static bool phonon_mesh_init_clone(AudioMesh* mesh) {
 static void phonon_mesh_destroy(AudioMesh* mesh) {
   if (mesh->enabled) {
     iplInstancedMeshRemove(mesh->instancedMesh, state.scene);
-    state.enabledMeshCount--;
+    lovr_atomic_fetch_sub(&state.enabledMeshCount, 1);
     state.sceneDirty = true;
   }
   iplInstancedMeshRelease(&mesh->instancedMesh);
@@ -1769,10 +1794,10 @@ static void phonon_mesh_set_enabled(AudioMesh* mesh, bool enable) {
   if (mesh->enabled != enable) {
     if (enable) {
       iplInstancedMeshAdd(mesh->instancedMesh, state.scene);
-      state.enabledMeshCount++;
+      lovr_atomic_fetch_add(&state.enabledMeshCount, 1);
     } else {
       iplInstancedMeshRemove(mesh->instancedMesh, state.scene);
-      state.enabledMeshCount--;
+      lovr_atomic_fetch_sub(&state.enabledMeshCount, 1);
     }
     state.sceneDirty = true;
   }
