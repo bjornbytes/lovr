@@ -4,6 +4,7 @@
 #include "core/job.h"
 #include "core/maf.h"
 #include "util.h"
+#include "core/threads.h"
 #include "lib/miniaudio/miniaudio.h"
 #ifdef LOVR_USE_PHONON
 #include <phonon.h>
