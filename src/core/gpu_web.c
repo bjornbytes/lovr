@@ -101,6 +101,7 @@ static struct {
 #define MAX(a, b) (a > b ? a : b)
 
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb);
+static WGPU_TEXTURE_VIEW_DIMENSION convertTextureType(gpu_texture_type type);
 static uint32_t getRowSize(gpu_texture_format format, uint32_t width);
 
 // Buffer
@@ -263,13 +264,6 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 }
 
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
-  static const WGPU_TEXTURE_VIEW_DIMENSION types[] = {
-    [GPU_TEXTURE_2D] = WGPU_TEXTURE_VIEW_DIMENSION_2D,
-    [GPU_TEXTURE_3D] = WGPU_TEXTURE_VIEW_DIMENSION_3D,
-    [GPU_TEXTURE_CUBE] = WGPU_TEXTURE_VIEW_DIMENSION_CUBE,
-    [GPU_TEXTURE_ARRAY] = WGPU_TEXTURE_VIEW_DIMENSION_2D_ARRAY
-  };
-
   if (texture != info->source) {
     texture->handle = 0;
     texture->format = info->source->format;
@@ -278,7 +272,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
 
   return texture->view = wgpu_texture_create_view(info->source->handle, &(WGpuTextureViewDescriptor) {
     .format = convertFormat(texture->format, texture->srgb),
-    .dimension = types[info->type],
+    .dimension = convertTextureType(info->type),
     .baseMipLevel = info->levelIndex,
     .mipLevelCount = info->levelCount,
     .baseArrayLayer = info->layerIndex,
@@ -459,10 +453,9 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
       case GPU_SLOT_TEXTURE_WITH_SAMPLER:
         break;
 
-      // FIXME need more metadata
       case GPU_SLOT_SAMPLED_TEXTURE:
         entries[i].layout.texture.sampleType = sampleTypes[info->slots[i].sampleType];
-        entries[i].layout.texture.viewDimension = WGPU_TEXTURE_VIEW_DIMENSION_2D;
+        entries[i].layout.texture.viewDimension = convertTextureType(info->slots[i].textureType);
         entries[i].layout.texture.multisampled = info->slots[i].multisampled;
         break;
 
@@ -470,7 +463,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
       case GPU_SLOT_STORAGE_TEXTURE:
         entries[i].layout.storageTexture.access = WGPU_STORAGE_TEXTURE_ACCESS_WRITE_ONLY;
         entries[i].layout.storageTexture.format = WGPU_TEXTURE_FORMAT_INVALID;
-        entries[i].layout.storageTexture.viewDimension = WGPU_TEXTURE_VIEW_DIMENSION_2D;
+        entries[i].layout.storageTexture.viewDimension = convertTextureType(info->slots[i].textureType);
         break;
 
       // FIXME need more metadata?
@@ -1568,6 +1561,17 @@ static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb) {
   };
 
   return formats[format][srgb];
+}
+
+static WGPU_TEXTURE_VIEW_DIMENSION convertTextureType(gpu_texture_type type) {
+  static const WGPU_TEXTURE_VIEW_DIMENSION types[] = {
+    [GPU_TEXTURE_2D] = WGPU_TEXTURE_VIEW_DIMENSION_2D,
+    [GPU_TEXTURE_3D] = WGPU_TEXTURE_VIEW_DIMENSION_3D,
+    [GPU_TEXTURE_CUBE] = WGPU_TEXTURE_VIEW_DIMENSION_CUBE,
+    [GPU_TEXTURE_ARRAY] = WGPU_TEXTURE_VIEW_DIMENSION_2D_ARRAY
+  };
+
+  return types[type];
 }
 
 static uint32_t getRowSize(gpu_texture_format format, uint32_t width) {

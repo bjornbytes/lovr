@@ -3667,6 +3667,16 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       if (texture) {
         shader->resources[index].textureFlags = resource->textureFlags;
 
+        if (resource->dimension == SPV_TEXTURE_3D) {
+          slots[index].textureType = GPU_TEXTURE_3D;
+        } else if (resource->textureFlags & SPV_TEXTURE_CUBE) {
+          slots[index].textureType = GPU_TEXTURE_CUBE;
+        } else if (resource->textureFlags & SPV_TEXTURE_ARRAY) {
+          slots[index].textureType = GPU_TEXTURE_ARRAY;
+        } else {
+          slots[index].textureType = GPU_TEXTURE_2D;
+        }
+
         switch (resource->sampleType) {
           case SPV_F32: slots[index].sampleType = GPU_SAMPLE_FLOAT; break;
           case SPV_I32: slots[index].sampleType = GPU_SAMPLE_INT; break;
