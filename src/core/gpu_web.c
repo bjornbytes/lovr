@@ -1297,7 +1297,10 @@ bool gpu_init(gpu_config* config) {
     config->features->wireframe = false;
     config->features->depthClamp = wgpu_device_supports_feature(state.device, WGPU_FEATURE_DEPTH_CLIP_CONTROL);
     config->features->depthResolve = false;
+    config->features->foveation = false;
+    config->features->rayQuery = false;
     config->features->indirectDrawFirstInstance = wgpu_device_supports_feature(state.device, WGPU_FEATURE_INDIRECT_FIRST_INSTANCE);
+    config->features->packedBuffers = false;
     config->features->shaderDebug = false;
     config->features->float64 = false;
     config->features->int64 = false;
