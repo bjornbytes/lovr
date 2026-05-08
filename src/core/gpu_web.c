@@ -1320,10 +1320,10 @@ bool gpu_init(gpu_config* config) {
     config->features->formats[GPU_FORMAT_RGB5A1][0] = 0;
     config->features->formats[GPU_FORMAT_RGB10A2][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
     config->features->formats[GPU_FORMAT_RG11B10F][0] = GPU_FEATURE_SAMPLE;
-    config->features->formats[GPU_FORMAT_D16][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
-    config->features->formats[GPU_FORMAT_D24][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
-    config->features->formats[GPU_FORMAT_D32F][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
-    config->features->formats[GPU_FORMAT_D24S8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_D16][0] = GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_D24][0] = GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_D32F][0] = GPU_FEATURE_RENDER;
+    config->features->formats[GPU_FORMAT_D24S8][0] = GPU_FEATURE_RENDER;
 
     // We can't actually advertise support for render/sample on r16/rg16/rgba16 with tier1, because:
     // - They don't support resolves (so no RENDER)
