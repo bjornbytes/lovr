@@ -64,17 +64,18 @@ static EM_BOOL onResize(int type, const EmscriptenUiEvent* data, void* userdata)
 }
 
 static EM_BOOL onMouseButton(int type, const EmscriptenMouseEvent* data, void* userdata) {
-  os_mouse_button button;
+  int button;
+
   switch (data->button) {
-    case 0: button = MOUSE_LEFT; break;
-    case 2: button = MOUSE_RIGHT; break;
+    case 0: button = 0; break;
+    case 2: button = 1; break;
     default: return false;
   }
 
   bool pressed = type == EMSCRIPTEN_EVENT_MOUSEDOWN;
 
   if (state.onMouseButton) {
-    state.onMouseButton((int) button, pressed);
+    state.onMouseButton(button, pressed);
   }
 
   return false;

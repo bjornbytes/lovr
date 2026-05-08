@@ -1460,7 +1460,8 @@ void gpu_destroy(void) {
     wgpu_object_destroy(state.blit.bindGroupLayout);
     wgpu_object_destroy(state.blit.pipelineLayout);
     wgpu_object_destroy(state.blit.pipeline);
-    wgpu_object_destroy(state.blit.sampler);
+    wgpu_object_destroy(state.blit.samplers[0]);
+    wgpu_object_destroy(state.blit.samplers[1]);
   }
 
   wgpu_object_destroy(state.device);
