@@ -90,7 +90,7 @@ static struct {
     WGpuBindGroupLayout bindGroupLayout;
     WGpuPipelineLayout pipelineLayout;
     WGpuRenderPipeline pipeline;
-    WGpuSampler sampler;
+    WGpuSampler samplers[2];
   } blit;
 } state;
 
@@ -1185,17 +1185,19 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
       .layout = state.blit.pipelineLayout
     });
 
-    state.blit.sampler = wgpu_device_create_sampler(state.device, &(WGpuSamplerDescriptor) {
-      .minFilter = WGPU_FILTER_MODE_LINEAR,
-      .magFilter = WGPU_FILTER_MODE_LINEAR,
-      .mipmapFilter = WGPU_MIPMAP_FILTER_MODE_NEAREST,
-      .addressModeU = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
-      .addressModeV = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
-      .addressModeW = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE
-    });
+    for (uint32_t i = 0; i < 2; i++) {
+      state.blit.samplers[i] = wgpu_device_create_sampler(state.device, &(WGpuSamplerDescriptor) {
+        .minFilter = i == 0 ? WGPU_FILTER_MODE_NEAREST : WGPU_FILTER_MODE_LINEAR,
+        .magFilter = i == 0 ? WGPU_FILTER_MODE_NEAREST : WGPU_FILTER_MODE_LINEAR,
+        .mipmapFilter = WGPU_MIPMAP_FILTER_MODE_NEAREST,
+        .addressModeU = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeV = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeW = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE
+      });
+    }
   }
 
-  // TODO 3D textures, src uv rect, nearest
+  // TODO 3D textures, src uv rect
   for (uint32_t i = 0; i < dstExtent[2]; i++) {
     WGpuTextureView srcView = wgpu_texture_create_view(src->handle, &(WGpuTextureViewDescriptor) {
       .format = convertFormat(src->format, src->srgb),
@@ -1217,7 +1219,7 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
 
     WGpuBindGroupEntry bindings[] = {
       { .binding = 0, .resource = srcView },
-      { .binding = 1, .resource = state.blit.sampler }
+      { .binding = 1, .resource = state.blit.samplers[filter] }
     };
 
     WGpuBindGroup bindGroup = wgpu_device_create_bind_group(state.device, state.blit.bindGroupLayout, bindings, COUNTOF(bindings));
