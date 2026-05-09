@@ -2223,7 +2223,7 @@ bool gpu_stream_end(gpu_stream* stream) {
   return true;
 }
 
-void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
+void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps) {
   static const VkAttachmentLoadOp loadOps[] = {
     [GPU_LOAD_OP_CLEAR] = VK_ATTACHMENT_LOAD_OP_CLEAR,
     [GPU_LOAD_OP_DISCARD] = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -2261,6 +2261,12 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
       .imageMemoryBarrierCount = barrierCount,
       .pImageMemoryBarriers = barriers
     });
+  }
+
+  // Timestamp
+
+  if (timestamps && timestamps->tally && timestamps->start != ~0u) {
+    vkCmdWriteTimestamp(stream->commands, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestamps->tally->handle, timestamps->start);
   }
 
   // Begin pass
@@ -2552,13 +2558,19 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   }
 }
 
-void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas) {
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps) {
   if (state.extensions.dynamicRendering) {
     vkCmdEndRenderingKHR(stream->commands);
   } else {
     vkCmdEndRenderPass2KHR(stream->commands, &(VkSubpassEndInfo) {
       .sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO
     });
+  }
+
+  // Timestamp
+
+  if (timestamps && timestamps->tally && timestamps->end != ~0u) {
+    vkCmdWriteTimestamp(stream->commands, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestamps->tally->handle, timestamps->end);
   }
 
   // Layout transitions
@@ -2587,12 +2599,16 @@ void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas) {
   }
 }
 
-void gpu_compute_begin(gpu_stream* stream) {
-  //
+void gpu_compute_begin(gpu_stream* stream, gpu_timestamp_writes* timestamps) {
+  if (timestamps && timestamps->tally && timestamps->start != ~0u) {
+    vkCmdWriteTimestamp(stream->commands, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestamps->tally->handle, timestamps->start);
+  }
 }
 
-void gpu_compute_end(gpu_stream* stream) {
-  //
+void gpu_compute_end(gpu_stream* stream, gpu_timestamp_writes* timestamps) {
+  if (timestamps && timestamps->tally && timestamps->end != ~0u) {
+    vkCmdWriteTimestamp(stream->commands, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestamps->tally->handle, timestamps->end);
+  }
 }
 
 void gpu_set_viewport(gpu_stream* stream, float view[4], float depthRange[2]) {

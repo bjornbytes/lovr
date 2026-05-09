@@ -834,7 +834,7 @@ bool gpu_stream_end(gpu_stream* stream) {
   return true;
 }
 
-void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
+void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps) {
   static const WGPU_LOAD_OP loadOps[] = {
     [GPU_LOAD_OP_CLEAR] = WGPU_LOAD_OP_CLEAR,
     [GPU_LOAD_OP_DISCARD] = WGPU_LOAD_OP_CLEAR,
@@ -881,22 +881,41 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
   WGpuRenderPassDescriptor info = {
     .numColorAttachments = colorAttachmentCount,
     .colorAttachments = colorAttachments,
-    .depthStencilAttachment = depth
+    .depthStencilAttachment = depth,
+    .occlusionQuerySet = canvas->pixelTally ? canvas->pixelTally->handle : 0
   };
+
+  if (timestamps) {
+    info.timestampWrites = (WGpuRenderPassTimestampWrites) {
+      .querySet = timestamps->tally ? timestamps->tally->handle : 0,
+      .beginningOfPassWriteIndex = timestamps->start,
+      .endOfPassWriteIndex = timestamps->end
+    };
+  }
 
   stream->pass = wgpu_command_encoder_begin_render_pass(stream->commands, &info);
 }
 
-void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas) {
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps) {
   wgpu_render_pass_encoder_end(stream->pass);
   stream->pass = 0;
 }
 
-void gpu_compute_begin(gpu_stream* stream) {
-  stream->pass = wgpu_command_encoder_begin_compute_pass(stream->commands, NULL);
+void gpu_compute_begin(gpu_stream* stream, gpu_timestamp_writes* timestamps) {
+  WGpuComputePassDescriptor info = { 0 };
+
+  if (timestamps) {
+    info.timestampWrites = (WGpuComputePassTimestampWrites) {
+      .querySet = timestamps->tally ? timestamps->tally->handle : 0,
+      .beginningOfPassWriteIndex = timestamps->start,
+      .endOfPassWriteIndex = timestamps->end
+    };
+  }
+
+  stream->pass = wgpu_command_encoder_begin_compute_pass(stream->commands, &info);
 }
 
-void gpu_compute_end(gpu_stream* stream) {
+void gpu_compute_end(gpu_stream* stream, gpu_timestamp_writes* timestamps) {
   wgpu_compute_pass_encoder_end(stream->pass);
   stream->pass = 0;
 }

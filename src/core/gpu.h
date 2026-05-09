@@ -655,9 +655,16 @@ typedef struct {
 } gpu_depth_attachment;
 
 typedef struct {
+  gpu_tally* tally;
+  uint32_t start;
+  uint32_t end;
+} gpu_timestamp_writes;
+
+typedef struct {
   gpu_color_attachment color[4];
   gpu_depth_attachment depth;
   gpu_texture* foveation;
+  gpu_tally* pixelTally;
   uint32_t width;
   uint32_t height;
   uint32_t area[4];
@@ -714,10 +721,10 @@ typedef struct {
 
 gpu_stream* gpu_stream_begin(const char* label);
 bool gpu_stream_end(gpu_stream* stream);
-void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas);
-void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas);
-void gpu_compute_begin(gpu_stream* stream);
-void gpu_compute_end(gpu_stream* stream);
+void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps);
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps);
+void gpu_compute_begin(gpu_stream* stream, gpu_timestamp_writes* timestamps);
+void gpu_compute_end(gpu_stream* stream, gpu_timestamp_writes* timestamps);
 void gpu_set_viewport(gpu_stream* stream, float viewport[4], float depthRange[2]);
 void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]);
 void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint32_t size);
