@@ -12,6 +12,7 @@ struct gpu_buffer {
 struct gpu_texture {
   WGpuTexture handle;
   WGpuTextureView view;
+  gpu_texture_type type;
   gpu_texture_format format;
   bool srgb;
 };
@@ -191,6 +192,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     [GPU_TEXTURE_ARRAY] = WGPU_TEXTURE_DIMENSION_2D
   };
 
+  texture->type = info->type;
   texture->format = info->format;
   texture->srgb = info->srgb;
 
@@ -1220,19 +1222,19 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
   for (uint32_t i = 0; i < dstExtent[2]; i++) {
     WGpuTextureView srcView = wgpu_texture_create_view(src->handle, &(WGpuTextureViewDescriptor) {
       .format = convertFormat(src->format, src->srgb),
-      .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
+      .dimension = src->type == GPU_TEXTURE_3D ? WGPU_TEXTURE_VIEW_DIMENSION_3D : WGPU_TEXTURE_VIEW_DIMENSION_2D,
       .baseMipLevel = srcOffset[3],
       .mipLevelCount = 1,
-      .baseArrayLayer = srcOffset[2] + i,
+      .baseArrayLayer = src->type == GPU_TEXTURE_3D ? 0 : srcOffset[2] + i,
       .arrayLayerCount = 1
     });
 
     WGpuTextureView dstView = wgpu_texture_create_view(dst->handle, &(WGpuTextureViewDescriptor) {
       .format = convertFormat(dst->format, dst->srgb),
-      .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
+      .dimension = dst->type == GPU_TEXTURE_3D ? WGPU_TEXTURE_VIEW_DIMENSION_3D : WGPU_TEXTURE_VIEW_DIMENSION_2D,
       .baseMipLevel = dstOffset[3],
       .mipLevelCount = 1,
-      .baseArrayLayer = dstOffset[2] + i,
+      .baseArrayLayer = dst->type == GPU_TEXTURE_3D ? 0 : dstOffset[2] + i,
       .arrayLayerCount = 1
     });
 
@@ -1243,10 +1245,14 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
 
     WGpuBindGroup bindGroup = wgpu_device_create_bind_group(state.device, state.blit.bindGroupLayout, bindings, COUNTOF(bindings));
 
+    uint32_t dstWidth = wgpu_texture_width(dst->handle);
+    uint32_t dstHeight = wgpu_texture_height(dst->handle);
+    bool fullscreen = dstOffset[0] == 0 && dstOffset[1] == 0 && dstExtent[0] == dstWidth && dstExtent[1] == dstHeight;
+
     WGpuRenderPassColorAttachment attachment = {
       .view = dstView,
-      .depthSlice = -1,
-      .loadOp = WGPU_LOAD_OP_CLEAR,
+      .depthSlice = dst->type == GPU_TEXTURE_3D ? dstOffset[2] + i : -1,
+      .loadOp = fullscreen ? WGPU_LOAD_OP_CLEAR : WGPU_LOAD_OP_LOAD,
       .storeOp = WGPU_STORE_OP_STORE
     };
 
