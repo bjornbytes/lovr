@@ -455,6 +455,8 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
       } else {
         resource->storageAccess = SPV_ACCESS_READ_WRITE;
       }
+    } else {
+      resource->storageAccess = SPV_ACCESS_READ_ONLY;
     }
 
     if (OP_CODE(type) != 30) { // OpTypeStruct

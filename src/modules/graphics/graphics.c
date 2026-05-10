@@ -3688,7 +3688,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
           default: break;
         }
 
-        lovrCheck(stage == STAGE_COMPUTE || resource->storageAccess == SPV_ACCESS_READ_ONLY, "Currently, vertex/fragment shaders can not write to storage resources");
+        lovrCheck(stage == STAGE_COMPUTE || resource->storageAccess == SPV_ACCESS_READ_ONLY, "Currently, vertex/fragment shaders can not write to storage resources (check %s)", resource->name);
       } else if (raytracer) {
         shader->resources[index].cache = GPU_CACHE_TREE_READ;
       } else {

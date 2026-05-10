@@ -642,6 +642,7 @@ static int l_lovrBufferSetData(lua_State* L) {
     void* data = lovrBufferSetData(buffer, dstOffset, extent);
     luax_assert(L, data);
     memcpy(data, (char*) blob->data + srcOffset, extent);
+    lovrBufferFlush(buffer);
     return 0;
   }
 

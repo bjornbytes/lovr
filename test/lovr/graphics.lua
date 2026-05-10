@@ -571,7 +571,7 @@ group('graphics', function()
         uniform vec3 position;
         vec4 lovrmain() { return vec4(position, 1.); }
       ]], [[
-        buffer Params { vec4 color; };
+        readonly buffer Params { vec4 color; };
         uniform texture2D image;
         vec4 lovrmain() { return color; }
       ]])
