@@ -1,6 +1,7 @@
 #include "gpu.h"
 #include "lib/webgpu/webgpu.h"
 #include <tincture.h>
+#include <threads.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -75,6 +76,10 @@ typedef struct {
 
 // State
 
+static thread_local struct {
+  char error[255];
+} thread;
+
 static struct {
   WGpuAdapter adapter;
   WGpuDevice device;
@@ -101,6 +106,7 @@ static struct {
 #define MIN(a, b) (a < b ? a : b)
 #define MAX(a, b) (a > b ? a : b)
 
+static bool setError(const char* message);
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb);
 static WGPU_TEXTURE_VIEW_DIMENSION convertTextureType(gpu_texture_type type);
 static uint32_t getRowSize(gpu_texture_format format, uint32_t width);
@@ -135,7 +141,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   });
 
   if (!buffer->handle) {
-    return false;
+    return setError("Error creating buffer");
   }
 
   wgpu_object_set_label(buffer->handle, info->label);
@@ -171,7 +177,7 @@ gpu_address gpu_buffer_get_address(gpu_buffer* buffer, uint32_t offset) {
 // Tree
 
 bool gpu_tree_init(gpu_tree* tree, gpu_tree_info* info) {
-  return false;
+  return setError("Raytracing is not supported");
 }
 
 void gpu_tree_destroy(gpu_tree* tree) {
@@ -216,7 +222,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   });
 
   if (!texture->handle) {
-    return false;
+    return setError("Failed to create texture");
   }
 
   wgpu_object_set_label(texture->handle, info->label);
@@ -231,7 +237,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   if (!gpu_texture_init_view(texture, &viewInfo)) {
     wgpu_object_destroy(texture->handle);
-    return false;
+    return setError("Failed to create texture view");
   }
 
   if (info->upload.levelCount) {
@@ -495,7 +501,7 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
       for (uint32_t j = 0; j < i; j++) {
         wgpu_object_destroy(shader->handles[j]);
       }
-      fprintf(stderr, "Could not compile shader: %s\n", wgsl);
+      setError(wgsl);
       free(wgsl);
       return false;
     }
@@ -780,7 +786,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
   pipeline->handle = wgpu_device_create_render_pipeline(state.device, &pipelineInfo);
 
   if (!pipeline->handle) {
-    return false;
+    return setError("Failed to create pipeline");
   }
 
   wgpu_object_set_label(pipeline->handle, info->label);
@@ -1306,13 +1312,13 @@ void gpu_xr_release(gpu_stream* stream, gpu_texture* texture) {
 
 bool gpu_init(gpu_config* config) {
   if (!navigator_gpu_available()) {
-    return false;
+    return setError("WebGPU is not supported");
   }
 
   state.adapter = navigator_gpu_request_adapter_sync_simple();
 
   if (!state.adapter) {
-    return false;
+    return setError("No WebGPU adapter available");
   }
 
   state.device = wgpu_adapter_request_device_sync_simple(state.adapter);
@@ -1540,6 +1546,11 @@ bool gpu_wait_idle(void) {
 }
 
 // Helpers
+
+static bool setError(const char* message) {
+  memcpy(thread.error, message, MIN(sizeof(thread.error), strlen(message) + 1));
+  return false;
+}
 
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb) {
   static const WGPU_TEXTURE_FORMAT formats[][2] = {
