@@ -209,6 +209,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       ((info->usage & GPU_TEXTURE_STORAGE) ? WGPU_TEXTURE_USAGE_STORAGE_BINDING : 0) |
       ((info->usage & GPU_TEXTURE_COPY_SRC) ? WGPU_TEXTURE_USAGE_COPY_SRC : 0) |
       ((info->usage & GPU_TEXTURE_COPY_DST) ? WGPU_TEXTURE_USAGE_COPY_DST : 0) |
+      ((info->usage == GPU_TEXTURE_RENDER) ? WGPU_TEXTURE_USAGE_TRANSIENT_ATTACHMENT : 0) |
       (info->upload.levelCount > 0 ? WGPU_TEXTURE_USAGE_COPY_DST : 0),
     .dimension = dimensions[info->type],
     .width = info->size[0],
