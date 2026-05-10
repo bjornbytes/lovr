@@ -5244,6 +5244,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     model->vertexBuffer = lovrBufferCreate(&bufferInfo, (void**) &vertexData);
     lovrAssertGoto(fail, model->vertexBuffer, "Failed to create model vertex buffer: %s", lovrGetError());
     memcpy(vertexData, data->vertices, meta->vertexCount * sizeof(ModelVertex));
+    lovrBufferFlush(model->vertexBuffer);
 
     // Animated vertices are ones that are blended or skinned.  They need a copy of the original vertex
     if (meta->animatedVertexCount > 0) {
@@ -5275,6 +5276,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     model->indexBuffer = lovrBufferCreate(&bufferInfo, &indexData);
     lovrAssertGoto(fail, model->indexBuffer, "Failed to create model index buffer: %s", lovrGetError());
     memcpy(indexData, data->indices, meta->indexCount * meta->indexSize);
+    lovrBufferFlush(model->indexBuffer);
   }
 
   // Joints
@@ -5291,6 +5293,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     model->skinBuffer = lovrBufferCreate(&bufferInfo, &skinData);
     lovrAssertGoto(fail, model->skinBuffer, "Failed to create model skinning buffer: %s", lovrGetError());
     memcpy(skinData, data->skinData, meta->skinnedVertexCount * 8);
+    lovrBufferFlush(model->skinBuffer);
   }
 
   // Blend Shapes
@@ -5308,6 +5311,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
     model->blendBuffer = lovrBufferCreate(&bufferInfo, &blendData);
     lovrAssertGoto(fail, model->blendBuffer, "Failed to create model blend shape buffer: %s", lovrGetError());
     memcpy(blendData, data->blendData, meta->blendedVertexCount * sizeof(BlendData));
+    lovrBufferFlush(model->blendBuffer);
   }
 
   // Blend shapes
