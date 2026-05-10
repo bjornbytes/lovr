@@ -437,6 +437,12 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     [GPU_SAMPLE_UINT] = WGPU_TEXTURE_SAMPLE_TYPE_UINT
   };
 
+  static const WGPU_STORAGE_TEXTURE_ACCESS storageTextureAccesses[] = {
+    [GPU_READ_ONLY] = WGPU_STORAGE_TEXTURE_ACCESS_READ_ONLY,
+    [GPU_WRITE_ONLY] = WGPU_STORAGE_TEXTURE_ACCESS_WRITE_ONLY,
+    [GPU_READ_WRITE] = WGPU_STORAGE_TEXTURE_ACCESS_READ_WRITE
+  };
+
   gpu_slot* slot = info->slots;
   WGpuBindGroupLayoutEntry entries[32];
   for (uint32_t i = 0; i < info->count; i++, slot++) {
@@ -470,7 +476,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
 
       // FIXME need more metadata
       case GPU_SLOT_STORAGE_TEXTURE:
-        entries[i].layout.storageTexture.access = WGPU_STORAGE_TEXTURE_ACCESS_WRITE_ONLY;
+        entries[i].layout.storageTexture.access = storageTextureAccesses[info->slots[i].storageAccess];
         entries[i].layout.storageTexture.format = WGPU_TEXTURE_FORMAT_INVALID;
         entries[i].layout.storageTexture.viewDimension = convertTextureType(info->slots[i].textureType);
         break;

@@ -361,12 +361,19 @@ typedef enum {
   GPU_SAMPLE_UINT
 } gpu_sample_type;
 
+typedef enum {
+  GPU_READ_ONLY,
+  GPU_WRITE_ONLY,
+  GPU_READ_WRITE
+} gpu_storage_access;
+
 typedef struct {
   uint32_t number;
   gpu_slot_type type;
   uint8_t stages;
   uint8_t textureType;
   uint8_t sampleType;
+  uint8_t storageAccess;
   bool multisampled;
 } gpu_slot;
 

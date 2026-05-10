@@ -3655,22 +3655,11 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       shader->raytracerMask |= (raytracer << *binding);
       shader->storageMask |= (storage << *binding);
 
-      gpu_cache cache;
-
-      if (storage) {
-        cache = info->type == SHADER_COMPUTE ? GPU_CACHE_STORAGE_WRITE : GPU_CACHE_STORAGE_READ;
-      } else if (raytracer) {
-        cache = GPU_CACHE_TREE_READ;
-      } else {
-        cache = texture ? GPU_CACHE_TEXTURE : GPU_CACHE_UNIFORM;
-      }
-
       shader->resources[index] = (ShaderResource) {
         .hash = hash,
         .binding = *binding,
         .type = type,
-        .phase = phase,
-        .cache = cache
+        .phase = phase
       };
 
       slots[index] = (gpu_slot) {
@@ -3678,6 +3667,30 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         .type = type,
         .stages = stageFlags[stage]
       };
+
+      if (storage) {
+        switch (resource->storageAccess) {
+          case SPV_ACCESS_READ_ONLY:
+            shader->resources[index].cache = GPU_CACHE_STORAGE_READ;
+            slots[index].storageAccess = GPU_READ_ONLY;
+            break;
+          case SPV_ACCESS_WRITE_ONLY:
+            shader->resources[index].cache = GPU_CACHE_STORAGE_WRITE;
+            slots[index].storageAccess = GPU_WRITE_ONLY;
+            break;
+          case SPV_ACCESS_READ_WRITE:
+            shader->resources[index].cache = GPU_CACHE_STORAGE_READ | GPU_CACHE_STORAGE_WRITE;
+            slots[index].storageAccess = GPU_READ_WRITE;
+            break;
+          default: break;
+        }
+
+        lovrCheck(stage == STAGE_COMPUTE || resource->storageAccess == SPV_ACCESS_READ_ONLY, "Currently, vertex/fragment shaders can not write to storage resources");
+      } else if (raytracer) {
+        shader->resources[index].cache = GPU_CACHE_TREE_READ;
+      } else {
+        shader->resources[index].cache = texture ? GPU_CACHE_TEXTURE : GPU_CACHE_UNIFORM;
+      }
 
       if (texture) {
         shader->resources[index].textureFlags = resource->textureFlags;
