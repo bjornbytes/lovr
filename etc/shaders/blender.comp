@@ -15,11 +15,19 @@ layout(push_constant) uniform PushConstants {
 
 struct ModelVertex {
   float px, py, pz;
+#ifdef WEBGPU
+  float nx, ny, nz;
+#else
   uint normal;
+#endif
   float u, v;
   uint uv2;
   uint color;
+#ifdef WEBGPU
+  float tx, ty, tz, tw;
+#else
   uint tangent;
+#endif
 };
 
 struct BlendVertex {
@@ -40,8 +48,13 @@ void lovrmain() {
 
   ModelVertex vertex = inplace ? vertices[vertexIndex] : rawVertices[vertexIndex];
 
+#ifdef WEBGPU
+  vec4 normal = vec4(vertex.nx, vertex.ny, vertex.nz, 0.);
+  vec4 tangent = vec4(vertex.tx, vertex.ty, vertex.tz, 0.);
+#else
   vec4 normal = unpackSnorm10x3(vertex.normal);
   vec4 tangent = unpackSnorm10x3(vertex.tangent);
+#endif
 
   for (uint i = 0; i < blendShapeCount; i++, blendVertexIndex += vertexCount) {
     float weight = weights[i / 4][i % 4];
@@ -65,8 +78,17 @@ void lovrmain() {
     tangent.z += blendShape.tz * weight;
   }
 
+#ifdef WEBGPU
+  vertex.nx = normal.x;
+  vertex.ny = normal.y;
+  vertex.nz = normal.z;
+  vertex.tx = tangent.x;
+  vertex.ty = tangent.y;
+  vertex.tz = tangent.z;
+#else
   vertex.normal = packSnorm10x3(normal);
   vertex.tangent = packSnorm10x3(tangent);
+#endif
 
   vertices[vertexIndex] = vertex;
 }

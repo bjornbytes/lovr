@@ -10,11 +10,19 @@ struct Image;
 
 typedef struct {
   struct { float x, y, z; } position;
+#ifdef LOVR_WEBGPU
+  struct { float x, y, z; } normal;
+#else
   uint32_t normal;
+#endif
   struct { float u, v; } uv;
   struct { uint16_t u, v; } uv2;
   struct { uint8_t r, g, b, a; } color;
+#ifdef LOVR_WEBGPU
+  struct { float x, y, z, w; } tangent;
+#else
   uint32_t tangent;
+#endif
 } ModelVertex;
 
 typedef struct {

@@ -278,7 +278,11 @@ bool lovrModelDataInitObj(ModelData** result, Blob* source, ModelDataIO* io) {
 
         ModelVertex vertex = {
           .position = { position[0], position[1], position[2] },
+#ifdef LOVR_WEBGPU
+          .normal = { normal[0], normal[1], normal[2] },
+#else
           .normal = packNormal(normal),
+#endif
           .uv = { uv[0], uv[1] },
           .color = { 0xff, 0xff, 0xff, 0xff }
         };

@@ -14,11 +14,19 @@ layout(push_constant) uniform PushConstants {
 
 struct ModelVertex {
   float x, y, z;
+#ifdef WEBGPU
+  float nx, ny, nz;
+#else
   uint normal;
+#endif
   float u, v;
   uint uv2;
   uint color;
+#ifdef WEBGPU
+  float tx, ty, tz, tw;
+#else
   uint tangent;
+#endif
 };
 
 struct SkinVertex {
@@ -53,7 +61,11 @@ void lovrmain() {
 
   ModelVertex vertex = inplace ? vertexOut[baseVertexOut + id] : vertexIn[baseVertexIn + id];
   vec4 position = vec4(vertex.x, vertex.y, vertex.z, 1.);
+#ifdef WEBGPU
+  vec3 normal = normalize(vec3(vertex.nx, vertex.ny, vertex.nz));
+#else
   vec3 normal = normalize(unpackSnorm10x3(vertex.normal).xyz);
+#endif
 
   vec3 skinnedPosition = (matrix * position).xyz;
   vec3 skinnedNormal = mat3(matrix) * normal;
@@ -61,5 +73,11 @@ void lovrmain() {
   vertexOut[baseVertexOut + id].x = skinnedPosition.x;
   vertexOut[baseVertexOut + id].y = skinnedPosition.y;
   vertexOut[baseVertexOut + id].z = skinnedPosition.z;
+#ifdef WEBGPU
+  vertexOut[baseVertexOut + id].nx = skinnedNormal.x;
+  vertexOut[baseVertexOut + id].ny = skinnedNormal.y;
+  vertexOut[baseVertexOut + id].nz = skinnedNormal.z;
+#else
   vertexOut[baseVertexOut + id].normal = packSnorm10x3(vec4(skinnedNormal, 0.));
+#endif
 }

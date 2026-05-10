@@ -1167,12 +1167,20 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
 
               uint32_t vertexCount = positions->count;
               ModelVertex* vertices = model->vertices + vertexOffset;
-              copyAttribute(vertices, positions, F32, 3, false, 0, sizeof(ModelVertex), vertexCount, 0);
-              copyAttribute(vertices, normals, SN10x3, 1, false, 12, sizeof(ModelVertex), vertexCount, 0);
-              copyAttribute(vertices, uv1, F32, 2, false, 16, sizeof(ModelVertex), vertexCount, 0);
-              copyAttribute(vertices, uv2, U16, 2, true, 24, sizeof(ModelVertex), vertexCount, 0);
-              copyAttribute(vertices, colors, U8, 4, true, 28, sizeof(ModelVertex), vertexCount, 0xff);
-              copyAttribute(vertices, tangents, SN10x3, 1, false, 32, sizeof(ModelVertex), vertexCount, 0);
+              copyAttribute(vertices, positions, F32, 3, false, offsetof(ModelVertex, position), sizeof(ModelVertex), vertexCount, 0);
+#ifdef LOVR_WEBGPU
+              copyAttribute(vertices, normals, F32, 3, false, offsetof(ModelVertex, normal), sizeof(ModelVertex), vertexCount, 0);
+#else
+              copyAttribute(vertices, normals, SN10x3, 1, false, offsetof(ModelVertex, normal), sizeof(ModelVertex), vertexCount, 0);
+#endif
+              copyAttribute(vertices, uv1, F32, 2, false, offsetof(ModelVertex, uv), sizeof(ModelVertex), vertexCount, 0);
+              copyAttribute(vertices, uv2, U16, 2, true, offsetof(ModelVertex, uv2), sizeof(ModelVertex), vertexCount, 0);
+              copyAttribute(vertices, colors, U8, 4, true, offsetof(ModelVertex, color), sizeof(ModelVertex), vertexCount, 0xff);
+#ifdef LOVR_WEBGPU
+              copyAttribute(vertices, tangents, F32, 4, false, offsetof(ModelVertex, tangent), sizeof(ModelVertex), vertexCount, 0);
+#else
+              copyAttribute(vertices, tangents, SN10x3, 1, false, offsetof(ModelVertex, tangent), sizeof(ModelVertex), vertexCount, 0);
+#endif
               mesh->vertexCount += vertexCount;
               vertexOffset += vertexCount;
 

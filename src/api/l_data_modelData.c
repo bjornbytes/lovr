@@ -382,9 +382,15 @@ static int l_lovrModelDataGetMeshVertex(lua_State* L) {
   lua_pushnumber(L, vertex->position.x);
   lua_pushnumber(L, vertex->position.y);
   lua_pushnumber(L, vertex->position.z);
+#ifdef LOVR_WEBGPU
+  lua_pushnumber(L, vertex->normal.x);
+  lua_pushnumber(L, vertex->normal.y);
+  lua_pushnumber(L, vertex->normal.z);
+#else
   lua_pushnumber(L, MAX(((int32_t) (vertex->normal << 22) >> 22) / 511.f, -1.f));
   lua_pushnumber(L, MAX(((int32_t) (vertex->normal << 12) >> 22) / 511.f, -1.f));
   lua_pushnumber(L, MAX(((int32_t) (vertex->normal <<  2) >> 22) / 511.f, -1.f));
+#endif
   lua_pushnumber(L, vertex->uv.u);
   lua_pushnumber(L, vertex->uv.v);
   lua_pushnumber(L, vertex->uv2.u / 65535.f);
@@ -393,9 +399,15 @@ static int l_lovrModelDataGetMeshVertex(lua_State* L) {
   lua_pushinteger(L, vertex->color.g);
   lua_pushinteger(L, vertex->color.b);
   lua_pushinteger(L, vertex->color.a);
+#ifdef LOVR_WEBGPU
+  lua_pushnumber(L, vertex->tangent.x);
+  lua_pushnumber(L, vertex->tangent.y);
+  lua_pushnumber(L, vertex->tangent.z);
+#else
   lua_pushnumber(L, MAX(((int32_t) (vertex->tangent << 22) >> 22) / 511.f, -1.f));
   lua_pushnumber(L, MAX(((int32_t) (vertex->tangent << 12) >> 22) / 511.f, -1.f));
   lua_pushnumber(L, MAX(((int32_t) (vertex->tangent <<  2) >> 22) / 511.f, -1.f));
+#endif
   return 17;
 }
 

@@ -3029,7 +3029,7 @@ Sampler* lovrGraphicsGetDefaultSampler(FilterMode mode) {
 Sampler* lovrSamplerCreate(const SamplerInfo* info) {
   lovrCheck(info->range[1] < 0.f || info->range[1] >= info->range[0], "Invalid Sampler mipmap range");
   lovrCheck(info->anisotropy <= state.limits.anisotropy, "Sampler anisotropy (%f) exceeds anisotropy limit (%f)", info->anisotropy, state.limits.anisotropy);
-#ifdef LOVR_USE_WEBGPU
+#ifdef LOVR_WEBGPU
   lovrCheck(info->compare == COMPARE_NONE, "Currently shadow samplers are not supported on WebGPU");
 #endif
 

@@ -35,15 +35,21 @@ static bool lovrModelDataInitStlBinary(ModelData** result, Blob* source, ModelDa
     float* f = (float*) data;
     float* v[3] = { f + 3, f + 6, f + 9 };
 
+#ifndef LOVR_WEBGPU
     uint32_t normal =
       ((((uint32_t) (int32_t) (f[0] * 511.f)) & 0x3ff) <<  0) |
       ((((uint32_t) (int32_t) (f[1] * 511.f)) & 0x3ff) << 10) |
       ((((uint32_t) (int32_t) (f[2] * 511.f)) & 0x3ff) << 20);
+#endif
 
     for (uint32_t j = 0; j < 3; j++) {
       *vertices++ = (ModelVertex) {
         .position = { v[j][0], v[j][1], v[j][2] },
+#ifdef LOVR_WEBGPU
+        .normal = { f[0], f[1], f[2] },
+#else
         .normal = normal,
+#endif
         .color = { 0xff, 0xff, 0xff, 0xff }
       };
       bounds[0] = MIN(bounds[0], v[j][0]);
