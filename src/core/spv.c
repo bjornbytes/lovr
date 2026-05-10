@@ -45,6 +45,8 @@ typedef struct {
   size_t wordCount;
   uint32_t bound;
   spv_cache* cache;
+  uint64_t nonwritable[128];
+  uint64_t nonreadable[128];
   spv_field* fields;
 } spv_context;
 
@@ -85,6 +87,9 @@ spv_result spv_parse(const void* source, size_t size, spv_info* info) {
   spv_cache cache[8192];
   memset(cache, 0xff, spv.bound * sizeof(spv_cache));
   spv.cache = cache;
+
+  memset(spv.nonwritable, 0, sizeof(spv.nonwritable));
+  memset(spv.nonreadable, 0, sizeof(spv.nonreadable));
 
   info->featureCount = 0;
   info->specConstantCount = 0;
@@ -220,6 +225,8 @@ static spv_result spv_parse_decoration(spv_context* spv, const uint32_t* op, spv
   switch (decoration) {
     case 1: spv->cache[id].flag.number = op[3]; break; // SpecID
     case 6: spv->cache[id].type.arrayStride = op[3]; break; // ArrayStride (overrides name)
+    case 24: spv->nonwritable[id / 64] |= (1 << (id % 64)); break; // NonWritable
+    case 25: spv->nonreadable[id / 64] |= (1 << (id % 64)); break; // NonReadable
     case 30: spv->cache[id].attribute.location = op[3]; break; // Location
     case 33:
     case 34:
@@ -440,6 +447,16 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
       resource->name = (char*) (spv->words + spv->cache[typeId].type.name);
     }
 
+    if (resource->type == SPV_STORAGE_BUFFER) {
+      if (spv->nonwritable[variableId / 64] & (1 << (variableId % 64))) {
+        resource->storageAccess = SPV_ACCESS_READ_ONLY;
+      } else if (spv->nonreadable[variableId / 64] & (1 << (variableId % 64))) {
+        resource->storageAccess = SPV_ACCESS_WRITE_ONLY;
+      } else {
+        resource->storageAccess = SPV_ACCESS_READ_WRITE;
+      }
+    }
+
     if (OP_CODE(type) != 30) { // OpTypeStruct
       return SPV_INVALID;
     }
@@ -543,6 +560,16 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
 
   if (type[6] == 1) {
     resource->textureFlags |= SPV_TEXTURE_MULTISAMPLE;
+  }
+
+  if (resource->type == SPV_STORAGE_TEXTURE) {
+    if (spv->nonwritable[variableId / 64] & (1 << (variableId % 64))) {
+      resource->storageAccess = SPV_ACCESS_READ_ONLY;
+    } else if (spv->nonreadable[variableId / 64] & (1 << (variableId % 64))) {
+      resource->storageAccess = SPV_ACCESS_WRITE_ONLY;
+    } else {
+      resource->storageAccess = SPV_ACCESS_READ_WRITE;
+    }
   }
 
   return SPV_OK;
