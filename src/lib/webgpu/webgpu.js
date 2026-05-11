@@ -3,6 +3,10 @@
 #error "wasm_webgpu requires building with Emscripten 3.1.35 or newer. Please update"
 #endif
 
+#if MIN_FIREFOX_VERSION < 149
+#warning "Firefox browser before version 149 has issues with WebGPU (e.g. https://bugzilla.mozilla.org/show_bug.cgi?id=2023423 )"
+#endif
+
 {{{
   globalThis.wassert = function(condition) {
     if (ASSERTIONS || parseInt(globalThis.WEBGPU_DEBUG)) return `assert(${condition}, "assert(${condition.replace(/"/g, "'")}) failed!");`;
@@ -25,52 +29,55 @@
   }
   // Given a ptr, shift it to become an index to appropriate HEAPxxx type.
   globalThis.replacePtrToIdx = function(ptr, shift) {
-    var shr = (MEMORY64 || MAXIMUM_MEMORY <= 2*1024*1024*1024) ? '>>' : '>>>';
-    shift = MEMORY64 ? `${shift}n` : `${shift}`;
+    var shr = CAN_ADDRESS_2GB ? '>>>' : '>>';
     var s = '';
     if (ASSERTIONS || parseInt(globalThis.WEBGPU_DEBUG)) {
-      s += `assert((${ptr} ${shr} ${shift}) << ${shift} == ${ptr});\n`;
+      if (MEMORY64) s += `assert(${ptr} % ${1 << shift}n == 0n, 'Unaligned pointer fault!');\n`;
+      else if (CAN_ADDRESS_2GB) s += `assert((${ptr} >>> 0) % (${1 << shift}) == 0, 'Unaligned pointer fault!');\n`;
+      else s += `assert(${ptr} % ${1 << shift} == 0, 'Unaligned pointer fault!');\n`;
     }
-    if (MEMORY64) s += `${ptr} = Number(${ptr} ${shr} ${shift});`;
-    else if (shift == 0 && MEMORY64) s += `${ptr} = Number(${ptr});`;
+    shift = MEMORY64 ? `${shift}n` : `${shift}`;
+    if (shift == 0 && MEMORY64) s += `${ptr} = Number(${ptr});`;
+    else if (MEMORY64) s += `${ptr} = Number(${ptr} ${shr} ${shift});`;
     else if (shift > 0 || MAXIMUM_MEMORY > 2*1024*1024*1024) s += `${ptr} ${shr}= ${shift};`;
     return s;
   }
   // Returns given ptr converted to an index to appropriate HEAPxxx type.
   globalThis.shiftPtr = function(ptr, shift) {
-    var shr = (MEMORY64 || MAXIMUM_MEMORY <= 2*1024*1024*1024) ? '>>' : '>>>';
+    var shr = CAN_ADDRESS_2GB ? '>>>' : '>>';
     if (ASSERTIONS || parseInt(globalThis.WEBGPU_DEBUG)) return `wgpu_checked_shift(${ptr}, ${shift})`;
-    if (MEMORY64) return `Number(${ptr} ${shr} ${shift}n)`;
-    else if (shift == 0 && MEMORY64) return `Number(${ptr})`;
+    if (shift == 0 && MEMORY64) return `Number(${ptr})`;
+    else if (MEMORY64) return `Number(${ptr} ${shr} ${shift}n)`;
     else if (shift > 0 || MAXIMUM_MEMORY > 2*1024*1024*1024) return `(${ptr} ${shr} ${shift})`;
     else return `(${ptr})`;
   }
   globalThis.shiftIndex = function(index, shift) {
-    if (MAXIMUM_MEMORY <= 2*1024*1024*1024) return `${index} >> ${shift}`;
-    else                                    return `${index} >>> ${shift}`;
+    if (MEMORY64)             return `(${index}) / ${1 << shift}`;
+    else if (CAN_ADDRESS_2GB) return `${index} >>> ${shift}`;
+    else                      return `${index} >> ${shift}`;
   }
   // Given ptr, read ptr from heap
   globalThis.readPtr = function(ptr, offset) {
-    var shr = (MEMORY64 || MAXIMUM_MEMORY <= 2*1024*1024*1024) ? '>>' : '>>>';
+    var shr = CAN_ADDRESS_2GB ? '>>>' : '>>';
     var ofs = offset ? ` + ${offset}${MEMORY64?"n":""}` : '';
     if (MEMORY64) return `HEAPU64[${ptr} ${ofs} ${shr} 3n]`;
     else          return `HEAPU32[${ptr} ${ofs} ${shr} 2]`;
   }
   // Given i32 index to ptr location, read it back as an i32 index
   globalThis.readIdx32 = function(heap32Idx) {
-    var shr = (MEMORY64 || MAXIMUM_MEMORY <= 2*1024*1024*1024) ? '>>' : '>>>';
+    var shr = CAN_ADDRESS_2GB ? '>>>' : '>>';
     if (ASSERTIONS || parseInt(globalThis.WEBGPU_DEBUG)) {
-      if (MEMORY64) return `wgpu_checked_shift(HEAPU64[${heap32Idx} ${shr} 1], 2)`;
+      if (MEMORY64) return `wgpu_checked_shift(HEAPU64[(${heap32Idx}) / 2], 2)`;
       else          return `wgpu_checked_shift(HEAPU32[${heap32Idx}], 2)`;
     }
-    if (MEMORY64) return `Number(HEAPU64[${heap32Idx} ${shr} 1] ${shr} 2n)`;
+    if (MEMORY64) return `Number(HEAPU64[(${heap32Idx}) / 2] ${shr} 2n)`;
     else          return `(HEAPU32[${heap32Idx}] ${shr} 2)`;
   }
   // Given i32 index to ptr location, read ptr
   globalThis.readPtrFromIdx32 = function(heap32Idx, offset) {
-    var shr = (MEMORY64 || MAXIMUM_MEMORY <= 2*1024*1024*1024) ? '>>' : '>>>';
+    var shr = CAN_ADDRESS_2GB ? '>>>' : '>>';
     var ofs = offset ? ` + ${offset}` : '';
-    if (MEMORY64) return `HEAPU64[${heap32Idx} ${ofs} ${shr} 1]`;
+    if (MEMORY64) return `HEAPU64[(${heap32Idx} ${ofs}) / 2]`;
     else          return `HEAPU32[${heap32Idx} ${ofs}]`;
   }
   // Given a value that is a BigInt in MEMORY64 builds, and a Number() in 32-bit
@@ -85,7 +92,18 @@
     if (MEMORY64) return `${ptr} = Number(${ptr})`;
     else          return '';
   }
-  globalThis.HEAPptr = MEMORY64 ? 'HEAPU64' : 'HEAPU32';
+  globalThis.toWasm64 = function(x) {
+    if (!MEMORY64) return x;
+    // Micro-size-optimization: if x is an integer literal, then we can append
+    // the suffix 'n' instead of casting to BigInt(), to get smaller code size.
+    var n = Number(x);
+    if (Number.isInteger(n) && isFinite(n)) return `${x}n`;
+    return `BigInt(${x})`;
+  }
+  globalThis.wasm4GbShift = function(ptr) {
+    if (CAN_ADDRESS_2GB) return `${ptr} >>> 0`;
+    else return ptr;
+  }
   null;
 }}}
 
@@ -149,8 +167,7 @@ let api = {
     // N.b. Chrome has been observed to exhibit really poor performance (~100-1000x slower) if a {} is used
     // as an associative container here, so it is critical to use a Map(), which is observed to make
     // this function wgpuLinkParentAndChild() vanish from Chrome's performance profile traces altogether.
-    if (!parent.derivedObjects) parent.derivedObjects = new Map();
-    parent.derivedObjects.set(childId, child); // Link parent->child
+    (parent.derivedObjects ??= new Map()).set(childId, child); // Link parent->child
   },
 
   // Marks the given 'object' to be a child/derived object of 'parent',
@@ -170,11 +187,7 @@ let api = {
     {{{ wassert('ptr != 0 || numItems == 0'); }}} // Must be non-null pointer
     {{{ replacePtrToIdx('ptr', 2); }}}
 
-    var arrayOfItems = new Array(numItems);
-    for(var i = 0; i < numItems;) {
-      arrayOfItems[i++] = itemDict[HEAPU32[ptr++]];
-    }
-    return arrayOfItems;
+    return Array.from({length: numItems}, () => itemDict[HEAPU32[ptr++]]);
   },
 
 #if (ASSERTIONS || parseInt(globalThis.WEBGPU_DEBUG))
@@ -218,9 +231,7 @@ let api = {
 
   wgpu_get_num_live_objects__deps: ['$wgpu'],
   wgpu_get_num_live_objects: function() {
-    var numObjects = 0;
-    for(var o in wgpu) if (Object.hasOwn(wgpu, o)) ++numObjects;
-    return numObjects;
+    return Object.keys(wgpu).length;
   },
 
   // Calls .destroy() on the given WebGPU object, and releases the reference to it.
@@ -233,11 +244,11 @@ let api = {
       // field, since this object no longer exists in the wgpu table.
       o.wid = 0;
       // WebGPU objects of type GPUDevice, GPUBuffer, GPUTexture and GPUQuerySet have an explicit .destroy() function. Call that if applicable.
-      if (o['destroy']) o['destroy']();
+      o['destroy']?.();
       // If the given object has derived objects (GPUTexture -> GPUTextureViews), delete those in a hierarchy as well.
-      if (o.derivedObjects) o.derivedObjects.forEach((v, k) => { _wgpu_object_destroy(k); });
+      o.derivedObjects?.forEach((_,k) => _wgpu_object_destroy(k));
       // If this object has a parent, unlink this object from its parent.
-      if (o.parentObject) o.parentObject.derivedObjects.delete(object);
+      o.parentObject?.derivedObjects.delete(object);
       // Finally erase reference to this object.
       delete wgpu[object];
     }
@@ -248,7 +259,7 @@ let api = {
   wgpu_destroy_all_objects: function() {
     Object.values(wgpu).forEach(o => {
       o.wid = 0;
-      if (o['destroy']) o['destroy']();
+      o['destroy']?.();
     });
     wgpu = {};
   },
@@ -274,6 +285,7 @@ let api = {
   wgpu_is_render_pass_encoder: function(o) { return wgpu[o] instanceof GPURenderPassEncoder; },
   wgpu_is_render_bundle: function(o) { return wgpu[o] instanceof GPURenderBundle; },
   wgpu_is_render_bundle_encoder: function(o) { return wgpu[o] instanceof GPURenderBundleEncoder; },
+  wgpu_is_compute_pass_encoder: function(o) { return wgpu[o] instanceof GPUComputePassEncoder; },
   wgpu_is_queue: function(o) { return wgpu[o] instanceof GPUQueue; },
   wgpu_is_query_set: function(o) { return wgpu[o] instanceof GPUQuerySet; },
   wgpu_is_canvas_context: function(o) { return wgpu[o] instanceof GPUCanvasContext; },
@@ -294,11 +306,14 @@ let api = {
 
   $wgpu_checked_shift: function(ptr, shift) {
 #if MEMORY64
-    assert(BigInt(Number(ptr >> BigInt(shift))) << BigInt(shift) == ptr);
-    return Number(ptr >> BigInt(shift));
-#else
-    assert(((ptr >>> shift) << shift) >>> 0 == (ptr >>> 0));
+    assert(ptr % BigInt(1 << shift) == 0n, 'Unaligned pointer fault!');
+    return Number(ptr / BigInt(1 << shift));
+#elif CAN_ADDRESS_2GB
+    assert((ptr >>> 0) % (1 << shift) == 0, 'Unaligned pointer fault!');
     return ptr >>> shift;
+#else
+    assert(ptr % (1 << shift) == 0);
+    return ptr >> shift;
 #endif
   },
 
@@ -330,7 +345,7 @@ let api = {
     let ctx = canvas.getContext('webgpu');
     {{{ wdebugdir('ctx', '`canvas.getContext("webgpu") returned:`') }}};
 
-    if (ctx.wid) return ctx.wid;
+    if (ctx.wid) return ctx.wid; // Return existing ID if user has called wgpu_canvas_get_webgpu_context() multiple times on the same canvas.
 
     return wgpuStore(ctx);
   },
@@ -344,6 +359,8 @@ let api = {
 
     let ctx = wgpuOffscreenCanvases[offscreenCanvasId].getContext('webgpu');
     {{{ wdebugdir('ctx', '`offscreenCanvas.getContext("webgpu") returned:`') }}};
+
+    if (ctx.wid) return ctx.wid; // Return existing ID if user has called wgpu_offscreen_canvas_get_webgpu_context() multiple times on the same canvas.
 
     return wgpuStore(ctx);
   },
@@ -367,118 +384,36 @@ let api = {
     requestAnimationFrame(tick);
   },
 
-////////////////////////////////////////////////////////////
-// Automatically generated with scripts/compress_strings.js:
-
-  $wgpuDecodeStrings__docs: '/** @param {number=} ch */',
-  $wgpuDecodeStrings: function(s, c, ch) {
-    ch = ch || 65;
-    for(c = c.split('|'); c[0];) s = s['replaceAll'](String.fromCharCode(ch++), c.pop());
-    return [,].concat(s.split(' '));
-  },
-
-  $GPUTextureAndVertexFormats__deps: ['$wgpuDecodeStrings'],
-//$GPUTextureAndVertexFormats: [undefined (0), 'r8unorm' (1), 'r8snorm' (2), 'r8uint' (3), 'r8sint' (4), 'r16unorm' (5), 'r16snorm' (6), 'r16uint' (7), 'r16sint' (8), 'r16float' (9), 'rg8unorm' (10), 'rg8snorm' (11), 'rg8uint' (12), 'rg8sint' (13), 'r32uint' (14), 'r32sint' (15), 'r32float' (16), 'rg16unorm' (17), 'rg16snorm' (18), 'rg16uint' (19), 'rg16sint' (20), 'rg16float' (21), 'rgba8unorm' (22), 'rgba8unorm-srgb' (23), 'rgba8snorm' (24), 'rgba8uint' (25), 'rgba8sint' (26), 'bgra8unorm' (27), 'bgra8unorm-srgb' (28), 'rgb9e5ufloat' (29), 'rgb10a2uint' (30), 'rgb10a2unorm' (31), 'rg11b10ufloat' (32), 'rg32uint' (33), 'rg32sint' (34), 'rg32float' (35), 'rgba16unorm' (36), 'rgba16snorm' (37), 'rgba16uint' (38), 'rgba16sint' (39), 'rgba16float' (40), 'rgba32uint' (41), 'rgba32sint' (42), 'rgba32float' (43), 'stencil8' (44), 'depth16unorm' (45), 'depth24plus' (46), 'depth24plus-stencil8' (47), 'depth32float' (48), 'depth32float-stencil8' (49), 'bc1-rgba-unorm' (50), 'bc1-rgba-unorm-srgb' (51), 'bc2-rgba-unorm' (52), 'bc2-rgba-unorm-srgb' (53), 'bc3-rgba-unorm' (54), 'bc3-rgba-unorm-srgb' (55), 'bc4-r-unorm' (56), 'bc4-r-snorm' (57), 'bc5-rg-unorm' (58), 'bc5-rg-snorm' (59), 'bc6h-rgb-ufloat' (60), 'bc6h-rgb-float' (61), 'bc7-rgba-unorm' (62), 'bc7-rgba-unorm-srgb' (63), 'etc2-rgb8unorm' (64), 'etc2-rgb8unorm-srgb' (65), 'etc2-rgb8a1unorm' (66), 'etc2-rgb8a1unorm-srgb' (67), 'etc2-rgba8unorm' (68), 'etc2-rgba8unorm-srgb' (69), 'eac-r11unorm' (70), 'eac-r11snorm' (71), 'eac-rg11unorm' (72), 'eac-rg11snorm' (73), 'astc-4x4-unorm' (74), 'astc-4x4-unorm-srgb' (75), 'astc-5x4-unorm' (76), 'astc-5x4-unorm-srgb' (77), 'astc-5x5-unorm' (78), 'astc-5x5-unorm-srgb' (79), 'astc-6x5-unorm' (80), 'astc-6x5-unorm-srgb' (81), 'astc-6x6-unorm' (82), 'astc-6x6-unorm-srgb' (83), 'astc-8x5-unorm' (84), 'astc-8x5-unorm-srgb' (85), 'astc-8x6-unorm' (86), 'astc-8x6-unorm-srgb' (87), 'astc-8x8-unorm' (88), 'astc-8x8-unorm-srgb' (89), 'astc-10x5-unorm' (90), 'astc-10x5-unorm-srgb' (91), 'astc-10x6-unorm' (92), 'astc-10x6-unorm-srgb' (93), 'astc-10x8-unorm' (94), 'astc-10x8-unorm-srgb' (95), 'astc-10x10-unorm' (96), 'astc-10x10-unorm-srgb' (97), 'astc-12x10-unorm' (98), 'astc-12x10-unorm-srgb' (99), 'astc-12x12-unorm' (100), 'astc-12x12-unorm-srgb' (101), 'uint8' (102), 'uint8x2' (103), 'uint8x4' (104), 'sint8' (105), 'sint8x2' (106), 'sint8x4' (107), 'unorm8' (108), 'unorm8x2' (109), 'unorm8x4' (110), 'snorm8' (111), 'snorm8x2' (112), 'snorm8x4' (113), 'uint16' (114), 'uint16x2' (115), 'uint16x4' (116), 'sint16' (117), 'sint16x2' (118), 'sint16x4' (119), 'unorm16' (120), 'unorm16x2' (121), 'unorm16x4' (122), 'snorm16' (123), 'snorm16x2' (124), 'snorm16x4' (125), 'float16' (126), 'float16x2' (127), 'float16x4' (128), 'float32' (129), 'float32x2' (130), 'float32x3' (131), 'float32x4' (132), 'uint32' (133), 'uint32x2' (134), 'uint32x3' (135), 'uint32x4' (136), 'sint32' (137), 'sint32x2' (138), 'sint32x3' (139), 'sint32x4' (140), 'unorm10-10-10-2' (141), 'unorm8x4-bgra' (142)],
-  $GPUTextureAndVertexFormats: "wgpuDecodeStrings('r8YN8Sr8UN8TNRYNRSrRUNRTNRWNg8YNg8Srg8UNg8TNKUNKTNKWNgRYNgRSrgRUNgRTNgRW V8Y V8Z V8SV8U V8T bgra8Y bgra8ZNgb9e5uWNgbJa2UNgbJa2YNg11bJuWNgKUNgKTNgKW VRY VRSVRU VRT VRW VKU VKT VKW FLRYL24plusL24plus-FLKWLKW-FM1-V-YM1-V-ZM2-V-YM2-V-ZM3-V-YM3-V-ZM4-r-YM4-r-Sbc5B-YM5B-Sbc6hBb-uWM6hBb-WM7-V-YM7-V-ZQYQZQa1YQa1Z etc2-V8Y etc2-V8ZC11YC11SeacB11YCg11snormX4G-YX4G-ZX5G-YX5G-ZX5A-YX5A-ZX6A-YX6A-ZX6x6-YX6x6-ZX8A-YX8A-ZX8x6-YX8x6-ZX8x8-YX8x8-ZXJA-YXJA-ZXJx6-YXJx6-ZXJx8-YXJx8-ZXJxJ-YXJxJ-ZX12xJ-YX12xJ-ZX12x12-YX12x12-Z U8 U8HU8G T8 T8HT8G Y8 Y8HY8GP8P8x2P8G UR URHURG TR TRHTRG YR YRHYRGPRPRx2PRG WR WRHWRG WK WKHWKx3 WKG UK UKHUKx3 UKG TK TKHTKx3 TKG YJ-J-J-2 Y8G-bgra', 'unorm-srgb|unorm| astc-|float|rgba|uint|sint|snorm |16| etc2-rgb8| snorm|-BC| r| bc| depth|32|10|-AC|x2 |x4|stencil8|-E-|Mg| eac-r|-rg|x5')",
-
-  wgpu32BitLimitNames__deps: ['$wgpuDecodeStrings'],
-//wgpu32BitLimitNames: ['maxTextureDimension1D' (0), 'maxTextureDimension2D' (1), 'maxTextureDimension3D' (2), 'maxTextureArrayLayers' (3), 'maxBindGroups' (4), 'maxBindGroupsPlusVertexBuffers' (5), 'maxBindingsPerBindGroup' (6), 'maxDynamicUniformBuffersPerPipelineLayout' (7), 'maxDynamicStorageBuffersPerPipelineLayout' (8), 'maxSampledTexturesPerShaderStage' (9), 'maxSamplersPerShaderStage' (10), 'maxStorageBuffersPerShaderStage' (11), 'maxStorageTexturesPerShaderStage' (12), 'maxUniformBuffersPerShaderStage' (13), 'minUniformBufferOffsetAlignment' (14), 'minStorageBufferOffsetAlignment' (15), 'maxVertexBuffers' (16), 'maxVertexAttributes' (17), 'maxVertexBufferArrayStride' (18), 'maxInterStageShaderVariables' (19), 'maxColorAttachments' (20), 'maxColorAttachmentBytesPerSample' (21), 'maxComputeWorkgroupStorageSize' (22), 'maxComputeInvocationsPerWorkgroup' (23), 'maxComputeWorkgroupSizeX' (24), 'maxComputeWorkgroupSizeY' (25), 'maxComputeWorkgroupSizeZ' (26), 'maxComputeWorkgroupsPerDimension' (27)],
-  wgpu32BitLimitNames: "wgpuDecodeStrings('>1D >2D >3D<5eArrayLayers<9s<9sPlus7;s<BindingsPer9<Dynamic4m=Dynamic:=Sampled5e?axSampler?ax:;?ax:5e?ax4m;?in4m;6 min:;6<7;s<7Attributes<7;ArrayStride<InterStageShaderVariables<ColorAttachments<ColorAttachmentBytesPerSample@p:Size<ComputeInvocationsPerWorkgroup@pSizeX@pSizeY@pSizeZ@psPerDimension', ' maxComputeWorkgrou|sPerShaderStage m|maxTextureDimension|BuffersPerPipelineLayout max| max|Buffer|Storage|BindGroup|s8ColorAttachmen|Vertex|OffsetAlignment|Textur|Unifor', 52).slice(1)",
-
-  wgpu64BitLimitNames__deps: ['$wgpuDecodeStrings'],
-//wgpu64BitLimitNames: ['maxUniformBufferBindingSize' (0), 'maxStorageBufferBindingSize' (1), 'maxBufferSize' (2)],
-  wgpu64BitLimitNames: "wgpuDecodeStrings('maxUniform4Storage4BufferSize', 'BufferBindingSize max', 52).slice(1)",
-
-  wgpuFeatures__deps: ['$wgpuDecodeStrings'],
-//wgpuFeatures: ['core-features-and-limits' (0), 'depth-clip-control' (1), 'depth32float-stencil8' (2), 'texture-compression-bc' (3), 'texture-compression-bc-sliced-3d' (4), 'texture-compression-etc2' (5), 'texture-compression-astc' (6), 'texture-compression-astc-sliced-3d' (7), 'timestamp-query' (8), 'indirect-first-instance' (9), 'shader-f16' (10), 'rg11b10ufloat-renderable' (11), 'bgra8unorm-storage' (12), 'float32-filterable' (13), 'float32-blendable' (14), 'clip-distances' (15), 'dual-source-blending' (16), 'subgroups' (17), 'texture-formats-tier1' (18), 'texture-formats-tier2' (19), 'primitive-index' (20)],
-  wgpuFeatures: "wgpuDecodeStrings('coAEeatuAs-aH-lBsF-GcontrolF32M-Iencil8ObcObLOetc2OaIcOaIL timeIamp-quDy iHiActEirI-inJ shadDE16 rg11b10uM-AHDKbgra8unorm-Iorage M32EiltDKM32CKGdiJs dual-sourceCing subgroupsN1N2 prBive-iHex', ' texture-compression-| texture-formats-tier|float|c-sliced-3d|able |stance|st|nd|clip-| depth|-f|er|-bleH|imit|re').slice(1)",
-
-  $GPUBlendFactors__deps: ['$wgpuDecodeStrings'],
-//$GPUBlendFactors: [undefined (0), 'zero' (1), 'one' (2), 'src' (3), 'one-minus-src' (4), 'src-alpha' (5), 'one-minus-src-alpha' (6), 'dst' (7), 'one-minus-dst' (8), 'dst-alpha' (9), 'one-minus-dst-alpha' (10), 'src-alpha-saturated' (11), 'constant' (12), 'one-minus-constant' (13), 'src1' (14), 'one-minus-src1' (15), 'src1-alpha' (16), 'one-minus-src1-alpha' (17)],
-  $GPUBlendFactors: "wgpuDecodeStrings('zero one CFC CEFCE AFA AEFAE CE-saturated BFB DFD DEFDE', ' one-minus-|-alpha|src1|src|constant|dst')",
-
-  $GPUStencilOperations__deps: ['$wgpuDecodeStrings'],
-//$GPUStencilOperations: [undefined (0), 'keep' (1), 'zero' (2), 'replace' (3), 'invert' (4), 'increment-clamp' (5), 'decrement-clamp' (6), 'increment-wrap' (7), 'decrement-wrap' (8)],
-  $GPUStencilOperations: "wgpuDecodeStrings('keep zero replace invert inCBdeCBinCA deCA', 'crement-|clamp |wrap')",
-
-  $GPUCompareFunctions__deps: ['$wgpuDecodeStrings'],
-//$GPUCompareFunctions: [undefined (0), 'never' (1), 'less' (2), 'equal' (3), 'less-equal' (4), 'greater' (5), 'not-equal' (6), 'greater-equal' (7), 'always' (8)],
-  $GPUCompareFunctions: "wgpuDecodeStrings('neverA equalACB notCBCalways', '-equal |greater| less')",
-
-  $GPUBlendOperations__deps: ['$wgpuDecodeStrings'],
-//$GPUBlendOperations: [undefined (0), 'add' (1), 'subtract' (2), 'reverse-subtract' (3), 'min' (4), 'max' (5)],
-  $GPUBlendOperations: "wgpuDecodeStrings('add Areverse-Amin max', 'subtract ')",
-
-  $GPUIndexFormats__deps: ['$wgpuDecodeStrings'],
-//$GPUIndexFormats: [undefined (0), 'uint16' (1), 'uint32' (2)],
-  $GPUIndexFormats: "wgpuDecodeStrings('A16 A32', 'uint')",
-
-  $GPUBufferMapStates__deps: ['$wgpuDecodeStrings'],
-//$GPUBufferMapStates: [undefined (0), 'unmapped' (1), 'pending' (2), 'mapped' (3)],
-  $GPUBufferMapStates: "wgpuDecodeStrings('unA pending A', 'mapped')",
-
+  $GPUTextureAndVertexFormats: [, 'r8unorm', 'r8snorm', 'r8uint', 'r8sint', 'r16unorm', 'r16snorm', 'r16uint', 'r16sint', 'r16float', 'rg8unorm', 'rg8snorm', 'rg8uint', 'rg8sint', 'r32uint', 'r32sint', 'r32float', 'rg16unorm', 'rg16snorm', 'rg16uint', 'rg16sint', 'rg16float', 'rgba8unorm', 'rgba8unorm-srgb', 'rgba8snorm', 'rgba8uint', 'rgba8sint', 'bgra8unorm', 'bgra8unorm-srgb', 'rgb9e5ufloat', 'rgb10a2uint', 'rgb10a2unorm', 'rg11b10ufloat', 'rg32uint', 'rg32sint', 'rg32float', 'rgba16unorm', 'rgba16snorm', 'rgba16uint', 'rgba16sint', 'rgba16float', 'rgba32uint', 'rgba32sint', 'rgba32float', 'stencil8', 'depth16unorm', 'depth24plus', 'depth24plus-stencil8', 'depth32float', 'depth32float-stencil8', 'bc1-rgba-unorm', 'bc1-rgba-unorm-srgb', 'bc2-rgba-unorm', 'bc2-rgba-unorm-srgb', 'bc3-rgba-unorm', 'bc3-rgba-unorm-srgb', 'bc4-r-unorm', 'bc4-r-snorm', 'bc5-rg-unorm', 'bc5-rg-snorm', 'bc6h-rgb-ufloat', 'bc6h-rgb-float', 'bc7-rgba-unorm', 'bc7-rgba-unorm-srgb', 'etc2-rgb8unorm', 'etc2-rgb8unorm-srgb', 'etc2-rgb8a1unorm', 'etc2-rgb8a1unorm-srgb', 'etc2-rgba8unorm', 'etc2-rgba8unorm-srgb', 'eac-r11unorm', 'eac-r11snorm', 'eac-rg11unorm', 'eac-rg11snorm', 'astc-4x4-unorm', 'astc-4x4-unorm-srgb', 'astc-5x4-unorm', 'astc-5x4-unorm-srgb', 'astc-5x5-unorm', 'astc-5x5-unorm-srgb', 'astc-6x5-unorm', 'astc-6x5-unorm-srgb', 'astc-6x6-unorm', 'astc-6x6-unorm-srgb', 'astc-8x5-unorm', 'astc-8x5-unorm-srgb', 'astc-8x6-unorm', 'astc-8x6-unorm-srgb', 'astc-8x8-unorm', 'astc-8x8-unorm-srgb', 'astc-10x5-unorm', 'astc-10x5-unorm-srgb', 'astc-10x6-unorm', 'astc-10x6-unorm-srgb', 'astc-10x8-unorm', 'astc-10x8-unorm-srgb', 'astc-10x10-unorm', 'astc-10x10-unorm-srgb', 'astc-12x10-unorm', 'astc-12x10-unorm-srgb', 'astc-12x12-unorm', 'astc-12x12-unorm-srgb', 'uint8', 'uint8x2', 'uint8x4', 'sint8', 'sint8x2', 'sint8x4', 'unorm8', 'unorm8x2', 'unorm8x4', 'snorm8', 'snorm8x2', 'snorm8x4', 'uint16', 'uint16x2', 'uint16x4', 'sint16', 'sint16x2', 'sint16x4', 'unorm16', 'unorm16x2', 'unorm16x4', 'snorm16', 'snorm16x2', 'snorm16x4', 'float16', 'float16x2', 'float16x4', 'float32', 'float32x2', 'float32x3', 'float32x4', 'uint32', 'uint32x2', 'uint32x3', 'uint32x4', 'sint32', 'sint32x2', 'sint32x3', 'sint32x4', 'unorm10-10-10-2', 'unorm8x4-bgra' ],
+  wgpu32BitLimitNames: ['maxTextureDimension1D', 'maxTextureDimension2D', 'maxTextureDimension3D', 'maxTextureArrayLayers', 'maxBindGroups', 'maxBindGroupsPlusVertexBuffers', 'maxBindingsPerBindGroup', 'maxDynamicUniformBuffersPerPipelineLayout', 'maxDynamicStorageBuffersPerPipelineLayout', 'maxSampledTexturesPerShaderStage', 'maxSamplersPerShaderStage', 'maxStorageBuffersPerShaderStage', 'maxStorageBuffersInVertexStage', 'maxStorageBuffersInFragmentStage', 'maxStorageTexturesPerShaderStage', 'maxStorageTexturesInVertexStage', 'maxStorageTexturesInFragmentStage', 'maxUniformBuffersPerShaderStage', 'minUniformBufferOffsetAlignment', 'minStorageBufferOffsetAlignment', 'maxVertexBuffers', 'maxVertexAttributes', 'maxVertexBufferArrayStride', 'maxInterStageShaderVariables', 'maxColorAttachments', 'maxColorAttachmentBytesPerSample', 'maxComputeWorkgroupStorageSize', 'maxComputeInvocationsPerWorkgroup', 'maxComputeWorkgroupSizeX', 'maxComputeWorkgroupSizeY', 'maxComputeWorkgroupSizeZ', 'maxComputeWorkgroupsPerDimension' ],
+  wgpu64BitLimitNames: ['maxUniformBufferBindingSize', 'maxStorageBufferBindingSize', 'maxBufferSize' ],
+  wgpuFeatures: ['core-features-and-limits', 'depth-clip-control', 'depth32float-stencil8', 'texture-compression-bc', 'texture-compression-bc-sliced-3d', 'texture-compression-etc2', 'texture-compression-astc', 'texture-compression-astc-sliced-3d', 'timestamp-query', 'indirect-first-instance', 'shader-f16', 'rg11b10ufloat-renderable', 'bgra8unorm-storage', 'float32-filterable', 'float32-blendable', 'clip-distances', 'dual-source-blending', 'subgroups', 'texture-formats-tier1', 'texture-formats-tier2', 'primitive-index', 'texture-component-swizzle' ],
+  $GPUBlendFactors: [, 'zero', 'one', 'src', 'one-minus-src', 'src-alpha', 'one-minus-src-alpha', 'dst', 'one-minus-dst', 'dst-alpha', 'one-minus-dst-alpha', 'src-alpha-saturated', 'constant', 'one-minus-constant', 'src1', 'one-minus-src1', 'src1-alpha', 'one-minus-src1-alpha' ],
+  $GPUStencilOperations: [, 'keep', 'zero', 'replace', 'invert', 'increment-clamp', 'decrement-clamp', 'increment-wrap', 'decrement-wrap' ],
+  $GPUCompareFunctions: [, 'never', 'less', 'equal', 'less-equal', 'greater', 'not-equal', 'greater-equal', 'always' ],
+  $GPUBlendOperations: [, 'add', 'subtract', 'reverse-subtract', 'min', 'max' ],
+  $GPUIndexFormats: [, 'uint16', 'uint32' ],
   $GPUTextureDimensions: [, '1d', '2d', '3d'],
-
-  $GPUTextureViewDimensions__deps: ['$wgpuDecodeStrings'],
-//$GPUTextureViewDimensions: [undefined (0), '1d' (1), '2d' (2), '2d-array' (3), 'cube' (4), 'cube-array' (5), '3d' (6)],
-  $GPUTextureViewDimensions: "wgpuDecodeStrings('1B 2dCA AC3d', '-array |d 2d|cube')",
-
-  $GPUStorageTextureSampleTypes__deps: ['$wgpuDecodeStrings'],
-//$GPUStorageTextureSampleTypes: [undefined (0), 'write-only' (1), 'read-only' (2), 'read-write' (3)],
-  $GPUStorageTextureSampleTypes: "wgpuDecodeStrings('A-BBA', 'only read-|write')",
-
-  $GPUAddressModes__deps: ['$wgpuDecodeStrings'],
-//$GPUAddressModes: [undefined (0), 'clamp-to-edge' (1), 'repeat' (2), 'mirror-repeat' (3)],
-  $GPUAddressModes: "wgpuDecodeStrings('clamp-to-edge A mirror-A', 'repeat')",
-
-  $GPUTextureAspects__deps: ['$wgpuDecodeStrings'],
-//$GPUTextureAspects: [undefined (0), 'all' (1), 'stencil-only' (2), 'depth-only' (3)],
-  $GPUTextureAspects: "wgpuDecodeStrings('all stencilA depthA', '-only')",
-
-  $GPUPipelineStatisticNames: [, 'timestamp'],
-
-  $GPUPrimitiveTopologys__deps: ['$wgpuDecodeStrings'],
-//$GPUPrimitiveTopologys: [undefined (0), 'point-list' (1), 'line-list' (2), 'line-strip' (3), 'triangle-list' (4), 'triangle-strip' (5)],
-  $GPUPrimitiveTopologys: "wgpuDecodeStrings('pointDADAB CDCB', '-list |triangle|-strip|line')",
-
-  $GPUBufferBindingTypes__deps: ['$wgpuDecodeStrings'],
-//$GPUBufferBindingTypes: [undefined (0), 'uniform' (1), 'storage' (2), 'read-only-storage' (3)],
-  $GPUBufferBindingTypes: "wgpuDecodeStrings('uniform A read-only-A', 'storage')",
-
-  $GPUSamplerBindingTypes__deps: ['$wgpuDecodeStrings'],
-//$GPUSamplerBindingTypes: [undefined (0), 'filtering' (1), 'non-filtering' (2), 'comparison' (3)],
-  $GPUSamplerBindingTypes: "wgpuDecodeStrings('Anon-Acomparison', 'filtering ')",
-
-  $GPUTextureSampleTypes__deps: ['$wgpuDecodeStrings'],
-//$GPUTextureSampleTypes: [undefined (0), 'float' (1), 'unfilterable-float' (2), 'depth' (3), 'sint' (4), 'uint' (5)],
-  $GPUTextureSampleTypes: "wgpuDecodeStrings('Aunfilterable-Adepth sint uint', 'float ')",
-
+  $GPUTextureViewDimensions: [, '1d', '2d', '2d-array', 'cube', 'cube-array', '3d' ],
+  $GPUStorageTextureSampleTypes: [, 'write-only', 'read-only', 'read-write' ],
+  $GPUAddressModes: [, 'clamp-to-edge', 'repeat', 'mirror-repeat' ],
+  $GPUTextureAspects: [, 'all', 'stencil-only', 'depth-only' ],
+  $GPUPrimitiveTopologys: [, 'point-list', 'line-list', 'line-strip', 'triangle-list', 'triangle-strip' ],
+  $GPUBufferBindingTypes: [, 'uniform', 'storage', 'read-only-storage' ],
+  $GPUSamplerBindingTypes: [, 'filtering', 'non-filtering', 'comparison' ],
+  $GPUTextureSampleTypes: [, 'float', 'unfilterable-float', 'depth', 'sint', 'uint' ],
   $GPUQueryTypes: [, 'occlusion', 'timestamp'],
-
-  $HTMLPredefinedColorSpaces: [, 'srgb', 'display-p3'],
-
-  $GPUFilterModes__deps: ['$wgpuDecodeStrings'],
-//$GPUFilterModes: [undefined (0), 'nearest' (1), 'linear' (2)],
-  $GPUFilterModes: "wgpuDecodeStrings('Aest liA', 'near')",
-
-  $GPUMipmapFilterModes__deps: ['$wgpuDecodeStrings'],
-//$GPUMipmapFilterModes: [undefined (0), 'nearest' (1), 'linear' (2)],
-  $GPUMipmapFilterModes: "wgpuDecodeStrings('Aest liA', 'near')",
-
+  $HTMLPredefinedColorSpaces: [, 'srgb', 'srgb-linear', 'display-p3', 'display-p3-linear'],
+  $GPUFilterModes: [, 'nearest', 'linear' ],
+  // $GPUMipmapFilterModes has identical values to $GPUFilterModes - reuse the same array for both mag/min and mipmap filter lookups.
+  // $GPUMipmapFilterModes: [, 'nearest', 'linear' ],
   $GPULoadOps: [, 'load', 'clear'],
-
   $GPUStoreOps: [, 'store', 'discard'],
-
   $GPUCanvasToneMappingModes: [, 'standard', 'extended'],
-
   $GPUCanvasAlphaModes: [, 'opaque', 'premultiplied'],
-
   $GPUAutoLayoutMode: '="auto"',
 
-// End of automatically generated with scripts/compress_strings.js
-//////////////////////////////////////////////////////////////////
-
-  wgpu_canvas_context_configure__deps: ['$GPUTextureAndVertexFormats', '$HTMLPredefinedColorSpaces', '$wgpuReadArrayOfItems', '$GPUTextureAndVertexFormats', '$GPUCanvasToneMappingModes', '$GPUCanvasAlphaModes'],
+  wgpu_canvas_context_configure__deps: ['$GPUTextureAndVertexFormats', '$HTMLPredefinedColorSpaces', '$wgpuReadArrayOfItems', '$GPUCanvasToneMappingModes', '$GPUCanvasAlphaModes'],
   wgpu_canvas_context_configure: function(canvasContext, config) {
     {{{ wdebuglog('`wgpu_canvas_context_configure(canvasContext=${canvasContext}, config=${config})`'); }}}
     {{{ wassert('canvasContext != 0'); }}}
@@ -505,7 +440,7 @@ let api = {
   },
 
   wgpu_canvas_context_unconfigure: function(canvasContext) {
-    {{{ wdebuglog('`wgpu_canvas_context_get_current_texture(canvasContext=${canvasContext})`'); }}}
+    {{{ wdebuglog('`wgpu_canvas_context_unconfigure(canvasContext=${canvasContext})`'); }}}
     {{{ wassert('canvasContext != 0'); }}}
     {{{ wassert('wgpu[canvasContext]'); }}}
     {{{ wassert('wgpu[canvasContext] instanceof GPUCanvasContext'); }}}
@@ -513,7 +448,7 @@ let api = {
     wgpu[canvasContext]['unconfigure']();
   },
 
-  wgpu_canvas_context_get_configuration__deps: ['malloc', '$GPUTextureAndVertexFormats', '$HTMLPredefinedColorSpaces', '$GPUCanvasAlphaModes'],
+  wgpu_canvas_context_get_configuration__deps: ['malloc', '$GPUTextureAndVertexFormats', '$HTMLPredefinedColorSpaces', '$GPUCanvasToneMappingModes', '$GPUCanvasAlphaModes'],
   wgpu_canvas_context_get_configuration: function(canvasContext) {
     {{{ wdebuglog('`wgpu_canvas_context_get_configuration(canvasContext=${canvasContext})`'); }}}
     {{{ wassert('canvasContext != 0'); }}}
@@ -522,31 +457,36 @@ let api = {
 
     var cfg = wgpu[canvasContext]['getConfiguration']();
     {{{ wdebugdir('cfg', '`canvasContext.getConfiguration() returned:`') }}};
-    if (!cfg) return 0;
+    if (!cfg) return {{{ toWasm64('0') }}};
 
     var numViewFormats = cfg['viewFormats'].length;
-    var config = _malloc(36+4*numViewFormats);
-    var c = {{{ shiftPtr('config', 2) }}};
+    var config = _malloc(40+4*numViewFormats); // sizeof(WGpuCanvasConfiguration) + 4*numViewFormats
+    var c = {{{ shiftIndex('config', 2) }}};
 
     HEAPU32[c]   = cfg['device'].wid;
     HEAPU32[c+1] = GPUTextureAndVertexFormats.indexOf(cfg['format']);
     HEAPU32[c+2] = cfg['usage'];
     HEAPU32[c+3] = numViewFormats;
 #if MEMORY64
-    HEAPU64[(c+4)>>1] = config + 36n; // viewFormats pointer
+    HEAPU64[c+4 >>> 1] = BigInt(config + 40); // viewFormats pointer
 #else
-    HEAPU32[c+4] = config + 36;
+    HEAPU32[c+4] = config + 40;
 #endif
     HEAPU32[c+6] = HTMLPredefinedColorSpaces.indexOf(cfg['colorSpace']);
-    HEAPU32[c+7] = GPUCanvasToneMappingModes.indexOf(cfg['toneMapping']);
+    // TODO: Firefox does not currently implement toneMapping field. Remove '?.' after all browsers support it.
+#if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED
+    HEAPU32[c+7] = GPUCanvasToneMappingModes.indexOf(cfg['toneMapping']?.['mode']);
+#else
+    HEAPU32[c+7] = GPUCanvasToneMappingModes.indexOf(cfg['toneMapping']['mode']);
+#endif
     HEAPU32[c+8] = GPUCanvasAlphaModes.indexOf(cfg['alphaMode']);
 
     // Populate the actual formats into the viewFormats pointer.
     for(var i = 0; i < numViewFormats; ++i) {
-      HEAPU32[c+9+i] = GPUTextureAndVertexFormats.indexOf(cfg['viewFormats'][i]);
+      HEAPU32[c+10+i] = GPUTextureAndVertexFormats.indexOf(cfg['viewFormats'][i]);
     }
 
-    return config; // Return the malloc()ed pointer to caller. It must remember to free it!
+    return {{{ toWasm64('config') }}}; // Return the malloc()ed pointer to caller. It must remember to free it!
   },
 
   wgpu_canvas_context_get_current_texture__deps: ['wgpu_object_destroy', '$wgpuLinkParentAndChild'],
@@ -601,9 +541,10 @@ let api = {
     {{{ wassert('device != 0'); }}}
     {{{ wassert('wgpu[device]'); }}}
     {{{ wassert('wgpu[device] instanceof GPUDevice'); }}}
-    wgpu[device]['lost'].then((deviceLostInfo) => {
+    wgpu[device]['lost'].then(deviceLostInfo => {
+      {{{ wdebuglog("`WebGPU device lost. Reason: ${deviceLostInfo['reason']}`"); }}}
       _wgpuReportErrorCodeAndMessage(device, callback,
-        deviceLostInfo['reason'] == 'destroyed' ? 1/*WGPU_DEVICE_LOST_REASON_DESTROYED*/ : 0/*WGPU_DEVICE_LOST_REASON_UNKNOWN*/,
+        +(deviceLostInfo['reason'][0] == 'd')/*WGPU_DEVICE_LOST_REASON_DESTROYED=1, UNKNOWN=0*/,
         deviceLostInfo['message'], userData);
     });
   },
@@ -620,7 +561,7 @@ let api = {
         ? (error instanceof GPUInternalError    ? 3/*WGPU_ERROR_TYPE_INTERNAL*/
         : (error instanceof GPUValidationError  ? 2/*WGPU_ERROR_TYPE_VALIDATION*/
         : (error instanceof GPUOutOfMemoryError ? 1/*WGPU_ERROR_TYPE_OUT_OF_MEMORY*/
-        : 3/*WGPU_ERROR_TYPE_UNKNOWN_ERROR*/)))
+        : 4/*WGPU_ERROR_TYPE_UNKNOWN*/)))
         : 0/*WGPU_ERROR_TYPE_NO_ERROR*/;
   },
 
@@ -635,7 +576,7 @@ let api = {
     _wgpuReportErrorCodeAndMessage(device,
       callback,
       _wgpuErrorObjectToErrorType(error),
-      error && error['message'],
+      error?.['message'],
       userData);
   },
 
@@ -659,13 +600,8 @@ let api = {
     {{{ wassert('wgpu[device] instanceof GPUDevice'); }}}
     {{{ wassert('callback'); }}}
 
-    function dispatchErrorCallback(error) {
-      _wgpuDispatchWebGpuErrorEvent(device, callback, error, userData);
-    }
-
-    wgpu[device]['popErrorScope']()
-      .then(_wgpuMuteJsExceptions(dispatchErrorCallback))
-      .catch(dispatchErrorCallback);
+    let d = error => _wgpuDispatchWebGpuErrorEvent(device, callback, error, userData);
+    wgpu[device]['popErrorScope']().then(_wgpuMuteJsExceptions(d)).catch(d);
   },
 
   wgpu_device_pop_error_scope_sync__deps: ['_wgpuNumAsyncifiedOperationsPending', '$wgpu_async', 'wgpuMuteJsExceptions', '$stringToUTF8', 'wgpuErrorObjectToErrorType'],
@@ -679,13 +615,15 @@ let api = {
       {{{ wassert('msgLen >= 0'); }}}
       {{{ wassert('msg || msgLen == 0'); }}}
 
-      function dispatchErrorCallback(error) {
+      let dispatchErrorCallback = error => {
         --__wgpuNumAsyncifiedOperationsPending;
-        var err = (error && error['message']) || '';
+        var err = error?.['message'] || '';
+#if (ASSERTIONS || parseInt(globalThis.WEBGPU_DEBUG))
         console.dir(err);
-        stringToUTF8(err, msg, msgLen);
+#endif
+        stringToUTF8(err, {{{ toNumber('msg') }}}, msgLen);
         return _wgpuErrorObjectToErrorType(error);
-      }
+      };
 
       ++__wgpuNumAsyncifiedOperationsPending;
       return wgpu[device]['popErrorScope']()
@@ -715,7 +653,16 @@ let api = {
     delete Navigator.prototype.gpu;
   },
 
-  navigator_gpu_request_adapter_async__deps: ['$wgpuStore', 'wgpuMuteJsExceptions'],
+  $wgpuReadAdapterOptions: function(options) {
+    return options ? {
+      'featureLevel': [, 'compatibility'][HEAPU32[options]], // 'core' is omitted intentionally, since the spec says it is the default value.
+      'powerPreference': [, 'low-power', 'high-performance'][HEAPU32[options+1]],
+      'forceFallbackAdapter': !!HEAPU32[options+2],
+      'xrCompatible': !!HEAPU32[options+3]
+    } : {};
+  },
+
+  navigator_gpu_request_adapter_async__deps: ['$wgpuStore', 'wgpuMuteJsExceptions', '$wgpuReadAdapterOptions'],
   navigator_gpu_request_adapter_async__docs: '/** @suppress{checkTypes} */', // This function intentionally calls cb() without args.
   navigator_gpu_request_adapter_async: function(options, adapterCallback, userData) {
     {{{ wdebuglog('`navigator_gpu_request_adapter_async(options: ${options}, adapterCallback: ${adapterCallback}, userData: ${userData})`'); }}}
@@ -725,27 +672,19 @@ let api = {
 
     {{{ replacePtrToIdx('options', 2); }}}
 
-    let gpu = navigator['gpu'],
-      powerPreference = [, 'low-power', 'high-performance'][HEAPU32[options]],
-      opts = {};
+    let gpu = navigator['gpu'], opts = wgpuReadAdapterOptions(options);
 
     if (gpu) {
-      if (options) {
-        opts['forceFallbackAdapter'] = !!HEAPU32[options+1];
-        opts['xrCompatible'] = !!HEAPU32[options+2];
-        if (powerPreference) opts['powerPreference'] = powerPreference;
-      }
-
       {{{ wdebuglog('`navigator.gpu.requestAdapter(options=${JSON.stringify(opts)})`'); }}}
-      function cb(adapter) {
+      let cb = adapter => {
         {{{ wdebugdir('adapter', '`navigator.gpu.requestAdapter resolved with following adapter:`'); }}}
         {{{ makeDynCall('vip', 'adapterCallback') }}}(wgpuStore(adapter), userData);
-      }
+      };
       gpu['requestAdapter'](opts)
         .then(_wgpuMuteJsExceptions(cb))
         .catch(
 #if ASSERTIONS || globalThis.WEBGPU_DEBUG
-        (e)=>{console.error(`navigator.gpu.requestAdapter() Promise failed: ${e}`); cb(/*intentionally omit arg to pass undefined*/)}
+        (e)=>{console.error(`navigator.gpu.requestAdapter() Promise rejected: ${e}`); cb(/*intentionally omit arg to pass undefined*/)}
 #else
         ()=>{cb(/*intentionally omit arg to pass undefined*/)}
 #endif
@@ -774,7 +713,7 @@ let api = {
     return await func();
   },
 
-  navigator_gpu_request_adapter_sync__deps: ['$wgpuStoreAsyncifiedOp', '_wgpuNumAsyncifiedOperationsPending', '$wgpu_async'],
+  navigator_gpu_request_adapter_sync__deps: ['$wgpuStoreAsyncifiedOp', '_wgpuNumAsyncifiedOperationsPending', '$wgpu_async', '$wgpuReadAdapterOptions'],
 //  navigator_gpu_request_adapter_sync__sig: 'ip', // Iirc this would be needed for -sASYNCIFY=1 build mode, but this breaks -sMEMORY64=1 due to the detrimental automatic wrappers
   navigator_gpu_request_adapter_sync__async: true,
   navigator_gpu_request_adapter_sync: function(options) {
@@ -785,17 +724,9 @@ let api = {
 
       {{{ replacePtrToIdx('options', 2); }}}
 
-      let gpu = navigator['gpu'],
-        powerPreference = [, 'low-power', 'high-performance'][HEAPU32[options]],
-        opts = {};
+      let gpu = navigator['gpu'], opts = wgpuReadAdapterOptions(options);
 
       if (gpu) {
-        if (options) {
-          opts['forceFallbackAdapter'] = !!HEAPU32[options+1];
-          opts['xrCompatible'] = !!HEAPU32[options+2];
-          if (powerPreference) opts['powerPreference'] = powerPreference;
-        }
-
         {{{ wdebuglog('`navigator.gpu.requestAdapter(options=${JSON.stringify(opts)})`'); }}}
         ++__wgpuNumAsyncifiedOperationsPending;
         return gpu['requestAdapter'](opts).then(wgpuStoreAsyncifiedOp);
@@ -851,27 +782,27 @@ let api = {
     return GPUTextureAndVertexFormats.indexOf(navigator['gpu']['getPreferredCanvasFormat']());
   },
 
-  $wgpuSupportedWgslLanguageFeatures: 0,
-
-  navigator_gpu_get_wgsl_language_features__deps: ['$wgpuSupportedWgslLanguageFeatures', 'malloc', '$stringToNewUTF8'],
+  navigator_gpu_get_wgsl_language_features__deps: ['$stringToUTF8OnStack', '$stackAlloc'],
   navigator_gpu_get_wgsl_language_features: function() {
-    if (!wgpuSupportedWgslLanguageFeatures) {
-      // This function allocates an un-freeable constant memory block for an immutable array of strings representing the WGSL
-      // language features. The intention is that this allocation is done only once, and behaves like global static data.
-      let f = navigator['gpu']['wgslLanguageFeatures'];
-      let i = {{{ to64('0') }}};
-      wgpuSupportedWgslLanguageFeatures = _malloc((f.size+1) * 8); // 8 == sizeof(char*) in Wasm64 mode
-      for(var feat of f.keys()) {
+    var f = navigator['gpu']['wgslLanguageFeatures'];
+    var i = {{{ toWasm64('0') }}};
+    var wgpuSupportedWgslLanguageFeatures = stackAlloc((f.size+1) * 8); // 8 == sizeof(char*) in Wasm64 mode
+    for(var feat of f.keys()) {
 #if MEMORY64
-        HEAPU64[BigInt(wgpuSupportedWgslLanguageFeatures) + i >> 3n] = BigInt(stringToNewUTF8(feat));
-        i += 8n;
+      HEAPU64[BigInt(wgpuSupportedWgslLanguageFeatures) + i >> 3n] = BigInt(stringToUTF8OnStack(feat));
+      i += 8n;
 #else
-        HEAPU32[wgpuSupportedWgslLanguageFeatures + i >> 2] = stringToNewUTF8(feat);
-        i += 4;
+      HEAPU32[wgpuSupportedWgslLanguageFeatures + i >> 2] = stringToUTF8OnStack(feat);
+      i += 4;
 #endif
-      }
     }
-    return {{{ to64('wgpuSupportedWgslLanguageFeatures') }}};
+      // Null-terminate the list of wgsl language feature strings.
+#if MEMORY64
+    HEAPU64[BigInt(wgpuSupportedWgslLanguageFeatures) + i >> 3n] = 0n;
+#else
+    HEAPU32[wgpuSupportedWgslLanguageFeatures + i >> 2] = 0;
+#endif
+    return {{{ toWasm64('wgpuSupportedWgslLanguageFeatures') }}};
   },
 
   navigator_gpu_is_wgsl_language_feature_supported__deps: ['$utf8'],
@@ -885,18 +816,16 @@ let api = {
     {{{ wassert('adapterOrDevice != 0'); }}}
     {{{ wassert('wgpu[adapterOrDevice]'); }}}
     {{{ wassert('wgpu[adapterOrDevice] instanceof GPUAdapter || wgpu[adapterOrDevice] instanceof GPUDevice'); }}}
-    let id = 1,
-      featuresBitMask = 0;
+    let featuresBitMask = 0;
 
     {{{ wdebuglog('`The following adapter features are supported:`'); }}}
 
-    for(let feature of _wgpuFeatures) {
+    _wgpuFeatures.forEach((feature, i) => {
       if (wgpu[adapterOrDevice]['features'].has(feature)) {
-        {{{ wdebuglog('` - "${feature}", feature bit 0x${id.toString(16)}`'); }}}
-        featuresBitMask |= id;
+        {{{ wdebuglog('` - "${feature}", feature bit 0x${(1<<i).toString(16)}`'); }}}
+        featuresBitMask |= 1 << i;
       }
-      id *= 2;
-    }
+    });
     return featuresBitMask;
   },
 
@@ -904,7 +833,7 @@ let api = {
   wgpu_adapter_or_device_supports_feature: function(adapterOrDevice, feature) {
     {{{ wdebuglog('`wgpu_adapter_or_device_supports_feature(adapterOrDevice: ${adapterOrDevice}, feature: ${feature} == ${_wgpuFeatures[31 - Math.clz32(feature)]})`'); }}}
     {{{ wassert('adapterOrDevice != 0'); }}}
-    {{{ wassert('(adapterOrDevice & (adapterOrDevice-1)) == 0'); }}} // Only call on a single feature at a time, not a bit combination of multiple features!
+    {{{ wassert('(feature & (feature-1)) == 0'); }}} // Only call on a single feature at a time, not a bit combination of multiple features!
     {{{ wassert('wgpu[adapterOrDevice]'); }}}
     {{{ wassert('wgpu[adapterOrDevice] instanceof GPUAdapter || wgpu[adapterOrDevice] instanceof GPUDevice'); }}}
     return wgpu[adapterOrDevice]['features'].has(_wgpuFeatures[31 - Math.clz32(feature)])
@@ -936,6 +865,10 @@ let api = {
   $wgpuReadSupportedLimits: function(heap32Idx) {
     let requiredLimits = {}, v;
 
+    // Assertion in lib_webgpu.h below struct WGpuSupportedLimits must match:
+    {{{ wassert('_wgpu64BitLimitNames.length == 3, `Internal error: Number of uint64_t limit fields is not correct.`'); }}}
+    {{{ wassert('_wgpu32BitLimitNames.length == 32, `Internal error: Number of uint32_t limit fields is not correct.`'); }}}
+
     // Marshal all the complex 64-bit quantities first ..
     for(let limitName of _wgpu64BitLimitNames) {
       if ((v = wgpuReadI53FromU64HeapIdx(heap32Idx))) requiredLimits[limitName] = v;
@@ -950,19 +883,21 @@ let api = {
   },
 
   $wgpuReadQueueDescriptor: function(heap32Idx) {
-    return HEAPU32[heap32Idx] ? { 'label': utf8(HEAPU32[heap32Idx]) } : void 0;
+#if MEMORY64
+    let v = HEAPU64[heap32Idx >>> 1]; return v ? { 'label': utf8(v) } : void 0;
+#else
+    let v = HEAPU32[heap32Idx]; return v ? { 'label': utf8(v) } : void 0;
+#endif
   },
 
   $wgpuReadFeaturesBitfield__deps: ['wgpuFeatures'],
   $wgpuReadFeaturesBitfield: function(heap32Idx) {
     let requiredFeatures = [], v = HEAPU32[heap32Idx];
 
-    {{{ wassert('_wgpuFeatures.length == 21'); }}}
+    {{{ wassert('_wgpuFeatures.length == 22'); }}} // Do not emit _wgpuFeatures.length in code below, to micro-optimize code size. Assert here this invariant holds.
     {{{ wassert('_wgpuFeatures.length <= 30'); }}} // We can only do up to 30 distinct feature bits here with the current code.
 
-    for(let i = 0; i < 21/*_wgpuFeatures.length*/; ++i) {
-      if (v & (1 << i)) requiredFeatures.push(_wgpuFeatures[i]);
-    }
+    _wgpuFeatures.forEach((f, i) => { if (v & (1 << i)) requiredFeatures.push(f); });
     return requiredFeatures;
   },
 
@@ -973,12 +908,12 @@ let api = {
 
     return {
       'requiredLimits': wgpuReadSupportedLimits(descriptor),
-      'defaultQueue': wgpuReadQueueDescriptor(descriptor+34/*sizeof(WGpuSupportedLimits)*/),
-      'requiredFeatures': wgpuReadFeaturesBitfield(descriptor+36/*sizeof(WGpuSupportedLimits)+sizeof(WGpuQueueDescriptor)*/)
+      'defaultQueue': wgpuReadQueueDescriptor(descriptor+38/*sizeof(WGpuSupportedLimits)*/), // TODO: Check code size here, redundant for release builds?
+      'requiredFeatures': wgpuReadFeaturesBitfield(descriptor+40/*sizeof(WGpuSupportedLimits)+sizeof(WGpuQueueDescriptor)*/)
     };
   },
 
-  wgpu_adapter_request_device_async__deps: ['$wgpuStore', 'wgpuMuteJsExceptions', '$wgpuReadDeviceDescriptor'],
+  wgpu_adapter_request_device_async__deps: ['$wgpuStoreAndSetParent', 'wgpuMuteJsExceptions', '$wgpuReadDeviceDescriptor'],
   wgpu_adapter_request_device_async__docs: '/** @suppress{checkTypes} */', // This function intentionally calls cb() without args.
   wgpu_adapter_request_device_async: function(adapter, descriptor, deviceCallback, userData) {
     {{{ wdebuglog('`wgpu_adapter_request_device_async(adapter: ${adapter}, deviceCallback: ${deviceCallback}, userData: ${userData})`'); }}}
@@ -986,25 +921,23 @@ let api = {
     {{{ wassert('wgpu[adapter]'); }}}
     {{{ wassert('wgpu[adapter] instanceof GPUAdapter'); }}}
 
-    function cb(device) {
+    adapter = wgpu[adapter];
+    let cb = device => {
       // If device is non-null, initialization succeeded.
-      {{{ wdebugdir('device', '`wgpu[adapter].requestDevice resolved with following device:`'); }}}
-      if (device) {
-        // Register an ID for the queue of this newly created device
-        wgpuStore(device['queue']);
-      }
-
-      {{{ makeDynCall('vii', 'deviceCallback') }}}(wgpuStore(device), userData);
-    }
+      {{{ wdebugdir('device', '`adapter.requestDevice resolved with following device:`'); }}}
+      // Register an ID for the queue of this newly created device (using a ?. if device initialization succeeded)
+      wgpuStoreAndSetParent(device?.['queue'], device);
+      {{{ makeDynCall('vip', 'deviceCallback') }}}(wgpuStoreAndSetParent(device, adapter), userData);
+    };
 
     let desc = wgpuReadDeviceDescriptor(descriptor);
 
     {{{ wdebugdir('desc', '`GPUAdapter.requestDevice() with descriptor:`') }}};
-    wgpu[adapter]['requestDevice'](desc)
+    adapter['requestDevice'](desc)
       .then(_wgpuMuteJsExceptions(cb))
       .catch(
 #if ASSERTIONS || globalThis.WEBGPU_DEBUG
-      (e)=>{console.error(`GPUAdapter.requestDevice() Promise failed: ${e}`); cb(/*intentionally omit arg to pass undefined*/)}
+      (e)=>{console.error(`GPUAdapter.requestDevice() Promise rejected: ${e}`); cb(/*intentionally omit arg to pass undefined*/)}
 #else
       ()=>{cb(/*intentionally omit arg to pass undefined*/)}
 #endif
@@ -1022,22 +955,21 @@ let api = {
       {{{ wassert('wgpu[adapter]'); }}}
       {{{ wassert('wgpu[adapter] instanceof GPUAdapter'); }}}
 
-      function cb(device) {
+      adapter = wgpu[adapter];
+      let cb = device => {
         // If device is non-null, initialization succeeded.
-        {{{ wdebugdir('device', '`wgpu[adapter].requestDevice resolved with following device:`'); }}}
-        if (device) {
-          // Register an ID for the queue of this newly created device
-          wgpuStoreAndSetParent(device['queue'], device);
-        }
-        return wgpuStoreAsyncifiedOp(device, wgpu[adapter]);
-      }
+        {{{ wdebugdir('device', '`adapter.requestDevice resolved with following device:`'); }}}
+      // Register an ID for the queue of this newly created device (using a ?. if device initialization succeeded)
+        wgpuStoreAndSetParent(device?.['queue'], device);
+        return wgpuStoreAsyncifiedOp(device, adapter);
+      };
 
       ++__wgpuNumAsyncifiedOperationsPending;
 
       let desc = wgpuReadDeviceDescriptor(descriptor);
 
       {{{ wdebugdir('desc', '`GPUAdapter.requestDevice() with descriptor:`') }}};
-      return wgpu[adapter]['requestDevice'](desc).then(cb);
+      return adapter['requestDevice'](desc).then(cb);
     });
   },
 #endif
@@ -1051,13 +983,15 @@ let api = {
     {{{ wassert('adapter != 0'); }}}
     {{{ wassert('wgpu[adapter]'); }}}
     {{{ wassert('wgpu[adapter] instanceof GPUAdapter'); }}}
-    wgpu[adapter]['requestDevice']().then(device => {
-      wgpuStoreAndSetParent(device['queue'], device);
+    adapter = wgpu[adapter];
+    adapter['requestDevice']().then(device => {
+      // Register an ID for the queue of this newly created device (using a ?. if device initialization succeeded)
+      wgpuStoreAndSetParent(device?.['queue'], device);
 #if MEMORY64
-      getWasmTableEntry(deviceCallback)(wgpuStoreAndSetParent(device, wgpu[adapter]), 0n);
+      getWasmTableEntry(deviceCallback)(wgpuStoreAndSetParent(device, adapter), 0n);
 #else
       // The second userData pointer is intentionally omitted here.
-      {{{ makeDynCall('vip', 'deviceCallback') }}}(wgpuStoreAndSetParent(device, wgpu[adapter]));
+      {{{ makeDynCall('vip', 'deviceCallback') }}}(wgpuStoreAndSetParent(device, adapter));
 #endif
     });
   },
@@ -1073,9 +1007,11 @@ let api = {
       {{{ wassert('wgpu[adapter]'); }}}
       {{{ wassert('wgpu[adapter] instanceof GPUAdapter'); }}}
       ++__wgpuNumAsyncifiedOperationsPending;
-      return wgpu[adapter]['requestDevice']().then(device => {
-        wgpuStoreAndSetParent(device['queue'], device);
-        return wgpuStoreAsyncifiedOp(device, wgpu[adapter]);
+      adapter = wgpu[adapter];
+      return adapter['requestDevice']().then(device => {
+        // Register an ID for the queue of this newly created device (using a ?. if device initialization succeeded)
+        wgpuStoreAndSetParent(device?.['queue'], device);
+        return wgpuStoreAsyncifiedOp(device, adapter);
       });
     });
   },
@@ -1088,18 +1024,16 @@ let api = {
     {{{ wassert('wgpu[adapterOrDevice]'); }}}
     {{{ wassert('wgpu[adapterOrDevice] instanceof GPUAdapter || wgpu[adapterOrDevice] instanceof GPUDevice'); }}}
     {{{ wassert('infoPtr != 0'); }}}
-    {{{ convertToNumber('infoPtr') }}};
-
-    let adapterInfo = wgpu[adapterOrDevice]['adapterInfo'] || wgpu[adapterOrDevice]['info'];
+    var infoIdx = {{{ shiftPtr('infoPtr', 2) }}},
+      infoByteIdx = {{{ shiftPtr('infoPtr', 0) }}},
+      ao = wgpu[adapterOrDevice],
+      adapterInfo = ao['adapterInfo'] || ao['info'];
     {{{ wdebugdir('adapterInfo', '`GPUAdapter.info is a member with following parameters:`'); }}}
 
-    stringToUTF8(adapterInfo['vendor'],       infoPtr, 512);
-    stringToUTF8(adapterInfo['architecture'], infoPtr + 512,  512);
-    stringToUTF8(adapterInfo['device'],       infoPtr + 1024, 512);
-    stringToUTF8(adapterInfo['description'],  infoPtr + 1536, 512);
-    HEAPU32[infoPtr + 2048 >> 2] = adapterInfo['subgroupMinSize'];
-    HEAPU32[infoPtr + 2052 >> 2] = adapterInfo['subgroupMaxSize'];
-    HEAPU32[infoPtr + 2056 >> 2] = adapterInfo['isFallbackAdapter'];
+    ['vendor','architecture','device','description'].forEach((f,i) => stringToUTF8(adapterInfo[f], infoByteIdx+i*512, 512));
+    HEAPU32[infoIdx + 512] = adapterInfo['subgroupMinSize'];
+    HEAPU32[infoIdx + 513] = adapterInfo['subgroupMaxSize'];
+    HEAPU32[infoIdx + 514] = adapterInfo['isFallbackAdapter'];
   },
 
   wgpu_device_get_queue: function(device) {
@@ -1129,7 +1063,7 @@ let api = {
       {{{ wassert('layout <= 1 || wgpu[layout] instanceof GPUPipelineLayout'); }}}
       hints.push({
         'entryPoint': utf8({{{ readPtrFromIdx32('hintsIndex') }}}),
-        'layout': layout > 1 ? wgpu[layout] : (layout ? GPUAutoLayoutMode : null)
+        'layout': layout > 1 ? wgpu[layout] : (layout ? GPUAutoLayoutMode : void 0)
       });
       hintsIndex += 4;
     }
@@ -1141,7 +1075,11 @@ let api = {
     {{{ wassert('descriptor != 0'); }}}
     {{{ replacePtrToIdx('descriptor', 2); }}}
     return {
+#if MEMORY64
+      'code': utf8(HEAPU64[descriptor >>> 1]),
+#else
       'code': utf8(HEAPU32[descriptor]),
+#endif
       'compilationHints': wgpuReadShaderModuleCompilationHints(descriptor+2)
     }
   },
@@ -1153,9 +1091,10 @@ let api = {
     {{{ wassert('wgpu[device]'); }}}
     {{{ wassert('wgpu[device] instanceof GPUDevice'); }}}
 
+    device = wgpu[device];
     let desc = wgpuReadShaderModuleDescriptor(descriptor);
     {{{ wdebugdir('desc', '`device.createShaderModule() with descriptor:`') }}};
-    return wgpuStoreAndSetParent(wgpu[device]['createShaderModule'](desc), wgpu[device]);
+    return wgpuStoreAndSetParent(device['createShaderModule'](desc), device);
   },
 
   wgpu_shader_module_get_compilation_info_async__deps: ['$lengthBytesUTF8', '$stringToUTF8', 'malloc'],
@@ -1183,8 +1122,8 @@ let api = {
       for(msg of msgs) totalLen += lengthBytesUTF8(msg['message']) + 1;
 
       infoPtr = _malloc(totalLen);
-      msgPtr = infoPtr + {{{ to64('structLen') }}};
-      i = {{{ shiftPtr('infoPtr', 2) }}};
+      msgPtr = infoPtr + structLen;
+      i = {{{ shiftIndex('infoPtr', 2) }}};
 
       // Write A) struct WGpuCompilationInfo.
       HEAPU32[i] = len;
@@ -1192,8 +1131,13 @@ let api = {
 
       for(msg of msgs) {
         // Write B) struct WGpuCompilationMessage.
-        {{{ HEAPptr }}}[i] = msgPtr;
-        HEAPU32[i+2] = ['error', 'warning', 'info'].indexOf(msg['type']);
+#if MEMORY64
+        HEAPU64[i >>> 1] = BigInt(msgPtr);
+#else
+        HEAPU32[i] = msgPtr;
+#endif
+        {{{ wassert('["error","warning","info"].includes(msg["type"])'); }}}
+        HEAPU32[i+2] = 'ewi'.indexOf(msg['type'][0]); // 'e'rror=0, 'w'arning=1, 'i'nfo=2
         HEAPU32[i+3] = msg['lineNum'];
         HEAPU32[i+4] = msg['linePos'];
         HEAPU32[i+5] = msg['offset'];
@@ -1204,7 +1148,7 @@ let api = {
 
         i += 8; // sizeof(WGpuCompilationMessage)
       }
-      {{{ makeDynCall('vipp', 'callback') }}}(shaderModule, infoPtr, userData);
+      {{{ makeDynCall('vipp', 'callback') }}}(shaderModule, {{{ toWasm64('infoPtr') }}}, userData);
     });
   },
 
@@ -1322,14 +1266,13 @@ let api = {
     return wgpu[gpuBuffer]['usage'];
   },
 
-  wgpu_buffer_map_state__deps: ['$GPUBufferMapStates'],
   wgpu_buffer_map_state: function(gpuBuffer) {
     {{{ wdebuglog('`wgpu_buffer_map_state(gpuBuffer=${gpuBuffer})`'); }}}
     {{{ wassert('gpuBuffer != 0'); }}}
     {{{ wassert('wgpu[gpuBuffer]'); }}}
     {{{ wassert('wgpu[gpuBuffer] instanceof GPUBuffer'); }}}
-    {{{ wassert('GPUBufferMapStates.indexOf(wgpu[gpuBuffer]["mapState"]) != -1'); }}}
-    return GPUBufferMapStates.indexOf(wgpu[gpuBuffer]['mapState']);
+    {{{ wassert('["unmapped","pending","mapped"].includes(wgpu[gpuBuffer]["mapState"])'); }}}
+    return ' upm'.indexOf(wgpu[gpuBuffer]['mapState'][0]); // 'u'nmapped=1, 'p'ending=2, 'm'apped=3
   },
 
   $wgpuReadGpuStencilFaceState__deps: ['$GPUCompareFunctions', '$GPUStencilOperations'],
@@ -1375,7 +1318,7 @@ let api = {
         depthStencilFormat = HEAPU32[depthStencilIdx],
         multisampleCount = HEAPU32[multisampleIdx],
         fragmentModule = HEAPU32[fragmentIdx+6],
-        pipelineLayoutId = HEAPU32[fragmentIdx+10], // sizeof(WGpuFragmentState)
+        pipelineLayoutId = HEAPU32[fragmentIdx+10], // sizeof(WGpuPipelineLayout)
         desc;
 
     {{{ wassert('pipelineLayoutId <= 1/*"auto"*/ || wgpu[pipelineLayoutId]'); }}}
@@ -1408,8 +1351,9 @@ let api = {
     while(numTargets--) {
       // If target format is 0 (WGPU_TEXTURE_FORMAT_INVALID), then this target
       // is sparse and specified as 'null'.
-      targets.push(HEAPU32[targetsIdx] ? {
-        'format': GPUTextureAndVertexFormats[HEAPU32[targetsIdx]],
+      let fmt = HEAPU32[targetsIdx];
+      targets.push(fmt ? {
+        'format': GPUTextureAndVertexFormats[fmt],
         'blend': HEAPU32[targetsIdx+1] ? {
           'color': wgpuReadGpuBlendComponent(targetsIdx+1),
           'alpha': wgpuReadGpuBlendComponent(targetsIdx+4)
@@ -1473,31 +1417,29 @@ let api = {
     {{{ wassert('wgpu[device] instanceof GPUDevice'); }}}
     {{{ wassert('descriptor'); }}}
 
+    device = wgpu[device];
     let desc = wgpuReadRenderPipelineDescriptor(descriptor);
     {{{ wdebugdir('desc', '`GPUDevice.createRenderPipeline() with descriptor:`') }}};
-    return wgpuStoreAndSetParent(wgpu[device]['createRenderPipeline'](desc), wgpu[device]);
+    return wgpuStoreAndSetParent(device['createRenderPipeline'](desc), device);
   },
 
-  $wgpuPipelineCreationFailed: function(device, error, userData) {
+  $wgpuPipelineCreationFailed__deps: ['malloc', 'free', '$stringToNewUTF8'],
+  $wgpuPipelineCreationFailed: function(device, callback, error, userData) {
     {{{ wdebugdir('error', '`createComputePipelineAsync failed with error:`'); }}}
-    let e = _malloc(12);
+    let e = _malloc(24); // n.b. Emscripten _malloc() export can be called with either BigInt or Number, and always returns a Number.
 #if MEMORY64
-    HEAPU64[e>>3] = stringToNewUTF8(error['name']);
-    HEAPU64[e+4n>>3n] = stringToNewUTF8(error['message']);
-    HEAPU64[e+8n>>3n] = stringToNewUTF8(error['reason']);
-    {{{ makeDynCall('vipip', 'callback') }}}(device, e, 0, userData);
-    _free(HEAPU64[e+8n>>3n]);
-    _free(HEAPU64[e+4n>>3n]);
-    _free(HEAPU64[e>>3n]);
+    let eIdx = {{{ shiftIndex('e', 3) }}};
+    let n = HEAPU64[eIdx]     = BigInt(stringToNewUTF8(error['name'])),
+        m = HEAPU64[eIdx + 1] = BigInt(stringToNewUTF8(error['message'])),
+        r = HEAPU64[eIdx + 2] = BigInt(stringToNewUTF8(error['reason']));
 #else
-    HEAPU32[e>>2] = stringToNewUTF8(error['name']);
-    HEAPU32[e+4>>2] = stringToNewUTF8(error['message']);
-    HEAPU32[e+8>>2] = stringToNewUTF8(error['reason']);
-    {{{ makeDynCall('vipip', 'callback') }}}(device, e, 0, userData);
-    _free(HEAPU32[e+8>>2]);
-    _free(HEAPU32[e+4>>2]);
-    _free(HEAPU32[e>>2]);
+    let eIdx = {{{ shiftPtr('e', 2) }}};
+    let n = HEAPU32[eIdx]     = stringToNewUTF8(error['name']),
+        m = HEAPU32[eIdx + 2] = stringToNewUTF8(error['message']),
+        r = HEAPU32[eIdx + 4] = stringToNewUTF8(error['reason']);
 #endif
+    {{{ makeDynCall('vipip', 'callback') }}}(device, e, /*pipeline handle=*/0, userData);
+    _free(r); _free(m); _free(n);
     _free(e);
   },
 
@@ -1514,7 +1456,7 @@ let api = {
 
     let cb = (pipeline) => {
       {{{ wdebugdir('pipeline', '`createRenderPipelineAsync completed with pipeline:`'); }}}
-      {{{ makeDynCall('vipip', 'callback') }}}(device, 0, wgpuStoreAndSetParent(pipeline, deviceObject), userData);
+      {{{ makeDynCall('vipip', 'callback') }}}(device, {{{ toWasm64('0') }}}, wgpuStoreAndSetParent(pipeline, deviceObject), userData);
     };
 
     let desc = wgpuReadRenderPipelineDescriptor(descriptor);
@@ -1523,7 +1465,7 @@ let api = {
       .then(_wgpuMuteJsExceptions(cb))
       .catch(
 #if ASSERTIONS || globalThis.WEBGPU_DEBUG
-      (e)=>{console.error(`GPUDevice.createRenderPipelineAsync() Promise failed: ${e}`); wgpuPipelineCreationFailed(device, e, userData); }
+      (e)=>{console.error(`GPUDevice.createRenderPipelineAsync() Promise rejected: ${e}`); wgpuPipelineCreationFailed(device, callback, e, userData); }
 #else
       ()=>{cb(/*intentionally omit arg to pass undefined*/)}
 #endif
@@ -1536,11 +1478,8 @@ let api = {
     {{{ wassert('device != 0'); }}}
     {{{ wassert('wgpu[device]'); }}}
     {{{ wassert('wgpu[device] instanceof GPUDevice'); }}}
-    {{{ wassert('descriptor == 0 && "TODO: passing non-zero descriptor to wgpu_device_create_command_encoder() not yet implemented!"'); }}}
-
-    let desc = void 0;
-    {{{ wdebugdir('desc', '`GPUDevice.createCommandEncoder() with descriptor:`') }}};
-    return wgpuStoreAndSetParent(wgpu[device]['createCommandEncoder'](desc), wgpu[device]);
+    device = wgpu[device];
+    return wgpuStoreAndSetParent(device['createCommandEncoder'](), device);
   },
 
   // A "_simple" variant of wgpu_device_create_command_encoder() that does
@@ -1548,7 +1487,8 @@ let api = {
   // args and creating readable test cases etc.
   wgpu_device_create_command_encoder_simple__deps: ['$wgpuStoreAndSetParent'],
   wgpu_device_create_command_encoder_simple: function(device) {
-    return wgpuStoreAndSetParent(wgpu[device]['createCommandEncoder'](), wgpu[device]);
+    device = wgpu[device];
+    return wgpuStoreAndSetParent(device['createCommandEncoder'](), device);
   },
 
   wgpu_device_create_render_bundle_encoder__deps: ['$GPUTextureAndVertexFormats', '$wgpuStoreAndSetParent'],
@@ -1562,8 +1502,9 @@ let api = {
     {{{ replacePtrToIdx('descriptor', 2); }}}
 
     let colorFormats = [],
-      numColorFormats = HEAP32[descriptor],
-      colorFormatsIdx = {{{ shiftPtr('HEAPU32[descriptor+1]', 2) }}}; // TODO: Wasm64
+      numColorFormats = HEAP32[descriptor+2],
+      colorFormatsPtr = {{{ readPtrFromIdx32('descriptor') }}},
+      colorFormatsIdx = {{{ shiftPtr('colorFormatsPtr', 2) }}};
 
     {{{ wassert('numColorFormats >= 0'); }}}
     while(numColorFormats--) {
@@ -1573,14 +1514,16 @@ let api = {
 
     let desc = {
       'colorFormats': colorFormats,
-      'depthStencilFormat': GPUTextureAndVertexFormats[HEAPU32[descriptor+2]],
-      'sampleCount': HEAPU32[descriptor+3]
+      'depthStencilFormat': GPUTextureAndVertexFormats[HEAPU32[descriptor+3]],
+      'sampleCount': HEAPU32[descriptor+4],
+      'depthReadOnly': !!HEAPU32[descriptor+5],
+      'stencilReadOnly': !!HEAPU32[descriptor+6]
     };
     {{{ wdebugdir('desc', '`GPUDevice.createRenderBundleEncoder() with descriptor:`') }}};
     return wgpuStoreAndSetParent(device['createRenderBundleEncoder'](desc), device);
   },
 
-  wgpu_device_create_query_set__deps: ['$GPUPipelineStatisticNames', '$GPUQueryTypes', '$wgpuStoreAndSetParent'],
+  wgpu_device_create_query_set__deps: ['$GPUQueryTypes', '$wgpuStoreAndSetParent'],
   wgpu_device_create_query_set: function(device, descriptor) {
     {{{ wdebuglog('`wgpu_device_create_query_set(device=${device}, descriptor=${descriptor})`'); }}}
     {{{ wassert('device != 0'); }}}
@@ -1608,9 +1551,7 @@ let api = {
     {{{ wassert('Number.isSafeInteger(size)'); }}}
     {{{ wassert('size >= -1'); }}}
 
-    wgpu[buffer]['mapAsync'](mode, offset, size < 0 ? void 0 : size).then(() => {
-      {{{ makeDynCall('vipidd', 'callback') }}}(buffer, userData, mode, offset, size);
-    });
+    wgpu[buffer]['mapAsync'](mode, offset, size < 0 ? void 0 : size).then(() => {{{ makeDynCall('vipidd', 'callback') }}}(buffer, userData, mode, offset, size));
   },
 
 #if ASYNCIFY
@@ -1632,12 +1573,12 @@ let api = {
       ++__wgpuNumAsyncifiedOperationsPending;
 
       return buffer['mapAsync'](mode, offset, size < 0 ? void 0 : size)
-        .then(() => { --__wgpuNumAsyncifiedOperationsPending; });
+        .then(() => --__wgpuNumAsyncifiedOperationsPending);
     });
   },
 #endif
 
-  wgpu_device_create_texture__deps: ['$wgpuStoreAndSetParent', '$GPUTextureAndVertexFormats', '$wgpuReadArrayOfItems', '$GPUTextureAndVertexFormats'],
+  wgpu_device_create_texture__deps: ['$wgpuStoreAndSetParent', '$GPUTextureViewDimensions', '$GPUTextureAndVertexFormats', '$wgpuReadArrayOfItems'],
   wgpu_device_create_texture: function(device, descriptor) {
     {{{ wdebuglog('`wgpu_device_create_texture(device=${device}, descriptor=${descriptor})`'); }}}
     {{{ wassert('device != 0'); }}}
@@ -1657,7 +1598,8 @@ let api = {
       'sampleCount': HEAP32[descriptor+7],
       'dimension': HEAPU32[descriptor+8] + 'd',
       'format': GPUTextureAndVertexFormats[HEAPU32[descriptor+9]],
-      'usage': HEAPU32[descriptor+10]
+      'usage': HEAPU32[descriptor+10],
+      'textureBindingViewDimension': GPUTextureViewDimensions[HEAPU32[descriptor+11]] // Only used in WebGPU compatibility mode, ignored by core devices.
     };
     {{{ wdebugdir('desc', '`GPUDevice.createTexture() with descriptor:`'); }}}
     let texture = device['createTexture'](desc);
@@ -1665,7 +1607,7 @@ let api = {
     return wgpuStoreAndSetParent(texture, device);
   },
 
-  wgpu_device_create_sampler__deps: ['$wgpuStoreAndSetParent', '$GPUAddressModes', '$GPUFilterModes', '$GPUMipmapFilterModes', '$GPUCompareFunctions'],
+  wgpu_device_create_sampler__deps: ['$wgpuStoreAndSetParent', '$GPUAddressModes', '$GPUFilterModes', '$GPUCompareFunctions'],
   wgpu_device_create_sampler: function(device, descriptor) {
     {{{ wdebuglog('`wgpu_device_create_sampler(device=${device}, descriptor=${descriptor})`'); }}}
     {{{ wassert('device != 0'); }}}
@@ -1680,7 +1622,8 @@ let api = {
       'addressModeW': GPUAddressModes[HEAPU32[descriptor+2]],
       'magFilter': GPUFilterModes[HEAPU32[descriptor+3]],
       'minFilter': GPUFilterModes[HEAPU32[descriptor+4]],
-      'mipmapFilter': GPUMipmapFilterModes[HEAPU32[descriptor+5]],
+      // N.b. The field below technically uses '$GPUMipmapFilterModes', but use '$GPUFilterModes' instead to save code size, since these two have identical contents
+      'mipmapFilter': GPUFilterModes[HEAPU32[descriptor+5]],
       'lodMinClamp': HEAPF32[descriptor+6],
       'lodMaxClamp': HEAPF32[descriptor+7],
       'compare': GPUCompareFunctions[HEAPU32[descriptor+8]],
@@ -1848,14 +1791,25 @@ let api = {
 
     let c = {};
     while(numConstants--) {
-      c[utf8({{{ readPtr('constants', 3) }}})] =
-        HEAPF64[{{{ shiftPtr('constants + ' + to64('8'), 3) }}}];
-      constants += 16;
+      c[utf8({{{ readPtr('constants') }}})] = HEAPF64[{{{ shiftPtr('constants + ' + toWasm64('8'), 3) }}}];
+      constants += {{{ toWasm64('16') }}};
     }
     return c;
   },
 
-  wgpu_device_create_compute_pipeline__deps: ['$wgpuStoreAndSetParent', '$wgpuReadConstants', '$GPUAutoLayoutMode'],
+  $wgpuReadComputePipelineDescriptor__deps: ['$wgpuReadConstants', '$GPUAutoLayoutMode'],
+  $wgpuReadComputePipelineDescriptor: function(computeModule, entryPoint, layout, constants, numConstants) {
+    return {
+      'layout': layout > 1 ? wgpu[layout] : GPUAutoLayoutMode,
+      'compute': {
+        'module': wgpu[computeModule],
+        'entryPoint': utf8(entryPoint) || void 0, // If null pointer was passed to use the default entry point name, then utf8() would return '', but spec requires undefined.
+        'constants': wgpuReadConstants(constants, numConstants)
+      }
+    };
+  },
+
+  wgpu_device_create_compute_pipeline__deps: ['$wgpuStoreAndSetParent', '$wgpuReadComputePipelineDescriptor'],
   wgpu_device_create_compute_pipeline: function(device, computeModule, entryPoint, layout, constants, numConstants) {
     {{{ wdebuglog('`wgpu_device_create_compute_pipeline(device=${device}, computeModule=${computeModule}, entryPoint=${entryPoint}, layout=${layout}, constants=${constants}, numConstants=${numConstants})`'); }}}
     {{{ wassert('device != 0'); }}}
@@ -1871,21 +1825,14 @@ let api = {
     {{{ wassert('!entryPoint || utf8(entryPoint).length > 0'); }}} // If entry point string is provided, it must be a nonempty JS string
     device = wgpu[device];
 
-    let desc = {
-      'layout': layout > 1 ? wgpu[layout] : GPUAutoLayoutMode,
-      'compute': {
-        'module': wgpu[computeModule],
-        'entryPoint': utf8(entryPoint) || void 0, // If null pointer was passed to use the default entry point name, then utf8() would return '', but spec requires undefined.
-        'constants': wgpuReadConstants(constants, numConstants)
-      }
-    };
+    let desc = wgpuReadComputePipelineDescriptor(computeModule, entryPoint, layout, constants, numConstants);
     {{{ wdebugdir('desc', '`GPUDevice.createComputePipeline() with descriptor:`') }}};
     return wgpuStoreAndSetParent(device['createComputePipeline'](desc), device);
   },
 
-  wgpu_device_create_compute_pipeline_async__deps: ['$wgpuStoreAndSetParent', '$wgpuReadConstants', '$wgpuPipelineCreationFailed', 'wgpuMuteJsExceptions'],
+  wgpu_device_create_compute_pipeline_async__deps: ['$wgpuStoreAndSetParent', '$wgpuReadComputePipelineDescriptor', '$wgpuPipelineCreationFailed', 'wgpuMuteJsExceptions'],
   wgpu_device_create_compute_pipeline_async__docs: '/** @suppress{checkTypes} */', // This function intentionally calls cb() without args.
-  wgpu_device_create_compute_pipeline_async: function(device, computeModule, entryPoint, layout, constants, numConstants, callback, userDate) {
+  wgpu_device_create_compute_pipeline_async: function(device, computeModule, entryPoint, layout, constants, numConstants, callback, userData) {
     {{{ wdebuglog('`wgpu_device_create_compute_pipeline_async(device=${device}, computeModule=${computeModule}, entryPoint=${entryPoint}, layout=${layout}, constants=${constants}, numConstants=${numConstants}, callback=${callback}, userData=${userData})`'); }}}
     {{{ wassert('device != 0'); }}}
     {{{ wassert('wgpu[device]'); }}}
@@ -1903,24 +1850,17 @@ let api = {
 
     let cb = (pipeline) => {
       {{{ wdebugdir('pipeline', '`createComputePipelineAsync succeeded with pipeline:`'); }}}
-      {{{ makeDynCall('viiip', 'callback') }}}(device, /*error*/ 0, wgpuStoreAndSetParent(pipeline, deviceObject), userData);
+      {{{ makeDynCall('vipip', 'callback') }}}(device, /*error*/ {{{ toWasm64('0') }}}, wgpuStoreAndSetParent(pipeline, deviceObject), userData);
     };
 
-    let desc = {
-      'layout': layout > 1 ? wgpu[layout] : GPUAutoLayoutMode,
-      'compute': {
-        'module': wgpu[computeModule],
-        'entryPoint': utf8(entryPoint) || void 0, // If null pointer was passed to use the default entry point name, then utf8() would return '', but spec requires undefined.
-        'constants': wgpuReadConstants(constants, numConstants)
-      }
-    };
+    let desc = wgpuReadComputePipelineDescriptor(computeModule, entryPoint, layout, constants, numConstants);
     {{{ wdebugdir('desc', '`GPUDevice.createComputePipelineAsync() with descriptor:`') }}};
 
     deviceObject['createComputePipelineAsync'](desc)
       .then(_wgpuMuteJsExceptions(cb))
       .catch(
 #if ASSERTIONS || globalThis.WEBGPU_DEBUG
-      (e)=>{console.error(`GPUDevice.createComputePipelineAsync() Promise failed: ${e}`); wgpuPipelineCreationFailed(device, e, userData); }
+      (e)=>{console.error(`GPUDevice.createComputePipelineAsync() Promise rejected: ${e}`); wgpuPipelineCreationFailed(device, callback, e, userData); }
 #else
       ()=>{cb(/*intentionally omit arg to pass undefined*/)}
 #endif
@@ -1933,21 +1873,24 @@ let api = {
     {{{ wassert('texture != 0'); }}}
     {{{ wassert('wgpu[texture]'); }}}
     {{{ wassert('wgpu[texture] instanceof GPUTexture'); }}}
+    texture = wgpu[texture];
 
-    {{{ replacePtrToIdx('descriptor', 2); }}}
+    var descriptorIdx = {{{ shiftPtr('descriptor', 2) }}},
+      descriptorByteIdx = {{{ shiftPtr('descriptor', 0) }}};
 
-    let desc = descriptor ? {
-      'format': GPUTextureAndVertexFormats[HEAPU32[descriptor]],
-      'dimension': GPUTextureViewDimensions[HEAPU32[descriptor+1]],
-      'usage': HEAPU32[descriptor+2],
-      'aspect': GPUTextureAspects[HEAPU32[descriptor+3]],
-      'baseMipLevel': HEAP32[descriptor+4],
-      'mipLevelCount': HEAP32[descriptor+5],
-      'baseArrayLayer': HEAP32[descriptor+6],
-      'arrayLayerCount': HEAP32[descriptor+7],
+    let desc = descriptorIdx ? {
+      'format': GPUTextureAndVertexFormats[HEAPU32[descriptorIdx]],
+      'dimension': GPUTextureViewDimensions[HEAPU32[descriptorIdx+1]],
+      'usage': HEAPU32[descriptorIdx+2],
+      'aspect': GPUTextureAspects[HEAPU32[descriptorIdx+3]],
+      'baseMipLevel': HEAP32[descriptorIdx+4],
+      'mipLevelCount': HEAP32[descriptorIdx+5],
+      'baseArrayLayer': HEAP32[descriptorIdx+6],
+      'arrayLayerCount': HEAP32[descriptorIdx+7],
+      'swizzle': UTF8ToString(descriptorByteIdx + 32) || 'rgba'
     } : void 0;
     {{{ wdebugdir('desc', '`GPUTexture.createView() with descriptor:`') }}};
-    return wgpuStoreAndSetParent(wgpu[texture]['createView'](desc), wgpu[texture]);
+    return wgpuStoreAndSetParent(texture['createView'](desc), texture);
   },
 
   // A "_simple" variant of wgpu_texture_create_view() that does
@@ -1959,7 +1902,8 @@ let api = {
     {{{ wassert('texture != 0'); }}}
     {{{ wassert('wgpu[texture]'); }}}
     {{{ wassert('wgpu[texture] instanceof GPUTexture'); }}}
-    return wgpuStoreAndSetParent(wgpu[texture]['createView'](), wgpu[texture]);
+    texture = wgpu[texture];
+    return wgpuStoreAndSetParent(texture['createView'](), texture);
   },
 
   wgpu_texture_width: function(texture) {
@@ -2002,14 +1946,20 @@ let api = {
     return wgpu[texture]['sampleCount'];
   },
 
+#if ASSERTIONS || globalThis.WEBGPU_DEBUG
   wgpu_texture_dimension__deps: ['$GPUTextureDimensions'],
+#endif
   wgpu_texture_dimension: function(texture) {
     {{{ wdebuglog('`wgpu_texture_dimension(texture=${texture})`'); }}}
     {{{ wassert('texture != 0'); }}}
     {{{ wassert('wgpu[texture]'); }}}
     {{{ wassert('wgpu[texture] instanceof GPUTexture'); }}}
     {{{ wassert('GPUTextureDimensions.indexOf(wgpu[texture]["dimension"]) != -1'); }}}
-    return GPUTextureDimensions.indexOf(wgpu[texture]['dimension']);
+    {{{ wassert('GPUTextureDimensions.indexOf(wgpu[texture]["dimension"]) == +wgpu[texture]["dimension"][0]'); }}}
+    // N.b. instead of indexing to the string array, e.g.
+    // return GPUTextureDimensions.indexOf(wgpu[texture]['dimension']);
+    // Look up the enum value arithmetically.
+    return +wgpu[texture]['dimension'][0];
   },
 
   wgpu_texture_format__deps: ['$GPUTextureAndVertexFormats'],
@@ -2030,12 +1980,21 @@ let api = {
     return wgpu[texture]['usage'];
   },
 
+  wgpu_texture_binding_view_dimension: function(texture) {
+    {{{ wdebuglog('`wgpu_texture_binding_view_dimension(texture=${texture})`'); }}}
+    {{{ wassert('texture != 0'); }}}
+    {{{ wassert('wgpu[texture]'); }}}
+    {{{ wassert('wgpu[texture] instanceof GPUTexture'); }}}
+    return GPUTextureViewDimensions.indexOf(wgpu[texture]['textureBindingViewDimension']);
+  },
+
   wgpu_pipeline_get_bind_group_layout: function(pipelineBase, index) {
     {{{ wdebuglog('`wgpu_pipeline_get_bind_group_layout(pipelineBase=${pipelineBase}, index=${index})`'); }}}
     {{{ wassert('pipelineBase != 0'); }}}
     {{{ wassert('wgpu[pipelineBase]'); }}}
     {{{ wassert('wgpu[pipelineBase] instanceof GPURenderPipeline || wgpu[pipelineBase] instanceof GPUComputePipeline'); }}}
-    return wgpuStore(wgpu[pipelineBase]['getBindGroupLayout'](index));
+    pipelineBase = wgpu[pipelineBase];
+    return wgpuStoreAndSetParent(pipelineBase['getBindGroupLayout'](index), pipelineBase);
   },
 
   $wgpuReadTimestampWrites: function(timestampWritesIndex) {
@@ -2049,8 +2008,8 @@ let api = {
   },
 
   $wgpuReadRenderPassDepthStencilAttachment: function(heap32Idx) {
-    return HEAPU32[heap32Idx] ? {
-        'view': wgpu[HEAPU32[heap32Idx]],
+    let v = HEAPU32[heap32Idx]; return v ? {
+        'view': wgpu[v],
         'depthLoadOp': GPULoadOps[HEAPU32[heap32Idx+1]],
         'depthClearValue': HEAPF32[heap32Idx+2],
         'depthStoreOp': GPUStoreOps[HEAPU32[heap32Idx+3]],
@@ -2062,7 +2021,7 @@ let api = {
       } : void 0;
   },
 
-  wgpu_command_encoder_begin_render_pass__deps: ['$GPULoadOps', '$GPUStoreOps', '$wgpuReadTimestampWrites', '$wgpuReadRenderPassDepthStencilAttachment'],
+  wgpu_command_encoder_begin_render_pass__deps: ['$GPULoadOps', '$GPUStoreOps', '$wgpuReadTimestampWrites', '$wgpuReadRenderPassDepthStencilAttachment', '$wgpuStore'],
   wgpu_command_encoder_begin_render_pass: function(commandEncoder, descriptor) {
     {{{ wdebuglog('`wgpu_command_encoder_begin_render_pass(commandEncoder=${commandEncoder}, descriptor=${descriptor})`'); }}}
     {{{ wassert('commandEncoder != 0'); }}}
@@ -2083,14 +2042,15 @@ let api = {
     {{{ wassert('maxDrawCount >= 0'); }}}
 
     {{{ wassert('colorAttachmentsIdx % 2 == 0'); }}} // Must be aligned at double boundary
-    {{{ wassert('depthStencilAttachment == 0 || wgpu[depthStencilAttachment] instanceof GPUTextureView'); }}} // Must point to a valid WebGPU texture view object if nonzero
+    {{{ wassert('depthStencilAttachment == 0 || wgpu[depthStencilAttachment] instanceof GPUTexture || wgpu[depthStencilAttachment] instanceof GPUTextureView'); }}} // Must point to a valid WebGPU texture or texture view object if nonzero
 
     {{{ wassert('numColorAttachments >= 0'); }}}
     while(numColorAttachments--) {
       // If view is 0, then this attachment is to be sparse.
-      colorAttachments.push(HEAPU32[colorAttachmentsIdx] ? {
-        'view': wgpu[HEAPU32[colorAttachmentsIdx]],
-        'depthSlice': HEAP32[colorAttachmentsIdx+1] < 0 ? void 0 : HEAP32[colorAttachmentsIdx+1], // Awkward polymorphism: spec does not allow 'depthSlice' to be given a value (even 0) if attachment is not a 3D texture.
+      let v = HEAPU32[colorAttachmentsIdx], ds = HEAP32[colorAttachmentsIdx+1];
+      colorAttachments.push(v ? {
+        'view': wgpu[v],
+        'depthSlice': ds < 0 ? void 0 : ds, // Awkward polymorphism: spec does not allow 'depthSlice' to be given a value (even 0) if attachment is not a 3D texture.
         'resolveTarget': wgpu[HEAPU32[colorAttachmentsIdx+2]],
         'storeOp': GPUStoreOps[HEAPU32[colorAttachmentsIdx+3]],
         'loadOp': GPULoadOps[HEAPU32[colorAttachmentsIdx+4]],
@@ -2117,7 +2077,7 @@ let api = {
     return wgpuStore(wgpu[commandEncoder]['beginRenderPass'](desc));
   },
 
-  wgpu_command_encoder_begin_compute_pass__deps: ['$wgpuReadTimestampWrites'],
+  wgpu_command_encoder_begin_compute_pass__deps: ['$wgpuReadTimestampWrites', '$wgpuStore'],
   wgpu_command_encoder_begin_compute_pass: function(commandEncoder, descriptor) {
     {{{ wdebuglog('`wgpu_command_encoder_begin_compute_pass(commandEncoder=${commandEncoder}, descriptor=${descriptor})`'); }}}
     {{{ wassert('commandEncoder != 0'); }}}
@@ -2184,7 +2144,7 @@ let api = {
     {{{ wassert('wgpu[commandEncoder] instanceof GPUCommandEncoder'); }}}
     {{{ wassert('source'); }}}
     {{{ wassert('destination'); }}}
-    wgpu[commandEncoder]['copyBufferToTexture'](wgpuReadGpuTexelCopyBufferInfo(source), wgpuReadGpuTexelCopyBufferInfo(destination), [copyWidth, copyHeight, copyDepthOrArrayLayers]);
+    wgpu[commandEncoder]['copyBufferToTexture'](wgpuReadGpuTexelCopyBufferInfo(source), wgpuReadGpuTexelCopyTextureInfo(destination), [copyWidth, copyHeight, copyDepthOrArrayLayers]);
   },
 
   wgpu_command_encoder_copy_texture_to_buffer__deps: ['$wgpuReadGpuTexelCopyTextureInfo', '$wgpuReadGpuTexelCopyBufferInfo'],
@@ -2219,8 +2179,8 @@ let api = {
     {{{ wassert('Number.isSafeInteger(offset)'); }}}
     {{{ wassert('offset >= 0'); }}}
     {{{ wassert('Number.isSafeInteger(size)'); }}}
-    {{{ wassert('size >= 0'); }}}
-    wgpu[commandEncoder]['clearBuffer'](buffer, offset, size < 0 ? void 0 : size);
+    {{{ wassert('size >= -1'); }}} // -1 == MAX_SIZE, or >= 0 for the specified size.
+    wgpu[commandEncoder]['clearBuffer'](wgpu[buffer], offset, size < 0 ? void 0 : size);
   },
 
   wgpu_encoder_push_debug_group: function(encoder, groupLabel) {
@@ -2294,6 +2254,8 @@ let api = {
     // N.b. buffer may be null here, in which case the existing buffer is intended to be unbound.
     {{{ wassert('buffer == 0 || wgpu[buffer]'); }}}
     {{{ wassert('buffer == 0 || wgpu[buffer] instanceof GPUBuffer'); }}}
+    {{{ wassert('buffer != 0 || offset == 0'); }}}
+    {{{ wassert('buffer != 0 || size <= 0'); }}}
     {{{ wassert('Number.isSafeInteger(offset)'); }}}
     {{{ wassert('offset >= 0'); }}}
     {{{ wassert('Number.isSafeInteger(size)'); }}}
@@ -2311,13 +2273,13 @@ let api = {
     wgpu[passEncoder]['draw'](vertexCount, instanceCount, firstVertex, firstInstance);
   },
 
-  wgpu_render_commands_mixin_draw_indexed: function(passEncoder, indexCount, instanceCount, firstVertex, baseVertex, firstInstance) {
-    {{{ wdebuglog('`wgpu_render_commands_mixin_draw_indexed(passEncoder=${passEncoder}, indexCount=${indexCount}, instanceCount=${instanceCount}, firstVertex=${firstVertex}, baseVertex=${baseVertex}, firstInstance=${firstInstance})`'); }}}
+  wgpu_render_commands_mixin_draw_indexed: function(passEncoder, indexCount, instanceCount, firstIndex, baseVertex, firstInstance) {
+    {{{ wdebuglog('`wgpu_render_commands_mixin_draw_indexed(passEncoder=${passEncoder}, indexCount=${indexCount}, instanceCount=${instanceCount}, firstIndex=${firstIndex}, baseVertex=${baseVertex}, firstInstance=${firstInstance})`'); }}}
     {{{ wassert('passEncoder != 0'); }}}
     {{{ wassert('wgpu[passEncoder]'); }}}
     {{{ wassert('wgpu[passEncoder] instanceof GPURenderPassEncoder || wgpu[passEncoder] instanceof GPURenderBundleEncoder'); }}}
 
-    wgpu[passEncoder]['drawIndexed'](indexCount, instanceCount, firstVertex, baseVertex, firstInstance);
+    wgpu[passEncoder]['drawIndexed'](indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
   },
 
   wgpu_render_commands_mixin_draw_indirect: function(passEncoder, indirectBuffer, indirectOffset) {
@@ -2367,7 +2329,7 @@ let api = {
   // WebGPU specification has two functions GPUCommandBuffer.finish() and GPURenderBundleEncoder.finish(),
   // which currently have identical semantics and structure. Therefore instead of emitting two functions for
   // each, generate only one to save code size.
-  wgpu_encoder_finish__deps: ['wgpu_object_destroy'],
+  wgpu_encoder_finish__deps: ['wgpu_object_destroy', '$wgpuStore'],
   wgpu_encoder_finish: function(encoder) {
     {{{ wdebuglog('`wgpu_encoder_finish(encoder=${encoder})`'); }}}
     {{{ wassert('encoder != 0'); }}}
@@ -2399,7 +2361,14 @@ let api = {
     {{{ wassert('bindGroup == 0 || wgpu[bindGroup]'); }}}
     {{{ wassert('bindGroup == 0 || wgpu[bindGroup] instanceof GPUBindGroup'); }}}
     {{{ wassert('dynamicOffsets != 0 || numDynamicOffsets == 0'); }}}
+#if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED && (MEMORY64 || CAN_ADDRESS_2GB)
+    // No Wasm4GB/Wasm64 support in Firefox: https://bugzilla.mozilla.org/show_bug.cgi?id=2022805
+    // Make a deep copy of the buffer that is small enough for Firefox to handle.
+    var firefoxWorkaroundBuffer = new Uint32Array(new Uint32Array(HEAPU32.buffer, {{{ shiftPtr('dynamicOffsets', 0) }}}, numDynamicOffsets));
+    wgpu[encoder]['setBindGroup'](index, wgpu[bindGroup], firefoxWorkaroundBuffer);
+#else
     wgpu[encoder]['setBindGroup'](index, wgpu[bindGroup], HEAPU32, {{{ shiftPtr('dynamicOffsets', 2) }}}, numDynamicOffsets);
+#endif
   },
 
   wgpu_compute_pass_encoder_dispatch_workgroups: function(encoder, workgroupCountX, workgroupCountY, workgroupCountZ) {
@@ -2444,7 +2413,7 @@ let api = {
     {{{ wassert('encoder != 0'); }}}
     {{{ wassert('wgpu[encoder]'); }}}
     {{{ wassert('wgpu[encoder] instanceof GPURenderPassEncoder'); }}}
-    wgpu[encoder]['setBlendConstant'](r, g, b, a);
+    wgpu[encoder]['setBlendConstant']([r, g, b, a]);
   },
 
   wgpu_render_pass_encoder_set_stencil_reference: function(encoder, stencilValue) {
@@ -2510,9 +2479,7 @@ let api = {
     {{{ wassert('wgpu[queue]'); }}}
     {{{ wassert('wgpu[queue] instanceof GPUQueue'); }}}
     {{{ wassert('callback'); }}}
-    wgpu[queue]['onSubmittedWorkDone']().then(() => {
-      {{{ makeDynCall('vip', 'callback') }}}(queue, userData);
-    });
+    wgpu[queue]['onSubmittedWorkDone']().then(() => {{{ makeDynCall('vip', 'callback') }}}(queue, userData));
   },
 
   wgpu_queue_write_buffer: function(queue, buffer, bufferOffset, data, size) {
@@ -2523,7 +2490,13 @@ let api = {
     {{{ wassert('buffer != 0'); }}}
     {{{ wassert('wgpu[buffer]'); }}}
     {{{ wassert('wgpu[buffer] instanceof GPUBuffer'); }}}
+#if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED && (MEMORY64 || CAN_ADDRESS_2GB)
+    // No Wasm4GB/Wasm64 support in Firefox: https://bugzilla.mozilla.org/show_bug.cgi?id=2022805
+    var firefoxWorkaroundBuffer = new Uint8Array(new Uint8Array(HEAPU8.buffer, {{{ shiftPtr('data', 0) }}}, size));
+    wgpu[queue]['writeBuffer'](wgpu[buffer], bufferOffset, firefoxWorkaroundBuffer);
+#else
     wgpu[queue]['writeBuffer'](wgpu[buffer], bufferOffset, HEAPU8, {{{ shiftPtr('data', 0) }}}, size);
+#endif
   },
 
   wgpu_queue_write_texture__deps: ['$wgpuReadGpuTexelCopyTextureInfo'],
@@ -2533,7 +2506,21 @@ let api = {
     {{{ wassert('wgpu[queue]'); }}}
     {{{ wassert('wgpu[queue] instanceof GPUQueue'); }}}
     {{{ wassert('destination'); }}}
-    wgpu[queue]['writeTexture'](wgpuReadGpuTexelCopyTextureInfo(destination), HEAPU8, { 'offset': {{{ shiftPtr('data', 0) }}}, 'bytesPerRow': bytesPerBlockRow, 'rowsPerImage': blockRowsPerImage }, [writeWidth, writeHeight, writeDepthOrArrayLayers]);
+#if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED && (MEMORY64 || CAN_ADDRESS_2GB)
+    // No Wasm4GB/Wasm64 support in Firefox: https://bugzilla.mozilla.org/show_bug.cgi?id=2022805
+    var firefoxWorkaroundBuffer = new Uint8Array(new Uint8Array(HEAPU8.buffer, {{{ shiftPtr('data', 0) }}}, bytesPerBlockRow*blockRowsPerImage*writeDepthOrArrayLayers));
+    wgpu[queue]['writeTexture'](wgpuReadGpuTexelCopyTextureInfo(destination), firefoxWorkaroundBuffer,
+      { 'offset': 0,
+        'bytesPerRow': bytesPerBlockRow,
+        'rowsPerImage': blockRowsPerImage
+      }, [writeWidth, writeHeight, writeDepthOrArrayLayers]);
+#else
+    wgpu[queue]['writeTexture'](wgpuReadGpuTexelCopyTextureInfo(destination), HEAPU8,
+      { 'offset': {{{ shiftPtr('data', 0) }}},
+        'bytesPerRow': bytesPerBlockRow,
+        'rowsPerImage': blockRowsPerImage
+      }, [writeWidth, writeHeight, writeDepthOrArrayLayers]);
+#endif
   },
 
   wgpu_queue_copy_external_image_to_texture__deps: ['$wgpuReadGpuTexelCopyTextureInfo', '$HTMLPredefinedColorSpaces'],
@@ -2570,14 +2557,16 @@ let api = {
 #endif
   },
 
+#if ASSERTIONS || globalThis.WEBGPU_DEBUG
   wgpu_query_set_type__deps: ['$GPUQueryTypes'],
+#endif
   wgpu_query_set_type: function(querySet) {
     {{{ wdebuglog('`wgpu_query_set_type(querySet=${querySet})`'); }}}
     {{{ wassert('querySet != 0'); }}}
     {{{ wassert('wgpu[querySet]'); }}}
     {{{ wassert('wgpu[querySet] instanceof GPUQuerySet'); }}}
-    {{{ wassert('GPUQueryTypes.indexOf(wgpu[querySet]["type"]) != -1'); }}}
-    return GPUQueryTypes.indexOf(wgpu[querySet]['type']);
+    {{{ wassert('GPUQueryTypes.includes(wgpu[querySet]["type"])'); }}}
+    return ' ot'.indexOf(wgpu[querySet]['type'][0]); // 'o'cclusion=1, 't'imestamp=2
   },
 
   wgpu_query_set_count: function(querySet) {
@@ -2588,21 +2577,20 @@ let api = {
     return wgpu[querySet]['count'];
   },
 
-  wgpu_load_image_bitmap_from_url_async__deps: ['wgpuMuteJsExceptions'],
+  wgpu_load_image_bitmap_from_url_async__deps: ['wgpuMuteJsExceptions', '$utf8', '$wgpuStore'],
   wgpu_load_image_bitmap_from_url_async: function(url, flipY, callback, userData) {
     {{{ wdebuglog('`wgpu_load_image_bitmap_from_url_async(url=\"${utf8(url)}\" (${url}), callback=${callback}, userData=${userData})`'); }}}
     let img = new Image();
     img.src = utf8(url);
 
-    function dispatchCallback(imageBitmapOrError) {
+    let dispatchCallback = imageBitmapOrError => {
       {{{ wdebugdir('imageBitmapOrError', '`createImageBitmap(img) loaded:`'); }}}
       {{{ wdebugdir('img', '`from:`'); }}}
       {{{ makeDynCall('viiip', 'callback') }}}(imageBitmapOrError.width && wgpuStore(imageBitmapOrError), imageBitmapOrError.width, imageBitmapOrError.height, userData);
-    }
+    };
 
-    img.decode().then(() => {
-      return createImageBitmap(img, flipY ? { 'imageOrientation': 'flipY' } : {});
-    }).then(_wgpuMuteJsExceptions(dispatchCallback)).catch(dispatchCallback);
+    img.decode().then(() => createImageBitmap(img, flipY ? { 'imageOrientation': 'flipY' } : {}))
+              .then(_wgpuMuteJsExceptions(dispatchCallback)).catch(dispatchCallback);
   },
 
 #if ASYNCIFY
@@ -2638,33 +2626,34 @@ let api = {
     canvas['isOffscreen'] = 1;
   },
 
-  offscreen_canvas_post_to_worker__deps: ['$wgpuOffscreenCanvases', '$_wasmWorkers'],
-  offscreen_canvas_post_to_worker__postset: 'addEventListener("message", (e) => { var d = e["data"]; if (d["wgpuCanvas"]) wgpuOffscreenCanvases[d["id"]] = d["wgpuCanvas"]; });',
+  // Shared message listener for receiving OffscreenCanvas transfers from the main thread.
+  // Using a single __postset here ensures the listener is registered only once even if
+  // both offscreen_canvas_post_to_worker and offscreen_canvas_post_to_pthread are linked.
+  $wgpuOffscreenCanvasListener__deps: ['$wgpuOffscreenCanvases'],
+  $wgpuOffscreenCanvasListener__postset: 'addEventListener("message", (e) => { var d = e["data"]; if (d["wgpuCanvas"]) wgpuOffscreenCanvases[d["id"]] = d["wgpuCanvas"]; });',
+  $wgpuOffscreenCanvasListener: 0,
+
+  offscreen_canvas_post_to_worker__deps: ['$wgpuOffscreenCanvases', '$_wasmWorkers', '$wgpuOffscreenCanvasListener'],
   offscreen_canvas_post_to_worker: function(offscreenCanvasId, worker) {
     {{{ wdebuglog('`offscreen_canvas_post_to_worker(offscreenCanvasId=${offscreenCanvasId}, worker=${worker})`'); }}}
     {{{ wassert('offscreenCanvasId'); }}}
     {{{ wassert('wgpuOffscreenCanvases[offscreenCanvasId]'); }}}
     {{{ wassert('wgpuOffscreenCanvases[offscreenCanvasId] instanceof OffscreenCanvas'); }}}
 
-    _wasmWorkers[worker].postMessage({
-      'wgpuCanvas': wgpuOffscreenCanvases[offscreenCanvasId],
-      'id': offscreenCanvasId,
-    }, [wgpuOffscreenCanvases[offscreenCanvasId]]);
+    let c = wgpuOffscreenCanvases[offscreenCanvasId];
+    _wasmWorkers[worker].postMessage({'wgpuCanvas': c, 'id': offscreenCanvasId}, [c]);
     delete wgpuOffscreenCanvases[offscreenCanvasId];
   },
 
-  offscreen_canvas_post_to_pthread__deps: ['$wgpuOffscreenCanvases', '$PThread'],
-  offscreen_canvas_post_to_pthread__postset: 'addEventListener("message", (e) => { var d = e["data"]; if (d["wgpuCanvas"]) wgpuOffscreenCanvases[d["id"]] = d["wgpuCanvas"]; });',
+  offscreen_canvas_post_to_pthread__deps: ['$wgpuOffscreenCanvases', '$PThread', '$wgpuOffscreenCanvasListener'],
   offscreen_canvas_post_to_pthread: function(offscreenCanvasId, pthread) {
     {{{ wdebuglog('`offscreen_canvas_post_to_pthread(offscreenCanvasId=${offscreenCanvasId}, pthread=${pthread})`'); }}}
     {{{ wassert('offscreenCanvasId'); }}}
     {{{ wassert('wgpuOffscreenCanvases[offscreenCanvasId]'); }}}
     {{{ wassert('wgpuOffscreenCanvases[offscreenCanvasId] instanceof OffscreenCanvas'); }}}
 
-    PThread.pthreads[pthread].postMessage({
-      'wgpuCanvas': wgpuOffscreenCanvases[offscreenCanvasId],
-      'id': offscreenCanvasId,
-    }, [wgpuOffscreenCanvases[offscreenCanvasId]]);
+    let c = wgpuOffscreenCanvases[offscreenCanvasId];
+    PThread.pthreads[{{{ wasm4GbShift('pthread') }}}].postMessage({'wgpuCanvas': c, 'id': offscreenCanvasId}, [c]);
     delete wgpuOffscreenCanvases[offscreenCanvasId];
   },
 
@@ -2720,6 +2709,21 @@ let api = {
     var c = wgpuOffscreenCanvases[offscreenCanvasId];
     c['width'] = width;
     c['height'] = height;
+  },
+
+  // EXPERIMENTAL: Not part of the ratified spec yet.
+  // https://github.com/gpuweb/gpuweb/blob/main/proposals/immediate-data.md
+  wgpu_encoder_set_immediate_data: function(encoder, offset, ptr, size) {
+    {{{ wdebuglog('`wgpu_encoder_set_immediate_data(encoder=${encoder}, offset=${offset}, ptr=${ptr}, size=${size}`'); }}}
+    {{{ wassert('encoder != 0'); }}}
+    {{{ wassert('wgpu[encoder]'); }}}
+    {{{ wassert('wgpu[encoder] instanceof GPUComputePassEncoder || wgpu[encoder] instanceof GPURenderPassEncoder || wgpu[encoder] instanceof GPURenderBundleEncoder'); }}}
+    {{{ wassert('offset >= 0'); }}}
+    {{{ wassert('offset <= 64'); }}}
+    {{{ wassert('ptr > 0'); }}}
+    {{{ wassert('size >= 0'); }}}
+    {{{ wassert('size <= 64'); }}}
+    wgpu[encoder]['setImmediateData'](offset, HEAPU8, {{{ shiftPtr('ptr', 0) }}}, size);
   }
 };
 
@@ -2736,8 +2740,7 @@ for(const [name, func] of Object.entries(api)) {
   if (name.startsWith('wgpu_') && func instanceof Function) {
     const benchmarked_name = `benchmarked_${name}`;
     api[benchmarked_name] = func;
-    if (api[`${name}__deps`]) api[`${name}__deps`].push(benchmarked_name);
-    else api[`${name}__deps`] = [benchmarked_name];
+    (api[`${name}__deps`] ??= []).push(benchmarked_name);
 
     const args = argList(func.length);
     api[name] = new Function(...args, `const t0 = performance.now();
