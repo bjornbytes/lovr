@@ -110,6 +110,7 @@ static bool setError(const char* message);
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb);
 static WGPU_TEXTURE_VIEW_DIMENSION convertTextureType(gpu_texture_type type);
 static uint32_t getRowSize(gpu_texture_format format, uint32_t width);
+static WGpuPipelineConstant* convertShaderFlags(gpu_shader_flag* flags, uint32_t count, char* buffer, size_t capacity);
 
 // Buffer
 
@@ -683,6 +684,13 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
     [GPU_BLEND_MAX] = WGPU_BLEND_OPERATION_MAX
   };
 
+  char buffer[1024];
+  WGpuPipelineConstant* constants = convertShaderFlags(info->flags, info->flagCount, buffer, sizeof(buffer));
+
+  if (info->flagCount > 0 && !constants) {
+    return setError("Too many shader flags");
+  }
+
   uint32_t totalAttributeCount = 0;
   WGpuVertexAttribute attributes[16];
   WGpuVertexBufferLayout vertexBuffers[16];
@@ -710,6 +718,8 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
   WGpuVertexState vertex = {
     .module = info->shader->handles[0],
     .entryPoint = "main",
+    .numConstants = (int) info->flagCount,
+    .constants = constants,
     .numBuffers = info->vertex.bufferCount,
     .buffers = vertexBuffers
   };
@@ -773,6 +783,8 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
   WGpuFragmentState fragment = {
     .module = info->shader->handles[1],
     .entryPoint = "main",
+    .numConstants = (int) info->flagCount,
+    .constants = constants,
     .numTargets = info->attachmentCount,
     .targets = targets
   };
@@ -792,6 +804,8 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
 
   pipeline->handle = wgpu_device_create_render_pipeline(state.device, &pipelineInfo);
 
+  free(constants);
+
   if (!pipeline->handle) {
     return setError("Failed to create pipeline");
   }
@@ -805,7 +819,19 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info
   WGpuShaderModule shader = info->shader->handles[0];
   const char* entry = "main";
   WGpuPipelineLayout layout = info->shader->pipelineLayout;
-  return pipeline->handle = wgpu_device_create_compute_pipeline(state.device, shader, entry, layout, NULL, 0);
+
+  char buffer[1024];
+  WGpuPipelineConstant* constants = convertShaderFlags(info->flags, info->flagCount, buffer, sizeof(buffer));
+
+  if (info->flagCount > 0 && !constants) {
+    return setError("Too many shader flags");
+  }
+
+  pipeline->handle = wgpu_device_create_compute_pipeline(state.device, shader, entry, layout, constants, (int) info->flagCount);
+
+  free(constants);
+
+  return pipeline->handle;
 }
 
 void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
@@ -1691,4 +1717,37 @@ static uint32_t getRowSize(gpu_texture_format format, uint32_t width) {
       return ((width + 11) / 12) * 16;
     default: return 0;
   }
+}
+
+static WGpuPipelineConstant* convertShaderFlags(gpu_shader_flag* flags, uint32_t count, char* buffer, size_t capacity) {
+  WGpuPipelineConstant* constants = NULL;
+  char* cursor = buffer;
+
+  if (count > 0) {
+    constants = malloc(count * sizeof(WGpuPipelineConstant));
+
+    for (uint32_t i = 0; i < count; i++) {
+      int n = snprintf(cursor, capacity, "%d", flags[i].id);
+
+      if (n < 0 || (size_t) n >= capacity) {
+        free(flags);
+        return NULL;
+      }
+
+      constants[i].name = cursor;
+
+      switch (flags[i].type) {
+        case GPU_FLAG_B32: constants[i].value = (double) flags[i].value.b32; break;
+        case GPU_FLAG_I32: constants[i].value = (double) flags[i].value.i32; break;
+        case GPU_FLAG_U32: constants[i].value = (double) flags[i].value.u32; break;
+        case GPU_FLAG_F32: constants[i].value = (double) flags[i].value.f32; break;
+        default: constants[i].value = 0.; break;
+      }
+
+      capacity -= n + 1;
+      cursor += n + 1;
+    }
+  }
+
+  return constants;
 }
