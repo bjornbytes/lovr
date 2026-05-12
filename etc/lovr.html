@@ -64,11 +64,11 @@
       // This downloads the .lovr file into the virtual filesystem and adds it as a virtual command
       // line argument before booting up LÖVR.
       // Example: var project = 'app.lovr';
-      var project = null;
+      var project = 'project.lovr';
       if (project) {
         Module.arguments.push(project);
         Module.preRun.push(function() {
-          Module.FS_createPreloadedFile('/', project, project, true, false);
+          FS_createPreloadedFile('/', project, project, true, false);
         });
       }
 
