@@ -51,8 +51,9 @@ if(EMSCRIPTEN)
     "-sFORCE_FILESYSTEM=1 "
     "-sINITIAL_MEMORY=1677721600 "
     "-sSTACK_SIZE=2MB "
-    "-sEXPORTED_FUNCTIONS=_main "
+    "-sEXPORTED_FUNCTIONS=_main,_lovrGraphicsGetWindowTexture,_lovrGraphicsGetWindowPass,_lovrPassSetViewMatrix,_lovrPassSetProjection,_lovrTimerGetDelta,_lovrTimerGetTime "
     "-sEXPORTED_RUNTIME_METHODS=getValue,setValue "
+    "--js-library \"${PROJECT_SOURCE_DIR}/src/modules/headset/headset.js\" "
     "--js-library \"${PROJECT_SOURCE_DIR}/src/lib/webgpu/webgpu.js\" "
     "--shell-file \"${PROJECT_SOURCE_DIR}/etc/lovr.html\""
   )
@@ -66,7 +67,6 @@ if(EMSCRIPTEN)
   set(LOVR_USE_WEBGPU ON)
   set(LOVR_USE_TINCTURE ON)
   set(LOVR_USE_VULKAN OFF)
-  set(LOVR_ENABLE_HEADSET OFF)
 elseif(MSVC)
   add_compile_options(/MP)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
@@ -255,7 +255,7 @@ if(LOVR_USE_TINCTURE)
 endif()
 
 # OpenXR
-if(LOVR_ENABLE_HEADSET)
+if(LOVR_ENABLE_HEADSET AND NOT EMSCRIPTEN)
   if(LOVR_SYSTEM_OPENXR AND NOT ANDROID)
     pkg_search_module(OPENXR openxr REQUIRED)
     list(APPEND LOVR_INCLUDES ${OPENXR_INCLUDE_DIRS})
@@ -507,10 +507,15 @@ endif()
 
 if(LOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
-    src/modules/headset/headset.c
     src/api/l_headset.c
     src/api/l_headset_layer.c
   )
+
+  if(EMSCRIPTEN)
+    target_sources(lovr PRIVATE src/modules/headset/headset.js)
+  else()
+    target_sources(lovr PRIVATE src/modules/headset/headset.c)
+  endif()
 else()
   target_compile_definitions(lovr PRIVATE LOVR_DISABLE_HEADSET)
 endif()
