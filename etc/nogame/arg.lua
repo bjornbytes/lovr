@@ -5,6 +5,7 @@ function lovr.arg(arg)
     console = { long = '--console', help = 'Attach Windows console' },
     debug = { long = '--debug', help = 'Enable debugging checks and logging' },
     simulator = { long = '--simulator', help = 'Force headset simulator' },
+    nosimulator = { long = '--no-simulator', help = 'Exit with status 1 if headset connect fails; no simulator fallback' },
     watch = { short = '-w', long = '--watch', help = 'Watch files and restart on change' }
   }
 
@@ -80,6 +81,14 @@ function lovr.arg(arg)
     if arg.simulator then
       conf.headset.connect = false
       conf.headset.start = false
+    end
+
+    if arg.nosimulator then
+      conf.headset.simulatorFallback = false
+    end
+
+    if arg.simulator and arg.nosimulator then
+      error('Incompatible options: --simulator and --no-simulator', 0)
     end
 
     if arg.watch then
