@@ -130,11 +130,8 @@ size_t os_get_home_directory(char* buffer, size_t size) {
     path = entry->pw_dir;
   }
 
-  size_t length = strlen(path);
-  if (length >= size) { return 0; }
-  memcpy(buffer, path, length);
-  buffer[length] = '\0';
-  return length;
+  size_t length = strlcpy(buffer, path, size);
+  return length < size ? length : 0;
 }
 
 size_t os_get_data_directory(char* buffer, size_t size) {
@@ -144,10 +141,8 @@ size_t os_get_data_directory(char* buffer, size_t size) {
     buffer += cursor;
     size -= cursor;
     const char* suffix = "/Library/Application Support";
-    size_t length = strlen(suffix);
+    size_t length = strlcpy(buffer, suffix, size);
     if (length < size) {
-      memcpy(buffer, suffix, length);
-      buffer[length] = '\0';
       return cursor + length;
     }
   }
@@ -178,13 +173,11 @@ size_t os_get_bundle_path(char* buffer, size_t size, const char** root) {
     return 0;
   }
 
-  size_t length = strlen(cpath);
+  size_t length = strlcpy(buffer, cpath, size);
   if (length >= size) {
     return 0;
   }
 
-  memcpy(buffer, cpath, length);
-  buffer[length] = '\0';
   *root = NULL;
   return length;
 }
