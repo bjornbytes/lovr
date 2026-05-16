@@ -228,11 +228,14 @@ function quaternion.angleaxis(angle, ax, ay, az)
 
   local length = sqrt(ax * ax + ay * ay + az * az)
 
+  local result
   if length > 0 then
     s = s / length
+    result = { x = ax * s, y = ay * s, z = az * s, w = c }
+  else
+    result = { x = 0., y = 0., z = 0., w = 1. }
   end
 
-  local result = { x = ax * s, y = ay * s, z = az * s, w = c }
   setmetatable(result, quaternion)
   return result
 end

@@ -139,8 +139,10 @@ MAF quat quat_fromAngleAxis(quat q, float angle, float ax, float ay, float az) {
   float length = sqrtf(ax * ax + ay * ay + az * az);
   if (length > 0.f) {
     s /= length;
+    return quat_set(q, s * ax, s * ay, s * az, c);
+  } else {
+    return quat_set(q, 0.f, 0.f, 0.f, 1.f);
   }
-  return quat_set(q, s * ax, s * ay, s * az, c);
 }
 
 // https://d3cw3dd2w32x2b.cloudfront.net/wp-content/uploads/2015/01/matrix-to-quat.pdf
