@@ -686,7 +686,7 @@ if(WIN32)
 
   function(move_dll)
     foreach(LIB IN ITEMS ${ARGV0})
-      if(TARGET ${ARGV0})
+      if(TARGET ${LIB})
         add_custom_command(TARGET move_files POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy
           $<TARGET_FILE:${LIB}>
