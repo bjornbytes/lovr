@@ -616,10 +616,14 @@ bool lovrHeadsetConnect(void) {
     .formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY
   };
 
+  // OpenXR xrGetSystem: XR_ERROR_FORM_FACTOR_UNAVAILABLE means supported but temporarily
+  // unavailable; the runtime may return XR_SUCCESS on a later call (e.g. connect/warm-up).
+  // https://registry.khronos.org/OpenXR/specs/1.1/man/html/xrGetSystem.html
   XrResult getSystemRes = xrGetSystem(state.instance, &systemInfo, &state.system);
-  if (getSystemRes == XR_ERROR_FORM_FACTOR_UNAVAILABLE) {
+  if (getSystemRes == XR_ERROR_FORM_FACTOR_UNAVAILABLE && config->retryUnavailable) {
     lovrLog(LOG_INFO, "XR", "Got XR_ERROR_FORM_FACTOR_UNAVAILABLE, retrying until xrGetSystem succeeds");
     while (getSystemRes == XR_ERROR_FORM_FACTOR_UNAVAILABLE) {
+      // Wait for 1 second before retrying.
       os_sleep(1.0);
       getSystemRes = xrGetSystem(state.instance, &systemInfo, &state.system);
     }

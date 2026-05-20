@@ -41,6 +41,7 @@ local conf = {
   headset = {
     connect = true,
     start = true,
+    retryonunavailable = false,
     debug = false,
     seated = false,
     mask = true,

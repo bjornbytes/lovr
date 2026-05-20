@@ -5,6 +5,7 @@ function lovr.arg(arg)
     console = { long = '--console', help = 'Attach Windows console' },
     debug = { long = '--debug', help = 'Enable debugging checks and logging' },
     simulator = { long = '--simulator', help = 'Force headset simulator' },
+    retryonunavailable = { long = '--retry-on-unavailable', help = 'Retry xrGetSystem when the headset is temporarily unavailable' },
     watch = { short = '-w', long = '--watch', help = 'Watch files and restart on change' }
   }
 
@@ -80,6 +81,10 @@ function lovr.arg(arg)
     if arg.simulator then
       conf.headset.connect = false
       conf.headset.start = false
+    end
+
+    if arg.retryonunavailable then
+      conf.headset.retryonunavailable = true
     end
 
     if arg.watch then

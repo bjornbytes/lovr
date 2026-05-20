@@ -24,6 +24,7 @@ typedef enum {
 typedef struct {
   float supersample;
   bool debug;
+  bool retryUnavailable;
   bool seated;
   bool mask;
   bool stencil;

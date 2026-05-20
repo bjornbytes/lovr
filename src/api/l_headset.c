@@ -1091,6 +1091,7 @@ int luaopen_lovr_headset(lua_State* L) {
 
   HeadsetConfig config = {
     .supersample = 1.f,
+    .retryUnavailable = false,
     .seated = false,
     .mask = true,
     .stencil = false,
@@ -1115,6 +1116,10 @@ int luaopen_lovr_headset(lua_State* L) {
 
       lua_getfield(L, -1, "debug");
       config.debug = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "retryonunavailable");
+      config.retryUnavailable = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "seated");
