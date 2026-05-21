@@ -1,6 +1,7 @@
 #include "api.h"
 #include "data/blob.h"
 #include "util.h"
+#include <string.h>
 
 static int l_lovrBlobGetName(lua_State* L) {
   Blob* blob = luax_checktype(L, 1, Blob);
@@ -43,8 +44,11 @@ static int l_lovrBlobGetString(lua_State* L) {
   lua_Integer count = luaL_optinteger(L, 3, 1);\
   luax_check(L, count > 0, "Count must be greater than zero");\
   luax_check(L, (size_t) count * sizeof(T) <= blob->size - (size_t) offset, "Byte range overflows the size of the Blob");\
-  const T* data = (const T*) ((char*) blob->data + offset);\
-  for (lua_Integer i = 0; i < count; i++) lua_pushnumber(L, (lua_Number) data[i]);\
+  for (lua_Integer i = 0; i < count; i++) {\
+    T value;\
+    memcpy(&value, (char*)blob->data + offset + i * sizeof(T), sizeof(T));\
+    lua_pushnumber(L, (lua_Number) value);\
+  }\
   return count;
 
 static int l_lovrBlobGetI8(lua_State* L) { l_lovrBlobGet(L, int8_t); }
@@ -64,16 +68,17 @@ static int l_lovrBlobGetF64(lua_State* L) { l_lovrBlobGet(L, double); }
   bool table = lua_istable(L, 3);\
   int count = table ? luax_len(L, 3) : lua_gettop(L) - 2;\
   luax_check(L, (size_t) count * sizeof(T) <= blob->size - (size_t) offset, "Byte range overflows the size of the Blob");\
-  T* data = (T*) ((char*) blob->data + offset);\
   if (table) {\
     for (int i = 0; i < count; i++) {\
       lua_rawgeti(L, 3, i + 1);\
-      data[i] = (T) lua_tonumber(L, -1);\
+      T value = (T) lua_tonumber(L, -1);\
+      memcpy((char*)blob->data + offset + i * sizeof(T), &value, sizeof(T));\
       lua_pop(L, 1);\
     }\
   } else {\
     for (int i = 0; i < count; i++) {\
-      data[i] = luaL_checknumber(L, i + 3);\
+      T value = (T) luaL_checknumber(L, i + 3);\
+      memcpy((char*)blob->data + offset + i * sizeof(T), &value, sizeof(T));\
     }\
   }\
   return count;
