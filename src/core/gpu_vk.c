@@ -226,6 +226,7 @@ typedef struct {
   bool shaderFloatControls;
   bool spirv14;
   bool rayQuery;
+  bool hostImageCopy;
 } gpu_extensions;
 
 // State
@@ -3018,7 +3019,8 @@ bool gpu_init(gpu_config* config) {
       { "VK_EXT_scalar_block_layout", true, &state.extensions.scalarBlockLayout },
       { "VK_EXT_fragment_density_map", true, &state.extensions.foveation },
       { "VK_EXT_pipeline_creation_cache_control", true, &state.extensions.pipelineCacheControl },
-      { "VK_EXT_memory_budget", true, &state.extensions.memoryBudget }
+      { "VK_EXT_memory_budget", true, &state.extensions.memoryBudget },
+      { "VK_EXT_host_image_copy", true, &state.extensions.hostImageCopy }
     };
 
     uint32_t extensionCount = 0;
@@ -3116,6 +3118,7 @@ bool gpu_init(gpu_config* config) {
     VkPhysicalDeviceBufferDeviceAddressFeaturesKHR bufferDeviceAddressFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR };
     VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
     VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR };
+    VkPhysicalDeviceHostImageCopyFeaturesEXT hostImageCopyFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT };
 
     vkGetPhysicalDeviceFeatures2(state.adapter, &supported);
 
@@ -3186,6 +3189,11 @@ bool gpu_init(gpu_config* config) {
     if (state.extensions.rayQuery) {
       rayQueryFeatures.rayQuery = true;
       CHAIN(rayQueryFeatures);
+    }
+
+    if (state.extensions.hostImageCopy) {
+      hostImageCopyFeatures.hostImageCopy = true;
+      CHAIN(hostImageCopyFeatures);
     }
 
     if (config->features) {
