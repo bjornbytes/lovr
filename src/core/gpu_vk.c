@@ -248,8 +248,8 @@ static struct {
   VkInstance instance;
   VkPhysicalDevice adapter;
   VkDevice device;
-  VkQueue queue;
-  uint32_t queueFamilyIndex;
+  VkQueue queue[2];
+  uint32_t queueFamilyIndex[2];
   uint32_t tick;
   uint32_t frame;
   VkSemaphore semaphore;
@@ -267,6 +267,7 @@ static struct {
 
 enum { CPU, GPU };
 enum { LINEAR, SRGB };
+enum { GRAPHICS, TRANSFER };
 
 #define MIN(a, b) (a < b ? a : b)
 #define MAX(a, b) (a > b ? a : b)
@@ -991,7 +992,7 @@ bool gpu_surface_init(gpu_surface_info* info) {
 #endif
 
   VkBool32 presentable;
-  vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, state.queueFamilyIndex, surface->handle, &presentable);
+  vkGetPhysicalDeviceSurfaceSupportKHR(state.adapter, state.queueFamilyIndex[GRAPHICS], surface->handle, &presentable);
 
   // The most correct thing to do is to incorporate presentation support into the init-time process
   // for selecting a physical device and queue family.  We currently choose not to do this
@@ -1248,7 +1249,7 @@ bool gpu_surface_present(void) {
     .pSignalSemaphores = &presentSemaphore
   };
 
-  VK(vkQueueSubmit(state.queue, 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
+  VK(vkQueueSubmit(state.queue[GRAPHICS], 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
     return false;
   }
 
@@ -1261,7 +1262,7 @@ bool gpu_surface_present(void) {
     .pImageIndices = &surface->imageIndex
   };
 
-  VkResult result = vkQueuePresentKHR(state.queue, &present);
+  VkResult result = vkQueuePresentKHR(state.queue[GRAPHICS], &present);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
     gpu_surface_resize(~0u, ~0u);
@@ -2116,7 +2117,7 @@ gpu_stream* gpu_stream_begin(const char* label) {
       VkCommandPoolCreateInfo poolInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = state.queueFamilyIndex
+        .queueFamilyIndex = state.queueFamilyIndex[GRAPHICS]
       };
 
       VK(vkCreateCommandPool(state.device, &poolInfo, NULL, &pool->handle), "vkCreateCommandPool") {
@@ -3246,36 +3247,58 @@ bool gpu_init(gpu_config* config) {
 
     // Queue Family
 
-    state.queueFamilyIndex = ~0u;
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(state.adapter, &queueFamilyCount, NULL);
     VkQueueFamilyProperties* queueFamilies = config->fnAlloc(queueFamilyCount * sizeof(*queueFamilies));
     ASSERT(queueFamilies, "Out of memory") goto fail;
     vkGetPhysicalDeviceQueueFamilyProperties(state.adapter, &queueFamilyCount, queueFamilies);
-    uint32_t mask = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+
+    state.queueFamilyIndex[GRAPHICS] = ~0u;
+    state.queueFamilyIndex[TRANSFER] = ~0u;
 
     for (uint32_t i = 0; i < queueFamilyCount; i++) {
-      if ((queueFamilies[i].queueFlags & mask) == mask) {
-        state.queueFamilyIndex = i;
-        break;
+      VkQueueFlags flags = queueFamilies[i].queueFlags;
+      uint32_t graphicsMask = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+
+      if (state.queueFamilyIndex[GRAPHICS] == ~0u && (flags & graphicsMask) == graphicsMask) {
+        state.queueFamilyIndex[GRAPHICS] = i;
+      } else if (state.queueFamilyIndex[TRANSFER] == ~0u && (flags & VK_QUEUE_TRANSFER_BIT) == VK_QUEUE_TRANSFER_BIT) {
+        state.queueFamilyIndex[TRANSFER] = i;
       }
     }
 
     config->fnFree(queueFamilies);
-    ASSERT(state.queueFamilyIndex != ~0u, "No GPU queue families available") goto fail;
+
+    ASSERT(state.queueFamilyIndex[GRAPHICS] != ~0u, "No graphics queue family available") goto fail;
+
+    if (state.queueFamilyIndex[TRANSFER] == ~0u) {
+      state.queueFamilyIndex[TRANSFER] = state.queueFamilyIndex[GRAPHICS];
+    }
 
     // Device
+
+    uint32_t queueCount = state.queueFamilyIndex[TRANSFER] == state.queueFamilyIndex[GRAPHICS] ? 1 : 2;
+
+    VkDeviceQueueCreateInfo queueInfo[2] = {
+      {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = state.queueFamilyIndex[GRAPHICS],
+        .pQueuePriorities = &(float) { 1.f },
+        .queueCount = 1
+      },
+      {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = state.queueFamilyIndex[TRANSFER],
+        .pQueuePriorities = &(float) { 1.f },
+        .queueCount = 1
+      }
+    };
 
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
       .pNext = &enabled,
-      .queueCreateInfoCount = 1,
-      .pQueueCreateInfos = &(VkDeviceQueueCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = state.queueFamilyIndex,
-        .pQueuePriorities = &(float) { 1.f },
-        .queueCount = 1
-      },
+      .queueCreateInfoCount = queueCount,
+      .pQueueCreateInfos = queueInfo,
       .enabledExtensionCount = enabledExtensionCount,
       .ppEnabledExtensionNames = enabledExtensions
     };
@@ -3286,7 +3309,14 @@ bool gpu_init(gpu_config* config) {
       VK(vkCreateDevice(state.adapter, &deviceInfo, NULL, &state.device), "vkCreateDevice") goto fail;
     }
 
-    vkGetDeviceQueue(state.device, state.queueFamilyIndex, 0, &state.queue);
+    vkGetDeviceQueue(state.device, state.queueFamilyIndex[GRAPHICS], 0, &state.queue[GRAPHICS]);
+
+    if (queueCount > 1) {
+      vkGetDeviceQueue(state.device, state.queueFamilyIndex[TRANSFER], 0, &state.queue[TRANSFER]);
+    } else {
+      state.queue[TRANSFER] = state.queue[GRAPHICS];
+    }
+
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
   }
 
@@ -3608,7 +3638,7 @@ bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
     .pCommandBuffers = commandBuffers
   };
 
-  VK(vkQueueSubmit(state.queue, 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
+  VK(vkQueueSubmit(state.queue[GRAPHICS], 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
     if (commandBuffers != stack) state.config.fnFree(commandBuffers);
     return false;
   }
@@ -3660,7 +3690,7 @@ uintptr_t gpu_vk_get_device(void) {
 }
 
 uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex) {
-  return *queueFamilyIndex = state.queueFamilyIndex, *queueIndex = 0, (uintptr_t) state.queue;
+  return *queueFamilyIndex = state.queueFamilyIndex[GRAPHICS], *queueIndex = 0, (uintptr_t) state.queue[GRAPHICS];
 }
 
 // Helpers
