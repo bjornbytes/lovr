@@ -1,6 +1,7 @@
 #include "thread/thread.h"
 #include "data/blob.h"
 #include "event/event.h"
+#include "graphics/graphics.h"
 #include "core/job.h"
 #include "core/os.h"
 #include "util.h"
@@ -47,9 +48,15 @@ static struct {
 static void workerInit(uint32_t id) {
   lovrProfileSetThreadName("Worker");
   os_thread_set_name("Worker");
+#ifndef LOVR_DISABLE_GRAPHICS
+  lovrGraphicsInitWorker();
+#endif
 }
 
 static void workerQuit(uint32_t id) {
+#ifndef LOVR_DISABLE_GRAPHICS
+  lovrGraphicsDestroyWorker();
+#endif
   if (state.onWorkerQuit) {
     state.onWorkerQuit();
   }

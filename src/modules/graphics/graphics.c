@@ -80,6 +80,8 @@ struct Buffer {
 struct Texture {
   atomic_uint ref;
   bool xrAcquired;
+  atomic_bool acquired;
+  uint8_t uploadedLevels;
   Sync* sync;
   gpu_texture* gpu;
   gpu_texture* sampleView;
@@ -191,6 +193,8 @@ struct Material {
   gpu_bundle* bundle;
   MaterialBlock* block;
   bool hasWritableTexture;
+  bool acquired;
+  bool weak;
 };
 
 typedef struct {
@@ -285,6 +289,7 @@ typedef struct {
 
 struct Model {
   atomic_uint ref;
+  bool stream;
   Model* parent;
   ModelMetadata meta;
   Buffer* rawVertexBuffer;
@@ -644,8 +649,8 @@ static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, u
 static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length);
 static Access* getNextAccess(Pass* pass, int type, bool texture, bool raytracer);
 static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache cache);
-static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
-static void trackMaterial(Pass* pass, Material* material);
+static bool trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache);
+static bool trackMaterial(Pass* pass, Material* material);
 static void trackRaytracer(Pass* pass, Raytracer* raytracer, gpu_phase phase, gpu_cache cache);
 static bool syncResource(Access* access, gpu_barrier* barrier);
 static gpu_barrier syncStream(Sync* sync, gpu_phase phase, gpu_cache cache);
@@ -957,6 +962,14 @@ void lovrGraphicsDestroy(void) {
 
 bool lovrGraphicsIsInitialized(void) {
   return state.initialized;
+}
+
+void lovrGraphicsInitWorker(void) {
+  initAllocator(&thread.stack);
+}
+
+void lovrGraphicsDestroyWorker(void) {
+  lovrFree(&thread.stack.memory);
 }
 
 void lovrGraphicsGetDevice(GraphicsDevice* device) {
@@ -2343,6 +2356,49 @@ bool lovrBufferClear(Buffer* buffer, uint32_t offset, uint32_t extent, uint32_t 
 
 // Texture
 
+static bool lovrTextureAcquire(Texture* t) {
+  Texture* texture = t->root;
+
+  if (atomic_load_explicit(&texture->acquired, memory_order_acquire)) {
+    return true;
+  }
+
+  if (texture->info.stream && !gpu_texture_is_uploaded(texture->gpu)) {
+    return lovrSetError("Attempt to use a Texture before it's finished streaming");
+  }
+
+  mtx_lock(&state.lock);
+
+  if (atomic_load_explicit(&texture->acquired, memory_order_relaxed)) {
+    mtx_unlock(&state.lock);
+    return true;
+  }
+
+  gpu_texture_acquire(texture->gpu, state.stream);
+
+  if (texture->uploadedLevels > 0 && texture->uploadedLevels < texture->info.mipmaps) {
+    uint32_t base = texture->uploadedLevels - 1;
+    uint32_t count = texture->info.mipmaps - texture->uploadedLevels;
+    mipmapTexture(state.stream, texture, base, count);
+
+    if (texture->info.usage == TEXTURE_SAMPLE) {
+      state.barrier.prev |= GPU_PHASE_BLIT;
+      state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
+      state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
+      state.barrier.clear |= GPU_CACHE_TEXTURE;
+    } else {
+      texture->sync->writePhase = GPU_PHASE_BLIT;
+      texture->sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
+      texture->sync->lastStreamWrite = state.tick;
+    }
+  }
+
+  atomic_store_explicit(&texture->acquired, true, memory_order_release);
+  mtx_unlock(&state.lock);
+
+  return true;
+}
+
 bool lovrGraphicsGetWindowTexture(Texture** texture) {
   mtx_lock(&state.lock);
 
@@ -2360,6 +2416,7 @@ bool lovrGraphicsGetWindowTexture(Texture** texture) {
     state.window->sync = lovrCalloc(sizeof(Sync));
     state.window->sampleView = NULL;
     state.window->renderView = NULL;
+    state.window->root = state.window;
     state.window->info = (TextureInfo) {
       .type = TEXTURE_2D,
       .width = width,
@@ -2494,55 +2551,35 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   texture->info.srgb = srgb;
   texture->info.label = lovrStrdup(info->label);
 
-  uint32_t levelCount = 0;
-  uint32_t levelOffsets[16];
-  uint32_t levelSizes[16];
-  BufferView view = { 0 };
+  size_t stack = stackPush(&thread.stack);
 
-  mtx_lock(&state.lock);
+  void** levelData = NULL;
+  uint32_t layerSizes[16];
 
   if (info->imageCount > 0) {
-    levelCount = lovrImageGetLevelCount(info->images[0]);
+    texture->uploadedLevels = lovrImageGetLevelCount(info->images[0]);
+    levelData = allocate(&thread.stack, texture->uploadedLevels * info->layers * sizeof(void*));
 
-    if (info->type == TEXTURE_3D && levelCount > 1) {
+    if (info->type == TEXTURE_3D && texture->uploadedLevels > 1) {
       lovrSetError("Images used to initialize 3D textures can not have mipmaps");
       lovrTextureDestroy(texture);
+      stackPop(&thread.stack, stack);
       return NULL;
     }
 
-    uint32_t total = 0;
-    for (uint32_t level = 0; level < levelCount; level++) {
-      levelOffsets[level] = total;
-      uint32_t width = MAX(info->width >> level, 1);
-      uint32_t height = MAX(info->height >> level, 1);
-      levelSizes[level] = measureTexture(info->format, width, height, info->layers);
-      total += levelSizes[level];
-    }
+    for (uint32_t level = 0; level < texture->uploadedLevels; level++) {
+      void** layers = &levelData[level * info->layers];
+      layerSizes[level] = lovrImageGetLayerSize(info->images[0], level);
 
-    view = getBuffer(GPU_BUFFER_UPLOAD, total, 64);
-    char* data = view.pointer;
-
-    if (!view.buffer) {
-      lovrTextureDestroy(texture);
-      return NULL;
-    }
-
-    for (uint32_t level = 0; level < levelCount; level++) {
       for (uint32_t layer = 0; layer < info->layers; layer++) {
         Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];
         uint32_t slice = info->imageCount == 1 ? layer : 0;
-        size_t size = lovrImageGetLayerSize(image, level);
-        if (size != levelSizes[level] / info->layers) lovrUnreachable();
-        void* pixels = lovrImageGetLayerData(image, level, slice);
-        memcpy(data, pixels, size);
-        data += size;
+        layers[layer] = lovrImageGetLayerData(image, level, slice);
       }
-      levelOffsets[level] += view.offset;
     }
   }
 
-  // Render targets with mipmaps get transfer usage for automipmapping
-  bool transfer = (info->usage & TEXTURE_TRANSFER) || ((info->usage & TEXTURE_RENDER) && texture->info.mipmaps > 1);
+  bool generateMipmaps = texture->uploadedLevels > 0 && texture->uploadedLevels < texture->info.mipmaps;
 
   if (!gpu_texture_init(texture->gpu, &(gpu_texture_info) {
     .type = (gpu_texture_type) info->type,
@@ -2553,27 +2590,27 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     .usage =
       ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
+      ((info->usage & TEXTURE_RENDER) && mipmaps > 1 ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
       ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
-      (transfer ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
+      ((info->usage & TEXTURE_TRANSFER) || generateMipmaps ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
       ((info->usage & TEXTURE_FOVEATION) ? GPU_TEXTURE_FOVEATION : 0),
     .srgb = srgb,
     .handle = info->handle,
     .label = info->label,
     .upload = {
-      .stream = state.stream,
-      .buffer = view.buffer,
-      .levelCount = levelCount,
-      .levelOffsets = levelOffsets,
-      .generateMipmaps = levelCount > 0 && levelCount < mipmaps
+      .levelData = levelData,
+      .levelCount = texture->uploadedLevels,
+      .layerSizes = layerSizes,
+      .async = info->stream
     }
   })) {
-    mtx_unlock(&state.lock);
     lovrSetError("Failed to create texture: %s", gpu_get_error());
+    stackPop(&thread.stack, stack);
     lovrTextureDestroy(texture);
     return NULL;
   }
 
-  mtx_unlock(&state.lock);
+  stackPop(&thread.stack, stack);
 
   // Depth-stencil textures use a different depth-only view for sampling, otherwise default view can be used
   if (info->usage & TEXTURE_SAMPLE) {
@@ -2639,19 +2676,8 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     texture->storageView = texture->gpu;
   }
 
-  // Sample-only textures are exempt from sync tracking to reduce overhead.  Instead, they are
-  // manually synchronized with a single barrier after the upload stream.
-  if (info->usage == TEXTURE_SAMPLE) {
-    mtx_lock(&state.lock);
-    state.barrier.prev |= GPU_PHASE_COPY | GPU_PHASE_BLIT;
-    state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
-    state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
-    state.barrier.clear |= GPU_CACHE_TEXTURE;
-    mtx_unlock(&state.lock);
-  } else if (levelCount > 0) {
-    texture->sync->writePhase = GPU_PHASE_COPY | GPU_PHASE_BLIT;
-    texture->sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
-    texture->sync->lastStreamWrite = state.tick;
+  if (!info->stream) {
+    lovrTextureAcquire(texture);
   }
 
   for (uint32_t i = 0; i < mipmaps; i++) {
@@ -2826,7 +2852,13 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
   return &texture->info;
 }
 
+bool lovrTextureIsReady(Texture* texture) {
+  return !texture->info.stream || atomic_load(&texture->root->acquired) || gpu_texture_is_uploaded(texture->root->gpu);
+}
+
 bool lovrTextureSetPixels(Texture* texture, Image* image, uint32_t dstOffset[4], uint32_t srcOffset[4], uint32_t extent[3]) {
+  if (!lovrTextureAcquire(texture)) return false;
+
   TextureFormat format = texture->info.format;
   if (extent[0] == ~0u) extent[0] = MIN(texture->info.width - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
   if (extent[1] == ~0u) extent[1] = MIN(texture->info.height - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
@@ -2882,6 +2914,7 @@ bool lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "to");
   lovrCheck(src->info.samples == dst->info.samples, "Texture sample counts must match to copy between them");
+  if (!lovrTextureAcquire(src) || !lovrTextureAcquire(dst)) return false;
   if (!checkTextureBounds(&src->info, srcOffset, extent)) return false;
   if (!checkTextureBounds(&dst->info, dstOffset, extent)) return false;
 
@@ -2920,6 +2953,7 @@ bool lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   lovrCheck(!depth || src->info.format == dst->info.format, "Blitting between depth textures requires them to have the same format");
   lovrCheck(((src->info.type == TEXTURE_3D) ^ (dst->info.type == TEXTURE_3D)) == false, "3D textures can only be blitted with other 3D textures");
   lovrCheck(src->info.type == TEXTURE_3D || srcExtent[2] == dstExtent[2], "When blitting between non-3D textures, blit layer counts must match");
+  if (!lovrTextureAcquire(src) || !lovrTextureAcquire(dst)) return false;
   if (!checkTextureBounds(&src->info, srcOffset, srcExtent)) return false;
   if (!checkTextureBounds(&dst->info, dstOffset, dstExtent)) return false;
 
@@ -2944,6 +2978,7 @@ bool lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with 'transfer' usage to clear it");
   lovrCheck(texture->info.type == TEXTURE_3D || layer + layerCount <= texture->info.layers, "Texture clear range exceeds texture layer count");
   lovrCheck(level + levelCount <= texture->info.mipmaps, "Texture clear range exceeds texture mipmap count");
+  if (!lovrTextureAcquire(texture)) return false;
 
   mtx_lock(&state.lock);
   gpu_barrier barrier = syncStream(texture->sync, GPU_PHASE_CLEAR, GPU_CACHE_TRANSFER_WRITE);
@@ -2960,6 +2995,7 @@ bool lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count)
   lovrCheck(texture->info.samples == 1, "Can not mipmap a multisampled texture");
   lovrCheck(supports & GPU_FEATURE_BLIT, "This GPU does not support mipmapping this texture format/encoding");
   lovrCheck(base + count < texture->info.mipmaps, "Trying to generate too many mipmaps");
+  if (!lovrTextureAcquire(texture)) return false;
 
   mtx_lock(&state.lock);
   gpu_barrier barrier = syncStream(texture->sync, GPU_PHASE_BLIT, GPU_CACHE_TRANSFER_READ | GPU_CACHE_TRANSFER_WRITE);
@@ -2984,7 +3020,8 @@ Material* lovrTextureToMaterial(Texture* texture) {
     texture->material = lovrMaterialCreate(&(MaterialInfo) {
       .data.color = { 1.f, 1.f, 1.f, 1.f },
       .data.uvScale = { 1.f, 1.f },
-      .texture = texture
+      .texture = texture,
+      .weak = true
     });
 
     if (!texture->material) {
@@ -2994,7 +3031,6 @@ Material* lovrTextureToMaterial(Texture* texture) {
     // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
     // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
     lovrRelease(texture, lovrTextureDestroy);
-    texture->material->info.texture = NULL;
   }
 
   return texture->material;
@@ -3412,7 +3448,6 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
 }
 
 Shader* lovrShaderCreate(const ShaderInfo* info) {
-  initAllocator(&thread.stack);
   size_t stack = stackPush(&thread.stack);
 
   Shader* shader = lovrCalloc(sizeof(Shader) + gpu_sizeof_shader());
@@ -4058,10 +4093,13 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
     { 0, GPU_SLOT_UNIFORM_BUFFER, .buffer = buffer }
   };
 
+  material->acquired = true;
+
   for (uint32_t i = 0; i < COUNTOF(textures); i++) {
     Texture* texture = textures[i] ? textures[i] : state.defaultTexture;
     bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture.object = texture->sampleView };
     material->hasWritableTexture |= texture->info.usage != TEXTURE_SAMPLE;
+    material->acquired &= atomic_load(&texture->root->acquired);
     lovrRetain(textures[i]);
   }
 
@@ -4086,7 +4124,7 @@ void lovrMaterialDestroy(void* ref) {
   material->block->tail = material->index;
   if (material->block->head == ~0u) material->block->head = material->block->tail;
   mtx_unlock(&state.lock);
-  lovrRelease(material->info.texture, lovrTextureDestroy);
+  if (!material->info.weak) lovrRelease(material->info.texture, lovrTextureDestroy);
   lovrRelease(material->info.glowTexture, lovrTextureDestroy);
   lovrRelease(material->info.metalnessTexture, lovrTextureDestroy);
   lovrRelease(material->info.roughnessTexture, lovrTextureDestroy);
@@ -5140,6 +5178,7 @@ void lovrMeshSetMaterial(Mesh* mesh, Material* material) {
 Model* lovrModelCreate(const ModelInfo* info) {
   Model* model = lovrCalloc(sizeof(Model));
   model->ref = 1;
+  model->stream = info->stream;
   model->meta = info->data->meta;
   model->treeFlags = info->raytracerFlags;
   lovrRetain(model->meta.blob);
@@ -5186,6 +5225,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
               .mipmaps = info->mipmaps || lovrImageGetLevelCount(image) > 1 ? ~0u : 1,
               .samples = 1,
               .srgb = texture == &material.texture || texture == &material.glowTexture,
+              .stream = info->stream,
               .images = &image,
               .imageCount = 1
             });
@@ -5317,6 +5357,7 @@ Model* lovrModelClone(Model* parent) {
   model->ref = 1;
   model->parent = parent;
   model->meta = parent->meta;
+  model->stream = parent->stream;
   lovrRetain(parent);
 
   ModelMetadata* meta = &model->meta;
@@ -5421,6 +5462,20 @@ void lovrModelDestroy(void* ref) {
 
 ModelMetadata* lovrModelGetMetadata(Model* model) {
   return &model->meta;
+}
+
+bool lovrModelIsReady(Model* model) {
+  if (!model->stream) {
+    return true;
+  }
+
+  for (uint32_t i = 0; i < model->meta.imageCount; i++) {
+    if (!lovrTextureIsReady(model->textures[i])) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 void lovrModelResetNodeTransforms(Model* model) {
@@ -6205,6 +6260,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
   lovrCheck(texture->info.samples == 1, "Can't get pixels of a multisampled texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
+  if (!lovrTextureAcquire(texture)) return false;
   if (!checkTextureBounds(&texture->info, offset, extent)) return NULL;
   Image* image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
   lovrAssert(image, "Failed to create image: %s", lovrGetError());
@@ -6592,6 +6648,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
 
   for (uint32_t i = 0; i < 4 && color[i].texture; i++) {
     const TextureInfo* info = &color[i].texture->info;
+    if (!lovrTextureAcquire(color[i].texture)) return false;
     lovrCheck(!isDepthFormat(info->format), "Unable to use a depth texture as a color texture in a canvas");
     lovrCheck(state.features.formats[info->format][info->srgb] & GPU_FEATURE_RENDER, "This GPU does not support rendering to the texture format/encoding used by canvas texture #%d", i + 1);
     lovrCheck(info->usage & TEXTURE_RENDER, "Texture must be created with the 'render' usage to render to it");
@@ -6601,6 +6658,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
     lovrCheck(info->samples == 1 || info->samples == texture->samples, "Multisampled canvas textures must have the same sample count");
     if (color[i].resolve) {
       TextureInfo* resolve = &color[i].resolve->info;
+      if (!lovrTextureAcquire(color[i].resolve)) return false;
       lovrCheck(resolve->format == info->format, "Resolve texture format does not match format of its corresponding color texture");
       lovrCheck(resolve->usage & TEXTURE_RENDER, "Texture must be created with the 'render' usage to render to it");
       lovrCheck(resolve->width == texture->width, "Canvas texture sizes must match");
@@ -6613,6 +6671,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
 
   if (depth->texture) {
     const TextureInfo* info = &depth->texture->info;
+    if (!lovrTextureAcquire(depth->texture)) return false;
     lovrCheck(isDepthFormat(info->format), "Canvas depth textures must have a depth format");
     lovrCheck(state.features.formats[info->format][0] & GPU_FEATURE_RENDER, "Canvas depth format is not supported by this GPU");
     lovrCheck(info->usage & TEXTURE_RENDER, "Texture must be created with the 'render' usage to render to it");
@@ -6623,6 +6682,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
     lovrCheck(!(info->samples == 1 && samples > 1) || state.features.depthResolve, "This GPU does not support resolving depth textures");
     if (depth->resolve) {
       TextureInfo* resolve = &depth->resolve->info;
+      if (!lovrTextureAcquire(depth->resolve)) return false;
       lovrCheck(state.features.depthResolve, "This GPU does not support resolving depth textures");
       lovrCheck(resolve->format == info->format, "Depth resolve texture format does not match main depth texture format");
       lovrCheck(resolve->usage & TEXTURE_RENDER, "Depth resolve texture format does not match main depth texture format");
@@ -7372,7 +7432,7 @@ bool lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture* t
     view = texture->sampleView;
   }
 
-  trackTexture(pass, texture, resource->phase, resource->cache);
+  if (!trackTexture(pass, texture, resource->phase, resource->cache)) return false;
   pass->bindings[slot].texture.object = view;
   pass->bindings[slot].texture.sampler = texture->sampler ? texture->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu;
   pass->flags |= DIRTY_BINDINGS;
@@ -7664,7 +7724,7 @@ bool lovrPassDraw(Pass* pass, DrawInfo* info) {
   draw->material = info->material;
   if (!draw->material) draw->material = pass->pipeline->material;
   if (!draw->material) draw->material = state.defaultMaterial;
-  trackMaterial(pass, draw->material);
+  if (!trackMaterial(pass, draw->material)) return false;
 
   draw->start = info->start;
   draw->count = info->count > 0 ? info->count : (info->index.buffer || info->index.count > 0 ? info->index.count : info->vertex.count);
@@ -8925,7 +8985,7 @@ bool lovrPassMeshIndirect(Pass* pass, Buffer* vertices, Buffer* indices, Buffer*
   draw->shader = shader;
   draw->material = pass->pipeline->material;
   if (!draw->material) draw->material = state.defaultMaterial;
-  trackMaterial(pass, draw->material);
+  if (!trackMaterial(pass, draw->material)) return false;
 
   draw->indirect.buffer = draws->gpu;
   draw->indirect.offset = draws->base + offset;
@@ -9309,8 +9369,7 @@ static gpu_texture* createTemporaryTexture(const TextureInfo* parent, TextureFor
     .size = { parent->width, parent->height, parent->layers },
     .mipmaps = 1,
     .samples = samples,
-    .usage = GPU_TEXTURE_RENDER,
-    .upload.stream = state.stream
+    .usage = GPU_TEXTURE_RENDER
   };
 
   gpu_texture* texture = lovrMalloc(gpu_sizeof_texture());
@@ -9319,6 +9378,8 @@ static gpu_texture* createTemporaryTexture(const TextureInfo* parent, TextureFor
     lovrFree(texture);
     return NULL;
   }
+
+  gpu_texture_acquire(texture, state.stream);
 
   return texture;
 }
@@ -9487,8 +9548,9 @@ static void trackBuffer(Pass* pass, Buffer* buffer, gpu_phase phase, gpu_cache c
   lovrRetain(buffer);
 }
 
-static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache) {
-  if (!texture) return;
+static bool trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cache cache) {
+  if (!texture) return true;
+  if (!lovrTextureAcquire(texture)) return false;
 
   // Sample-only textures can skip sync, but still need to be refcounted
   if (texture->root->info.usage == TEXTURE_SAMPLE) {
@@ -9502,23 +9564,27 @@ static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cach
   access->phase = phase;
   access->cache = cache;
   lovrRetain(texture);
+  return true;
 }
 
-static void trackMaterial(Pass* pass, Material* material) {
-  if (!material->hasWritableTexture) {
-    return;
+static bool trackMaterial(Pass* pass, Material* material) {
+  if (material->acquired && !material->hasWritableTexture) {
+    return true;
   }
 
   gpu_phase phase = GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
   gpu_cache cache = GPU_CACHE_TEXTURE;
 
-  trackTexture(pass, material->info.texture, phase, cache);
-  trackTexture(pass, material->info.glowTexture, phase, cache);
-  trackTexture(pass, material->info.metalnessTexture, phase, cache);
-  trackTexture(pass, material->info.roughnessTexture, phase, cache);
-  trackTexture(pass, material->info.clearcoatTexture, phase, cache);
-  trackTexture(pass, material->info.occlusionTexture, phase, cache);
-  trackTexture(pass, material->info.normalTexture, phase, cache);
+  if (!trackTexture(pass, material->info.texture, phase, cache)) return false;
+  if (!trackTexture(pass, material->info.glowTexture, phase, cache)) return false;
+  if (!trackTexture(pass, material->info.metalnessTexture, phase, cache)) return false;
+  if (!trackTexture(pass, material->info.roughnessTexture, phase, cache)) return false;
+  if (!trackTexture(pass, material->info.clearcoatTexture, phase, cache)) return false;
+  if (!trackTexture(pass, material->info.occlusionTexture, phase, cache)) return false;
+  if (!trackTexture(pass, material->info.normalTexture, phase, cache)) return false;
+
+  material->acquired = true;
+  return true;
 }
 
 static void trackRaytracer(Pass* pass, Raytracer* raytracer, gpu_phase phase, gpu_cache cache) {

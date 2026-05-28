@@ -105,6 +105,8 @@ enum {
 bool lovrGraphicsInit(GraphicsConfig* config);
 void lovrGraphicsDestroy(void);
 bool lovrGraphicsIsInitialized(void);
+void lovrGraphicsInitWorker(void);
+void lovrGraphicsDestroyWorker(void);
 
 void lovrGraphicsGetDevice(GraphicsDevice* device);
 void lovrGraphicsGetFeatures(GraphicsFeatures* features);
@@ -227,6 +229,7 @@ typedef struct {
   uint32_t usage;
   bool srgb;
   bool xr;
+  bool stream;
   uint32_t imageCount;
   struct Image** images;
   char* label;
@@ -252,6 +255,7 @@ Texture* lovrTextureCreate(const TextureInfo* info);
 Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info);
 void lovrTextureDestroy(void* ref);
 const TextureInfo* lovrTextureGetInfo(Texture* texture);
+bool lovrTextureIsReady(Texture* texture);
 bool lovrTextureSetPixels(Texture* texture, struct Image* image, uint32_t texOffset[4], uint32_t imgOffset[4], uint32_t extent[3]);
 bool lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]);
 bool lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
@@ -386,6 +390,7 @@ typedef struct {
   Texture* clearcoatTexture;
   Texture* occlusionTexture;
   Texture* normalTexture;
+  bool weak;
 } MaterialInfo;
 
 Material* lovrMaterialCreate(const MaterialInfo* info);
@@ -494,6 +499,7 @@ typedef struct {
   struct ModelData* data;
   bool materials;
   bool mipmaps;
+  bool stream;
   uint32_t raytracerFlags;
 } ModelInfo;
 
@@ -506,6 +512,7 @@ Model* lovrModelCreate(const ModelInfo* info);
 Model* lovrModelClone(Model* model);
 void lovrModelDestroy(void* ref);
 struct ModelMetadata* lovrModelGetMetadata(Model* model);
+bool lovrModelIsReady(Model* model);
 void lovrModelResetNodeTransforms(Model* model);
 void lovrModelResetBlendShapes(Model* model);
 bool lovrModelAnimate(Model* model, uint32_t animationIndex, float time, float alpha);

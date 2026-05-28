@@ -253,6 +253,13 @@ static int l_lovrModelGetMaterial(lua_State* L) {
   return 1;
 }
 
+static int l_lovrModelIsReady(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  bool ready = lovrModelIsReady(model);
+  lua_pushboolean(L, ready);
+  return 1;
+}
+
 static int l_lovrModelBuildRaytracer(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   luax_assert(L, lovrModelBuildRaytracer(model));
@@ -402,6 +409,7 @@ const luaL_Reg lovrModel[] = {
   { "getMaterialCount", l_lovrModelMetaGetMaterialCount },
   { "getMaterialName", l_lovrModelMetaGetMaterialName },
   { "getMaterial", l_lovrModelGetMaterial },
+  { "isReady", l_lovrModelIsReady },
 
   { "buildRaytracer", l_lovrModelBuildRaytracer },
 

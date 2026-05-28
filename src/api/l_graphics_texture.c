@@ -85,6 +85,13 @@ static int l_lovrTextureHasUsage(lua_State* L) {
   return 1;
 }
 
+static int l_lovrTextureIsReady(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  bool ready = lovrTextureIsReady(texture);
+  lua_pushboolean(L, ready);
+  return 1;
+}
+
 static int l_lovrTextureNewReadback(lua_State* L) {
   Texture* texture = luax_totype(L, 1, Texture);
   uint32_t offset[4], extent[3];
@@ -276,6 +283,7 @@ const luaL_Reg lovrTexture[] = {
   { "getMipmapCount", l_lovrTextureGetMipmapCount },
   { "getSampleCount", l_lovrTextureGetSampleCount },
   { "hasUsage", l_lovrTextureHasUsage },
+  { "isReady", l_lovrTextureIsReady },
   { "newReadback", l_lovrTextureNewReadback },
   { "getPixels", l_lovrTextureGetPixels },
   { "setPixels", l_lovrTextureSetPixels },

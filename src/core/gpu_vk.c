@@ -45,11 +45,21 @@ struct gpu_tree {
   gpu_buffer scratch;
 };
 
+typedef enum {
+  UPLOAD_NONE,
+  UPLOAD_HOST,
+  UPLOAD_GRAPHICS,
+  UPLOAD_TRANSFER
+} gpu_upload_type;
+
 struct gpu_texture {
   VkImage handle;
   VkImageView view;
   gpu_memory* memory;
   VkDeviceSize offset;
+  uint32_t uploadId;
+  gpu_buffer stagingBuffer;
+  gpu_upload_type uploadType;
   VkImageAspectFlagBits aspect;
   VkImageLayout layout;
   uint32_t samples;
@@ -93,6 +103,7 @@ struct gpu_tally {
 struct gpu_stream {
   VkCommandBuffer commands;
   gpu_stream* next;
+  uint32_t id;
 };
 
 size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
@@ -235,6 +246,7 @@ typedef struct gpu_thread_state {
   struct gpu_thread_state* next;
   gpu_stream_pool* streamPools;
   gpu_stream_pool* activeStreamPool;
+  gpu_stream_pool uploadStreamPool[2];
   char error[255];
   bool initialized;
 } gpu_thread_state;
@@ -251,9 +263,12 @@ static struct {
   VkDevice device;
   VkQueue queue[2];
   uint32_t queueFamilyIndex[2];
+  mtx_t queueLock[2];
+  VkSemaphore semaphore;
+  VkSemaphore uploadSemaphore[2];
+  uint32_t uploadId[2];
   uint32_t tick;
   uint32_t frame;
-  VkSemaphore semaphore;
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
   gpu_allocator allocators[GPU_MEMORY_COUNT];
@@ -322,6 +337,7 @@ static void error(const char* message);
   X(vkGetPhysicalDeviceSurfaceSupportKHR)\
   X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)\
   X(vkGetPhysicalDeviceSurfaceFormatsKHR)\
+  X(vkGetPhysicalDeviceImageFormatProperties2)\
   X(vkEnumerateDeviceExtensionProperties)\
   X(vkCreateDevice)\
   X(vkDestroyDevice)\
@@ -342,6 +358,7 @@ static void error(const char* message);
   X(vkDestroyCommandPool)\
   X(vkResetCommandPool)\
   X(vkAllocateCommandBuffers)\
+  X(vkFreeCommandBuffers)\
   X(vkBeginCommandBuffer)\
   X(vkEndCommandBuffer)\
   X(vkCreateFence)\
@@ -427,7 +444,9 @@ static void error(const char* message);
   X(vkGetAccelerationStructureBuildSizesKHR)\
   X(vkCreateAccelerationStructureKHR)\
   X(vkDestroyAccelerationStructureKHR)\
-  X(vkCmdBuildAccelerationStructuresKHR)
+  X(vkCmdBuildAccelerationStructuresKHR)\
+  X(vkCopyMemoryToImageEXT)\
+  X(vkTransitionImageLayoutEXT)
 
 // Used to load/declare Vulkan functions without lots of clutter
 #define GPU_LOAD_ANONYMOUS(fn) fn = (PFN_##fn) vkGetInstanceProcAddr(NULL, #fn);
@@ -649,6 +668,10 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     default: texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT; break;
   }
 
+  texture->uploadId = ~0u;
+  texture->uploadType = UPLOAD_NONE;
+  texture->stagingBuffer.handle = VK_NULL_HANDLE;
+  texture->stagingBuffer.memory = NULL;
   texture->layout = getNaturalLayout(info->usage, texture->aspect);
   texture->samples = info->samples;
   texture->layers = info->type == GPU_TEXTURE_3D ? 0 : info->size[2];
@@ -696,10 +719,40 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       ((info->usage & GPU_TEXTURE_COPY_SRC) ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0) |
       ((info->usage & GPU_TEXTURE_COPY_DST) ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
       ((info->usage & GPU_TEXTURE_FOVEATION) ? VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT : 0) |
-      ((info->usage == GPU_TEXTURE_RENDER) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0) |
-      (info->upload.levelCount > 0 ? VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0) |
-      (info->upload.generateMipmaps ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0)
+      ((info->usage == GPU_TEXTURE_RENDER) ? VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT : 0)
   };
+
+  bool hostCopy = false;
+
+  if (info->upload.levelCount > 0) {
+    VkHostImageCopyDevicePerformanceQueryEXT performance = {
+      .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_COPY_DEVICE_PERFORMANCE_QUERY_EXT
+    };
+
+    if (state.extensions.hostImageCopy) {
+      VkPhysicalDeviceImageFormatInfo2 formatInfo = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+        .format = imageInfo.format,
+        .type = imageInfo.imageType,
+        .usage = imageInfo.usage | VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT,
+        .flags = imageInfo.flags
+      };
+
+      VkImageFormatProperties2 properties = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+        .pNext = &performance
+      };
+
+      vkGetPhysicalDeviceImageFormatProperties2(state.adapter, &formatInfo, &properties);
+    }
+
+    if (performance.optimalDeviceAccess) {
+      imageInfo.usage |= VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT;
+      hostCopy = true;
+    } else {
+      imageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+  }
 
   VkFormat formats[2];
   VkImageFormatListCreateInfo imageFormatList;
@@ -754,118 +807,285 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return false;
   }
 
-  if (info->upload.stream) {
+  if (info->upload.levelCount > 0) {
     VkImage image = texture->handle;
-    VkCommandBuffer commands = info->upload.stream->commands;
-    uint32_t levelCount = info->upload.levelCount;
-    gpu_buffer* buffer = info->upload.buffer;
+    uint32_t layers = info->size[2];
+    uint32_t levels = info->upload.levelCount;
 
-    VkImageMemoryBarrier2KHR transition = {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR,
-      .image = image,
-      .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      .newLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-      .subresourceRange.aspectMask = texture->aspect,
-      .subresourceRange.baseMipLevel = 0,
-      .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
-      .subresourceRange.baseArrayLayer = 0,
-      .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS
+    VkImageSubresourceRange subresource = {
+      .aspectMask = texture->aspect,
+      .levelCount = VK_REMAINING_MIP_LEVELS,
+      .layerCount = VK_REMAINING_ARRAY_LAYERS
     };
 
-    VkDependencyInfoKHR barrier = {
-      .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,
-      .pImageMemoryBarriers = &transition,
-      .imageMemoryBarrierCount = 1
-    };
+    if (hostCopy) {
+      vkTransitionImageLayoutEXT(state.device, 1, &(VkHostImageLayoutTransitionInfoEXT) {
+        .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
+        .image = image,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .subresourceRange = subresource
+      });
 
-    if (levelCount > 0) {
-      transition.srcStageMask = VK_PIPELINE_STAGE_2_NONE_KHR;
-      transition.dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR;
-      transition.srcAccessMask = VK_ACCESS_2_NONE_KHR;
-      transition.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
-      transition.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-      transition.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-      vkCmdPipelineBarrier2KHR(commands, &barrier);
+      VkMemoryToImageCopyEXT stack[16];
+      VkMemoryToImageCopyEXT* regions = levels * layers > COUNTOF(stack) ?
+        state.config.fnAlloc(levels * layers * sizeof(*regions)) :
+        stack;
 
+      for (uint32_t i = 0; i < levels; i++) {
+        for (uint32_t j = 0; j < layers; j++) {
+          regions[i * layers + j] = (VkMemoryToImageCopyEXT) {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY_EXT,
+            .pHostPointer = info->upload.levelData[i * layers + j],
+            .imageSubresource.aspectMask = texture->aspect,
+            .imageSubresource.mipLevel = i,
+            .imageSubresource.baseArrayLayer = texture->layers ? j : 0,
+            .imageSubresource.layerCount = 1,
+            .imageOffset.z = texture->layers ? 0 : j,
+            .imageExtent.width = MAX(info->size[0] >> i, 1),
+            .imageExtent.height = MAX(info->size[1] >> i, 1),
+            .imageExtent.depth = 1
+          };
+        }
+      }
+
+      vkCopyMemoryToImageEXT(state.device, &(VkCopyMemoryToImageInfoEXT) {
+        .sType = VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO_EXT,
+        .dstImage = image,
+        .dstImageLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .regionCount = levels * layers,
+        .pRegions = regions
+      });
+
+      if (regions != stack) state.config.fnFree(regions);
+
+      vkTransitionImageLayoutEXT(state.device, 1, &(VkHostImageLayoutTransitionInfoEXT) {
+        .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
+        .image = image,
+        .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .newLayout = texture->layout,
+        .subresourceRange = subresource
+      });
+
+      texture->uploadType = UPLOAD_HOST;
+    } else {
+      // GC any upload command buffers that are complete
+
+      for (uint32_t i = 0; i < COUNTOF(thread.uploadStreamPool); i++) {
+        gpu_stream_pool* pool = &thread.uploadStreamPool[i];
+
+        if (!pool->head) continue;
+
+        uint64_t completed = 0;
+        vkGetSemaphoreCounterValueKHR(state.device, state.uploadSemaphore[i], &completed);
+
+        while (pool->head && pool->head->id <= completed) {
+          gpu_stream* stream = pool->head;
+
+          vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
+
+          if (!stream->next) {
+            pool->tail = NULL;
+          }
+
+          pool->head = stream->next;
+
+          state.config.fnFree(stream);
+        }
+      }
+
+      // Get a command buffer to use
+
+      int queue = info->upload.async && state.queue[TRANSFER] ? TRANSFER : GRAPHICS;
+      gpu_stream_pool* pool = &thread.uploadStreamPool[queue];
+
+      if (!pool->handle) {
+        VkCommandPoolCreateInfo poolInfo = {
+          .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+          .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+          .queueFamilyIndex = state.queueFamilyIndex[queue]
+        };
+
+        VK(vkCreateCommandPool(state.device, &poolInfo, NULL, &pool->handle), "vkCreateCommandPool") {
+          gpu_texture_destroy(texture);
+          return false;
+        }
+      }
+
+      VkCommandBufferAllocateInfo commandBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = pool->handle,
+        .commandBufferCount = 1
+      };
+
+      gpu_stream* stream = state.config.fnAlloc(sizeof(gpu_stream));
+
+      if (!stream) {
+        gpu_texture_destroy(texture);
+        return false;
+      }
+
+      VK(vkAllocateCommandBuffers(state.device, &commandBufferInfo, &stream->commands), "vkAllocateCommandBuffers") {
+        state.config.fnFree(stream);
+        gpu_texture_destroy(texture);
+        return false;
+      }
+
+      VkCommandBufferBeginInfo beginfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+      };
+
+      VK(vkBeginCommandBuffer(stream->commands, &beginfo), "vkBeginCommandBuffer") {
+        vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
+        state.config.fnFree(stream);
+        gpu_texture_destroy(texture);
+        return false;
+      }
+
+      // Transition to TRANSFER_DST
+
+      VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+      vkCmdPipelineBarrier2KHR(stream->commands, &(VkDependencyInfoKHR) {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &(VkImageMemoryBarrier2KHR) {
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR,
+          .image = image,
+          .subresourceRange = subresource,
+          .srcStageMask = VK_PIPELINE_STAGE_2_NONE_KHR,
+          .dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR,
+          .srcAccessMask = VK_ACCESS_2_NONE_KHR,
+          .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
+          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+          .newLayout = layout
+        }
+      });
+
+      // Allocate a buffer, copy the data to it, copy it to the texture
+
+      uint32_t totalSize = 0;
+
+      for (uint32_t i = 0; i < levels; i++) {
+        totalSize += layers * info->upload.layerSizes[i];
+      }
+
+      void* data;
+
+      gpu_buffer_info bufferInfo = {
+        .type = GPU_BUFFER_UPLOAD,
+        .size = totalSize,
+        .pointer = &data,
+        .label = "Texture Staging Buffer"
+      };
+
+      if (!gpu_buffer_init(&texture->stagingBuffer, &bufferInfo)) {
+        vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
+        state.config.fnFree(stream);
+        gpu_texture_destroy(texture);
+        return false;
+      }
+
+      uint32_t offset = 0;
       VkBufferImageCopy copies[16];
-      for (uint32_t i = 0; i < levelCount; i++) {
+      for (uint32_t i = 0; i < levels; i++) {
         copies[i] = (VkBufferImageCopy) {
-          .bufferOffset = info->upload.levelOffsets[i],
+          .bufferOffset = offset,
           .imageSubresource.aspectMask = texture->aspect,
           .imageSubresource.mipLevel = i,
           .imageSubresource.baseArrayLayer = 0,
-          .imageSubresource.layerCount = texture->layers ? info->size[2] : 1,
+          .imageSubresource.layerCount = texture->layers ? layers : 1,
           .imageExtent.width = MAX(info->size[0] >> i, 1),
           .imageExtent.height = MAX(info->size[1] >> i, 1),
-          .imageExtent.depth = texture->layers ? 1 : MAX(info->size[2] >> i, 1)
+          .imageExtent.depth = texture->layers ? 1 : MAX(layers >> i, 1)
         };
-      }
 
-      vkCmdCopyBufferToImage(commands, buffer->handle, image, transition.newLayout, levelCount, copies);
-
-      // Generate mipmaps
-      if (info->upload.generateMipmaps) {
-        transition.srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR;
-        transition.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
-        transition.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
-        transition.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT_KHR;
-        transition.oldLayout = transition.newLayout;
-        transition.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        transition.subresourceRange.baseMipLevel = 0;
-        transition.subresourceRange.levelCount = levelCount;
-        vkCmdPipelineBarrier2KHR(commands, &barrier);
-
-        for (uint32_t i = levelCount; i < info->mipmaps; i++) {
-          transition.srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR;
-          transition.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
-          transition.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
-          transition.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
-          transition.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-          transition.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-          transition.subresourceRange.baseMipLevel = i;
-          transition.subresourceRange.levelCount = 1;
-          vkCmdPipelineBarrier2KHR(commands, &barrier);
-
-          VkImageBlit region = {
-            .srcSubresource = {
-              .aspectMask = texture->aspect,
-              .mipLevel = i - 1,
-              .layerCount = texture->layers ? info->size[2] : 1
-            },
-            .dstSubresource = {
-              .aspectMask = texture->aspect,
-              .mipLevel = i,
-              .layerCount = texture->layers ? info->size[2] : 1
-            },
-            .srcOffsets[1] = { MAX(info->size[0] >> (i - 1), 1), MAX(info->size[1] >> (i - 1), 1), 1 },
-            .dstOffsets[1] = { MAX(info->size[0] >> i, 1), MAX(info->size[1] >> i, 1), 1 }
-          };
-
-          vkCmdBlitImage(commands, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_LINEAR);
-
-          transition.srcStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
-          transition.dstStageMask = VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
-          transition.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
-          transition.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT_KHR;
-          transition.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-          transition.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-          transition.subresourceRange.baseMipLevel = i;
-          transition.subresourceRange.levelCount = 1;
-          vkCmdPipelineBarrier2KHR(commands, &barrier);
+        for (uint32_t j = 0; j < layers; j++) {
+          memcpy((char*) data + offset, info->upload.levelData[i * layers + j], info->upload.layerSizes[i]);
+          offset += info->upload.layerSizes[i];
         }
       }
-    }
 
-    // Transition to natural layout
-    transition.srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR | VK_PIPELINE_STAGE_2_BLIT_BIT_KHR;
-    transition.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR;
-    transition.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR;
-    transition.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT_KHR | VK_ACCESS_2_MEMORY_WRITE_BIT_KHR;
-    transition.oldLayout = transition.newLayout;
-    transition.newLayout = texture->layout;
-    transition.subresourceRange.baseMipLevel = 0;
-    transition.subresourceRange.levelCount = info->mipmaps;
-    vkCmdPipelineBarrier2KHR(commands, &barrier);
+      vkCmdCopyBufferToImage(stream->commands, texture->stagingBuffer.handle, image, layout, levels, copies);
+
+      // Transition back to natural layout, do queue family ownership transfer if needed
+
+      vkCmdPipelineBarrier2KHR(stream->commands, &(VkDependencyInfoKHR) {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &(VkImageMemoryBarrier2KHR) {
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR,
+          .image = image,
+          .subresourceRange = subresource,
+          .srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR,
+          .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR,
+          .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
+          .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT_KHR | VK_ACCESS_2_MEMORY_WRITE_BIT_KHR,
+          .srcQueueFamilyIndex = state.queueFamilyIndex[queue],
+          .dstQueueFamilyIndex = state.queueFamilyIndex[GRAPHICS],
+          .oldLayout = layout,
+          .newLayout = texture->layout
+        }
+      });
+
+      // Submit to the queue
+
+      VK(vkEndCommandBuffer(stream->commands), "vkEndCommandBuffer") {
+        vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
+        state.config.fnFree(stream);
+        gpu_texture_destroy(texture);
+        return false;
+      }
+
+      mtx_lock(&state.queueLock[queue]);
+
+      stream->id = ++state.uploadId[queue];
+
+      VkSubmitInfo submit = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = &(VkTimelineSemaphoreSubmitInfo) {
+          .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
+          .signalSemaphoreValueCount = 1,
+          .pSignalSemaphoreValues = (uint64_t[1]) { stream->id }
+        },
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &state.uploadSemaphore[queue],
+        .commandBufferCount = 1,
+        .pCommandBuffers = &stream->commands
+      };
+
+      VK(vkQueueSubmit(state.queue[queue], 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
+        mtx_unlock(&state.queueLock[queue]);
+        vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
+        state.config.fnFree(stream);
+        gpu_texture_destroy(texture);
+        return false;
+      }
+
+      mtx_unlock(&state.queueLock[queue]);
+
+      // Subbookkeeping
+
+      stream->next = NULL;
+
+      if (pool->tail) {
+        pool->tail->next = stream;
+      } else {
+        pool->head = stream;
+      }
+
+      pool->tail = stream;
+
+      if (queue == TRANSFER) {
+        texture->uploadId = stream->id;
+        texture->uploadType = UPLOAD_TRANSFER;
+      } else {
+        texture->uploadType = UPLOAD_GRAPHICS;
+        gpu_buffer_destroy(&texture->stagingBuffer);
+        memset(&texture->stagingBuffer, 0, sizeof(gpu_buffer));
+      }
+    }
   }
 
   return true;
@@ -942,11 +1162,79 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
 }
 
 void gpu_texture_destroy(gpu_texture* texture) {
+  if (texture->uploadId != ~0u && texture->uploadType == UPLOAD_TRANSFER) {
+    VkSemaphoreWaitInfo info = {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+      .semaphoreCount = 1,
+      .pSemaphores = &state.uploadSemaphore[TRANSFER],
+      .pValues = (uint64_t[1]) { texture->uploadId }
+    };
+
+    vkWaitSemaphoresKHR(state.device, &info, UINT64_MAX);
+  }
+
   condemn(texture->view, VK_OBJECT_TYPE_IMAGE_VIEW);
+  gpu_buffer_destroy(&texture->stagingBuffer);
   if (texture->imported) return;
   if (!texture->memory) return;
   condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
   release(texture->memory, texture->offset);
+}
+
+bool gpu_texture_is_uploaded(gpu_texture* texture) {
+  if (texture->uploadId == ~0u || texture->uploadType == UPLOAD_NONE || texture->uploadType == UPLOAD_HOST) {
+    return true;
+  }
+
+  uint64_t counter;
+  VkSemaphore semaphore = state.uploadSemaphore[texture->uploadType == UPLOAD_TRANSFER ? TRANSFER : GRAPHICS];
+  VK(vkGetSemaphoreCounterValueKHR(state.device, semaphore, &counter), "vkGetSemaphoreCounterValue") {
+    return false;
+  }
+
+  if (counter >= texture->uploadId) {
+    texture->uploadId = ~0u;
+    return true;
+  }
+
+  return false;
+}
+
+void gpu_texture_acquire(gpu_texture* texture, gpu_stream* stream) {
+  if (texture->uploadType == UPLOAD_HOST || texture->uploadType == UPLOAD_GRAPHICS) {
+    return;
+  }
+
+  VkImageMemoryBarrier2KHR barrier = {
+    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR,
+    .image = texture->handle,
+    .subresourceRange.aspectMask = texture->aspect,
+    .subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS,
+    .subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS,
+    .srcStageMask = VK_PIPELINE_STAGE_2_NONE_KHR,
+    .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR,
+    .srcAccessMask = VK_ACCESS_2_NONE_KHR,
+    .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT_KHR | VK_ACCESS_2_MEMORY_WRITE_BIT_KHR
+  };
+
+  if (texture->uploadType == UPLOAD_TRANSFER) {
+    barrier.srcQueueFamilyIndex = state.queueFamilyIndex[TRANSFER];
+    barrier.dstQueueFamilyIndex = state.queueFamilyIndex[GRAPHICS];
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = texture->layout;
+    vkDestroyBuffer(state.device, texture->stagingBuffer.handle, NULL);
+    release(texture->stagingBuffer.memory, texture->stagingBuffer.offset);
+    memset(&texture->stagingBuffer, 0, sizeof(gpu_buffer));
+  } else if (texture->uploadType == UPLOAD_NONE) {
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = texture->layout;
+  }
+
+  vkCmdPipelineBarrier2KHR(stream->commands, &(VkDependencyInfoKHR) {
+    .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,
+    .imageMemoryBarrierCount = 1,
+    .pImageMemoryBarriers = &barrier
+  });
 }
 
 // Surface
@@ -1250,7 +1538,10 @@ bool gpu_surface_present(void) {
     .pSignalSemaphores = &presentSemaphore
   };
 
+  mtx_lock(&state.queueLock[GRAPHICS]);
+
   VK(vkQueueSubmit(state.queue[GRAPHICS], 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
+    mtx_unlock(&state.queueLock[GRAPHICS]);
     return false;
   }
 
@@ -1264,6 +1555,8 @@ bool gpu_surface_present(void) {
   };
 
   VkResult result = vkQueuePresentKHR(state.queue[GRAPHICS], &present);
+
+  mtx_unlock(&state.queueLock[GRAPHICS]);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
     gpu_surface_resize(~0u, ~0u);
@@ -3279,13 +3572,11 @@ bool gpu_init(gpu_config* config) {
 
     ASSERT(state.queueFamilyIndex[GRAPHICS] != ~0u, "No graphics queue family available") goto fail;
 
-    if (state.queueFamilyIndex[TRANSFER] == ~0u) {
-      state.queueFamilyIndex[TRANSFER] = state.queueFamilyIndex[GRAPHICS];
+    for (uint32_t i = 0; i < COUNTOF(state.queue); i++) {
+      mtx_init(&state.queueLock[i], mtx_plain);
     }
 
     // Device
-
-    uint32_t queueCount = state.queueFamilyIndex[TRANSFER] == state.queueFamilyIndex[GRAPHICS] ? 1 : 2;
 
     VkDeviceQueueCreateInfo queueInfo[2] = {
       {
@@ -3305,7 +3596,7 @@ bool gpu_init(gpu_config* config) {
     VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
       .pNext = &enabled,
-      .queueCreateInfoCount = queueCount,
+      .queueCreateInfoCount = state.queueFamilyIndex[TRANSFER] == ~0u ? 1 : 2,
       .pQueueCreateInfos = queueInfo,
       .enabledExtensionCount = enabledExtensionCount,
       .ppEnabledExtensionNames = enabledExtensions
@@ -3319,10 +3610,8 @@ bool gpu_init(gpu_config* config) {
 
     vkGetDeviceQueue(state.device, state.queueFamilyIndex[GRAPHICS], 0, &state.queue[GRAPHICS]);
 
-    if (queueCount > 1) {
+    if (state.queueFamilyIndex[TRANSFER] != ~0u) {
       vkGetDeviceQueue(state.device, state.queueFamilyIndex[TRANSFER], 0, &state.queue[TRANSFER]);
-    } else {
-      state.queue[TRANSFER] = state.queue[GRAPHICS];
     }
 
     GPU_FOREACH_DEVICE(GPU_LOAD_DEVICE);
@@ -3483,7 +3772,7 @@ bool gpu_init(gpu_config* config) {
     mtx_init(&state.allocatorLock, mtx_plain);
   }
 
-  // Semaphore
+  // Semaphores
 
   VkSemaphoreCreateInfo timelineSemaphoreInfo = {
     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -3494,6 +3783,10 @@ bool gpu_init(gpu_config* config) {
   };
 
   VK(vkCreateSemaphore(state.device, &timelineSemaphoreInfo, NULL, &state.semaphore), "vkCreateSemaphore") goto fail;
+
+  for (uint32_t i = 0; i < COUNTOF(state.uploadSemaphore); i++) {
+    VK(vkCreateSemaphore(state.device, &timelineSemaphoreInfo, NULL, &state.uploadSemaphore[i]), "vkCreateSemaphore") goto fail;
+  }
 
   // Pipeline cache
 
@@ -3526,6 +3819,15 @@ void gpu_destroy(void) {
   if (state.device) vkDeviceWaitIdle(state.device);
   expunge(UINT64_MAX);
   for (gpu_thread_state* t = state.threads, *next; t; t = next) {
+    for (uint32_t i = 0; i < COUNTOF(t->uploadStreamPool); i++) {
+      gpu_stream_pool* pool = &t->uploadStreamPool[i];
+      vkDestroyCommandPool(state.device, pool->handle, NULL);
+      while (pool->head) {
+        gpu_stream* next = pool->head->next;
+        state.config.fnFree(pool->head);
+        pool->head = next;
+      }
+    }
     for (gpu_stream_pool* pool = t->streamPools, *next; pool; pool = next) {
       vkDestroyCommandPool(state.device, pool->handle, NULL);
       for (gpu_stream* stream = pool->head, *next; stream; stream = next) {
@@ -3544,8 +3846,14 @@ void gpu_destroy(void) {
   }
   mtx_destroy(&state.morgue.lock);
   mtx_destroy(&state.allocatorLock);
+  for (uint32_t i = 0; i < COUNTOF(state.queueLock); i++) {
+    mtx_destroy(&state.queueLock[i]);
+  }
   if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
-  if (state.semaphore) vkDestroySemaphore(state.device, state.semaphore, NULL);
+  vkDestroySemaphore(state.device, state.semaphore, NULL);
+  for (uint32_t i = 0; i < COUNTOF(state.uploadSemaphore); i++) {
+    vkDestroySemaphore(state.device, state.uploadSemaphore[i], NULL);
+  }
   for (uint32_t i = 0; i < COUNTOF(state.memory); i++) {
     if (state.memory[i].handle) vkFreeMemory(state.device, state.memory[i].handle, NULL);
   }
@@ -3646,10 +3954,15 @@ bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
     .pCommandBuffers = commandBuffers
   };
 
+  mtx_lock(&state.queueLock[GRAPHICS]);
+
   VK(vkQueueSubmit(state.queue[GRAPHICS], 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
+    mtx_unlock(&state.queueLock[GRAPHICS]);
     if (commandBuffers != stack) state.config.fnFree(commandBuffers);
     return false;
   }
+
+  mtx_unlock(&state.queueLock[GRAPHICS]);
 
   expunge(getFinishedTick());
 
@@ -3709,7 +4022,7 @@ static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkD
   static const uint32_t blockSizes[] = {
     [GPU_MEMORY_BUFFER_STATIC] = 1 << 26,
     [GPU_MEMORY_BUFFER_STREAM] = 0,
-    [GPU_MEMORY_BUFFER_UPLOAD] = 0,
+    [GPU_MEMORY_BUFFER_UPLOAD] = 1 << 24,
     [GPU_MEMORY_BUFFER_DOWNLOAD] = 0,
     [GPU_MEMORY_BUFFER_TREE] = 1 << 24,
     [GPU_MEMORY_TEXTURE_COLOR] = 1 << 26,

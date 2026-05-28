@@ -1055,6 +1055,10 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     }
     lua_pop(L, 1);
 
+    lua_getfield(L, index, "stream");
+    info->stream = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
     lua_getfield(L, index, "label");
     info->label = lovrStrdup(lua_tostring(L, -1));
     lua_pop(L, 1);
@@ -1692,6 +1696,10 @@ static int l_lovrGraphicsNewModel(lua_State* L) {
 
     lua_getfield(L, 2, "mipmaps");
     info->mipmaps = lua_isnil(L, -1) || lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "stream");
+    info->stream = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "raytracer");

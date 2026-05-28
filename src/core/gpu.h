@@ -257,17 +257,18 @@ typedef struct {
   uintptr_t handle;
   const char* label;
   struct {
-    gpu_stream* stream;
-    gpu_buffer* buffer;
-    uint32_t* levelOffsets;
+    void** levelData;
     uint32_t levelCount;
-    bool generateMipmaps;
+    uint32_t* layerSizes;
+    bool async;
   } upload;
 } gpu_texture_info;
 
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
 void gpu_texture_destroy(gpu_texture* texture);
+bool gpu_texture_is_uploaded(gpu_texture* texture);
+void gpu_texture_acquire(gpu_texture* texture, gpu_stream* stream);
 
 // Surface
 
