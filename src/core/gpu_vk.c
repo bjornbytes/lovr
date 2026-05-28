@@ -135,6 +135,7 @@ typedef enum {
   GPU_MEMORY_BUFFER_DOWNLOAD,
   GPU_MEMORY_BUFFER_TREE,
   GPU_MEMORY_TEXTURE_COLOR,
+  GPU_MEMORY_TEXTURE_HOST_COLOR,
   GPU_MEMORY_TEXTURE_D16,
   GPU_MEMORY_TEXTURE_D24,
   GPU_MEMORY_TEXTURE_D32F,
@@ -237,6 +238,8 @@ typedef struct {
   bool shaderFloatControls;
   bool spirv14;
   bool rayQuery;
+  bool copy2;
+  bool formatFlags2;
   bool hostImageCopy;
 } gpu_extensions;
 
@@ -784,7 +787,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     case GPU_FORMAT_D32F: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_D32F : GPU_MEMORY_TEXTURE_D32F; break;
     case GPU_FORMAT_D24S8: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_D24S8 : GPU_MEMORY_TEXTURE_D24S8; break;
     case GPU_FORMAT_D32FS8: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_D32FS8 : GPU_MEMORY_TEXTURE_D32FS8; break;
-    default: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_COLOR : GPU_MEMORY_TEXTURE_COLOR; break;
+    default: memoryType = transient ? GPU_MEMORY_TEXTURE_LAZY_COLOR : hostCopy ? GPU_MEMORY_TEXTURE_HOST_COLOR : GPU_MEMORY_TEXTURE_COLOR; break;
   }
 
   VkMemoryRequirements requirements;
@@ -3308,6 +3311,8 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_synchronization2", true, &state.extensions.synchronization2 },
       { "VK_KHR_dynamic_rendering", true, &state.extensions.dynamicRendering },
       { "VK_KHR_timeline_semaphore", true, &state.extensions.timelineSemaphore },
+      { "VK_KHR_copy_commands2", true, &state.extensions.copy2 },
+      { "VK_KHR_format_feature_flags2", true, &state.extensions.formatFlags2 },
       { "VK_EXT_descriptor_indexing", true, &state.extensions.descriptorIndexing },
       { "VK_EXT_scalar_block_layout", true, &state.extensions.scalarBlockLayout },
       { "VK_EXT_fragment_density_map", true, &state.extensions.foveation },
@@ -3697,6 +3702,7 @@ bool gpu_init(gpu_config* config) {
 
     struct { VkFormat format; VkImageUsageFlags usage; } imageFlags[] = {
       [GPU_MEMORY_TEXTURE_COLOR] = { VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT },
+      [GPU_MEMORY_TEXTURE_HOST_COLOR] = { VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_HOST_TRANSFER_BIT },
       [GPU_MEMORY_TEXTURE_D16] = { VK_FORMAT_D16_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT },
       [GPU_MEMORY_TEXTURE_D24] = { VK_FORMAT_X8_D24_UNORM_PACK32, VK_IMAGE_USAGE_SAMPLED_BIT },
       [GPU_MEMORY_TEXTURE_D32F] = { VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT },
@@ -4026,6 +4032,7 @@ static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkD
     [GPU_MEMORY_BUFFER_DOWNLOAD] = 0,
     [GPU_MEMORY_BUFFER_TREE] = 1 << 24,
     [GPU_MEMORY_TEXTURE_COLOR] = 1 << 26,
+    [GPU_MEMORY_TEXTURE_HOST_COLOR] = 1 << 26,
     [GPU_MEMORY_TEXTURE_D16] = 1 << 26,
     [GPU_MEMORY_TEXTURE_D24] = 1 << 26,
     [GPU_MEMORY_TEXTURE_D32F] = 1 << 26,
