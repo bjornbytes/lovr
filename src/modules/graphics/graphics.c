@@ -2853,7 +2853,7 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 }
 
 bool lovrTextureIsReady(Texture* texture) {
-  return !texture->info.stream || atomic_load(&texture->root->acquired) || gpu_texture_is_uploaded(texture->root->gpu);
+  return !texture->root->info.stream || atomic_load(&texture->root->acquired) || gpu_texture_is_uploaded(texture->root->gpu);
 }
 
 bool lovrTextureSetPixels(Texture* texture, Image* image, uint32_t dstOffset[4], uint32_t srcOffset[4], uint32_t extent[3]) {

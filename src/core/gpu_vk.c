@@ -29,6 +29,7 @@
 // Objects
 
 typedef struct gpu_memory gpu_memory;
+typedef struct gpu_upload gpu_upload;
 
 struct gpu_buffer {
   VkBuffer handle;
@@ -57,8 +58,8 @@ struct gpu_texture {
   VkImageView view;
   gpu_memory* memory;
   VkDeviceSize offset;
-  uint32_t uploadId;
-  gpu_buffer stagingBuffer;
+  gpu_upload* upload;
+  uint32_t uploadTick;
   gpu_upload_type uploadType;
   VkImageAspectFlagBits aspect;
   VkImageLayout layout;
@@ -103,7 +104,6 @@ struct gpu_tally {
 struct gpu_stream {
   VkCommandBuffer commands;
   gpu_stream* next;
-  uint32_t id;
 };
 
 size_t gpu_sizeof_buffer(void) { return sizeof(gpu_buffer); }
@@ -171,6 +171,14 @@ typedef struct {
   VkMemoryPropertyFlags memoryFlags;
   gpu_alloc_entry regions[GPU_MAX_PAGES];
 } gpu_allocator;
+
+struct gpu_upload {
+  struct gpu_upload* next;
+  gpu_buffer buffer;
+  gpu_texture* texture;
+  VkBufferImageCopy copies[16];
+  uint32_t copyCount;
+};
 
 typedef struct gpu_victim {
   struct gpu_victim* next;
@@ -247,9 +255,8 @@ typedef struct {
 
 typedef struct gpu_thread_state {
   struct gpu_thread_state* next;
-  gpu_stream_pool* streamPools;
-  gpu_stream_pool* activeStreamPool;
-  gpu_stream_pool uploadStreamPool[2];
+  gpu_stream_pool* streamPools[2];
+  gpu_stream_pool* activeStreamPool[2];
   char error[255];
   bool initialized;
 } gpu_thread_state;
@@ -266,11 +273,8 @@ static struct {
   VkDevice device;
   VkQueue queue[2];
   uint32_t queueFamilyIndex[2];
-  mtx_t queueLock[2];
-  VkSemaphore semaphore;
-  VkSemaphore uploadSemaphore[2];
-  uint32_t uploadId[2];
-  uint32_t tick;
+  VkSemaphore semaphore[2];
+  atomic_uint tick;
   uint32_t frame;
   VkPipelineCache pipelineCache;
   VkDebugUtilsMessengerEXT messenger;
@@ -279,7 +283,9 @@ static struct {
   mtx_t allocatorLock;
   gpu_memory memory[1024];
   _Atomic(gpu_thread_state*) threads;
-  gpu_morgue morgue;
+  gpu_upload* uploads;
+  mtx_t uploadLock;
+  gpu_morgue morgue[2];
 } state;
 
 // Helpers
@@ -298,10 +304,11 @@ enum { GRAPHICS, TRANSFER };
 #define FRAME_MASK (FRAME_DEPTH - 1)
 
 static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkDeviceSize* offset);
-static void release(gpu_memory* memory, VkDeviceSize offset);
-static void condemn(void* handle, VkObjectType type);
-static void expunge(uint64_t tick);
-static uint64_t getFinishedTick(void);
+static void release(gpu_memory* memory, VkDeviceSize offset, int queue);
+static void condemn(void* handle, VkObjectType type, int queue);
+static void expunge(void);
+static uint64_t getFinishedTick(int queue);
+static gpu_stream* getStream(int queue, const char* label);
 static bool hasLayer(VkLayerProperties* layers, uint32_t count, const char* layer);
 static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, const char* extension);
 static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type);
@@ -495,7 +502,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
 
   VK(vkBindBufferMemory(state.device, buffer->handle, buffer->memory->handle, buffer->offset), "vkBindBufferMemory") {
     vkDestroyBuffer(state.device, buffer->handle, NULL);
-    release(buffer->memory, buffer->offset);
+    release(buffer->memory, buffer->offset, GRAPHICS);
     return false;
   }
 
@@ -508,8 +515,8 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
 
 void gpu_buffer_destroy(gpu_buffer* buffer) {
   if (!buffer->memory) return;
-  condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER);
-  release(buffer->memory, buffer->offset);
+  condemn(buffer->handle, VK_OBJECT_TYPE_BUFFER, GRAPHICS);
+  release(buffer->memory, buffer->offset, GRAPHICS);
 }
 
 gpu_address gpu_buffer_get_address(gpu_buffer* buffer, uint32_t offset) {
@@ -641,7 +648,7 @@ bool gpu_tree_init(gpu_tree* tree, gpu_tree_info* info) {
 }
 
 void gpu_tree_destroy(gpu_tree* tree) {
-  condemn(tree->handle, VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR);
+  condemn(tree->handle, VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR, GRAPHICS);
   state.config.fnFree(tree->geometries);
   state.config.fnFree(tree->ranges);
   gpu_buffer_destroy(&tree->buffer);
@@ -671,10 +678,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     default: texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT; break;
   }
 
-  texture->uploadId = ~0u;
-  texture->uploadType = UPLOAD_NONE;
-  texture->stagingBuffer.handle = VK_NULL_HANDLE;
-  texture->stagingBuffer.memory = NULL;
+  texture->upload = NULL;
   texture->layout = getNaturalLayout(info->usage, texture->aspect);
   texture->samples = info->samples;
   texture->layers = info->type == GPU_TEXTURE_3D ? 0 : info->size[2];
@@ -800,13 +804,13 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
   VK(vkBindImageMemory(state.device, texture->handle, texture->memory->handle, texture->offset), "vkBindImageMemory") {
     vkDestroyImage(state.device, texture->handle, NULL);
-    release(texture->memory, texture->offset);
+    release(texture->memory, texture->offset, GRAPHICS);
     return false;
   }
 
   if (!gpu_texture_init_view(texture, &viewInfo)) {
     vkDestroyImage(state.device, texture->handle, NULL);
-    release(texture->memory, texture->offset);
+    release(texture->memory, texture->offset, GRAPHICS);
     return false;
   }
 
@@ -872,104 +876,17 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
 
       texture->uploadType = UPLOAD_HOST;
     } else {
-      // GC any upload command buffers that are complete
+      gpu_upload* upload = state.config.fnAlloc(sizeof(gpu_upload));
 
-      for (uint32_t i = 0; i < COUNTOF(thread.uploadStreamPool); i++) {
-        gpu_stream_pool* pool = &thread.uploadStreamPool[i];
-
-        if (!pool->head) continue;
-
-        uint64_t completed = 0;
-        vkGetSemaphoreCounterValueKHR(state.device, state.uploadSemaphore[i], &completed);
-
-        while (pool->head && pool->head->id <= completed) {
-          gpu_stream* stream = pool->head;
-
-          vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
-
-          if (!stream->next) {
-            pool->tail = NULL;
-          }
-
-          pool->head = stream->next;
-
-          state.config.fnFree(stream);
-        }
-      }
-
-      // Get a command buffer to use
-
-      int queue = info->upload.async && state.queue[TRANSFER] ? TRANSFER : GRAPHICS;
-      gpu_stream_pool* pool = &thread.uploadStreamPool[queue];
-
-      if (!pool->handle) {
-        VkCommandPoolCreateInfo poolInfo = {
-          .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-          .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-          .queueFamilyIndex = state.queueFamilyIndex[queue]
-        };
-
-        VK(vkCreateCommandPool(state.device, &poolInfo, NULL, &pool->handle), "vkCreateCommandPool") {
-          gpu_texture_destroy(texture);
-          return false;
-        }
-      }
-
-      VkCommandBufferAllocateInfo commandBufferInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = pool->handle,
-        .commandBufferCount = 1
-      };
-
-      gpu_stream* stream = state.config.fnAlloc(sizeof(gpu_stream));
-
-      if (!stream) {
+      if (!upload) {
         gpu_texture_destroy(texture);
         return false;
       }
 
-      VK(vkAllocateCommandBuffers(state.device, &commandBufferInfo, &stream->commands), "vkAllocateCommandBuffers") {
-        state.config.fnFree(stream);
-        gpu_texture_destroy(texture);
-        return false;
-      }
-
-      VkCommandBufferBeginInfo beginfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-      };
-
-      VK(vkBeginCommandBuffer(stream->commands, &beginfo), "vkBeginCommandBuffer") {
-        vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
-        state.config.fnFree(stream);
-        gpu_texture_destroy(texture);
-        return false;
-      }
-
-      // Transition to TRANSFER_DST
-
-      VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-
-      vkCmdPipelineBarrier2KHR(stream->commands, &(VkDependencyInfoKHR) {
-        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &(VkImageMemoryBarrier2KHR) {
-          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR,
-          .image = image,
-          .subresourceRange = subresource,
-          .srcStageMask = VK_PIPELINE_STAGE_2_NONE_KHR,
-          .dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR,
-          .srcAccessMask = VK_ACCESS_2_NONE_KHR,
-          .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
-          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-          .newLayout = layout
-        }
-      });
-
-      // Allocate a buffer, copy the data to it, copy it to the texture
+      upload->texture = texture;
+      upload->copyCount = 0;
 
       uint32_t totalSize = 0;
-
       for (uint32_t i = 0; i < levels; i++) {
         totalSize += layers * info->upload.layerSizes[i];
       }
@@ -983,18 +900,15 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
         .label = "Texture Staging Buffer"
       };
 
-      if (!gpu_buffer_init(&texture->stagingBuffer, &bufferInfo)) {
-        vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
-        state.config.fnFree(stream);
+      if (!gpu_buffer_init(&upload->buffer, &bufferInfo)) {
         gpu_texture_destroy(texture);
         return false;
       }
 
-      uint32_t offset = 0;
-      VkBufferImageCopy copies[16];
+      uint32_t cursor = 0;
       for (uint32_t i = 0; i < levels; i++) {
-        copies[i] = (VkBufferImageCopy) {
-          .bufferOffset = offset,
+        upload->copies[upload->copyCount++] = (VkBufferImageCopy) {
+          .bufferOffset = cursor,
           .imageSubresource.aspectMask = texture->aspect,
           .imageSubresource.mipLevel = i,
           .imageSubresource.baseArrayLayer = 0,
@@ -1005,90 +919,22 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
         };
 
         for (uint32_t j = 0; j < layers; j++) {
-          memcpy((char*) data + offset, info->upload.levelData[i * layers + j], info->upload.layerSizes[i]);
-          offset += info->upload.layerSizes[i];
+          memcpy((char*) data + cursor, info->upload.levelData[i * layers + j], info->upload.layerSizes[i]);
+          cursor += info->upload.layerSizes[i];
         }
       }
 
-      vkCmdCopyBufferToImage(stream->commands, texture->stagingBuffer.handle, image, layout, levels, copies);
+      texture->uploadType = info->upload.async && state.queue[TRANSFER] ? UPLOAD_TRANSFER : UPLOAD_GRAPHICS;
+      texture->uploadTick = ~0u;
+      texture->upload = upload;
 
-      // Transition back to natural layout, do queue family ownership transfer if needed
-
-      vkCmdPipelineBarrier2KHR(stream->commands, &(VkDependencyInfoKHR) {
-        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &(VkImageMemoryBarrier2KHR) {
-          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR,
-          .image = image,
-          .subresourceRange = subresource,
-          .srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR,
-          .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR,
-          .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
-          .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT_KHR | VK_ACCESS_2_MEMORY_WRITE_BIT_KHR,
-          .srcQueueFamilyIndex = state.queueFamilyIndex[queue],
-          .dstQueueFamilyIndex = state.queueFamilyIndex[GRAPHICS],
-          .oldLayout = layout,
-          .newLayout = texture->layout
-        }
-      });
-
-      // Submit to the queue
-
-      VK(vkEndCommandBuffer(stream->commands), "vkEndCommandBuffer") {
-        vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
-        state.config.fnFree(stream);
-        gpu_texture_destroy(texture);
-        return false;
-      }
-
-      mtx_lock(&state.queueLock[queue]);
-
-      stream->id = ++state.uploadId[queue];
-
-      VkSubmitInfo submit = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .pNext = &(VkTimelineSemaphoreSubmitInfo) {
-          .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
-          .signalSemaphoreValueCount = 1,
-          .pSignalSemaphoreValues = (uint64_t[1]) { stream->id }
-        },
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &state.uploadSemaphore[queue],
-        .commandBufferCount = 1,
-        .pCommandBuffers = &stream->commands
-      };
-
-      VK(vkQueueSubmit(state.queue[queue], 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
-        mtx_unlock(&state.queueLock[queue]);
-        vkFreeCommandBuffers(state.device, pool->handle, 1, &stream->commands);
-        state.config.fnFree(stream);
-        gpu_texture_destroy(texture);
-        return false;
-      }
-
-      mtx_unlock(&state.queueLock[queue]);
-
-      // Subbookkeeping
-
-      stream->next = NULL;
-
-      if (pool->tail) {
-        pool->tail->next = stream;
-      } else {
-        pool->head = stream;
-      }
-
-      pool->tail = stream;
-
-      if (queue == TRANSFER) {
-        texture->uploadId = stream->id;
-        texture->uploadType = UPLOAD_TRANSFER;
-      } else {
-        texture->uploadType = UPLOAD_GRAPHICS;
-        gpu_buffer_destroy(&texture->stagingBuffer);
-        memset(&texture->stagingBuffer, 0, sizeof(gpu_buffer));
-      }
+      mtx_lock(&state.uploadLock);
+      upload->next = state.uploads;
+      state.uploads = upload;
+      mtx_unlock(&state.uploadLock);
     }
+  } else {
+    texture->uploadType = UPLOAD_NONE;
   }
 
   return true;
@@ -1100,6 +946,7 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
     texture->handle = info->source->handle;
     texture->memory = NULL;
     texture->imported = false;
+    texture->upload = NULL;
     texture->layout = info->source->layout;
     texture->samples = info->source->samples;
     texture->layers = info->type == GPU_TEXTURE_3D ? 0 : layers;
@@ -1165,42 +1012,31 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
 }
 
 void gpu_texture_destroy(gpu_texture* texture) {
-  if (texture->uploadId != ~0u && texture->uploadType == UPLOAD_TRANSFER) {
-    VkSemaphoreWaitInfo info = {
-      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
-      .semaphoreCount = 1,
-      .pSemaphores = &state.uploadSemaphore[TRANSFER],
-      .pValues = (uint64_t[1]) { texture->uploadId }
-    };
-
-    vkWaitSemaphoresKHR(state.device, &info, UINT64_MAX);
+  // If the texture has a pending upload, cancel it
+  mtx_lock(&state.uploadLock);
+  if (texture->upload) {
+    texture->upload->texture = NULL;
   }
+  mtx_unlock(&state.uploadLock);
 
-  condemn(texture->view, VK_OBJECT_TYPE_IMAGE_VIEW);
-  gpu_buffer_destroy(&texture->stagingBuffer);
+  condemn(texture->view, VK_OBJECT_TYPE_IMAGE_VIEW, GRAPHICS);
   if (texture->imported) return;
   if (!texture->memory) return;
-  condemn(texture->handle, VK_OBJECT_TYPE_IMAGE);
-  release(texture->memory, texture->offset);
+  condemn(texture->handle, VK_OBJECT_TYPE_IMAGE, GRAPHICS);
+  release(texture->memory, texture->offset, GRAPHICS);
 }
 
 bool gpu_texture_is_uploaded(gpu_texture* texture) {
-  if (texture->uploadId == ~0u || texture->uploadType == UPLOAD_NONE || texture->uploadType == UPLOAD_HOST) {
+  if (texture->uploadType != UPLOAD_TRANSFER) {
     return true;
   }
 
-  uint64_t counter;
-  VkSemaphore semaphore = state.uploadSemaphore[texture->uploadType == UPLOAD_TRANSFER ? TRANSFER : GRAPHICS];
-  VK(vkGetSemaphoreCounterValueKHR(state.device, semaphore, &counter), "vkGetSemaphoreCounterValue") {
+  uint64_t finished;
+  VK(vkGetSemaphoreCounterValueKHR(state.device, state.semaphore[TRANSFER], &finished), "vkGetSemaphoreCounterValue") {
     return false;
   }
 
-  if (counter >= texture->uploadId) {
-    texture->uploadId = ~0u;
-    return true;
-  }
-
-  return false;
+  return finished >= texture->uploadTick;
 }
 
 void gpu_texture_acquire(gpu_texture* texture, gpu_stream* stream) {
@@ -1225,9 +1061,6 @@ void gpu_texture_acquire(gpu_texture* texture, gpu_stream* stream) {
     barrier.dstQueueFamilyIndex = state.queueFamilyIndex[GRAPHICS];
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = texture->layout;
-    vkDestroyBuffer(state.device, texture->stagingBuffer.handle, NULL);
-    release(texture->stagingBuffer.memory, texture->stagingBuffer.offset);
-    memset(&texture->stagingBuffer, 0, sizeof(gpu_buffer));
   } else if (texture->uploadType == UPLOAD_NONE) {
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = texture->layout;
@@ -1530,21 +1363,18 @@ bool gpu_surface_present(void) {
     .pNext = &(VkTimelineSemaphoreSubmitInfo) {
       .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
       .waitSemaphoreValueCount = 1,
-      .pWaitSemaphoreValues = (uint64_t[1]) { state.tick },
+      .pWaitSemaphoreValues = (uint64_t[1]) { atomic_load(&state.tick) },
       .signalSemaphoreValueCount = 1,
       .pSignalSemaphoreValues = (uint64_t[1]) { 0 }
     },
     .waitSemaphoreCount = 1,
-    .pWaitSemaphores = &state.semaphore,
+    .pWaitSemaphores = &state.semaphore[GRAPHICS],
     .pWaitDstStageMask = &waitStage,
     .signalSemaphoreCount = 1,
     .pSignalSemaphores = &presentSemaphore
   };
 
-  mtx_lock(&state.queueLock[GRAPHICS]);
-
   VK(vkQueueSubmit(state.queue[GRAPHICS], 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
-    mtx_unlock(&state.queueLock[GRAPHICS]);
     return false;
   }
 
@@ -1558,8 +1388,6 @@ bool gpu_surface_present(void) {
   };
 
   VkResult result = vkQueuePresentKHR(state.queue[GRAPHICS], &present);
-
-  mtx_unlock(&state.queueLock[GRAPHICS]);
 
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
     gpu_surface_resize(~0u, ~0u);
@@ -1628,7 +1456,7 @@ bool gpu_sampler_init(gpu_sampler* sampler, gpu_sampler_info* info) {
 }
 
 void gpu_sampler_destroy(gpu_sampler* sampler) {
-  condemn(sampler->handle, VK_OBJECT_TYPE_SAMPLER);
+  condemn(sampler->handle, VK_OBJECT_TYPE_SAMPLER, GRAPHICS);
 }
 
 // Layout
@@ -1679,7 +1507,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
 }
 
 void gpu_layout_destroy(gpu_layout* layout) {
-  condemn(layout->handle, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT);
+  condemn(layout->handle, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, GRAPHICS);
 }
 
 // Shader
@@ -1743,7 +1571,7 @@ void gpu_shader_destroy(gpu_shader* shader) {
   // The spec says it's safe to destroy shaders while still in use
   if (shader->handles[0]) vkDestroyShaderModule(state.device, shader->handles[0], NULL);
   if (shader->handles[1]) vkDestroyShaderModule(state.device, shader->handles[1], NULL);
-  condemn(shader->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT);
+  condemn(shader->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT, GRAPHICS);
 }
 
 // Bundles
@@ -1821,7 +1649,7 @@ bool gpu_bundle_pool_init(gpu_bundle_pool* pool, gpu_bundle_pool_info* info) {
 }
 
 void gpu_bundle_pool_destroy(gpu_bundle_pool* pool) {
-  condemn(pool->handle, VK_OBJECT_TYPE_DESCRIPTOR_POOL);
+  condemn(pool->handle, VK_OBJECT_TYPE_DESCRIPTOR_POOL, GRAPHICS);
 }
 
 void gpu_bundle_write(gpu_bundle** bundles, gpu_bundle_info* infos, uint32_t count) {
@@ -2274,7 +2102,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
       return false;
     }
 
-    condemn(pipelineInfo.renderPass, VK_OBJECT_TYPE_RENDER_PASS);
+    condemn(pipelineInfo.renderPass, VK_OBJECT_TYPE_RENDER_PASS, GRAPHICS);
   }
 
   VkResult result = vkCreateGraphicsPipelines(state.device, state.pipelineCache, 1, &pipelineInfo, NULL, &pipeline->handle);
@@ -2348,7 +2176,7 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info
 }
 
 void gpu_pipeline_destroy(gpu_pipeline* pipeline) {
-  condemn(pipeline->handle, VK_OBJECT_TYPE_PIPELINE);
+  condemn(pipeline->handle, VK_OBJECT_TYPE_PIPELINE, GRAPHICS);
 }
 
 void gpu_pipeline_get_cache(void* data, size_t* size) {
@@ -2379,7 +2207,7 @@ bool gpu_tally_init(gpu_tally* tally, gpu_tally_info* info) {
 }
 
 void gpu_tally_destroy(gpu_tally* tally) {
-  condemn(tally->handle, VK_OBJECT_TYPE_QUERY_POOL);
+  condemn(tally->handle, VK_OBJECT_TYPE_QUERY_POOL, GRAPHICS);
 }
 
 // Stream
@@ -2393,81 +2221,7 @@ gpu_stream* gpu_stream_begin(const char* label) {
     }
   }
 
-  gpu_stream_pool* pool = thread.activeStreamPool;
-
-  if (!pool) {
-    // Find an existing pool to reuse
-    for (gpu_stream_pool* p = thread.streamPools; p; p = p->next) {
-      if (gpu_is_complete(p->tick)) {
-        pool = p;
-        VK(vkResetCommandPool(state.device, pool->handle, 0), "vkResetCommandPool") return NULL;
-        pool->tail = NULL;
-        break;
-      }
-    }
-
-    // No pool available?  Make a new one
-    if (!pool) {
-      pool = state.config.fnAlloc(sizeof(gpu_stream_pool));
-      ASSERT(pool, "Out of memory") return NULL;
-
-      VkCommandPoolCreateInfo poolInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = state.queueFamilyIndex[GRAPHICS]
-      };
-
-      VK(vkCreateCommandPool(state.device, &poolInfo, NULL, &pool->handle), "vkCreateCommandPool") {
-        state.config.fnFree(pool);
-        return NULL;
-      }
-
-      pool->next = thread.streamPools;
-      thread.streamPools = pool;
-
-      pool->head = NULL;
-      pool->tail = NULL;
-      pool->tick = 0;
-    }
-
-    thread.activeStreamPool = pool;
-  }
-
-  gpu_stream* stream = pool->tail ? pool->tail->next : pool->head;
-
-  if (!stream) {
-    stream = state.config.fnAlloc(sizeof(gpu_stream));
-    ASSERT(stream, "Out of memory") return NULL;
-    stream->next = NULL;
-
-    VkCommandBufferAllocateInfo info = {
-      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-      .commandPool = pool->handle,
-      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-      .commandBufferCount = 1
-    };
-
-    VK(vkAllocateCommandBuffers(state.device, &info, &stream->commands), "vkAllocateCommandBuffers") {
-      state.config.fnFree(stream);
-      return NULL;
-    }
-
-    if (pool->tail) {
-      pool->tail->next = stream;
-    } else {
-      pool->head = stream;
-    }
-  }
-
-  VkCommandBufferBeginInfo beginfo = {
-    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-  };
-
-  VK(vkBeginCommandBuffer(stream->commands, &beginfo), "vkBeginCommandBuffer") return NULL;
-  nickname(stream->commands, VK_OBJECT_TYPE_COMMAND_BUFFER, label);
-  pool->tail = stream;
-  return stream;
+  return getStream(GRAPHICS, label);
 }
 
 bool gpu_stream_end(gpu_stream* stream) {
@@ -2737,7 +2491,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
 
     VkRenderPass renderPass;
     VK(vkCreateRenderPass2KHR(state.device, &passInfo, NULL, &renderPass), "vkCreateRenderPass2KHR") {} // Ignoring error
-    condemn(renderPass, VK_OBJECT_TYPE_RENDER_PASS);
+    condemn(renderPass, VK_OBJECT_TYPE_RENDER_PASS, GRAPHICS);
 
     // Framebuffer
 
@@ -2783,7 +2537,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas) {
 
     VkFramebuffer framebuffer;
     VK(vkCreateFramebuffer(state.device, &framebufferInfo, NULL, &framebuffer), "vkCreateFramebuffer") {} // Ignoring error
-    condemn(framebuffer, VK_OBJECT_TYPE_FRAMEBUFFER);
+    condemn(framebuffer, VK_OBJECT_TYPE_FRAMEBUFFER, GRAPHICS);
 
     // Do it!
 
@@ -3577,10 +3331,6 @@ bool gpu_init(gpu_config* config) {
 
     ASSERT(state.queueFamilyIndex[GRAPHICS] != ~0u, "No graphics queue family available") goto fail;
 
-    for (uint32_t i = 0; i < COUNTOF(state.queue); i++) {
-      mtx_init(&state.queueLock[i], mtx_plain);
-    }
-
     // Device
 
     VkDeviceQueueCreateInfo queueInfo[2] = {
@@ -3699,10 +3449,11 @@ bool gpu_init(gpu_config* config) {
     // Textures
 
     VkImageUsageFlags transient = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+    VkImageUsageFlags hostCopy = state.extensions.hostImageCopy ? VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT : 0;
 
     struct { VkFormat format; VkImageUsageFlags usage; } imageFlags[] = {
       [GPU_MEMORY_TEXTURE_COLOR] = { VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT },
-      [GPU_MEMORY_TEXTURE_HOST_COLOR] = { VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_HOST_TRANSFER_BIT },
+      [GPU_MEMORY_TEXTURE_HOST_COLOR] = { VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | hostCopy },
       [GPU_MEMORY_TEXTURE_D16] = { VK_FORMAT_D16_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT },
       [GPU_MEMORY_TEXTURE_D24] = { VK_FORMAT_X8_D24_UNORM_PACK32, VK_IMAGE_USAGE_SAMPLED_BIT },
       [GPU_MEMORY_TEXTURE_D32F] = { VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT },
@@ -3788,10 +3539,8 @@ bool gpu_init(gpu_config* config) {
     }
   };
 
-  VK(vkCreateSemaphore(state.device, &timelineSemaphoreInfo, NULL, &state.semaphore), "vkCreateSemaphore") goto fail;
-
-  for (uint32_t i = 0; i < COUNTOF(state.uploadSemaphore); i++) {
-    VK(vkCreateSemaphore(state.device, &timelineSemaphoreInfo, NULL, &state.uploadSemaphore[i]), "vkCreateSemaphore") goto fail;
+  for (uint32_t i = 0; i < COUNTOF(state.semaphore); i++) {
+    VK(vkCreateSemaphore(state.device, &timelineSemaphoreInfo, NULL, &state.semaphore[i]), "vkCreateSemaphore") goto fail;
   }
 
   // Pipeline cache
@@ -3813,7 +3562,9 @@ bool gpu_init(gpu_config* config) {
 
   VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "vkCreatePipelineCache") goto fail;
 
-  mtx_init(&state.morgue.lock, mtx_plain);
+  mtx_init(&state.morgue[GRAPHICS].lock, mtx_plain);
+  mtx_init(&state.morgue[TRANSFER].lock, mtx_plain);
+  mtx_init(&state.uploadLock, mtx_plain);
 
   return true;
 fail:
@@ -3823,42 +3574,34 @@ fail:
 
 void gpu_destroy(void) {
   if (state.device) vkDeviceWaitIdle(state.device);
-  expunge(UINT64_MAX);
+  expunge();
   for (gpu_thread_state* t = state.threads, *next; t; t = next) {
-    for (uint32_t i = 0; i < COUNTOF(t->uploadStreamPool); i++) {
-      gpu_stream_pool* pool = &t->uploadStreamPool[i];
-      vkDestroyCommandPool(state.device, pool->handle, NULL);
-      while (pool->head) {
-        gpu_stream* next = pool->head->next;
-        state.config.fnFree(pool->head);
-        pool->head = next;
+    for (uint32_t i = 0; i < 2; i++) {
+      for (gpu_stream_pool* pool = t->streamPools[i], *next; pool; pool = next) {
+        vkDestroyCommandPool(state.device, pool->handle, NULL);
+        for (gpu_stream* stream = pool->head, *next; stream; stream = next) {
+          next = stream->next;
+          state.config.fnFree(stream);
+        }
+        next = pool->next;
+        state.config.fnFree(pool);
       }
-    }
-    for (gpu_stream_pool* pool = t->streamPools, *next; pool; pool = next) {
-      vkDestroyCommandPool(state.device, pool->handle, NULL);
-      for (gpu_stream* stream = pool->head, *next; stream; stream = next) {
-        next = stream->next;
-        state.config.fnFree(stream);
-      }
-      next = pool->next;
-      state.config.fnFree(pool);
     }
     next = t->next;
     memset(t, 0, sizeof(*t));
   }
-  for (gpu_victim* victim = state.morgue.pool, *next; victim; victim = next) {
-    next = victim->next;
-    state.config.fnFree(victim);
+  for (uint32_t i = 0; i < COUNTOF(state.morgue); i++) {
+    for (gpu_victim* victim = state.morgue[i].pool, *next; victim; victim = next) {
+      next = victim->next;
+      state.config.fnFree(victim);
+    }
+    mtx_destroy(&state.morgue[i].lock);
   }
-  mtx_destroy(&state.morgue.lock);
+  mtx_destroy(&state.uploadLock);
   mtx_destroy(&state.allocatorLock);
-  for (uint32_t i = 0; i < COUNTOF(state.queueLock); i++) {
-    mtx_destroy(&state.queueLock[i]);
-  }
   if (state.pipelineCache) vkDestroyPipelineCache(state.device, state.pipelineCache, NULL);
-  vkDestroySemaphore(state.device, state.semaphore, NULL);
-  for (uint32_t i = 0; i < COUNTOF(state.uploadSemaphore); i++) {
-    vkDestroySemaphore(state.device, state.uploadSemaphore[i], NULL);
+  for (uint32_t i = 0; i < COUNTOF(state.semaphore); i++) {
+    vkDestroySemaphore(state.device, state.semaphore[i], NULL);
   }
   for (uint32_t i = 0; i < COUNTOF(state.memory); i++) {
     if (state.memory[i].handle) vkFreeMemory(state.device, state.memory[i].handle, NULL);
@@ -3921,6 +3664,117 @@ bool gpu_get_memory_info(uint64_t* budget, uint64_t* usage) {
 }
 
 bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
+  mtx_lock(&state.uploadLock);
+  gpu_stream* uploadStream[2] = { 0 };
+
+  while (state.uploads) {
+    gpu_upload* upload = state.uploads;
+
+    // Handle case where texture was already destroyed
+    if (!upload->texture) {
+      vkDestroyBuffer(state.device, upload->buffer.handle, NULL);
+      release(upload->buffer.memory, upload->buffer.offset, GRAPHICS); // Exact queue doesn't matter
+      gpu_upload* next = upload->next;
+      state.config.fnFree(upload);
+      state.uploads = next;
+      continue;
+    }
+
+    int queue = upload->texture->uploadType == UPLOAD_GRAPHICS ? GRAPHICS : TRANSFER;
+    gpu_stream* stream = uploadStream[queue];
+    gpu_texture* texture = upload->texture;
+
+    if (!stream) {
+      stream = getStream(queue, "Texture Uploads");
+
+      if (!stream) {
+        mtx_unlock(&state.uploadLock);
+        return false;
+      }
+
+      uploadStream[queue] = stream;
+    }
+
+    VkImageSubresourceRange subresource = {
+      .aspectMask = texture->aspect,
+      .levelCount = VK_REMAINING_MIP_LEVELS,
+      .layerCount = VK_REMAINING_ARRAY_LAYERS
+    };
+
+    VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+    vkCmdPipelineBarrier2KHR(stream->commands, &(VkDependencyInfoKHR) {
+      .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,
+      .imageMemoryBarrierCount = 1,
+      .pImageMemoryBarriers = &(VkImageMemoryBarrier2KHR) {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR,
+        .image = texture->handle,
+        .subresourceRange = subresource,
+        .srcStageMask = VK_PIPELINE_STAGE_2_NONE_KHR,
+        .dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR,
+        .srcAccessMask = VK_ACCESS_2_NONE_KHR,
+        .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = layout
+      }
+    });
+
+    vkCmdCopyBufferToImage(stream->commands, upload->buffer.handle, texture->handle, layout, upload->copyCount, upload->copies);
+
+    vkCmdPipelineBarrier2KHR(stream->commands, &(VkDependencyInfoKHR) {
+      .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,
+      .imageMemoryBarrierCount = 1,
+      .pImageMemoryBarriers = &(VkImageMemoryBarrier2KHR) {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR,
+        .image = texture->handle,
+        .subresourceRange = subresource,
+        .srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT_KHR,
+        .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR,
+        .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
+        .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT_KHR | VK_ACCESS_2_MEMORY_WRITE_BIT_KHR,
+        .srcQueueFamilyIndex = state.queueFamilyIndex[queue],
+        .dstQueueFamilyIndex = state.queueFamilyIndex[GRAPHICS],
+        .oldLayout = layout,
+        .newLayout = texture->layout
+      }
+    });
+
+    texture->upload = NULL;
+    texture->uploadTick = tick;
+    condemn(upload->buffer.handle, VK_OBJECT_TYPE_BUFFER, queue);
+    release(upload->buffer.memory, upload->buffer.offset, queue);
+    gpu_upload* next = upload->next;
+    state.config.fnFree(upload);
+    state.uploads = next;
+  }
+
+  for (uint32_t q = 0; q < 2; q++) {
+    if (!uploadStream[q]) continue;
+
+    VK(vkEndCommandBuffer(uploadStream[q]->commands), "vkEndCommandBuffer") {
+      return false;
+    }
+
+    VkSubmitInfo submit = {
+      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .pNext = &(VkTimelineSemaphoreSubmitInfo) {
+        .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
+        .signalSemaphoreValueCount = q == TRANSFER,
+        .pSignalSemaphoreValues = (uint64_t[1]) { tick }
+      },
+      .signalSemaphoreCount = q == TRANSFER,
+      .pSignalSemaphores = &state.semaphore[q],
+      .commandBufferCount = 1,
+      .pCommandBuffers = &uploadStream[q]->commands
+    };
+
+    VK(vkQueueSubmit(state.queue[q], 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
+      return false;
+    }
+  }
+
+  mtx_unlock(&state.uploadLock);
+
   VkCommandBuffer stack[64];
   VkCommandBuffer* commandBuffers = stack;
 
@@ -3934,9 +3788,11 @@ bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
   }
 
   for (gpu_thread_state* t = state.threads; t; t = t->next) {
-    if (t->activeStreamPool) {
-      t->activeStreamPool->tick = tick;
-      t->activeStreamPool = NULL;
+    for (int q = 0; q < 2; q++) {
+      if (t->activeStreamPool[q]) {
+        t->activeStreamPool[q]->tick = tick;
+        t->activeStreamPool[q] = NULL;
+      }
     }
   }
 
@@ -3955,22 +3811,15 @@ bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
     .pWaitSemaphores = &state.surface.acquireSemaphore,
     .pWaitDstStageMask = &waitStage,
     .signalSemaphoreCount = 1,
-    .pSignalSemaphores = &state.semaphore,
+    .pSignalSemaphores = &state.semaphore[GRAPHICS],
     .commandBufferCount = count,
     .pCommandBuffers = commandBuffers
   };
 
-  mtx_lock(&state.queueLock[GRAPHICS]);
-
   VK(vkQueueSubmit(state.queue[GRAPHICS], 1, &submit, VK_NULL_HANDLE), "vkQueueSubmit") {
-    mtx_unlock(&state.queueLock[GRAPHICS]);
     if (commandBuffers != stack) state.config.fnFree(commandBuffers);
     return false;
   }
-
-  mtx_unlock(&state.queueLock[GRAPHICS]);
-
-  expunge(getFinishedTick());
 
   if (commandBuffers != stack) state.config.fnFree(commandBuffers);
 
@@ -3979,19 +3828,21 @@ bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
     state.surface.acquireTick[state.frame & FRAME_MASK] = tick;
   }
 
-  state.tick = tick;
+  atomic_store(&state.tick, tick);
+  expunge();
+
   return true;
 }
 
 bool gpu_is_complete(uint32_t tick) {
-  return getFinishedTick() >= (uint64_t) tick;
+  return getFinishedTick(GRAPHICS) >= (uint64_t) tick;
 }
 
 bool gpu_wait_tick(uint32_t tick) {
   VkSemaphoreWaitInfo info = {
     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
     .semaphoreCount = 1,
-    .pSemaphores = &state.semaphore,
+    .pSemaphores = &state.semaphore[GRAPHICS],
     .pValues = (uint64_t[1]) { tick }
   };
 
@@ -4172,7 +4023,7 @@ static gpu_memory* allocate(gpu_memory_type type, VkMemoryRequirements info, VkD
   return NULL;
 }
 
-static void release(gpu_memory* memory, VkDeviceSize offset) {
+static void release(gpu_memory* memory, VkDeviceSize offset, int queue) {
   if (!memory) {
     return;
   }
@@ -4188,7 +4039,7 @@ static void release(gpu_memory* memory, VkDeviceSize offset) {
       region->allocated = false;
       region->pageCount = allocator->pageCount;
     } else {
-      condemn(memory->handle, VK_OBJECT_TYPE_DEVICE_MEMORY);
+      condemn(memory->handle, VK_OBJECT_TYPE_DEVICE_MEMORY, queue);
       memory->handle = NULL;
     }
   } else if (allocator->block == memory) {
@@ -4223,10 +4074,10 @@ static void release(gpu_memory* memory, VkDeviceSize offset) {
   mtx_unlock(&state.allocatorLock);
 }
 
-static void condemn(void* handle, VkObjectType type) {
+static void condemn(void* handle, VkObjectType type, int queue) {
   if (!handle) return;
 
-  gpu_morgue* morgue = &state.morgue;
+  gpu_morgue* morgue = &state.morgue[queue];
   gpu_victim* victim = morgue->pool;
 
   mtx_lock(&morgue->lock);
@@ -4239,7 +4090,7 @@ static void condemn(void* handle, VkObjectType type) {
 
   victim->next = NULL;
   victim->type = type;
-  victim->tick = state.tick + 1;
+  victim->tick = atomic_load(&state.tick) + 1;
   victim->handle = handle;
 
   if (morgue->tail) {
@@ -4253,47 +4104,133 @@ static void condemn(void* handle, VkObjectType type) {
   mtx_unlock(&morgue->lock);
 }
 
-static void expunge(uint64_t tick) {
-  gpu_morgue* morgue = &state.morgue;
+static void expunge(void) {
+  for (uint32_t i = 0; i < COUNTOF(state.morgue); i++) {
+    uint64_t tick = getFinishedTick(i);
+    gpu_morgue* morgue = &state.morgue[i];
 
-  mtx_lock(&morgue->lock);
+    mtx_lock(&morgue->lock);
 
-  while (morgue->head && tick >= morgue->head->tick) {
-    gpu_victim* victim = morgue->head;
+    while (morgue->head && tick >= morgue->head->tick) {
+      gpu_victim* victim = morgue->head;
 
-    switch (victim->type) {
-      case VK_OBJECT_TYPE_BUFFER: vkDestroyBuffer(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_IMAGE: vkDestroyImage(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_IMAGE_VIEW: vkDestroyImageView(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: vkDestroyDescriptorSetLayout(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_DESCRIPTOR_POOL: vkDestroyDescriptorPool(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_PIPELINE_LAYOUT: vkDestroyPipelineLayout(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_QUERY_POOL: vkDestroyQueryPool(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR: vkDestroyAccelerationStructureKHR(state.device, victim->handle, NULL); break;
-      case VK_OBJECT_TYPE_DEVICE_MEMORY: vkFreeMemory(state.device, victim->handle, NULL); break;
-      default: LOG("Trying to destroy invalid Vulkan object type!"); break;
+      switch (victim->type) {
+        case VK_OBJECT_TYPE_BUFFER: vkDestroyBuffer(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_IMAGE: vkDestroyImage(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_IMAGE_VIEW: vkDestroyImageView(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_SAMPLER: vkDestroySampler(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: vkDestroyDescriptorSetLayout(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_DESCRIPTOR_POOL: vkDestroyDescriptorPool(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_PIPELINE_LAYOUT: vkDestroyPipelineLayout(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_PIPELINE: vkDestroyPipeline(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_QUERY_POOL: vkDestroyQueryPool(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_RENDER_PASS: vkDestroyRenderPass(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_FRAMEBUFFER: vkDestroyFramebuffer(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR: vkDestroyAccelerationStructureKHR(state.device, victim->handle, NULL); break;
+        case VK_OBJECT_TYPE_DEVICE_MEMORY: vkFreeMemory(state.device, victim->handle, NULL); break;
+        default: LOG("Trying to destroy invalid Vulkan object type!"); break;
+      }
+
+      morgue->head = victim->next;
+      if (!morgue->head) {
+        morgue->tail = NULL;
+      }
+
+      victim->next = morgue->pool;
+      morgue->pool = victim;
     }
 
-    morgue->head = victim->next;
-    if (!morgue->head) {
-      morgue->tail = NULL;
-    }
-
-    victim->next = morgue->pool;
-    morgue->pool = victim;
+    mtx_unlock(&morgue->lock);
   }
-
-  mtx_unlock(&morgue->lock);
 }
 
-static uint64_t getFinishedTick(void) {
+static uint64_t getFinishedTick(int queue) {
   uint64_t value;
-  VK(vkGetSemaphoreCounterValueKHR(state.device, state.semaphore, &value), "vkGetSemaphoreCounterValue") return 0;
+  VK(vkGetSemaphoreCounterValueKHR(state.device, state.semaphore[queue], &value), "vkGetSemaphoreCounterValue") return 0;
   return value;
+}
+
+static gpu_stream* getStream(int queue, const char* label) {
+  gpu_stream_pool* pool = thread.activeStreamPool[queue];
+
+  // gpu_submit was called since this command pool was used, need to start a new pool
+  if (pool && pool->tick <= atomic_load(&state.tick)) {
+    pool = NULL;
+  }
+
+  if (!pool) {
+    // Find an existing pool to reuse
+    for (gpu_stream_pool* p = thread.streamPools[queue]; p; p = p->next) {
+      if (getFinishedTick(queue) >= (uint64_t) p->tick) {
+        pool = p;
+        VK(vkResetCommandPool(state.device, pool->handle, 0), "vkResetCommandPool") return NULL;
+        pool->tail = NULL;
+        break;
+      }
+    }
+
+    // Couldn't find a pool to use?  Make a new one
+    if (!pool) {
+      pool = state.config.fnAlloc(sizeof(gpu_stream_pool));
+      ASSERT(pool, "Out of memory") return NULL;
+
+      VkCommandPoolCreateInfo poolInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = state.queueFamilyIndex[queue]
+      };
+
+      VK(vkCreateCommandPool(state.device, &poolInfo, NULL, &pool->handle), "vkCreateCommandPool") {
+        state.config.fnFree(pool);
+        return NULL;
+      }
+
+      pool->next = thread.streamPools[queue];
+      thread.streamPools[queue] = pool;
+
+      pool->head = NULL;
+      pool->tail = NULL;
+    }
+
+    thread.activeStreamPool[queue] = pool;
+    pool->tick = atomic_load(&state.tick) + 1;
+  }
+
+  gpu_stream* stream = pool->tail ? pool->tail->next : pool->head;
+
+  if (!stream) {
+    stream = state.config.fnAlloc(sizeof(gpu_stream));
+    ASSERT(stream, "Out of memory") return NULL;
+    stream->next = NULL;
+
+    VkCommandBufferAllocateInfo info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+      .commandPool = pool->handle,
+      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+      .commandBufferCount = 1
+    };
+
+    VK(vkAllocateCommandBuffers(state.device, &info, &stream->commands), "vkAllocateCommandBuffers") {
+      state.config.fnFree(stream);
+      return NULL;
+    }
+
+    if (pool->tail) {
+      pool->tail->next = stream;
+    } else {
+      pool->head = stream;
+    }
+  }
+
+  VkCommandBufferBeginInfo beginfo = {
+    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+  };
+
+  VK(vkBeginCommandBuffer(stream->commands, &beginfo), "vkBeginCommandBuffer") return NULL;
+  nickname(stream->commands, VK_OBJECT_TYPE_COMMAND_BUFFER, label);
+  pool->tail = stream;
+  return stream;
 }
 
 static bool hasLayer(VkLayerProperties* layers, uint32_t count, const char* layer) {
