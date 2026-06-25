@@ -1,4 +1,5 @@
 #include "timer/timer.h"
+#include "headset/headset.h"
 #include "core/os.h"
 #include "util.h"
 #include <stdatomic.h>
@@ -30,11 +31,23 @@ void lovrTimerDestroy(void) {
 }
 
 double lovrTimerGetDelta(void) {
+#ifndef LOVR_DISABLE_HEADSET
+  double dt = lovrHeadsetGetDeltaTime();
+  if (dt != 0.) return dt;
+#endif
   return state.dt;
 }
 
 double lovrTimerGetTime(void) {
   return os_get_time() - state.epoch;
+}
+
+double lovrTimerGetDisplayTime(void) {
+#ifndef LOVR_DISABLE_HEADSET
+  double t = lovrHeadsetGetDisplayTime();
+  if (t != 0.) return t;
+#endif
+  return lovrTimerGetTime();
 }
 
 double lovrTimerStep(void) {
@@ -47,15 +60,19 @@ double lovrTimerStep(void) {
   if (++state.tickIndex == TICK_SAMPLES) {
     state.tickIndex = 0;
   }
-  return state.dt;
+  return lovrTimerGetDelta();
 }
 
 double lovrTimerGetAverageDelta(void) {
+#ifndef LOVR_DISABLE_HEADSET
+  double dt = lovrHeadsetGetDisplayPeriod();
+  if (dt != 0.) return dt;
+#endif
   return state.tickSum / TICK_SAMPLES;
 }
 
 int lovrTimerGetFPS(void) {
-  return (int) (1 / (state.tickSum / TICK_SAMPLES) + .5);
+  return (int) (1. / lovrTimerGetAverageDelta() + .5);
 }
 
 void lovrTimerSleep(double seconds) {

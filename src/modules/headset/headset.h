@@ -191,9 +191,7 @@ bool lovrHeadsetIsVisible(void);
 bool lovrHeadsetIsFocused(void);
 bool lovrHeadsetIsMounted(void);
 bool lovrHeadsetPollEvents(void);
-bool lovrHeadsetUpdate(double* dt);
-double lovrHeadsetGetDeltaTime(void);
-double lovrHeadsetGetDisplayTime(void);
+bool lovrHeadsetUpdate(void);
 void lovrHeadsetGetDisplayDimensions(uint32_t* width, uint32_t* height);
 float* lovrHeadsetGetRefreshRates(uint32_t* count);
 float lovrHeadsetGetRefreshRate(void);
@@ -261,7 +259,9 @@ struct Pass* lovrLayerGetPass(Layer* layer);
 
 // Private
 
-bool lovrHeadsetIsSupported(void);
 void lovrHeadsetGetVulkanPhysicalDevice(void* instance, uintptr_t physicalDevice);
 uint32_t lovrHeadsetCreateVulkanInstance(void* instanceCreateInfo, void* allocator, uintptr_t instance, void* getInstanceProcAddr);
 uint32_t lovrHeadsetCreateVulkanDevice(void* instance, void* deviceCreateInfo, void* allocatoor, uintptr_t device, void* getInstanceProcAddr);
+double lovrHeadsetGetDisplayTime(void);
+double lovrHeadsetGetDisplayPeriod(void);
+double lovrHeadsetGetDeltaTime(void);

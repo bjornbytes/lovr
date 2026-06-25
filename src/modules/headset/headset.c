@@ -2024,15 +2024,13 @@ bool lovrHeadsetPollEvents(void) {
   return true;
 }
 
-bool lovrHeadsetUpdate(double* dt) {
+bool lovrHeadsetUpdate(void) {
   if (!state.session) {
     memcpy(state.simulator.lastButtons, state.simulator.buttons, sizeof(state.simulator.buttons));
-    *dt = lovrTimerGetDelta();
     return true;
   }
 
   if (state.waited) {
-    *dt = lovrHeadsetGetDeltaTime();
     return true;
   }
 
@@ -2064,24 +2062,7 @@ bool lovrHeadsetUpdate(double* dt) {
     os_sleep(.001);
   }
 
-  *dt = lovrHeadsetGetDeltaTime();
   return true;
-}
-
-double lovrHeadsetGetDeltaTime(void) {
-  if (SESSION_RUNNING(state.sessionState)) {
-    return (state.frameState.predictedDisplayTime - state.lastDisplayTime) / 1e9;
-  } else {
-    return lovrTimerGetDelta();
-  }
-}
-
-double lovrHeadsetGetDisplayTime(void) {
-  if (SESSION_RUNNING(state.sessionState)) {
-    return (state.frameState.predictedDisplayTime - state.epoch) / 1e9;
-  } else {
-    return lovrTimerGetTime();
-  }
 }
 
 void lovrHeadsetGetDisplayDimensions(uint32_t* width, uint32_t* height) {
@@ -3977,12 +3958,16 @@ uint32_t lovrHeadsetCreateVulkanDevice(void* instance, void* deviceCreateInfo, v
   return result;
 }
 
-uintptr_t lovrHeadsetGetInstanceHandle(void) {
-  return (uintptr_t) state.instance;
+double lovrHeadsetGetDisplayTime(void) {
+  return SESSION_RUNNING(state.sessionState) ? (state.frameState.predictedDisplayTime - state.epoch) / 1e9 : 0.;
 }
 
-uintptr_t lovrHeadsetGetSessionHandle(void) {
-  return (uintptr_t) state.session;
+double lovrHeadsetGetDisplayPeriod(void) {
+  return SESSION_RUNNING(state.sessionState) ? state.frameState.predictedDisplayPeriod : 0.;
+}
+
+double lovrHeadsetGetDeltaTime(void) {
+  return SESSION_RUNNING(state.sessionState) ? (state.frameState.predictedDisplayTime - state.lastDisplayTime) / 1e9 : 0.;
 }
 
 // Helpers

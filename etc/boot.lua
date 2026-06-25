@@ -197,11 +197,9 @@ function lovr.run()
       end
     end
     local dt = 0
+    if lovr.headset then lovr.headset.update() end
     if lovr.timer then dt = lovr.timer.step() end
-    if lovr.headset then
-      dt = lovr.headset.update()
-      if not lovr.headset.isActive() then lovr.simulate(dt) end
-    end
+    if lovr.headset and not lovr.headset.isActive() then lovr.simulate(dt) end
     if lovr.task then
       for task in lovr.task.poll() do
         lovr.taskready(task)

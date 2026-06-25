@@ -4,6 +4,10 @@ Changelog
 dev
 ---
 
+### Add
+
+- Add `lovr.timer.getDisplayTime`.
+
 ### Change
 
 - Change `Pass:setScissor` to clamp negative x/y values to zero.
@@ -13,11 +17,17 @@ dev
 - Change `Image:encode` to support more formats (all uncompressed non-float color formats).
 - Change `lovr.data.newRasterizer` to take an `Image` to use for a BMFont atlas.
 - Change `lovr.graphics.newFont` to take an `Image` to use for a BMFont atlas.
+- Change `lovr.timer.getDelta/getAverageDelta/getFPS` to return values from the headset when VR is active.
 
 ### Fix
 
 - Fix `Pass:drawPart`.
 - Fix invisible window when it was bigger than the size of the monitor.
+
+### Deprecate
+
+- Deprecate `lovr.headset.getTime` (use `lovr.timer.getDisplayTime`).
+- Deprecate `lovr.headset.getDeltaTime` (use `lovr.timer.getDelta`).
 
 ### Remove
 

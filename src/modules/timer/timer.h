@@ -8,6 +8,7 @@ bool lovrTimerInit(void);
 void lovrTimerDestroy(void);
 double lovrTimerGetDelta(void);
 double lovrTimerGetTime(void);
+double lovrTimerGetDisplayTime(void);
 double lovrTimerStep(void);
 double lovrTimerGetAverageDelta(void);
 int lovrTimerGetFPS(void);
