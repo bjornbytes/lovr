@@ -346,6 +346,9 @@ bool lovrModelDataInitObj(ModelData** result, Blob* source, ModelDataIO* io) {
 
   if (meta->imageCount > 0) {
     memcpy(model->images, images.data, meta->imageCount * sizeof(Image*));
+  }
+
+  if (meta->materialCount > 0) {
     memcpy(meta->materials, materials.data, meta->materialCount * sizeof(ModelMaterial));
   }
 
