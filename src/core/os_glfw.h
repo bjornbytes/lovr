@@ -401,9 +401,11 @@ bool os_window_open(const os_window_config* config) {
   }
 
   if (center && !config->fullscreen) {
-    int x, y, w, h;
-    glfwGetMonitorWorkarea(monitor, &x, &y, &w, &h);
-    glfwSetWindowPos(glfwState.window, x + (w - config->width) / 2, y + (h - config->height) / 2);
+    int w, h;
+    int mx, my, mw, mh;
+    glfwGetWindowSize(glfwState.window, &w, &h);
+    glfwGetMonitorWorkarea(monitor, &mx, &my, &mw, &mh);
+    glfwSetWindowPos(glfwState.window, mx + (mw - w) / 2, my + (mh - h) / 2);
     glfwShowWindow(glfwState.window);
   }
 
