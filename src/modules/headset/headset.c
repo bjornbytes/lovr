@@ -315,6 +315,7 @@ static struct {
     bool presence;
     bool questPassthrough;
     bool renderModel;
+    bool resize;
     bool reverbController;
     bool swapchainUpdate;
     bool refreshRate;
@@ -338,6 +339,9 @@ static void xrthrow(XrResult result, const char* symbol);
 static XrBool32 onMessage(XrDebugUtilsMessageSeverityFlagsEXT severity, XrDebugUtilsMessageTypeFlagsEXT type, const XrDebugUtilsMessengerCallbackDataEXT* data, void* userdata);
 static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, const char* extension);
 static XrTime getCurrentXrTime(void);
+static bool getViewSize(uint32_t* width, uint32_t* height, uint32_t* count);
+static XrViewStateFlags locateViews(XrView views[4], uint32_t* count);
+static bool createSwapchains(void);
 static bool createReferenceSpace(XrTime time);
 static XrAction getPoseActionForDevice(Device device);
 static XrHandTrackerEXT getHandTracker(Device device);
@@ -473,6 +477,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_EXT_render_model", &state.extensions.renderModel, true },
     { "XR_EXT_user_presence", &state.extensions.presence, true },
     { "XR_EXT_uuid", &state.extensions.uuid, true },
+    { "XR_EXT_view_configuration_views_change", &state.extensions.resize, true },
     { "XR_BD_body_tracking", &state.extensions.bodyTracking, true },
     { "XR_BD_controller_interaction", &state.extensions.picoController, true },
     { "XR_FB_composition_layer_depth_test", &state.extensions.layerDepthTest, true },
@@ -661,30 +666,9 @@ bool lovrHeadsetConnect(void) {
 
   lovrAssertGoto(fail, state.viewConfiguration, "No supported view configuration available");
 
-  XrViewConfigurationView views[4] = {
-    [0].type = XR_TYPE_VIEW_CONFIGURATION_VIEW,
-    [1].type = XR_TYPE_VIEW_CONFIGURATION_VIEW,
-    [2].type = XR_TYPE_VIEW_CONFIGURATION_VIEW,
-    [3].type = XR_TYPE_VIEW_CONFIGURATION_VIEW
-  };
-
-  XRG(xrEnumerateViewConfigurationViews(state.instance, state.system, state.viewConfiguration, 0, &state.viewCount, NULL), "xrEnumerateViewConfigurationViews", fail);
-  XRG(xrEnumerateViewConfigurationViews(state.instance, state.system, state.viewConfiguration, COUNTOF(views), &state.viewCount, views), "xrEnumerateViewConfigurationViews", fail);
-
-  uint32_t maxWidth = ~0u;
-  uint32_t maxHeight = ~0u;
-  uint32_t recommendedWidth = 0;
-  uint32_t recommendedHeight = 0;
-
-  for (uint32_t i = 0; i < state.viewCount; i++) {
-    maxWidth = MIN(maxWidth, views[i].maxImageRectWidth);
-    maxHeight = MIN(maxHeight, views[i].maxImageRectHeight);
-    recommendedWidth = MAX(recommendedWidth, views[i].recommendedImageRectWidth);
-    recommendedHeight = MAX(recommendedHeight, views[i].recommendedImageRectHeight);
+  if (!getViewSize(&state.width, &state.height, &state.viewCount)) {
+    goto fail;
   }
-
-  state.width = MIN(recommendedWidth * config->supersample, maxWidth);
-  state.height = MIN(recommendedHeight * config->supersample, maxHeight);
 
   // Blend Modes
 
@@ -1149,48 +1133,13 @@ bool lovrHeadsetStart(void) {
       }
     }
 
-    lovrAssertGoto(stop, supportsColor, "This VR runtime does not support sRGB rgba8 textures");
-    if (!lovrSwapchainInit(&state.swapchains[SWAPCHAIN_COLOR], state.width, state.height, VIEW | FOVEATED)) {
-      goto stop;
-    }
-
     GraphicsFeatures features;
     lovrGraphicsGetFeatures(&features);
-    if (state.extensions.depth && supportsDepth && features.depthResolve) {
-      if (!lovrSwapchainInit(&state.swapchains[SWAPCHAIN_DEPTH], state.width, state.height, VIEW | DEPTH)) {
-        goto stop;
-      }
-    } else {
-      state.extensions.depth = false;
-    }
+    lovrAssertGoto(stop, supportsColor, "This VR runtime does not support sRGB rgba8 textures");
+    if (!supportsDepth || !features.depthResolve) state.extensions.depth = false;
 
-    // Pre-init composition layer
-    state.layer = (XrCompositionLayerProjection) {
-      .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
-      .viewCount = state.viewCount,
-      .views = state.layerViews
-    };
-
-    // Pre-init composition layer views
-    for (uint32_t i = 0; i < state.viewCount; i++) {
-      state.layerViews[i] = (XrCompositionLayerProjectionView) {
-        .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-        .subImage = { state.swapchains[SWAPCHAIN_COLOR].handle, { { 0, 0 }, { state.width, state.height } }, i }
-      };
-    }
-
-    if (state.extensions.depth) {
-      for (uint32_t i = 0; i < state.viewCount; i++) {
-        state.layerViews[i].next = &state.depthInfo[i];
-        state.depthInfo[i] = (XrCompositionLayerDepthInfoKHR) {
-          .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR,
-          .subImage.swapchain = state.swapchains[SWAPCHAIN_DEPTH].handle,
-          .subImage.imageRect = state.layerViews[i].subImage.imageRect,
-          .subImage.imageArrayIndex = i,
-          .minDepth = 0.f,
-          .maxDepth = 1.f
-        };
-      }
+    if (!createSwapchains()) {
+      goto stop;
     }
   }
 
@@ -1423,12 +1372,20 @@ bool lovrHeadsetPollEvents(void) {
         lovrEventPush((Event) { .type = EVENT_MOUNT, .data.mount.mounted = state.mounted });
         break;
       }
-      case XR_TYPE_EVENT_DATA_INTERACTION_RENDER_MODELS_CHANGED_EXT: {
+      case XR_TYPE_EVENT_DATA_INTERACTION_RENDER_MODELS_CHANGED_EXT:
         if (!loadControllerModels()) {
           return false;
         }
         lovrEventPush((Event) { .type = EVENT_MODELSCHANGED });
         break;
+      case XR_TYPE_EVENT_DATA_VIEW_CONFIGURATION_VIEWS_CHANGED_EXT: {
+        XrEventDataViewConfigurationViewsChangedEXT* event = (XrEventDataViewConfigurationViewsChangedEXT*) &e;
+        if (event->systemId == state.system && event->viewConfigurationType == state.viewConfiguration) {
+          getViewSize(&state.width, &state.height, &state.viewCount);
+          if (!createSwapchains()) {
+            return false;
+          }
+        }
       }
       default: break;
     }
@@ -1707,31 +1664,6 @@ bool lovrHeadsetIsPassthroughSupported(PassthroughMode mode) {
   return false;
 }
 
-static XrViewStateFlags getViews(XrView views[4], uint32_t* count) {
-  if (state.frameState.predictedDisplayTime <= 0) {
-    return 0;
-  }
-
-  XrViewLocateInfo viewLocateInfo = {
-    .type = XR_TYPE_VIEW_LOCATE_INFO,
-    .viewConfigurationType = state.viewConfiguration,
-    .displayTime = state.frameState.predictedDisplayTime,
-    .space = state.referenceSpace
-  };
-
-  for (uint32_t i = 0; i < 4; i++) {
-    views[i].type = XR_TYPE_VIEW;
-    views[i].next = NULL;
-  }
-
-  XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
-  if (XR_FAILED(xrLocateViews(state.session, &viewLocateInfo, &viewState, state.viewCount, count, views))) {
-    return 0;
-  }
-
-  return viewState.viewStateFlags;
-}
-
 uint32_t lovrHeadsetGetViewCount(void) {
   return state.session ? state.viewCount : 1;
 }
@@ -1745,7 +1677,7 @@ bool lovrHeadsetGetViewPose(uint32_t view, float* position, float* orientation) 
 
   uint32_t count;
   XrView views[4];
-  XrViewStateFlags flags = getViews(views, &count);
+  XrViewStateFlags flags = locateViews(views, &count);
 
   if (view >= count || !flags) {
     return false;
@@ -1781,7 +1713,7 @@ bool lovrHeadsetGetViewAngles(uint32_t view, float* left, float* right, float* u
 
   uint32_t count;
   XrView views[4];
-  XrViewStateFlags flags = getViews(views, &count);
+  XrViewStateFlags flags = locateViews(views, &count);
 
   if (view >= count || !flags) {
     return false;
@@ -2915,7 +2847,7 @@ bool lovrHeadsetGetPass(Pass** pass) {
 
   uint32_t count;
   XrView views[4];
-  XrViewStateFlags flags = getViews(views, &count);
+  XrViewStateFlags flags = locateViews(views, &count);
 
   for (uint32_t i = 0; i < count; i++) {
     state.layerViews[i].pose = views[i].pose;
@@ -3594,6 +3526,106 @@ static XrTime getCurrentXrTime(void) {
   XR(xrConvertTimespecTimeToTimeKHR(state.instance, &t, &time), "xrConvertTimespecTimeToTimeKHR");
 #endif
   return time;
+}
+
+static bool getViewSize(uint32_t* width, uint32_t* height, uint32_t* count) {
+  XrViewConfigurationView views[4] = {
+    [0].type = XR_TYPE_VIEW_CONFIGURATION_VIEW,
+    [1].type = XR_TYPE_VIEW_CONFIGURATION_VIEW,
+    [2].type = XR_TYPE_VIEW_CONFIGURATION_VIEW,
+    [3].type = XR_TYPE_VIEW_CONFIGURATION_VIEW
+  };
+
+  XR(xrEnumerateViewConfigurationViews(state.instance, state.system, state.viewConfiguration, 0, count, NULL), "xrEnumerateViewConfigurationViews");
+  XR(xrEnumerateViewConfigurationViews(state.instance, state.system, state.viewConfiguration, COUNTOF(views), count, views), "xrEnumerateViewConfigurationViews");
+
+  uint32_t maxWidth = ~0u;
+  uint32_t maxHeight = ~0u;
+  uint32_t recommendedWidth = 0;
+  uint32_t recommendedHeight = 0;
+
+  for (uint32_t i = 0; i < *count; i++) {
+    maxWidth = MIN(maxWidth, views[i].maxImageRectWidth);
+    maxHeight = MIN(maxHeight, views[i].maxImageRectHeight);
+    recommendedWidth = MAX(recommendedWidth, views[i].recommendedImageRectWidth);
+    recommendedHeight = MAX(recommendedHeight, views[i].recommendedImageRectHeight);
+  }
+
+  *width = MIN(recommendedWidth * state.config.supersample, maxWidth);
+  *height = MIN(recommendedHeight * state.config.supersample, maxHeight);
+
+  return true;
+}
+
+static XrViewStateFlags locateViews(XrView views[4], uint32_t* count) {
+  if (state.frameState.predictedDisplayTime <= 0) {
+    return 0;
+  }
+
+  XrViewLocateInfo viewLocateInfo = {
+    .type = XR_TYPE_VIEW_LOCATE_INFO,
+    .viewConfigurationType = state.viewConfiguration,
+    .displayTime = state.frameState.predictedDisplayTime,
+    .space = state.referenceSpace
+  };
+
+  for (uint32_t i = 0; i < 4; i++) {
+    views[i].type = XR_TYPE_VIEW;
+    views[i].next = NULL;
+  }
+
+  XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
+  if (XR_FAILED(xrLocateViews(state.session, &viewLocateInfo, &viewState, state.viewCount, count, views))) {
+    return 0;
+  }
+
+  return viewState.viewStateFlags;
+}
+
+static bool createSwapchains(void) {
+  lovrSwapchainRelease(&state.swapchains[SWAPCHAIN_COLOR]);
+  lovrSwapchainRelease(&state.swapchains[SWAPCHAIN_DEPTH]);
+  lovrSwapchainDestroy(&state.swapchains[SWAPCHAIN_COLOR]);
+  lovrSwapchainDestroy(&state.swapchains[SWAPCHAIN_DEPTH]);
+
+  if (!lovrSwapchainInit(&state.swapchains[SWAPCHAIN_COLOR], state.width, state.height, VIEW | FOVEATED)) {
+    return false;
+  }
+
+  if (state.extensions.depth && !lovrSwapchainInit(&state.swapchains[SWAPCHAIN_DEPTH], state.width, state.height, VIEW | DEPTH)) {
+    return false;
+  }
+
+  // Pre-init composition layer
+  state.layer = (XrCompositionLayerProjection) {
+    .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
+    .viewCount = state.viewCount,
+    .views = state.layerViews
+  };
+
+  // Pre-init composition layer views
+  for (uint32_t i = 0; i < state.viewCount; i++) {
+    state.layerViews[i] = (XrCompositionLayerProjectionView) {
+      .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+      .subImage = { state.swapchains[SWAPCHAIN_COLOR].handle, { { 0, 0 }, { state.width, state.height } }, i }
+    };
+  }
+
+  if (state.extensions.depth) {
+    for (uint32_t i = 0; i < state.viewCount; i++) {
+      state.layerViews[i].next = &state.depthInfo[i];
+      state.depthInfo[i] = (XrCompositionLayerDepthInfoKHR) {
+        .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR,
+        .subImage.swapchain = state.swapchains[SWAPCHAIN_DEPTH].handle,
+        .subImage.imageRect = state.layerViews[i].subImage.imageRect,
+        .subImage.imageArrayIndex = i,
+        .minDepth = 0.f,
+        .maxDepth = 1.f
+      };
+    }
+  }
+
+  return true;
 }
 
 static bool createReferenceSpace(XrTime time) {
