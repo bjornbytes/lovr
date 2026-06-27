@@ -428,6 +428,13 @@ bool lovrHeadsetConnect(void) {
   for (uint32_t i = 0; i < extensionCount; i++) extensionProperties[i].type = XR_TYPE_EXTENSION_PROPERTIES;
   xrEnumerateInstanceExtensionProperties(NULL, extensionCount, &extensionCount, extensionProperties);
 
+  if (config->debug) {
+    lovrLog(LOG_DEBUG, "XR", "Supported OpenXR extensions:", extensionCount);
+    for (uint32_t i = 0; i < extensionCount; i++) {
+      lovrLog(LOG_DEBUG, "XR", "[%2d]: %s", i, extensionProperties[i].extensionName);
+    }
+  }
+
   // Extensions with feature == NULL must be present.  The enable flag can be used to
   // conditionally enable extensions based on config, platform, etc.
   struct { const char* name; bool* feature; bool enable; } extensions[] = {
