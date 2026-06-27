@@ -1119,7 +1119,7 @@ static void stbtt__buf_seek(stbtt__buf *b, int o)
 
 static void stbtt__buf_skip(stbtt__buf *b, int o)
 {
-   stbtt__buf_seek(b, b->cursor + o);
+   stbtt__buf_seek(b, (o < 0 || o > b->size - b->cursor) ? b->size : b->cursor + o);
 }
 
 static stbtt_uint32 stbtt__buf_get(stbtt__buf *b, int n)
