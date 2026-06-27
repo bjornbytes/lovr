@@ -143,7 +143,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrPassthroughPauseFB)\
   X(xrCreatePassthroughLayerFB)\
   X(xrDestroyPassthroughLayerFB)\
-  X(xrGetPassthroughPreferencesMETA)
+  X(xrGetPassthroughPreferencesMETA)\
+  X(xrGetRecommendedLayerResolutionMETA)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -278,6 +279,7 @@ static struct {
     bool cosmosController;
     bool debug;
     bool depth;
+    bool dynamicResolution;
     bool focus3Controller;
     bool foveatedInset;
     bool foveation;
@@ -339,7 +341,7 @@ static void xrthrow(XrResult result, const char* symbol);
 static XrBool32 onMessage(XrDebugUtilsMessageSeverityFlagsEXT severity, XrDebugUtilsMessageTypeFlagsEXT type, const XrDebugUtilsMessengerCallbackDataEXT* data, void* userdata);
 static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, const char* extension);
 static XrTime getCurrentXrTime(void);
-static bool getViewSize(uint32_t* width, uint32_t* height, uint32_t* count);
+static bool updateViewSize(void);
 static XrViewStateFlags locateViews(XrView views[4], uint32_t* count);
 static bool createSwapchains(void);
 static bool createReferenceSpace(XrTime time);
@@ -497,6 +499,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_META_automatic_layer_filter", &state.extensions.layerAutoFilter, true },
     { "XR_META_hand_tracking_microgestures", &state.extensions.microgestures, true },
     { "XR_META_passthrough_preferences", &state.extensions.passthroughPreferences, true },
+    { "XR_META_recommended_layer_resolution", &state.extensions.dynamicResolution, config->dynamicResolution },
     { "XR_ML_ml2_controller_interaction", &state.extensions.ml2Controller, true },
     { "XR_MND_headless", &state.extensions.headless, true },
     { "XR_ULTRALEAP_hand_tracking_forearm", &state.extensions.handTrackingElbow, true },
@@ -666,7 +669,7 @@ bool lovrHeadsetConnect(void) {
 
   lovrAssertGoto(fail, state.viewConfiguration, "No supported view configuration available");
 
-  if (!getViewSize(&state.width, &state.height, &state.viewCount)) {
+  if (!updateViewSize()) {
     goto fail;
   }
 
@@ -1381,7 +1384,7 @@ bool lovrHeadsetPollEvents(void) {
       case XR_TYPE_EVENT_DATA_VIEW_CONFIGURATION_VIEWS_CHANGED_EXT: {
         XrEventDataViewConfigurationViewsChangedEXT* event = (XrEventDataViewConfigurationViewsChangedEXT*) &e;
         if (event->systemId == state.system && event->viewConfigurationType == state.viewConfiguration) {
-          getViewSize(&state.width, &state.height, &state.viewCount);
+          updateViewSize();
           if (!createSwapchains()) {
             return false;
           }
@@ -1430,6 +1433,33 @@ bool lovrHeadsetUpdate(void) {
     };
 
     XR(xrSyncActions(state.session, &syncInfo), "xrSyncActions");
+
+    if (state.extensions.dynamicResolution) {
+      XrRecommendedLayerResolutionGetInfoMETA info = {
+        .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_GET_INFO_META,
+        .layer = (XrCompositionLayerBaseHeader*) &state.layer,
+        .predictedDisplayTime = state.frameState.predictedDisplayTime
+      };
+
+      XrRecommendedLayerResolutionMETA resolution = { .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_META };
+
+      if (XR_SUCCEEDED(xrGetRecommendedLayerResolutionMETA(state.session, &info, &resolution)) && resolution.isValid) {
+        state.width = resolution.recommendedImageDimensions.width;
+        state.height = resolution.recommendedImageDimensions.height;
+      } else {
+        // If there's no recommended dynamic resolution, we freak out, disable it, and switch back
+        // to using the recommended resolution from the view configuration (note that the swapchain
+        // is guaranteed to be big enough)
+        state.extensions.dynamicResolution = false;
+        updateViewSize();
+      }
+
+      for (uint32_t i = 0; i < state.viewCount; i++) {
+        state.layerViews[i].subImage.imageRect.extent.width = state.width;
+        state.layerViews[i].subImage.imageRect.extent.height = state.height;
+        state.depthInfo[i].subImage.imageRect = state.layerViews[i].subImage.imageRect;
+      }
+    }
   }
 
   // Throttle when session is idle (but not too much, a desktop window might be rendering stuff)
@@ -2845,6 +2875,11 @@ bool lovrHeadsetGetPass(Pass** pass) {
   lovrGraphicsGetBackgroundColor(background[0]);
   lovrPassSetClear(state.pass, loads, background, LOAD_CLEAR, 0.f);
 
+  if (state.extensions.dynamicResolution) {
+    lovrPassSetViewport(state.pass, (float[6]) { 0.f, 0.f, (float) state.width, (float) state.height, 0.f, 1.f });
+    lovrPassSetScissor(state.pass, (uint32_t[4]) { 0, 0, state.width, state.height });
+  }
+
   uint32_t count;
   XrView views[4];
   XrViewStateFlags flags = locateViews(views, &count);
@@ -3528,7 +3563,7 @@ static XrTime getCurrentXrTime(void) {
   return time;
 }
 
-static bool getViewSize(uint32_t* width, uint32_t* height, uint32_t* count) {
+static bool updateViewSize(void) {
   XrViewConfigurationView views[4] = {
     [0].type = XR_TYPE_VIEW_CONFIGURATION_VIEW,
     [1].type = XR_TYPE_VIEW_CONFIGURATION_VIEW,
@@ -3536,23 +3571,28 @@ static bool getViewSize(uint32_t* width, uint32_t* height, uint32_t* count) {
     [3].type = XR_TYPE_VIEW_CONFIGURATION_VIEW
   };
 
-  XR(xrEnumerateViewConfigurationViews(state.instance, state.system, state.viewConfiguration, 0, count, NULL), "xrEnumerateViewConfigurationViews");
-  XR(xrEnumerateViewConfigurationViews(state.instance, state.system, state.viewConfiguration, COUNTOF(views), count, views), "xrEnumerateViewConfigurationViews");
+  XR(xrEnumerateViewConfigurationViews(state.instance, state.system, state.viewConfiguration, 0, &state.viewCount, NULL), "xrEnumerateViewConfigurationViews");
+  XR(xrEnumerateViewConfigurationViews(state.instance, state.system, state.viewConfiguration, COUNTOF(views), &state.viewCount, views), "xrEnumerateViewConfigurationViews");
 
   uint32_t maxWidth = ~0u;
   uint32_t maxHeight = ~0u;
   uint32_t recommendedWidth = 0;
   uint32_t recommendedHeight = 0;
 
-  for (uint32_t i = 0; i < *count; i++) {
+  for (uint32_t i = 0; i < state.viewCount; i++) {
     maxWidth = MIN(maxWidth, views[i].maxImageRectWidth);
     maxHeight = MIN(maxHeight, views[i].maxImageRectHeight);
     recommendedWidth = MAX(recommendedWidth, views[i].recommendedImageRectWidth);
     recommendedHeight = MAX(recommendedHeight, views[i].recommendedImageRectHeight);
   }
 
-  *width = MIN(recommendedWidth * state.config.supersample, maxWidth);
-  *height = MIN(recommendedHeight * state.config.supersample, maxHeight);
+  if (state.extensions.dynamicResolution || state.extensions.resize) {
+    state.width = recommendedWidth;
+    state.height = recommendedHeight;
+  } else {
+    state.width = MIN(recommendedWidth * state.config.supersample, maxWidth);
+    state.height = MIN(recommendedHeight * state.config.supersample, maxHeight);
+  }
 
   return true;
 }
@@ -3583,31 +3623,62 @@ static XrViewStateFlags locateViews(XrView views[4], uint32_t* count) {
 }
 
 static bool createSwapchains(void) {
-  lovrSwapchainRelease(&state.swapchains[SWAPCHAIN_COLOR]);
-  lovrSwapchainRelease(&state.swapchains[SWAPCHAIN_DEPTH]);
+  uint32_t width = state.width;
+  uint32_t height = state.height;
+
+  // If dynamic resolution is active, ask it for the recommended maximum swapchain size.
+  // It's usually bigger than the recommended size in the view configuration.
+  if (state.extensions.dynamicResolution) {
+    XrRecommendedLayerResolutionGetInfoMETA info = {
+      .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_GET_INFO_META,
+      .layer = (XrCompositionLayerBaseHeader*) &(XrCompositionLayerProjection) {
+        .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
+        .viewCount = state.viewCount,
+        .views = (XrCompositionLayerProjectionView[4]) {
+          [0].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+          [1].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+          [2].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+          [3].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW
+        }
+      },
+      .predictedDisplayTime = state.frameState.predictedDisplayTime
+    };
+
+    XrRecommendedLayerResolutionMETA resolution = { .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_META };
+
+    if (XR_SUCCEEDED(xrGetRecommendedLayerResolutionMETA(state.session, &info, &resolution)) && resolution.isValid) {
+      width = MAX(width, resolution.recommendedImageDimensions.width);
+      height = MAX(height, resolution.recommendedImageDimensions.height);
+    } else {
+      state.extensions.dynamicResolution = false;
+    }
+  }
+
   lovrSwapchainDestroy(&state.swapchains[SWAPCHAIN_COLOR]);
   lovrSwapchainDestroy(&state.swapchains[SWAPCHAIN_DEPTH]);
 
-  if (!lovrSwapchainInit(&state.swapchains[SWAPCHAIN_COLOR], state.width, state.height, VIEW | FOVEATED)) {
+  if (!lovrSwapchainInit(&state.swapchains[SWAPCHAIN_COLOR], width, height, VIEW | FOVEATED)) {
     return false;
   }
 
-  if (state.extensions.depth && !lovrSwapchainInit(&state.swapchains[SWAPCHAIN_DEPTH], state.width, state.height, VIEW | DEPTH)) {
+  if (state.extensions.depth && !lovrSwapchainInit(&state.swapchains[SWAPCHAIN_DEPTH], width, height, VIEW | DEPTH)) {
     return false;
   }
 
-  // Pre-init composition layer
+  // Pre-initialize layer structs
+
   state.layer = (XrCompositionLayerProjection) {
     .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
     .viewCount = state.viewCount,
     .views = state.layerViews
   };
 
-  // Pre-init composition layer views
   for (uint32_t i = 0; i < state.viewCount; i++) {
     state.layerViews[i] = (XrCompositionLayerProjectionView) {
       .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-      .subImage = { state.swapchains[SWAPCHAIN_COLOR].handle, { { 0, 0 }, { state.width, state.height } }, i }
+      .subImage.swapchain = state.swapchains[SWAPCHAIN_COLOR].handle,
+      .subImage.imageRect = { { 0, 0 }, { width, height } },
+      .subImage.imageArrayIndex = i
     };
   }
 
@@ -3617,7 +3688,7 @@ static bool createSwapchains(void) {
       state.depthInfo[i] = (XrCompositionLayerDepthInfoKHR) {
         .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR,
         .subImage.swapchain = state.swapchains[SWAPCHAIN_DEPTH].handle,
-        .subImage.imageRect = state.layerViews[i].subImage.imageRect,
+        .subImage.imageRect = { { 0, 0 }, { width, height } },
         .subImage.imageArrayIndex = i,
         .minDepth = 0.f,
         .maxDepth = 1.f

@@ -1087,6 +1087,7 @@ int luaopen_lovr_headset(lua_State* L) {
 
   HeadsetConfig config = {
     .supersample = 1.f,
+    .dynamicResolution = true,
     .seated = false,
     .mask = true,
     .stencil = false,
@@ -1107,6 +1108,10 @@ int luaopen_lovr_headset(lua_State* L) {
       } else {
         config.supersample = luax_optfloat(L, -1, 1.f);
       }
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "dynamicresolution");
+      config.dynamicResolution = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "debug");
