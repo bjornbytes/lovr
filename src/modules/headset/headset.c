@@ -583,7 +583,14 @@ bool lovrHeadsetConnect(void) {
     .formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY
   };
 
-  XRG(xrGetSystem(state.instance, &systemInfo, &state.system), "xrGetSystem", fail);
+  // Prefer a head-mounted display, but fall back to a handheld display when the
+  // runtime does not offer an HMD, so both form factors are supported.
+  result = xrGetSystem(state.instance, &systemInfo, &state.system);
+  if (result == XR_ERROR_FORM_FACTOR_UNSUPPORTED) {
+    systemInfo.formFactor = XR_FORM_FACTOR_HANDHELD_DISPLAY;
+    result = xrGetSystem(state.instance, &systemInfo, &state.system);
+  }
+  XRG(result, "xrGetSystem", fail);
 
   XrSystemEyeGazeInteractionPropertiesEXT eyeGazeProperties = { .type = XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT };
   XrSystemHandTrackingPropertiesEXT handTrackingProperties = { .type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT };
