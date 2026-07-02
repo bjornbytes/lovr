@@ -167,7 +167,8 @@ enum {
   GPU_TEXTURE_STORAGE   = (1 << 2),
   GPU_TEXTURE_COPY_SRC  = (1 << 3),
   GPU_TEXTURE_COPY_DST  = (1 << 4),
-  GPU_TEXTURE_FOVEATION = (1 << 5)
+  GPU_TEXTURE_FOVEATION = (1 << 5),
+  GPU_TEXTURE_UPLOAD    = (1 << 6)
 };
 
 typedef enum {
@@ -234,6 +235,12 @@ enum {
 };
 
 typedef struct {
+  uint32_t extent[4];
+  uint32_t* layerSizes;
+  void** layers;
+} gpu_upload_info;
+
+typedef struct {
   gpu_texture* source;
   gpu_texture_type type;
   uint32_t usage;
@@ -256,18 +263,12 @@ typedef struct {
   bool srgb;
   uintptr_t handle;
   const char* label;
-  struct {
-    gpu_stream* stream;
-    gpu_buffer* buffer;
-    uint32_t* levelOffsets;
-    uint32_t levelCount;
-    bool generateMipmaps;
-  } upload;
 } gpu_texture_info;
 
 bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info);
 bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info);
 void gpu_texture_destroy(gpu_texture* texture);
+bool gpu_texture_upload(gpu_texture* texture, gpu_upload_info* info);
 
 // Surface
 

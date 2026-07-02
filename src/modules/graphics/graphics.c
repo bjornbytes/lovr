@@ -613,6 +613,8 @@ static struct {
   gpu_pipeline* pipelines;
   atomic_uint pipelineCount;
   atomic_uint glyphJobs;
+  atomic_uint textureUploads;
+  _Atomic(char*) textureUploadError;
   _Atomic(Layout*) layouts;
   Layout* builtinLayout;
   Layout* materialLayout;
@@ -2001,6 +2003,18 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     }
   }
 
+  while (atomic_load(&state.textureUploads) > 0) {
+    job_spin();
+  }
+
+  char* error = atomic_exchange(&state.textureUploadError, NULL);
+
+  if (error) {
+    lovrSetError("Error uploading to texture: %s", error);
+    lovrFree(error);
+    goto fail;
+  }
+
   while (atomic_load(&state.glyphJobs) > 0) {
     job_spin();
   }
@@ -2448,6 +2462,49 @@ bool lovrGraphicsGetWindowTexture(Texture** texture) {
   return true;
 }
 
+static void lovrTextureUpload(void* arg) {
+  Texture* texture = arg;
+  TextureInfo* info = &texture->info;
+
+  uint32_t layerSizes[16];
+  uint32_t levelCount = lovrImageGetLevelCount(info->images[0]);
+
+  size_t stack = stackPush(&thread.stack);
+
+  void** data = allocate(&thread.stack, levelCount * info->layers * sizeof(void*));
+
+  for (uint32_t level = 0; level < levelCount; level++) {
+    void** layers = &data[level * info->layers];
+    layerSizes[level] = lovrImageGetLayerSize(info->images[0], level);
+
+    for (uint32_t layer = 0; layer < info->layers; layer++) {
+      Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];
+      uint32_t slice = info->imageCount == 1 ? layer : 0;
+      layers[layer] = lovrImageGetLayerData(image, level, slice);
+    }
+  }
+
+  gpu_upload_info upload = {
+    .extent = { info->width, info->height, info->layers, levelCount },
+    .layerSizes = layerSizes,
+    .layers = data
+  };
+
+  if (!gpu_texture_upload(texture->gpu, &upload)) {
+    atomic_store(&state.textureUploadError, lovrStrdup(gpu_get_error()));
+  }
+
+  atomic_fetch_sub(&state.textureUploads, 1);
+
+  for (uint32_t i = 0; i < info->imageCount; i++) {
+    lovrRelease(info->images[i], lovrImageDestroy);
+  }
+  lovrFree(texture->info.images);
+  lovrRelease(texture, lovrTextureDestroy);
+
+  stackPop(&thread.stack, stack);
+}
+
 Texture* lovrTextureCreate(const TextureInfo* info) {
   uint32_t limits[] = {
     [TEXTURE_2D] = state.limits.textureSize2D,
@@ -2490,6 +2547,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   lovrCheck(~info->usage & TEXTURE_RENDER || info->type != TEXTURE_3D || !isDepthFormat(info->format), "3D depth textures can not have the 'render' flag");
   lovrCheck((info->format < FORMAT_BC1 || info->format > FORMAT_BC7) || state.features.textureBC, "%s textures are not supported on this GPU", "BC");
   lovrCheck(info->format < FORMAT_ASTC_4x4 || state.features.textureASTC, "%s textures are not supported on this GPU", "ASTC");
+  lovrCheck(info->type != TEXTURE_3D || info->imageCount == 0 || lovrImageGetLevelCount(info->images[0]) == 1, "Images used to initialize 3D textures can not have mipmaps");
 
   Texture* texture = lovrCalloc(sizeof(Texture) + gpu_sizeof_texture());
   texture->ref = 1;
@@ -2502,86 +2560,74 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   texture->info.srgb = srgb;
   texture->info.label = lovrStrdup(info->label);
 
-  uint32_t levelCount = 0;
-  uint32_t levelOffsets[16];
-  uint32_t levelSizes[16];
-  BufferView view = { 0 };
-
-  mtx_lock(&state.lock);
-
-  if (info->imageCount > 0) {
-    levelCount = lovrImageGetLevelCount(info->images[0]);
-
-    if (info->type == TEXTURE_3D && levelCount > 1) {
-      lovrSetError("Images used to initialize 3D textures can not have mipmaps");
-      lovrTextureDestroy(texture);
-      return NULL;
-    }
-
-    uint32_t total = 0;
-    for (uint32_t level = 0; level < levelCount; level++) {
-      levelOffsets[level] = total;
-      uint32_t width = MAX(info->width >> level, 1);
-      uint32_t height = MAX(info->height >> level, 1);
-      levelSizes[level] = measureTexture(info->format, width, height, info->layers);
-      total += levelSizes[level];
-    }
-
-    view = getBuffer(GPU_BUFFER_UPLOAD, total, 64);
-    char* data = view.pointer;
-
-    if (!view.buffer) {
-      lovrTextureDestroy(texture);
-      return NULL;
-    }
-
-    for (uint32_t level = 0; level < levelCount; level++) {
-      for (uint32_t layer = 0; layer < info->layers; layer++) {
-        Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];
-        uint32_t slice = info->imageCount == 1 ? layer : 0;
-        size_t size = lovrImageGetLayerSize(image, level);
-        if (size != levelSizes[level] / info->layers) lovrUnreachable();
-        void* pixels = lovrImageGetLayerData(image, level, slice);
-        memcpy(data, pixels, size);
-        data += size;
-      }
-      levelOffsets[level] += view.offset;
-    }
-  }
-
-  // Render targets with mipmaps get transfer usage for automipmapping
-  bool transfer = (info->usage & TEXTURE_TRANSFER) || ((info->usage & TEXTURE_RENDER) && texture->info.mipmaps > 1);
-
-  if (!gpu_texture_init(texture->gpu, &(gpu_texture_info) {
+  gpu_texture_info gpuInfo = {
     .type = (gpu_texture_type) info->type,
     .format = (gpu_texture_format) info->format,
     .size = { info->width, info->height, info->layers },
-    .mipmaps = texture->info.mipmaps,
+    .mipmaps = mipmaps,
     .samples = samples,
     .usage =
       ((info->usage & TEXTURE_SAMPLE) ? GPU_TEXTURE_SAMPLE : 0) |
       ((info->usage & TEXTURE_RENDER) ? GPU_TEXTURE_RENDER : 0) |
+      ((info->usage & TEXTURE_RENDER) && mipmaps > 1 ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
       ((info->usage & TEXTURE_STORAGE) ? GPU_TEXTURE_STORAGE : 0) |
-      (transfer ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
-      ((info->usage & TEXTURE_FOVEATION) ? GPU_TEXTURE_FOVEATION : 0),
+      ((info->usage & TEXTURE_TRANSFER) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0) |
+      ((info->usage & TEXTURE_FOVEATION) ? GPU_TEXTURE_FOVEATION : 0) |
+      ((info->imageCount > 0) ? GPU_TEXTURE_UPLOAD : 0) |
+      ((info->imageCount > 0 && lovrImageGetLevelCount(info->images[0]) < mipmaps) ? GPU_TEXTURE_COPY_SRC | GPU_TEXTURE_COPY_DST : 0),
     .srgb = srgb,
     .handle = info->handle,
-    .label = info->label,
-    .upload = {
-      .stream = state.stream,
-      .buffer = view.buffer,
-      .levelCount = levelCount,
-      .levelOffsets = levelOffsets,
-      .generateMipmaps = levelCount > 0 && levelCount < mipmaps
-    }
-  })) {
-    mtx_unlock(&state.lock);
+    .label = info->label
+  };
+
+  if (!gpu_texture_init(texture->gpu, &gpuInfo)) {
     lovrSetError("Failed to create texture: %s", gpu_get_error());
     lovrTextureDestroy(texture);
     return NULL;
   }
 
-  mtx_unlock(&state.lock);
+  // Upload
+  if (info->imageCount > 0) {
+    texture->info.images = lovrMalloc(info->imageCount * sizeof(Image*));
+
+    for (uint32_t i = 0; i < info->imageCount; i++) {
+      texture->info.images[i] = info->images[i];
+      lovrRetain(info->images[i]);
+    }
+
+    lovrRetain(texture);
+
+    atomic_fetch_add(&state.textureUploads, 1);
+
+    if (!job_start(lovrTextureUpload, texture)) {
+      lovrTextureUpload(texture);
+    }
+
+    if (lovrImageGetLevelCount(info->images[0]) < mipmaps) {
+      mtx_lock(&state.lock);
+      mipmapTexture(state.stream, texture, lovrImageGetLevelCount(info->images[0]) - 1, ~0u);
+      mtx_unlock(&state.lock);
+    }
+  } else if (!gpu_texture_upload(texture->gpu, &(gpu_upload_info) { 0 })) {
+    lovrSetError("Failed to upload images to texture: %s", gpu_get_error());
+    lovrTextureDestroy(texture);
+    return NULL;
+  }
+
+  // Synchronization: Sample-only textures are exempt from sync tracking to reduce overhead.
+  // Instead, they are manually synchronized with a single barrier after the upload stream.
+  if (info->usage == TEXTURE_SAMPLE) {
+    mtx_lock(&state.lock);
+    state.barrier.prev |= GPU_PHASE_COPY | GPU_PHASE_BLIT;
+    state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
+    state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
+    state.barrier.clear |= GPU_CACHE_TEXTURE;
+    mtx_unlock(&state.lock);
+  } else if (info->imageCount > 0) {
+    texture->sync->writePhase = GPU_PHASE_COPY | GPU_PHASE_BLIT;
+    texture->sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
+    texture->sync->lastStreamWrite = state.tick;
+  }
 
   // Depth-stencil textures use a different depth-only view for sampling, otherwise default view can be used
   if (info->usage & TEXTURE_SAMPLE) {
@@ -2645,21 +2691,6 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
     }
   } else {
     texture->storageView = texture->gpu;
-  }
-
-  // Sample-only textures are exempt from sync tracking to reduce overhead.  Instead, they are
-  // manually synchronized with a single barrier after the upload stream.
-  if (info->usage == TEXTURE_SAMPLE) {
-    mtx_lock(&state.lock);
-    state.barrier.prev |= GPU_PHASE_COPY | GPU_PHASE_BLIT;
-    state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT | GPU_PHASE_SHADER_COMPUTE;
-    state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
-    state.barrier.clear |= GPU_CACHE_TEXTURE;
-    mtx_unlock(&state.lock);
-  } else if (levelCount > 0) {
-    texture->sync->writePhase = GPU_PHASE_COPY | GPU_PHASE_BLIT;
-    texture->sync->pendingWrite = GPU_CACHE_TRANSFER_WRITE;
-    texture->sync->lastStreamWrite = state.tick;
   }
 
   for (uint32_t i = 0; i < mipmaps; i++) {
@@ -9316,21 +9347,21 @@ static gpu_texture* createTemporaryTexture(const TextureInfo* parent, TextureFor
     .size = { parent->width, parent->height, parent->layers },
     .mipmaps = 1,
     .samples = samples,
-    .usage = GPU_TEXTURE_RENDER,
-    .upload.stream = state.stream
+    .usage = GPU_TEXTURE_RENDER
   };
 
   gpu_texture* texture = lovrMalloc(gpu_sizeof_texture());
 
-  mtx_lock(&state.lock);
-
   if (!gpu_texture_init(texture, &info)) {
-    mtx_unlock(&state.lock);
     lovrFree(texture);
     return NULL;
   }
 
-  mtx_unlock(&state.lock);
+  if (!gpu_texture_upload(texture, &(gpu_upload_info) { 0 })) {
+    gpu_texture_destroy(texture);
+    lovrFree(texture);
+    return NULL;
+  }
 
   return texture;
 }
