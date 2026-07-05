@@ -2391,9 +2391,12 @@ MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t i
     triangles[i].userData = i;
   }
 
+  lovrCheck(vertexCount > 0 && indexCount > 0, "MeshShape requires a non-empty model");
+
   JPH_MeshShapeSettings* settings = JPH_MeshShapeSettings_Create2((const JPH_Vec3*) vertices, vertexCount, triangles, triangleCount);
   JPH_MeshShapeSettings_SetPerTriangleUserData(settings, true);
   JPH_Shape* mesh = (JPH_Shape*) JPH_MeshShapeSettings_CreateShape(settings);
+  lovrCheck(mesh, "Invalid mesh data!");
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
   lovrFree(triangles);
 
