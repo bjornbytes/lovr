@@ -82,7 +82,8 @@ struct Texture {
   bool xrAcquired;
   Sync* sync;
   gpu_texture* gpu;
-  gpu_texture* sampleView;
+  gpu_texture* sampleViewFloat;
+  gpu_texture* sampleViewUint;
   gpu_texture* renderView;
   gpu_texture* storageView;
   Material* material;
@@ -2395,7 +2396,8 @@ bool lovrGraphicsGetWindowTexture(Texture** texture) {
     state.window->ref = 1;
     state.window->gpu = NULL;
     state.window->sync = lovrCalloc(sizeof(Sync));
-    state.window->sampleView = NULL;
+    state.window->sampleViewFloat = NULL;
+    state.window->sampleViewUint = NULL;
     state.window->renderView = NULL;
     state.window->info = (TextureInfo) {
       .type = TEXTURE_2D,
@@ -2645,6 +2647,7 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
   }
 
   // Depth-stencil textures use a different depth-only view for sampling, otherwise default view can be used
+  // Also make a stencil-only view for sending to unsigned samplers, when necessary
   if (info->usage & TEXTURE_SAMPLE) {
     if (info->format == FORMAT_D24S8 || info->format == FORMAT_D32FS8) {
       gpu_texture_view_info view = {
@@ -2655,14 +2658,22 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
         .aspect = GPU_ASPECT_DEPTH
       };
 
-      texture->sampleView = lovrMalloc(gpu_sizeof_texture());
-      if (!gpu_texture_init_view(texture->sampleView, &view)) {
+      texture->sampleViewFloat = lovrMalloc(gpu_sizeof_texture());
+      if (!gpu_texture_init_view(texture->sampleViewFloat, &view)) {
         lovrSetError("Failed to create sample texture view: %s", gpu_get_error());
         lovrTextureDestroy(texture);
         return NULL;
       }
+
+      view.aspect = GPU_ASPECT_STENCIL;
+      texture->sampleViewUint = lovrMalloc(gpu_sizeof_texture());
+      if (!gpu_texture_init_view(texture->sampleViewUint, &view)) {
+        lovrSetError("Failed to create unsigned sample texture view: %s", gpu_get_error());
+        lovrTextureDestroy(texture);
+        return NULL;
+      }
     } else {
-      texture->sampleView = texture->gpu;
+      texture->sampleViewFloat = texture->gpu;
     }
   }
 
@@ -2793,14 +2804,22 @@ Texture* lovrTextureCreateView(Texture* parent, const TextureViewInfo* info) {
         .levelCount = levels
       };
 
-      texture->sampleView = lovrMalloc(gpu_sizeof_texture());
-      if (!gpu_texture_init_view(texture->sampleView, &subview)) {
+      texture->sampleViewFloat = lovrMalloc(gpu_sizeof_texture());
+      if (!gpu_texture_init_view(texture->sampleViewFloat, &subview)) {
         lovrSetError("Failed to create sample texture view: %s", gpu_get_error());
         lovrTextureDestroy(texture);
         return NULL;
       }
+
+      subview.aspect = GPU_ASPECT_STENCIL;
+      texture->sampleViewUint = lovrMalloc(gpu_sizeof_texture());
+      if (!gpu_texture_init_view(texture->sampleViewUint, &subview)) {
+        lovrSetError("Failed to create unsigned sample texture view: %s", gpu_get_error());
+        lovrTextureDestroy(texture);
+        return NULL;
+      }
     } else {
-      texture->sampleView = texture->gpu;
+      texture->sampleViewFloat = texture->gpu;
     }
   }
 
@@ -2862,7 +2881,8 @@ void lovrTextureDestroy(void* ref) {
     lovrRelease(texture->sampler, lovrSamplerDestroy);
     lovrRelease(texture->material, lovrMaterialDestroy);
     if (texture->root != texture) lovrRelease(texture->root, lovrTextureDestroy);
-    if (texture->sampleView && texture->sampleView != texture->gpu) gpu_texture_destroy(texture->sampleView), lovrFree(texture->sampleView);
+    if (texture->sampleViewFloat && texture->sampleViewFloat != texture->gpu) gpu_texture_destroy(texture->sampleViewFloat), lovrFree(texture->sampleViewFloat);
+    if (texture->sampleViewUint && texture->sampleViewUint != texture->gpu) gpu_texture_destroy(texture->sampleViewUint), lovrFree(texture->sampleViewUint);
     if (texture->renderView && texture->renderView != texture->gpu) gpu_texture_destroy(texture->renderView), lovrFree(texture->renderView);
     if (texture->storageView && texture->storageView != texture->gpu) gpu_texture_destroy(texture->storageView), lovrFree(texture->storageView);
     if (texture->gpu) {
@@ -4116,7 +4136,7 @@ Material* lovrMaterialCreate(const MaterialInfo* info) {
 
   for (uint32_t i = 0; i < COUNTOF(textures); i++) {
     Texture* texture = textures[i] ? textures[i] : state.defaultTexture;
-    bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture.object = texture->sampleView };
+    bindings[i + 1] = (gpu_binding) { i + 1, GPU_SLOT_SAMPLED_TEXTURE, .texture.object = texture->sampleViewFloat };
     material->hasWritableTexture |= texture->info.usage != TEXTURE_SAMPLE;
     lovrRetain(textures[i]);
   }
@@ -7423,6 +7443,7 @@ bool lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture** 
 
   lovrCheck(shader->textureMask & (1u << slot), "Trying to send a Texture to '%s', but the active Shader doesn't have a Texture in that slot", name);
   bool storage = shader->storageMask & (1u << slot);
+  bool uint = resource->textureFlags & SPV_TEXTURE_UNSIGNED;
 
   for (uint32_t i = 0; i < count; i++) {
     if (resource->textureFlags & SPV_TEXTURE_MULTISAMPLE) {
@@ -7435,6 +7456,11 @@ bool lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture** 
       lovrCheck(textures[i]->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' usage to send them to image variables in shaders");
     } else {
       lovrCheck(textures[i]->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to send them to sampler variables in shaders");
+      if (uint) {
+        lovrCheck(textures[i]->sampleViewUint, "Trying to send a floating-point texture to an unsigned int sampler");
+      } else {
+        lovrCheck(textures[i]->sampleViewFloat, "Trying to send an integer texture to a floating point sampler");
+      }
     }
   }
 
@@ -7446,12 +7472,12 @@ bool lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture** 
 
     for (uint32_t i = 0; i < count; i++) {
       trackTexture(pass, textures[i], resource->phase, resource->cache);
-      pass->bindings[slot].textures[i].object = storage ? textures[i]->storageView : textures[i]->sampleView;
+      pass->bindings[slot].textures[i].object = storage ? textures[i]->storageView : uint ? textures[i]->sampleViewUint : textures[i]->sampleViewFloat;
       pass->bindings[slot].textures[i].sampler = textures[i]->sampler ? textures[i]->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu;
     }
   } else {
     trackTexture(pass, textures[0], resource->phase, resource->cache);
-    pass->bindings[slot].texture.object = storage ? textures[0]->storageView : textures[0]->sampleView;
+    pass->bindings[slot].texture.object = storage ? textures[0]->storageView : uint ? textures[0]->sampleViewUint : textures[0]->sampleViewFloat;
     pass->bindings[slot].texture.sampler = textures[0]->sampler ? textures[0]->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu;
   }
 

@@ -531,6 +531,7 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
 
   if (OP_CODE(texelType) == 21) { // OpTypeInt
     resource->textureFlags |= SPV_TEXTURE_INTEGER;
+    resource->textureFlags |= (texelType[3] == 0 ? SPV_TEXTURE_UNSIGNED : 0);
   }
 
   switch (type[3]) {
