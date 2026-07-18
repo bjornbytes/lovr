@@ -9170,13 +9170,18 @@ static int u64cmp(const void* a, const void* b) {
 
 // Must not hold lock
 static void pollReadbacks(void) {
-  mtx_lock(&state.lock);
-  while (state.readbacks && lovrReadbackPoll(state.readbacks)) {
-    Readback* readback = state.readbacks;
-    state.readbacks = readback->next;
-    lovrRelease(readback, lovrReadbackDestroy);
+  while (true) {
+    mtx_lock(&state.lock);
+    if (state.readbacks && lovrReadbackPoll(state.readbacks)) {
+      Readback* readback = state.readbacks;
+      state.readbacks = readback->next;
+      mtx_unlock(&state.lock);
+      lovrRelease(readback, lovrReadbackDestroy);
+    } else {
+      mtx_unlock(&state.lock);
+      break;
+    }
   }
-  mtx_unlock(&state.lock);
 }
 
 static Layout* getLayout(gpu_slot* slots, uint32_t count) {
