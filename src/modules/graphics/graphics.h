@@ -218,6 +218,12 @@ enum {
   TEXTURE_FOVEATION = (1 << 4)
 };
 
+typedef enum {
+  SHADER_RES_NONE,
+  SHADER_RES_TEXTURE,
+  SHADER_RES_BUFFER,
+} ShaderResourceType;
+
 typedef struct {
   TextureType type;
   uint32_t format;
@@ -359,6 +365,7 @@ const ShaderInfo* lovrShaderGetInfo(Shader* shader);
 bool lovrShaderHasStage(Shader* shader, ShaderStage stage);
 bool lovrShaderHasAttribute(Shader* shader, const char* name, uint32_t location);
 bool lovrShaderHasVariable(Shader* shader, const char* name);
+ShaderResourceType lovrPassGetShaderResourceType(Pass* pass, const char* name, size_t length, size_t* outArraySize);
 void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]);
 const DataField* lovrShaderGetBufferFormat(Shader* shader, const char* name, uint32_t* fieldCount);
 
@@ -721,6 +728,7 @@ void lovrPassSetWireframe(Pass* pass, bool wireframe);
 
 bool lovrPassSendBuffer(Pass* pass, const char* name, size_t length, Buffer* buffer, uint32_t offset, uint32_t extent);
 bool lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture* texture);
+bool lovrPassSendTextureArray(Pass* pass, const char* name, size_t length, Texture** textureArray, size_t textureCount);
 bool lovrPassSendSampler(Pass* pass, const char* name, size_t length, Sampler* sampler);
 bool lovrPassSendRaytracer(Pass* pass, const char* name, size_t length, Raytracer* raytracer);
 bool lovrPassSendData(Pass* pass, const char* name, size_t length, void** data, DataField** format);

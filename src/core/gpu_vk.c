@@ -1421,7 +1421,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     bindings[i] = (VkDescriptorSetLayoutBinding) {
       .binding = info->slots[i].number,
       .descriptorType = types[info->slots[i].type],
-      .descriptorCount = 1,
+      .descriptorCount = MAX(1, info->slots[i].arraySize),
       .stageFlags =
         (((info->slots[i].stages & GPU_STAGE_VERTEX) ? VK_SHADER_STAGE_VERTEX_BIT : 0) |
         ((info->slots[i].stages & GPU_STAGE_FRAGMENT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0) |
@@ -1442,7 +1442,7 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
   memset(layout->descriptorCounts, 0, sizeof(layout->descriptorCounts));
 
   for (uint32_t i = 0; i < info->count; i++) {
-    layout->descriptorCounts[info->slots[i].type]++;
+    layout->descriptorCounts[info->slots[i].type] += MAX(1, info->slots[i].arraySize);
   }
 
   return true;

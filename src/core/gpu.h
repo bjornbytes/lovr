@@ -368,6 +368,7 @@ typedef struct {
   gpu_slot_type type;
   uint8_t stages;
   uint8_t access;
+  uint32_t arraySize;
 } gpu_slot;
 
 typedef struct {

@@ -811,6 +811,30 @@ static int l_lovrPassSend(lua_State* L) {
     return 0;
   }
 
+  size_t tex_count = 0;
+  if (lovrPassGetShaderResourceType(pass, name, length, &tex_count) == SHADER_RES_TEXTURE) {
+    tex_count = MIN(luax_len(L, 3), tex_count);
+    if (tex_count == 0) {
+      return 0;
+    }
+    Texture** texture_array = lovrMalloc(sizeof(Texture*) * tex_count);
+    for (size_t i = 0; i < tex_count; i++) {
+      lua_rawgeti(L, 3, i + 1);
+      texture_array[i] = luax_totype(L, -1, Texture);
+      lua_pop(L, 1);
+      if (!texture_array[i]) {
+        tex_count = i - 1;
+        break;
+      }
+    }
+
+    if (tex_count > 0) {
+      luax_assert(L, lovrPassSendTextureArray(pass, name, length, texture_array, tex_count));
+    }
+    lovrFree(texture_array);
+    return 0;
+  }
+
   void* pointer;
   DataField* format;
   luax_assert(L, lovrPassSendData(pass, name, length, &pointer, &format));
