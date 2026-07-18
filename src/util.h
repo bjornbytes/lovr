@@ -135,6 +135,17 @@ void float16Init(void);
 float16 float32to16(float32 f);
 float32 float16to32(float16 f);
 
+// Bits
+#if defined(__clang__) || defined(__GNUC__)
+#define lovrTrailingZeros(x) ((uint32_t) __builtin_ctz(x))
+#define lovrTrailingZeros64(x) ((uint64_t) __builtin_ctzl(x))
+#elif defined(_MSC_VER)
+#include <immintrin.h>
+#define lovrTrailingZeros(x) ((uint32_t) _tzcnt_u32(x))
+#define lovrTrailingZeros64(x) ((uint64_t) _tzcnt_u64(x))
+#endif
+#define lovrBiterate(mask, index) for (uint32_t m = mask, index; index = lovrTrailingZeros(m), m; m ^= m & -m)
+
 // Types
 typedef enum {
   T_NONE,
@@ -159,6 +170,7 @@ typedef enum {
   T_Readback,
   T_Pass,
   T_Layer,
+  T_Window,
   T_Curve,
   T_Mat4,
   T_RandomGenerator,

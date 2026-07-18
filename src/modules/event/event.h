@@ -5,6 +5,7 @@
 #pragma once
 
 struct Thread;
+struct Window;
 union Variant;
 
 typedef enum {
@@ -43,11 +44,13 @@ typedef struct {
 typedef struct {
   bool visible;
   DisplayType display;
+  struct Window* window;
 } VisibleEvent;
 
 typedef struct {
   bool focused;
   DisplayType display;
+  struct Window* window;
 } FocusEvent;
 
 typedef struct {
@@ -55,8 +58,10 @@ typedef struct {
 } MountEvent;
 
 typedef struct {
-  uint32_t width;
-  uint32_t height;
+  struct Window* window;
+  float width;
+  float height;
+  float depth;
 } ResizeEvent;
 
 typedef struct {
