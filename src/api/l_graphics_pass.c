@@ -823,7 +823,7 @@ static int l_lovrPassSend(lua_State* L) {
       texture_array[i] = luax_totype(L, -1, Texture);
       lua_pop(L, 1);
       if (!texture_array[i]) {
-        tex_count = i - 1;
+        tex_count = i;
         break;
       }
     }
