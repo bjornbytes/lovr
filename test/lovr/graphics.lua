@@ -556,6 +556,51 @@ group('graphics', function()
       image = texture:getPixels()
       expect({ image:getPixel(0, 0) }).to.equal({ 0, 0, 1, 1 })
     end)
+
+    test('texture array', function()
+      local shader = lovr.graphics.newShader('fill', [[
+        uniform sampler2D tex_list[2];
+        vec4 lovrmain() { return getPixel(tex_list[0], UV); }
+      ]])
+
+      local tex_list = { lovr.graphics.newTexture(1, 1) }
+      local pass = lovr.graphics.newPass(tex_list[1])
+      pass:setColor(1, 0, 0, 1)
+      pass:fill()
+      lovr.graphics.submit(pass)
+
+      local texture = lovr.graphics.newTexture(1, 1, { usage = { 'render', 'transfer' } })
+      pass = lovr.graphics.newPass(texture)
+      pass:setShader(shader)
+      pass:send('tex_list', tex_list)
+      pass:fill()
+      lovr.graphics.submit(pass)
+      local image = texture:getPixels()
+      expect({ image:getPixel(0, 0) }).to.equal({ 1, 0, 0, 1 })
+
+      -- don't send texture array
+      texture = lovr.graphics.newTexture(1, 1, { usage = { 'render', 'transfer' } })
+      pass = lovr.graphics.newPass(texture)
+      pass:setShader(shader)
+      pass:fill()
+      lovr.graphics.submit(pass)
+      local image = texture:getPixels()
+      expect({ image:getPixel(0, 0) }).to.equal({ 1, 1, 1, 1 })
+
+      -- texture2D
+      shader = lovr.graphics.newShader('fill', [[
+        uniform texture2D tex_list[2];
+        vec4 lovrmain() { return getPixel(tex_list[0], UV); }
+      ]])
+      texture = lovr.graphics.newTexture(1, 1, { usage = { 'render', 'transfer' } })
+      pass = lovr.graphics.newPass(texture)
+      pass:setShader(shader)
+      pass:send('tex_list', tex_list)
+      pass:fill()
+      lovr.graphics.submit(pass)
+      image = texture:getPixels()
+      expect({ image:getPixel(0, 0) }).to.equal({ 1, 0, 0, 1 })
+    end)
   end)
 
   group('Shader', function()

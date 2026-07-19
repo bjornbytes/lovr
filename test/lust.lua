@@ -8,6 +8,7 @@ lust.passes = 0
 lust.errors = 0
 lust.befores = {}
 lust.afters = {}
+lust.item_filter = nil
 
 local red = string.char(27) .. '[31m'
 local green = string.char(27) .. '[32m'
@@ -29,6 +30,10 @@ function lust.describe(name, fn)
 end
 
 function lust.it(name, fn)
+  if lust.item_filter and not lust.item_filter(name) then
+    return
+  end
+
   for level = 1, lust.level do
     if lust.befores[level] then
       for i = 1, #lust.befores[level] do

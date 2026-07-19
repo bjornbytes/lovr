@@ -6538,6 +6538,10 @@ void lovrPassReset(Pass* pass) {
   pass->drawCount = 0;
   pass->draws = lovrPassAllocate(pass, pass->drawCapacity * sizeof(Draw));
 
+  for (int i = 0; i < 32; i++) {
+    pass->bindings[i].count = 0;
+  }
+
   memset(&pass->geocache, 0, sizeof(pass->geocache));
 
   pass->tally.active = false;
@@ -7247,6 +7251,7 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
             bindings[i].buffer.object = state.defaultBuffer->gpu;
             bindings[i].buffer.offset = 0;
             bindings[i].buffer.extent = state.defaultBuffer->info.size;
+            bindings[i].count = 0;
             break;
           case GPU_SLOT_TEXTURE_WITH_SAMPLER:
           case GPU_SLOT_SAMPLED_TEXTURE:
@@ -7254,6 +7259,7 @@ void lovrPassSetShader(Pass* pass, Shader* shader) {
           case GPU_SLOT_SAMPLER:
             bindings[i].texture.object = state.defaultTexture->gpu;
             bindings[i].texture.sampler = state.defaultSamplers[FILTER_LINEAR]->gpu;
+            bindings[i].count = 0;
             break;
           default: break;
         }
@@ -7660,9 +7666,6 @@ static gpu_binding* lovrPassResolveBindings(Pass* pass, Shader* shader, gpu_bind
     bindings[i] = pass->bindings[shader->resources[i].binding];
     bindings[i].type = shader->resources[i].type;
     bindings[i].number = shader->resources[i].binding;
-    if (shader->resources[i].arraySize == 0) {
-      bindings[i].count = 0;
-    }
   }
 
   pass->flags &= ~DIRTY_BINDINGS;
