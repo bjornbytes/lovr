@@ -222,6 +222,8 @@ typedef enum {
   SHADER_RES_NONE,
   SHADER_RES_TEXTURE,
   SHADER_RES_BUFFER,
+  SHADER_RES_SAMPLER,
+  SHADER_RES_TREE,
 } ShaderResourceType;
 
 typedef struct {

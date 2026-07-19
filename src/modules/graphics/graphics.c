@@ -3967,18 +3967,30 @@ ShaderResourceType lovrPassGetShaderResourceType(Pass* pass, const char* name, s
   if (!shader) {
     return SHADER_RES_NONE;
   }
-
   ShaderResource* resource = findShaderResource(shader, name, length);
-  if (!resource || resource->arraySize == 0) {
+  if (!resource) {
     return SHADER_RES_NONE;
   }
+
   if (outArraySize) *outArraySize = resource->arraySize;
-  if (resource->type == GPU_SLOT_STORAGE_BUFFER || resource->type == GPU_SLOT_STORAGE_BUFFER_DYNAMIC) {
+
+  switch(resource->type) {
+  case GPU_SLOT_UNIFORM_BUFFER:
+  case GPU_SLOT_STORAGE_BUFFER:
+  case GPU_SLOT_UNIFORM_BUFFER_DYNAMIC:
+  case GPU_SLOT_STORAGE_BUFFER_DYNAMIC:
     return SHADER_RES_BUFFER;
-  } else if (resource->type == GPU_SLOT_TEXTURE_WITH_SAMPLER || resource->type == GPU_SLOT_SAMPLED_TEXTURE) {
+  case GPU_SLOT_SAMPLED_TEXTURE:
+  case GPU_SLOT_STORAGE_TEXTURE:
+  case GPU_SLOT_TEXTURE_WITH_SAMPLER:
     return SHADER_RES_TEXTURE;
+  case GPU_SLOT_SAMPLER:
+    return SHADER_RES_SAMPLER;
+  case GPU_SLOT_TREE:
+    return SHADER_RES_TREE;
+  default:
+    return SHADER_RES_NONE;
   }
-  return SHADER_RES_NONE;
 }
 
 void lovrShaderGetWorkgroupSize(Shader* shader, uint32_t size[3]) {

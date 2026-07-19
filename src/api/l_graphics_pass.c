@@ -812,7 +812,7 @@ static int l_lovrPassSend(lua_State* L) {
   }
 
   size_t tex_count = 0;
-  if (lovrPassGetShaderResourceType(pass, name, length, &tex_count) == SHADER_RES_TEXTURE) {
+  if (lovrPassGetShaderResourceType(pass, name, length, &tex_count) == SHADER_RES_TEXTURE && tex_count > 0) {
     tex_count = MIN(luax_len(L, 3), tex_count);
     if (tex_count == 0) {
       return 0;
