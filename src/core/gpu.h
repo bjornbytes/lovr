@@ -833,6 +833,9 @@ typedef struct {
   void (*fnLog)(void* userdata, const char* message);
   void* (*fnAlloc)(size_t size);
   void (*fnFree)(void* data);
+  int (*fnSelectGPU)(gpu_device_info*, uint32_t count, void* f, void* ud);
+  void* selectGPUFunction;
+  void* selectGPUUserData;
   const char* engineName;
   uint32_t engineVersion[3];
   gpu_device_info* device;

@@ -659,6 +659,30 @@ static void onMessage(void* context, const char* message);
 
 // Entry
 
+static int selectGPUCallback(gpu_device_info* gd, uint32_t count, void* f, void* ud){
+    selectGPU fn = (selectGPU) f;
+    if (!fn) return -1;
+
+    // convert to GraphicsDevice info
+
+    GraphicsDevice* data = lovrMalloc(count * sizeof(GraphicsDevice));
+    
+    for (uint32_t i = 0; i < count; i++){
+        data[i].deviceId = gd[i].deviceId;
+        data[i].vendorId = gd[i].vendorId;
+        data[i].name = gd[i].deviceName;
+        data[i].renderer = gd[i].renderer;
+        data[i].discrete = gd[i].discrete;
+        data[i].subgroupSize = -1; // not implemented in gpu_vk yet
+    }
+
+    int idx = fn(ud,data,count);
+
+    lovrFree(data);
+
+    return idx;
+}
+
 bool lovrGraphicsInit(GraphicsConfig* config) {
   initAllocator(&thread.stack);
 
@@ -686,6 +710,12 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     .vk.createDevice = lovrHeadsetIsConnected() ? lovrHeadsetCreateVulkanDevice : NULL
 #endif
   };
+
+  if (config->selectGPU){
+    gpu.fnSelectGPU = selectGPUCallback;
+    gpu.selectGPUUserData = config->selectGPUUserData;
+    gpu.selectGPUFunction = config->selectGPU;
+  }
 
   if (!gpu_init(&gpu)) {
 #if _WIN32

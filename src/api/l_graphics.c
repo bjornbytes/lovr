@@ -379,6 +379,40 @@ static void luax_writeshadercache(void) {
   lovrFree(data);
 }
 
+
+static int callback_selectGPU(void* luaPtr, GraphicsDevice* gd, uint32_t count){
+    lua_State* L = (lua_State*) luaPtr;
+    
+    // main table
+    lua_createtable(L,count,0);
+
+    for (uint32_t i = 0; i < count; i++){
+        lua_newtable(L);
+
+        GraphicsDevice device = gd[i];
+
+        lua_pushinteger(L, device.deviceId), lua_setfield(L, -2, "id");
+        lua_pushinteger(L, device.vendorId), lua_setfield(L, -2, "vendor");
+        lua_pushstring(L, device.name), lua_setfield(L, -2, "name");
+        lua_pushstring(L, device.renderer), lua_setfield(L, -2, "renderer");
+        lua_pushboolean(L, device.discrete), lua_setfield(L, -2, "discrete");
+
+        lua_rawseti(L, -2, i + 1);
+    }
+
+    lua_getfield(L, LUA_REGISTRYINDEX, "__lovrconf_selectGPU");
+    lua_insert(L, -2);
+    lua_call(L,1,1);
+
+    int idx = luaL_optinteger(L, -1, 1) - 1;
+    lua_pop(L,1);
+
+    lua_pushnil(L);
+    lua_setfield(L, LUA_REGISTRYINDEX, "__lovrconf_selectGPU");
+
+    return idx;
+}
+
 static int l_lovrGraphicsInitialize(lua_State* L) {
   GraphicsConfig config = {
     .debug = false,
@@ -417,6 +451,16 @@ static int l_lovrGraphicsInitialize(lua_State* L) {
       lua_getfield(L, -1, "shadercache");
       shaderCache = lua_toboolean(L, -1);
       lua_pop(L, 1);
+    
+      lua_getfield(L, -1, "selectGPU");
+      if (lua_isfunction(L, -1)) {
+        lua_setfield(L, LUA_REGISTRYINDEX, "__lovrconf_selectGPU");
+        config.selectGPU = callback_selectGPU;
+        config.selectGPUUserData = L;
+      }
+      else {
+        lua_pop(L, 1);
+      }
     }
     lua_pop(L, 1);
 

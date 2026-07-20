@@ -23,16 +23,6 @@ typedef struct Readback Readback;
 typedef struct Pass Pass;
 
 typedef struct {
-  bool debug;
-  bool vsync;
-  bool stencil;
-  bool antialias;
-  bool hdr;
-  void* cacheData;
-  size_t cacheSize;
-} GraphicsConfig;
-
-typedef struct {
   uint32_t deviceId;
   uint32_t vendorId;
   const char* name;
@@ -40,6 +30,20 @@ typedef struct {
   uint32_t subgroupSize;
   bool discrete;
 } GraphicsDevice;
+
+typedef int (*selectGPU)(void* luaPtr, GraphicsDevice*, uint32_t count);
+
+typedef struct {
+  bool debug;
+  bool vsync;
+  bool stencil;
+  bool antialias;
+  bool hdr;
+  void* cacheData;
+  size_t cacheSize;
+  selectGPU selectGPU;
+  void* selectGPUUserData;
+} GraphicsConfig;
 
 typedef struct {
   bool textureBC;

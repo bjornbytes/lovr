@@ -3051,13 +3051,41 @@ bool gpu_init(gpu_config* config) {
   { // Device
     if (config->vk.getPhysicalDevice) {
       config->vk.getPhysicalDevice(state.instance, (uintptr_t) &state.adapter);
-    }
+    } else if (config->fnSelectGPU) {
+      uint32_t deviceCount = 0;
 
-    if (!state.adapter) {
+      vkEnumeratePhysicalDevices(state.instance, &deviceCount, NULL);
+      VkPhysicalDevice* devices = config->fnAlloc(deviceCount * sizeof(VkPhysicalDevice));
+      vkEnumeratePhysicalDevices(state.instance, &deviceCount, devices);
+
+      gpu_device_info* infos = config->fnAlloc(deviceCount * sizeof(gpu_device_info));
+
+      for (uint32_t i = 0; i < deviceCount; i++){
+        VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+        vkGetPhysicalDeviceProperties2(devices[i], &properties2);
+
+        VkPhysicalDeviceProperties* properties = &properties2.properties;
+        infos[i].deviceId = properties->deviceID;
+        infos[i].vendorId = properties->vendorID;
+        memcpy(infos[i].deviceName, properties->deviceName, MIN(sizeof(config->device->deviceName), sizeof(properties->deviceName)));
+        infos[i].renderer = "Vulkan";
+        infos[i].discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+      }
+        
+      int selected = config->fnSelectGPU(infos, deviceCount, config->selectGPUFunction, config->selectGPUUserData);
+
+      if (selected == -1) selected = 0;
+
+      VkPhysicalDevice selected_device = devices[selected];
+
+      config->fnFree(infos);
+      config->fnFree(devices);
+
+      state.adapter = selected_device;
+    } else {
       uint32_t deviceCount = 1;
       VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "vkEnumeratePhysicalDevices") goto fail;
     }
-
     if (!state.adapter) {
       error("No suitable graphics device available");
       goto fail;
