@@ -224,6 +224,7 @@ static bool luax_loadsource(void** userdata) {
   SourceContext* context = *userdata;
   Sound* sound = lovrSoundLoad(context->blob, true);
   lovrRelease(context->blob, lovrBlobDestroy);
+  if (!sound) return false;
   context->spatial |= lovrSoundGetChannelCount(sound) > 2;
   context->source = lovrSourceCreate(sound, context->pitchable, context->spatial);
   lovrRelease(sound, lovrSoundDestroy);
@@ -307,7 +308,7 @@ static int l_lovrAudioNewAudioMesh(lua_State* L) {
     materials = lovrMalloc(indexCount / 3 * sizeof(AudioMaterial));
     for (uint32_t i = 0; i < indexCount / 3; i++) {
       lua_rawgeti(L, index, i + 1);
-      materials[i] = luax_checkenum(L, index, AudioMaterial, "generic");
+      materials[i] = luax_checkenum(L, -1, AudioMaterial, "generic");
       lua_pop(L, 1);
     }
   } else {
