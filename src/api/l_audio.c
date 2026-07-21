@@ -224,6 +224,7 @@ static bool luax_loadsource(void** userdata) {
   SourceContext* context = *userdata;
   Sound* sound = lovrSoundLoad(context->blob, true);
   lovrRelease(context->blob, lovrBlobDestroy);
+  if (!sound) return false;
   context->spatial |= lovrSoundGetChannelCount(sound) > 2;
   context->source = lovrSourceCreate(sound, context->pitchable, context->spatial);
   lovrRelease(sound, lovrSoundDestroy);
