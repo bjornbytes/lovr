@@ -13,7 +13,8 @@ dev
 - Fix possible crash when using graphics module from threads.
 - Fix issues with missing files in zip archives mounted with mountpoints.
 - Fix issues when generating mipmaps for texture views.
-- Fix crash in newSource when decoding invalid sound.
+- Fix crash in `lovr.audio.newSource` when decoding invalid sound.
+- Fix `lovr.audio.newAudioMesh` when given a table of `AudioMaterial`.
 
 v0.19.0 - 2026-06-07
 ---
