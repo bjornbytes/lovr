@@ -1132,10 +1132,17 @@ bool gpu_init(gpu_config* config) {
     config->features->indirectDrawFirstInstance = wgpu_device_supports_feature(state.device, WGPU_FEATURE_INDIRECT_FIRST_INSTANCE);
     config->features->packedBuffers = false;
     config->features->shaderDebug = false;
+    config->features->subgroupVote = false;
+    config->features->subgroupArithmetic = false;
+    config->features->subgroupBallot = false;
+    config->features->subgroupShuffle = false;
+    config->features->subgroupShuffleRelative = false;
+    config->features->subgroupClustered = false;
+    config->features->subgroupQuad = false;
+    config->features->float32AtomicAdd = false;
     config->features->float64 = false;
     config->features->int64 = false;
     config->features->int16 = false;
-    config->features->atomicFloatAdd = false;
 
     config->features->formats[GPU_FORMAT_R8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
     config->features->formats[GPU_FORMAT_RG8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
