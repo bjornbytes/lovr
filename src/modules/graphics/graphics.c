@@ -5075,7 +5075,7 @@ bool lovrMeshBuildRaytracer(Mesh* mesh) {
       .prev = GPU_PHASE_TREE_BUILD,
       .next = GPU_PHASE_TREE_BUILD,
       .flush = GPU_CACHE_TREE_WRITE,
-      .clear = GPU_CACHE_TREE_WRITE
+      .clear = GPU_CACHE_TREE_READ | GPU_CACHE_TREE_WRITE
     };
   }
 
@@ -5970,7 +5970,7 @@ bool lovrModelBuildRaytracer(Model* model) {
       .prev = GPU_PHASE_TREE_BUILD,
       .next = GPU_PHASE_TREE_BUILD,
       .flush = GPU_CACHE_TREE_WRITE,
-      .clear = GPU_CACHE_TREE_WRITE
+      .clear = GPU_CACHE_TREE_READ | GPU_CACHE_TREE_WRITE
     };
   }
 
@@ -6139,14 +6139,14 @@ bool lovrRaytracerBuild(Raytracer* raytracer) {
   gpu_barrier barriers[2];
   uint32_t count = 0;
 
-  barriers[count++] = syncStream(&raytracer->sync, GPU_PHASE_TREE_BUILD, update ? (GPU_CACHE_TREE_READ | GPU_CACHE_TREE_WRITE) : GPU_CACHE_TREE_WRITE);
+  barriers[count++] = syncStream(&raytracer->sync, GPU_PHASE_TREE_BUILD, GPU_CACHE_TREE_READ | GPU_CACHE_TREE_WRITE);
 
   if (state.pendingTreeBuild) {
     barriers[count++] = (gpu_barrier) {
       .prev = GPU_PHASE_TREE_BUILD,
       .next = GPU_PHASE_TREE_BUILD,
       .flush = GPU_CACHE_TREE_WRITE,
-      .clear = update ? (GPU_CACHE_TREE_READ | GPU_CACHE_TREE_WRITE) : GPU_CACHE_TREE_WRITE
+      .clear = GPU_CACHE_TREE_READ | GPU_CACHE_TREE_WRITE
     };
     state.pendingTreeBuild = false;
   }
@@ -9590,13 +9590,13 @@ static bool syncResource(Access* access, gpu_barrier* barrier) {
   if (writeAfterRead) {
     barrier->prev |= sync->readPhase;
     barrier->next |= access->phase;
-    sync->readPhase = 0;
-    sync->pendingReads = 0;
   }
 
   if (write) {
     sync->writePhase = access->phase;
     sync->pendingWrite = write;
+    sync->readPhase = 0;
+    sync->pendingReads = 0;
   }
 
   return write;
