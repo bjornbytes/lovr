@@ -849,6 +849,10 @@ bool gpu_pipeline_init_compute(gpu_pipeline* pipeline, gpu_compute_pipeline_info
   char buffer[1024];
   WGpuPipelineConstant* constants = convertShaderFlags(info->flags, info->flagCount, buffer, sizeof(buffer));
 
+  if (info->flagCount > 0 && !constants) {
+    return setError("Too many shader flags");
+  }
+
   pipeline->handle = wgpu_device_create_compute_pipeline(state.device, shader, entry, layout, constants, (int) info->flagCount);
 
   free(constants);
@@ -897,11 +901,8 @@ void gpu_tally_destroy(gpu_tally* tally) {
 gpu_stream* gpu_stream_begin(const char* label) {
   if (state.streamCount >= COUNTOF(state.streams)) return NULL;
   gpu_stream* stream = &state.streams[state.streamCount++];
-
-  stream->commands = wgpu_device_create_command_encoder(state.device, NULL);
-
+  stream->commands = wgpu_device_create_command_encoder_simple(state.device);
   wgpu_object_set_label(stream->commands, label);
-
   return stream;
 }
 
