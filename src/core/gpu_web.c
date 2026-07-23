@@ -189,7 +189,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       ((info->usage & GPU_TEXTURE_COPY_SRC) ? WGPU_TEXTURE_USAGE_COPY_SRC : 0) |
       ((info->usage & GPU_TEXTURE_COPY_DST) ? WGPU_TEXTURE_USAGE_COPY_DST : 0) |
       ((info->usage == GPU_TEXTURE_RENDER) ? WGPU_TEXTURE_USAGE_TRANSIENT_ATTACHMENT : 0) |
-      (info->upload.levelCount > 0 ? WGPU_TEXTURE_USAGE_COPY_DST : 0),
+      ((info->usage & GPU_TEXTURE_UPLOAD) ? WGPU_TEXTURE_USAGE_COPY_DST : 0),
     .dimension = dimensions[info->type],
     .width = info->size[0],
     .height = info->size[1],
@@ -220,8 +220,6 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     return setError("Failed to create texture view");
   }
 
-  // TODO upload, mipgen
-
   return true;
 }
 
@@ -251,6 +249,30 @@ bool gpu_texture_init_view(gpu_texture* texture, gpu_texture_view_info* info) {
 void gpu_texture_destroy(gpu_texture* texture) {
   wgpu_object_destroy(texture->view);
   wgpu_object_destroy(texture->handle);
+}
+
+bool gpu_texture_upload(gpu_texture* texture, gpu_upload_info* info) {
+  uint32_t width = info->extent[0];
+  uint32_t height = info->extent[1];
+  uint32_t layers = info->extent[2];
+  uint32_t levels = info->extent[3];
+
+  for (uint32_t i = 0; i < levels; i++) {
+    for (uint32_t j = 0; j < layers; j++) {
+      WGpuTexelCopyTextureInfo destination = {
+        .texture = texture->handle,
+        .mipLevel = i,
+        .aspect = WGPU_TEXTURE_ASPECT_ALL
+      };
+
+      uint32_t bytesPerRow = getRowSize(texture->format, MAX(width >> i, 1));
+      uint32_t rowsPerImage = height;
+
+      wgpu_queue_write_texture(state.queue, &destination, info->layers[i * layers + j], bytesPerRow, rowsPerImage, width, height, layers);
+    }
+  }
+
+  return true;
 }
 
 // Surface
