@@ -619,6 +619,7 @@ static int l_lovrMeshShapeSetScale(lua_State* L) {
 const luaL_Reg lovrMeshShape[] = {
   lovrShape,
   { "getScale", l_lovrMeshShapeGetScale },
+  { "setScale", l_lovrMeshShapeSetScale },
   { NULL, NULL }
 };
 
