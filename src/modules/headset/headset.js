@@ -86,14 +86,6 @@ var headset = {
     return true;
   },
 
-  lovrHeadsetGetDeltaTime() {
-    return Module['_lovrTimerGetDelta']();
-  },
-
-  lovrHeadsetGetDisplayTime() {
-    return Module['_lovrTimerGetTime']();
-  },
-
   lovrHeadsetGetDisplayDimensions(width, height) {
     HEAPU32[width >> 2] = Module.canvas.width;
     HEAPU32[height >> 2] = Module.canvas.height;
@@ -409,6 +401,18 @@ var headset = {
   },
 
   lovrLayerGetPass(layer) {
+    return 0;
+  },
+
+  lovrHeadsetGetDisplayTime() {
+    return 0;
+  },
+
+  lovrHeadsetGetDisplayPeriod() {
+    return 0;
+  },
+
+  lovrHeadsetGetDeltaTime() {
     return 0;
   }
 };
