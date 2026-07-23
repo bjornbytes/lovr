@@ -23,6 +23,7 @@ typedef enum {
 
 typedef struct {
   float supersample;
+  bool dynamicResolution;
   bool debug;
   bool seated;
   bool mask;

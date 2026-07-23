@@ -47,6 +47,7 @@ local conf = {
     stencil = false,
     antialias = true,
     supersample = false,
+    dynamicresolution = true,
     submitdepth = true,
     overlay = false,
     controllerskeleton = 'controller',
@@ -225,7 +226,11 @@ function lovr.mirror(pass)
   if lovr.headset then
     local texture = lovr.headset.isActive() and lovr.headset.getTexture()
     if texture then
-      pass:fill(texture)
+      local w, h = pass:getDimensions()
+      local scale = texture:getWidth() / lovr.headset.getDisplayWidth()
+      pass:setProjection('orthographic')
+      pass:setMaterial(texture)
+      pass:plane(w / 2 * scale, h / 2 * scale, 0, w * scale, -h * scale)
     else
       return true
     end
