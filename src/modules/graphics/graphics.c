@@ -2062,7 +2062,9 @@ bool lovrGraphicsPresent(void) {
     bool success = gpu_surface_present();
     mtx_unlock(&state.lock);
     lovrAssert(success, "Failed to present: %s", gpu_get_error());
+#ifndef LOVR_WEBGPU // WebGPU handles presentation externally, doesn't make sense to re-acquire before RAF finishes
     lovrGraphicsGetWindowTexture(NULL); // Takes lock
+#endif
     mtx_lock(&state.lock);
   }
 
