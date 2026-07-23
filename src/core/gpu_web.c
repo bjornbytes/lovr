@@ -164,6 +164,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
 
 void gpu_buffer_destroy(gpu_buffer* buffer) {
   if (buffer->handle) wgpu_object_destroy(buffer->handle);
+  free(buffer->data);
 }
 
 gpu_address gpu_buffer_get_address(gpu_buffer* buffer, uint32_t offset) {
