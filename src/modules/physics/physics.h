@@ -247,12 +247,12 @@ bool lovrConvexShapeGetPoint(ConvexShape* shape, uint32_t index, float point[3])
 uint32_t lovrConvexShapeGetFaceCount(ConvexShape* shape);
 uint32_t lovrConvexShapeGetFace(ConvexShape* shape, uint32_t index, uint32_t* pointIndices, uint32_t capacity);
 void lovrConvexShapeGetScale(ConvexShape* shape, float* scale);
-void lovrConvexShapeSetScale(ConvexShape* shape, float* scale);
+bool lovrConvexShapeSetScale(ConvexShape* shape, float* scale);
 
 MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float vertices[], uint32_t indexCount, uint32_t indices[], float* scale);
 MeshShape* lovrMeshShapeClone(MeshShape* parent, float* scale);
 void lovrMeshShapeGetScale(MeshShape* shape, float* scale);
-void lovrMeshShapeSetScale(MeshShape* shape, float* scale);
+bool lovrMeshShapeSetScale(MeshShape* shape, float* scale);
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY);
 
