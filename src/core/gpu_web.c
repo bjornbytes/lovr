@@ -6,6 +6,7 @@
 
 struct gpu_buffer {
   WGpuBuffer handle;
+  gpu_buffer_type type;
   void* data;
 };
 
@@ -63,6 +64,18 @@ size_t gpu_sizeof_bundle(void) { return sizeof(gpu_bundle); }
 size_t gpu_sizeof_pipeline(void) { return sizeof(gpu_pipeline); }
 size_t gpu_sizeof_tally(void) { return sizeof(gpu_tally); }
 
+// Internals
+
+typedef struct gpu_readback {
+  struct gpu_readback* next;
+  WGpuBuffer buffer;
+  gpu_buffer* target;
+  uint32_t offset;
+  uint32_t rowSize;
+  uint32_t rowCount;
+  uint32_t rowStride;
+} gpu_readback;
+
 // State
 
 static thread_local struct {
@@ -79,6 +92,7 @@ static struct {
   uint32_t streamCount;
   uint32_t tick;
   uint32_t lastTickFinished;
+  gpu_readback* readbacks;
 } state;
 
 // Helpers
@@ -86,19 +100,31 @@ static struct {
 #define COUNTOF(x) (sizeof(x) / sizeof(x[0]))
 #define MIN(a, b) (a < b ? a : b)
 #define MAX(a, b) (a > b ? a : b)
+#define ALIGN(p, n) (((uintptr_t) (p) + (n - 1)) & ~(n - 1))
 
 static bool setError(const char* message);
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb);
 static WGPU_TEXTURE_VIEW_DIMENSION convertTextureType(gpu_texture_type type);
 static uint32_t getRowSize(gpu_texture_format format, uint32_t width);
 static WGpuPipelineConstant* convertShaderFlags(gpu_shader_flag* flags, uint32_t count, char* buffer, size_t capacity);
+static gpu_readback* createReadback(gpu_buffer* target, uint32_t offset, uint32_t rowSize, uint32_t rowCount, uint32_t rowStride);
 
 // Buffer
 
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
+  buffer->type = info->type;
+
   if (info->type != GPU_BUFFER_STATIC) {
     buffer->data = malloc(info->size);
     if (info->pointer) *info->pointer = buffer->data;
+  }
+
+  // Readback buffers are "shadow" buffers.  They don't have an actual handle, instead we detect
+  // copies to them, create a temporary buffer to copy to, and map it asynchronously.  Once mapped,
+  // the data gets copied to the buffer's CPU pointer and the temporary buffer is destroyed.
+  if (info->type == GPU_BUFFER_DOWNLOAD) {
+    buffer->handle = 0;
+    return true;
   }
 
   static const WGPU_BUFFER_USAGE_FLAGS usages[] = {
@@ -119,10 +145,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
       WGPU_BUFFER_USAGE_COPY_DST,
     [GPU_BUFFER_UPLOAD] =
       WGPU_BUFFER_USAGE_COPY_SRC |
-      WGPU_BUFFER_USAGE_COPY_DST,
-    [GPU_BUFFER_DOWNLOAD] =
-      WGPU_BUFFER_USAGE_COPY_DST |
-      WGPU_BUFFER_USAGE_STORAGE
+      WGPU_BUFFER_USAGE_COPY_DST
   };
 
   buffer->handle = wgpu_device_create_buffer(state.device, &(WGpuBufferDescriptor) {
@@ -140,7 +163,7 @@ bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
 }
 
 void gpu_buffer_destroy(gpu_buffer* buffer) {
-  wgpu_object_destroy(buffer->handle);
+  if (buffer->handle) wgpu_object_destroy(buffer->handle);
 }
 
 gpu_address gpu_buffer_get_address(gpu_buffer* buffer, uint32_t offset) {
@@ -148,7 +171,7 @@ gpu_address gpu_buffer_get_address(gpu_buffer* buffer, uint32_t offset) {
 }
 
 void gpu_buffer_flush(gpu_buffer* buffer, uint32_t offset, uint32_t extent) {
-  if (extent > 0) {
+  if (extent > 0 && buffer->type != GPU_BUFFER_DOWNLOAD) {
     wgpu_queue_write_buffer(state.queue, buffer->handle, offset, buffer->data, extent);
   }
 }
@@ -1026,7 +1049,12 @@ void gpu_compute_indirect(gpu_stream* stream, gpu_buffer* buffer, uint32_t offse
 }
 
 void gpu_copy_buffers(gpu_stream* stream, gpu_buffer* src, gpu_buffer* dst, uint32_t srcOffset, uint32_t dstOffset, uint32_t extent) {
-  wgpu_command_encoder_copy_buffer_to_buffer(stream->commands, src->handle, srcOffset, dst->handle, dstOffset, extent);
+  if (dst->type == GPU_BUFFER_DOWNLOAD) {
+    gpu_readback* readback = createReadback(dst, dstOffset, extent, 1, 0);
+    wgpu_command_encoder_copy_buffer_to_buffer(stream->commands, src->handle, srcOffset, readback->buffer, 0, extent);
+  } else {
+    wgpu_command_encoder_copy_buffer_to_buffer(stream->commands, src->handle, srcOffset, dst->handle, dstOffset, extent);
+  }
 }
 
 void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t extent[3]) {
@@ -1073,18 +1101,34 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
     .aspect = WGPU_TEXTURE_ASPECT_ALL
   };
 
+  uint32_t rowSize = getRowSize(src->format, extent[0]);
+  uint32_t rowCount = extent[1];
+  uint32_t rowStride = ALIGN(rowSize, 256);
+
   WGpuTexelCopyBufferInfo dstRegion = {
-    .offset = dstOffset,
-    .bytesPerRow = getRowSize(src->format, extent[0]),
-    .rowsPerImage = extent[1],
-    .buffer = dst->handle
+    .bytesPerRow = rowStride,
+    .rowsPerImage = rowCount
   };
+
+  if (dst->type == GPU_BUFFER_DOWNLOAD) {
+    gpu_readback* readback = createReadback(dst, dstOffset, rowSize, rowCount, rowStride);
+    dstRegion.buffer = readback->buffer;
+    dstRegion.offset = 0;
+  } else {
+    dstRegion.buffer = dst->handle;
+    dstRegion.offset = dstOffset;
+  }
 
   wgpu_command_encoder_copy_texture_to_buffer(stream->commands, &srcRegion, &dstRegion, extent[0], extent[1], extent[2]);
 }
 
 void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count) {
-  wgpu_command_encoder_resolve_query_set(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset);
+  if (dst->type == GPU_BUFFER_DOWNLOAD) {
+    gpu_readback* readback = createReadback(dst, dstOffset, count * 8, 1, 0);
+    wgpu_command_encoder_resolve_query_set(stream->commands, src->handle, srcIndex, count, readback->buffer, 0);
+  } else {
+    wgpu_command_encoder_resolve_query_set(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset);
+  }
 }
 
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t size, uint32_t value) {
@@ -1325,6 +1369,23 @@ bool gpu_get_memory_info(uint64_t* budget, uint64_t* usage) {
   return false;
 }
 
+static void onReadback(WGpuBuffer buffer, void* userdata, WGPU_MAP_MODE_FLAGS mode, double_int53_t offset, double_int53_t extent) {
+  gpu_readback* readback = userdata;
+
+  uint32_t srcCursor = 0;
+  uint32_t dstCursor = 0;
+  for (uint32_t i = 0; i < readback->rowCount; i++) {
+    void* dst = (char*) readback->target->data + readback->offset + dstCursor;
+    wgpu_buffer_read_mapped_range(readback->buffer, 0, srcCursor, dst, readback->rowSize);
+    srcCursor += readback->rowStride;
+    dstCursor += readback->rowSize;
+  }
+
+  wgpu_buffer_unmap(readback->buffer);
+  wgpu_object_destroy(readback->buffer);
+  free(readback);
+}
+
 static void onSubmittedWorkDone(WGpuQueue queue, void* userdata) {
   state.lastTickFinished = (uint32_t) (uintptr_t) userdata;
 }
@@ -1338,7 +1399,16 @@ bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
   }
 
   wgpu_queue_submit_multiple_and_destroy(state.queue, commandBuffers, count);
+
+  while (state.readbacks) {
+    gpu_readback* readback = state.readbacks;
+    wgpu_buffer_map_async(readback->buffer, onReadback, readback, WGPU_MAP_MODE_READ, 0, WGPU_MAX_SIZE);
+    gpu_readback* next = readback->next;
+    state.readbacks = next;
+  }
+
   wgpu_queue_set_on_submitted_work_done_callback(state.queue, onSubmittedWorkDone, (void*) (uintptr_t) tick);
+
   state.streamCount = 0;
   return true;
 }
@@ -1527,4 +1597,19 @@ static WGpuPipelineConstant* convertShaderFlags(gpu_shader_flag* flags, uint32_t
   }
 
   return constants;
+}
+
+static gpu_readback* createReadback(gpu_buffer* target, uint32_t offset, uint32_t rowSize, uint32_t rowCount, uint32_t rowStride) {
+  gpu_readback* readback = malloc(sizeof(gpu_readback));
+  uint32_t size = rowCount * MAX(rowStride, rowSize);
+  WGPU_BUFFER_USAGE_FLAGS usage = WGPU_BUFFER_USAGE_COPY_DST | WGPU_BUFFER_USAGE_MAP_READ;
+  readback->buffer = wgpu_device_create_buffer(state.device, &(WGpuBufferDescriptor) { .size = size, .usage = usage });
+  readback->offset = offset;
+  readback->target = target;
+  readback->rowSize = rowSize;
+  readback->rowCount = rowCount;
+  readback->rowStride = rowStride;
+  readback->next = state.readbacks;
+  state.readbacks = readback;
+  return readback;
 }
