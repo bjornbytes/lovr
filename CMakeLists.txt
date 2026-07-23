@@ -50,7 +50,7 @@ if(EMSCRIPTEN)
     "-sFORCE_FILESYSTEM=1 "
     "-sINITIAL_MEMORY=1677721600 "
     "-sMIN_FIREFOX_VERSION=149 "
-    "-sEXPORTED_FUNCTIONS=_main,_lovrTimerGetDelta,_lovrTimerGetTime,_lovrGraphicsGetWindowTexture,_lovrGraphicsGetWindowPass,_lovrPassSetViewMatrix,_lovrPassSetProjection "
+    "-sEXPORTED_FUNCTIONS=_main,_lovrGraphicsGetWindowTexture,_lovrGraphicsGetWindowPass,_lovrPassSetViewMatrix,_lovrPassSetProjection "
     "-sEXPORTED_RUNTIME_METHODS=getValue,setValue "
     "--js-library \"${PROJECT_SOURCE_DIR}/src/lib/webgpu/webgpu.js\" "
     "--js-library \"${PROJECT_SOURCE_DIR}/src/modules/headset/headset.js\" "
