@@ -2376,6 +2376,12 @@ void lovrConvexShapeGetScale(ConvexShape* shape, float* scale) {
   vec3_fromJolt(scale, &v);
 }
 
+void lovrConvexShapeSetScale(ConvexShape* convex, float* scale){
+  const JPH_Shape* hull = JPH_DecoratedShape_GetInnerShape((const JPH_DecoratedShape*) convex->handle);
+  JPH_Shape* scaledHull = (JPH_Shape*) JPH_ScaledShape_Create(hull, vec3_toJolt(scale));
+  lovrShapeReplace(convex, scaledHull);
+}
+
 MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t indexCount, uint32_t* indices, float* scale) {
   MeshShape* shape = lovrCalloc(sizeof(MeshShape));
   shape->ref = 1;
@@ -2424,6 +2430,12 @@ void lovrMeshShapeGetScale(MeshShape* shape, float* scale) {
   JPH_Vec3 v;
   JPH_ScaledShape_GetScale((JPH_ScaledShape*) shape->handle, &v);
   vec3_fromJolt(scale, &v);
+}
+
+void lovrMeshShapeSetScale(MeshShape* shape, float* scale){
+  const JPH_Shape* mesh = JPH_DecoratedShape_GetInnerShape((const JPH_DecoratedShape*) shape->handle);
+  JPH_Shape* scaledMesh = (JPH_Shape*) JPH_ScaledShape_Create(mesh, vec3_toJolt(scale));
+  lovrShapeReplace(shape, scaledMesh);
 }
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY) {

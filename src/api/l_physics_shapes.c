@@ -573,6 +573,17 @@ static int l_lovrConvexShapeGetScale(lua_State* L) {
   return 3;
 }
 
+static int l_lovrConvexShapeSetScale(lua_State* L){
+  ConvexShape* convex = luax_checktype(L,1,ConvexShape);
+
+  float scale[3];
+  luax_readscale(L,2,scale,3,NULL);
+
+  lovrConvexShapeSetScale(convex,scale);
+
+  return 0;
+}
+
 const luaL_Reg lovrConvexShape[] = {
   lovrShape,
   { "getPointCount", l_lovrConvexShapeGetPointCount },
@@ -580,6 +591,7 @@ const luaL_Reg lovrConvexShape[] = {
   { "getFaceCount", l_lovrConvexShapeGetFaceCount },
   { "getFace", l_lovrConvexShapeGetFace },
   { "getScale", l_lovrConvexShapeGetScale },
+  { "setScale", l_lovrConvexShapeSetScale },
   { NULL, NULL }
 };
 
@@ -591,6 +603,17 @@ static int l_lovrMeshShapeGetScale(lua_State* L) {
   lua_pushnumber(L, scale[1]);
   lua_pushnumber(L, scale[2]);
   return 3;
+}
+
+static int l_lovrMeshShapeSetScale(lua_State* L) {
+  MeshShape* mesh = luax_checktype(L, 1, MeshShape);
+
+  float scale[3];
+  luax_readscale(L,2,scale,3,NULL);
+
+  lovrMeshShapeSetScale(mesh,scale);
+
+  return 0;
 }
 
 const luaL_Reg lovrMeshShape[] = {
