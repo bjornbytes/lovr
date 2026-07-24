@@ -114,8 +114,11 @@ typedef struct {
   gpu_slot_type type;
   gpu_phase phase;
   gpu_cache cache;
-  uint8_t textureFlags;
   uint8_t storageAccess;
+  uint8_t storageFormat;
+  uint8_t textureType;
+  uint8_t textureFlags;
+  uint8_t sampleType;
   uint16_t fieldCount;
   DataField* format;
 } ShaderResource;
@@ -712,25 +715,25 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   map_init(&state.pipelineLookup, 64);
 
   gpu_slot builtinSlots[] = {
-    { 0, 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Globals
-    { 1, 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS }, // Cameras
-    { 2, 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS }, // DrawData
-    { 3, 1, GPU_SLOT_SAMPLER, GPU_STAGE_GRAPHICS } // Sampler
+    { .number = 0, .type = GPU_SLOT_UNIFORM_BUFFER, .stages = GPU_STAGE_GRAPHICS }, // Globals
+    { .number = 1, .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .stages = GPU_STAGE_GRAPHICS }, // Cameras
+    { .number = 2, .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .stages = GPU_STAGE_GRAPHICS }, // DrawData
+    { .number = 3, .type = GPU_SLOT_SAMPLER, .stages = GPU_STAGE_GRAPHICS } // Sampler
   };
 
   gpu_slot materialSlots[] = {
-    { 0, 1, GPU_SLOT_UNIFORM_BUFFER, GPU_STAGE_GRAPHICS }, // Data
-    { 1, 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Color
-    { 2, 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Glow
-    { 3, 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Occlusion
-    { 4, 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Metalness
-    { 5, 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Roughness
-    { 6, 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS }, // Clearcoat
-    { 7, 1, GPU_SLOT_SAMPLED_TEXTURE, GPU_STAGE_GRAPHICS } // Normal
+    { .number = 0, .type = GPU_SLOT_UNIFORM_BUFFER, .stages = GPU_STAGE_GRAPHICS }, // Data
+    { .number = 1, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Color
+    { .number = 2, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Glow
+    { .number = 3, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Occlusion
+    { .number = 4, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Metalness
+    { .number = 5, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Roughness
+    { .number = 6, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS }, // Clearcoat
+    { .number = 7, .type = GPU_SLOT_SAMPLED_TEXTURE, .stages = GPU_STAGE_GRAPHICS } // Normal
   };
 
   gpu_slot uniformSlots[] = {
-    { 0, 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, GPU_STAGE_GRAPHICS | GPU_STAGE_COMPUTE }
+    { .number = 0, .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .stages = GPU_STAGE_GRAPHICS | GPU_STAGE_COMPUTE }
   };
 
   state.builtinLayout = getLayout(builtinSlots, COUNTOF(builtinSlots));
@@ -3085,6 +3088,9 @@ Sampler* lovrGraphicsGetDefaultSampler(FilterMode mode) {
 Sampler* lovrSamplerCreate(const SamplerInfo* info) {
   lovrCheck(info->range[1] < 0.f || info->range[1] >= info->range[0], "Invalid Sampler mipmap range");
   lovrCheck(info->anisotropy <= state.limits.anisotropy, "Sampler anisotropy (%f) exceeds anisotropy limit (%f)", info->anisotropy, state.limits.anisotropy);
+#ifdef LOVR_WEBGPU
+  lovrCheck(!info->compare, "Shadow samplers are not currently supported on WebGPU");
+#endif
 
   Sampler* sampler = lovrCalloc(sizeof(Sampler) + gpu_sizeof_sampler());
   sampler->ref = 1;
@@ -3712,7 +3718,41 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       }
 
       if (texture) {
+        if (resource->dimension == SPV_TEXTURE_3D) {
+          shader->resources[index].textureType = TEXTURE_3D;
+        } else if (resource->textureFlags & SPV_TEXTURE_CUBE) {
+          shader->resources[index].textureType = TEXTURE_CUBE;
+        } else if (resource->textureFlags & SPV_TEXTURE_ARRAY) {
+          shader->resources[index].textureType = TEXTURE_ARRAY;
+        } else {
+          shader->resources[index].textureType = TEXTURE_2D;
+        }
+
         shader->resources[index].textureFlags = resource->textureFlags;
+        shader->resources[index].sampleType = resource->sampleType;
+
+        if (storage) {
+          switch (resource->storageFormat) {
+            case SPV_FORMAT_R8: shader->resources[index].storageFormat = FORMAT_R8; break;
+            case SPV_FORMAT_RG8: shader->resources[index].storageFormat = FORMAT_RG8; break;
+            case SPV_FORMAT_RGBA8: shader->resources[index].storageFormat = FORMAT_RGBA8; break;
+            case SPV_FORMAT_R16: shader->resources[index].storageFormat = FORMAT_R16; break;
+            case SPV_FORMAT_RG16: shader->resources[index].storageFormat = FORMAT_RG16; break;
+            case SPV_FORMAT_RGBA16: shader->resources[index].storageFormat = FORMAT_RGBA16; break;
+            case SPV_FORMAT_R16F: shader->resources[index].storageFormat = FORMAT_R16F; break;
+            case SPV_FORMAT_RG16F: shader->resources[index].storageFormat = FORMAT_RG16F; break;
+            case SPV_FORMAT_RGBA16F: shader->resources[index].storageFormat = FORMAT_RGBA16F; break;
+            case SPV_FORMAT_R32F: shader->resources[index].storageFormat = FORMAT_R32F; break;
+            case SPV_FORMAT_RG32F: shader->resources[index].storageFormat = FORMAT_RG32F; break;
+            case SPV_FORMAT_RGBA32F: shader->resources[index].storageFormat = FORMAT_RGBA32F; break;
+            case SPV_FORMAT_RGB10A2: shader->resources[index].storageFormat = FORMAT_RGB10A2; break;
+            case SPV_FORMAT_RG11B10F: shader->resources[index].storageFormat = FORMAT_RG11B10F; break;
+            case SPV_FORMAT_NONE:
+            default:
+              lovrSetError("Storage texture '%s' uses unsupported texture format (or is missing a format)", resource->name);
+              goto fail;
+          }
+        }
       }
 
       if (buffer && resource->bufferFields) {
@@ -3837,7 +3877,11 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
         ((resource->phase & GPU_PHASE_SHADER_VERTEX) ? GPU_STAGE_VERTEX : 0) |
         ((resource->phase & GPU_PHASE_SHADER_FRAGMENT) ? GPU_STAGE_FRAGMENT : 0) |
         ((resource->phase & GPU_PHASE_SHADER_COMPUTE) ? GPU_STAGE_COMPUTE : 0),
-      .access = (gpu_storage_access) resource->storageAccess
+      .storageAccess = (gpu_storage_access) resource->storageAccess,
+      .storageFormat = (gpu_texture_format) resource->storageFormat,
+      .textureType = (gpu_texture_type) resource->textureType,
+      .sampleType = resource->sampleType == SPV_F32 ? GPU_SAMPLE_FLOAT : resource->sampleType == SPV_I32 ? GPU_SAMPLE_INT : GPU_SAMPLE_UINT,
+      .multisampled = resource->textureFlags & SPV_TEXTURE_MULTISAMPLE
     };
   }
 
@@ -7445,7 +7489,7 @@ bool lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture** 
 
   lovrCheck(shader->textureMask & (1u << slot), "Trying to send a Texture to '%s', but the active Shader doesn't have a Texture in that slot", name);
   bool storage = shader->storageMask & (1u << slot);
-  bool uint = resource->textureFlags & SPV_TEXTURE_UNSIGNED;
+  bool uint = resource->sampleType == SPV_U32;
 
   for (uint32_t i = 0; i < count; i++) {
     if (resource->textureFlags & SPV_TEXTURE_MULTISAMPLE) {

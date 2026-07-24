@@ -66,6 +66,30 @@ typedef enum {
 } spv_resource_type;
 
 typedef enum {
+  SPV_ACCESS_READ_ONLY,
+  SPV_ACCESS_WRITE_ONLY,
+  SPV_ACCESS_READ_WRITE
+} spv_access;
+
+typedef enum {
+  SPV_FORMAT_NONE,
+  SPV_FORMAT_R8,
+  SPV_FORMAT_RG8,
+  SPV_FORMAT_RGBA8,
+  SPV_FORMAT_R16,
+  SPV_FORMAT_RG16,
+  SPV_FORMAT_RGBA16,
+  SPV_FORMAT_R16F,
+  SPV_FORMAT_RG16F,
+  SPV_FORMAT_RGBA16F,
+  SPV_FORMAT_R32F,
+  SPV_FORMAT_RG32F,
+  SPV_FORMAT_RGBA32F,
+  SPV_FORMAT_RGB10A2,
+  SPV_FORMAT_RG11B10F
+} spv_texture_format;
+
+typedef enum {
   SPV_TEXTURE_1D,
   SPV_TEXTURE_2D,
   SPV_TEXTURE_3D
@@ -75,16 +99,8 @@ enum {
   SPV_TEXTURE_CUBE = (1 << 0),
   SPV_TEXTURE_ARRAY = (1 << 1),
   SPV_TEXTURE_SHADOW = (1 << 2),
-  SPV_TEXTURE_MULTISAMPLE = (1 << 3),
-  SPV_TEXTURE_INTEGER = (1 << 4),
-  SPV_TEXTURE_UNSIGNED = (1 << 5)
+  SPV_TEXTURE_MULTISAMPLE = (1 << 3)
 };
-
-typedef enum {
-  SPV_ACCESS_READ_ONLY,
-  SPV_ACCESS_WRITE_ONLY,
-  SPV_ACCESS_READ_WRITE
-} spv_access;
 
 typedef struct {
   const uint32_t* set;
@@ -92,9 +108,11 @@ typedef struct {
   const char* name;
   uint32_t arraySize;
   spv_resource_type type;
-  spv_texture_dimension dimension;
-  uint16_t textureFlags;
   spv_access storageAccess;
+  spv_texture_format storageFormat;
+  spv_texture_dimension dimension;
+  uint8_t textureFlags;
+  spv_type sampleType;
   spv_field* bufferFields;
 } spv_resource;
 

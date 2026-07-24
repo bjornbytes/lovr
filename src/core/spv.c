@@ -530,8 +530,9 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
   }
 
   if (OP_CODE(texelType) == 21) { // OpTypeInt
-    resource->textureFlags |= SPV_TEXTURE_INTEGER;
-    resource->textureFlags |= (texelType[3] == 0 ? SPV_TEXTURE_UNSIGNED : 0);
+    resource->sampleType = texelType[3] ? SPV_I32 : SPV_U32;
+  } else {
+    resource->sampleType = SPV_F32;
   }
 
   switch (type[3]) {
@@ -564,6 +565,25 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
       resource->storageAccess = SPV_ACCESS_WRITE_ONLY;
     } else {
       resource->storageAccess = SPV_ACCESS_READ_WRITE;
+    }
+
+    switch (type[8]) {
+      case 0: resource->storageFormat = SPV_FORMAT_NONE; break;
+      case 1: resource->storageFormat = SPV_FORMAT_RGBA32F; break;
+      case 2: resource->storageFormat = SPV_FORMAT_RGBA16F; break;
+      case 3: resource->storageFormat = SPV_FORMAT_R32F; break;
+      case 4: resource->storageFormat = SPV_FORMAT_RGBA8; break;
+      case 6: resource->storageFormat = SPV_FORMAT_RG32F; break;
+      case 7: resource->storageFormat = SPV_FORMAT_RG16F; break;
+      case 8: resource->storageFormat = SPV_FORMAT_RG11B10F; break;
+      case 9: resource->storageFormat = SPV_FORMAT_R16F; break;
+      case 10: resource->storageFormat = SPV_FORMAT_RGBA16; break;
+      case 11: resource->storageFormat = SPV_FORMAT_RGB10A2; break;
+      case 12: resource->storageFormat = SPV_FORMAT_RG16; break;
+      case 13: resource->storageFormat = SPV_FORMAT_RG8; break;
+      case 14: resource->storageFormat = SPV_FORMAT_R16; break;
+      case 15: resource->storageFormat = SPV_FORMAT_R8; break;
+      default: resource->storageFormat = SPV_FORMAT_NONE; break;
     }
   }
 

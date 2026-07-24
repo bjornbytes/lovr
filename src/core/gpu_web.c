@@ -442,19 +442,17 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = WGPU_BUFFER_BINDING_TYPE_STORAGE
   };
 
-  /*
+  static const WGPU_STORAGE_TEXTURE_ACCESS storageAccesses[] = {
+    [GPU_READ_ONLY] = WGPU_STORAGE_TEXTURE_ACCESS_READ_ONLY,
+    [GPU_WRITE_ONLY] = WGPU_STORAGE_TEXTURE_ACCESS_WRITE_ONLY,
+    [GPU_READ_WRITE] = WGPU_STORAGE_TEXTURE_ACCESS_READ_WRITE
+  };
+
   static const WGPU_TEXTURE_SAMPLE_TYPE sampleTypes[] = {
     [GPU_SAMPLE_FLOAT] = WGPU_TEXTURE_SAMPLE_TYPE_FLOAT,
     [GPU_SAMPLE_INT] = WGPU_TEXTURE_SAMPLE_TYPE_SINT,
     [GPU_SAMPLE_UINT] = WGPU_TEXTURE_SAMPLE_TYPE_UINT
   };
-  */
-
-  static const WGPU_STORAGE_TEXTURE_ACCESS storageTextureAccesses[] = {
-    [GPU_READ_ONLY] = WGPU_STORAGE_TEXTURE_ACCESS_READ_ONLY,
-    [GPU_WRITE_ONLY] = WGPU_STORAGE_TEXTURE_ACCESS_WRITE_ONLY,
-    [GPU_READ_WRITE] = WGPU_STORAGE_TEXTURE_ACCESS_READ_WRITE
-   };
 
   gpu_slot* slot = info->slots;
   WGpuBindGroupLayoutEntry entries[32];
@@ -481,21 +479,18 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
       case GPU_SLOT_TEXTURE_WITH_SAMPLER:
         break;
 
-      // FIXME need more metadata
       case GPU_SLOT_SAMPLED_TEXTURE:
-        entries[i].layout.texture.sampleType = WGPU_TEXTURE_SAMPLE_TYPE_FLOAT;
-        entries[i].layout.texture.viewDimension = WGPU_TEXTURE_VIEW_DIMENSION_2D;
-        entries[i].layout.texture.multisampled = false;
+        entries[i].layout.texture.sampleType = sampleTypes[slot->sampleType];
+        entries[i].layout.texture.viewDimension = convertTextureType(slot->textureType);
+        entries[i].layout.texture.multisampled = slot->multisampled;
         break;
 
-      // FIXME need more metadata
       case GPU_SLOT_STORAGE_TEXTURE:
-        entries[i].layout.storageTexture.access = storageTextureAccesses[info->slots[i].access];
-        entries[i].layout.storageTexture.format = WGPU_TEXTURE_FORMAT_INVALID;
-        entries[i].layout.storageTexture.viewDimension = WGPU_TEXTURE_VIEW_DIMENSION_2D;
+        entries[i].layout.storageTexture.access = storageAccesses[info->slots[i].storageAccess];
+        entries[i].layout.storageTexture.format = convertFormat(slot->storageFormat, false);
+        entries[i].layout.storageTexture.viewDimension = convertTextureType(slot->textureType);
         break;
 
-      // FIXME need more metadata
       case GPU_SLOT_SAMPLER:
         entries[i].layout.sampler.type = WGPU_SAMPLER_BINDING_TYPE_FILTERING;
         break;
