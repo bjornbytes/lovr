@@ -303,8 +303,6 @@ void gpu_texture_destroy(gpu_texture* texture) {
 }
 
 bool gpu_texture_upload(gpu_texture* texture, gpu_upload_info* info) {
-  uint32_t width = info->extent[0];
-  uint32_t height = info->extent[1];
   uint32_t layers = info->extent[2];
   uint32_t levels = info->extent[3];
 
@@ -313,13 +311,17 @@ bool gpu_texture_upload(gpu_texture* texture, gpu_upload_info* info) {
       WGpuTexelCopyTextureInfo destination = {
         .texture = texture->handle,
         .mipLevel = i,
+        .origin = { 0, 0, j },
         .aspect = WGPU_TEXTURE_ASPECT_ALL
       };
 
-      uint32_t bytesPerRow = getRowSize(texture->format, MAX(width >> i, 1));
+      uint32_t width = MAX(info->extent[0] >> i, 1);
+      uint32_t height = MAX(info->extent[1] >> i, 1);
+
+      uint32_t bytesPerRow = getRowSize(texture->format, width);
       uint32_t rowsPerImage = height;
 
-      wgpu_queue_write_texture(state.queue, &destination, info->layers[i * layers + j], bytesPerRow, rowsPerImage, width, height, layers);
+      wgpu_queue_write_texture(state.queue, &destination, info->layers[i * layers + j], bytesPerRow, rowsPerImage, width, height, 1);
     }
   }
 
