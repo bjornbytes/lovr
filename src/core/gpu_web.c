@@ -132,7 +132,9 @@ static gpu_readback* createReadback(gpu_buffer* target, uint32_t offset, uint32_
 bool gpu_buffer_init(gpu_buffer* buffer, gpu_buffer_info* info) {
   buffer->type = info->type;
 
-  if (info->type != GPU_BUFFER_STATIC) {
+  if (info->type == GPU_BUFFER_STATIC) {
+    if (info->pointer) *info->pointer = NULL;
+  } else {
     buffer->data = malloc(info->size);
     if (info->pointer) *info->pointer = buffer->data;
   }
