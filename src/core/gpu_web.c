@@ -67,6 +67,13 @@ size_t gpu_sizeof_tally(void) { return sizeof(gpu_tally); }
 
 // Internals
 
+typedef struct gpu_writeback {
+  struct gpu_writeback* next;
+  gpu_buffer* buffer;
+  uint32_t offset;
+  uint32_t extent;
+} gpu_writeback;
+
 typedef struct gpu_readback {
   struct gpu_readback* next;
   WGpuBuffer buffer;
@@ -93,6 +100,7 @@ static struct {
   uint32_t streamCount;
   uint32_t tick;
   uint32_t lastTickFinished;
+  gpu_writeback* writebacks;
   gpu_readback* readbacks;
   struct {
     WGpuShaderModule shader;
@@ -183,7 +191,12 @@ gpu_address gpu_buffer_get_address(gpu_buffer* buffer, uint32_t offset) {
 
 void gpu_buffer_flush(gpu_buffer* buffer, uint32_t offset, uint32_t extent) {
   if (extent > 0 && buffer->type != GPU_BUFFER_DOWNLOAD) {
-    wgpu_queue_write_buffer(state.queue, buffer->handle, offset, buffer->data, extent);
+    gpu_writeback* writeback = malloc(sizeof(gpu_writeback));
+    writeback->buffer = buffer;
+    writeback->offset = offset;
+    writeback->extent = extent;
+    writeback->next = state.writebacks;
+    state.writebacks = writeback;
   }
 }
 
@@ -1667,13 +1680,20 @@ bool gpu_submit(gpu_stream** streams, uint32_t count, uint32_t tick) {
     commandBuffers[i] = wgpu_command_encoder_finish(streams[i]->commands);
   }
 
+  while (state.writebacks) {
+    gpu_writeback* writeback = state.writebacks;
+    wgpu_queue_write_buffer(state.queue, writeback->buffer->handle, writeback->offset, (char*) writeback->buffer->data + writeback->offset, writeback->extent);
+    gpu_writeback* next = writeback->next;
+    free(writeback);
+    state.writebacks = next;
+  }
+
   wgpu_queue_submit_multiple_and_destroy(state.queue, commandBuffers, count);
 
   while (state.readbacks) {
     gpu_readback* readback = state.readbacks;
     wgpu_buffer_map_async(readback->buffer, onReadback, readback, WGPU_MAP_MODE_READ, 0, WGPU_MAX_SIZE);
-    gpu_readback* next = readback->next;
-    state.readbacks = next;
+    state.readbacks = readback->next;
   }
 
   wgpu_queue_set_on_submitted_work_done_callback(state.queue, onSubmittedWorkDone, (void*) (uintptr_t) tick);
