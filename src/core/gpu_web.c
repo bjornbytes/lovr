@@ -564,7 +564,7 @@ bool gpu_shader_init(gpu_shader* shader, gpu_shader_info* info) {
     layouts[layoutCount++] = info->layouts[i]->handle;
   }
 
-  shader->pipelineLayout = wgpu_device_create_pipeline_layout(state.device, layouts, layoutCount);
+  shader->pipelineLayout = wgpu_device_create_pipeline_layout(state.device, layouts, layoutCount, info->pushConstantSize);
 
   if (!shader->pipelineLayout) {
     return setError("Failed to create pipeline layout");
@@ -1024,7 +1024,7 @@ void gpu_set_scissor(gpu_stream* stream, uint32_t scissor[4]) {
 }
 
 void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint32_t size) {
-  wgpu_encoder_set_immediate_data(stream->pass, 0, data, size);
+  wgpu_encoder_set_immediates(stream->pass, 0, data, size);
 }
 
 void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_type type) {
@@ -1282,7 +1282,7 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
     };
 
     state.blit.bindGroupLayout[type] = wgpu_device_create_bind_group_layout(state.device, entries, COUNTOF(entries));
-    state.blit.pipelineLayout[type] = wgpu_device_create_pipeline_layout(state.device, &state.blit.bindGroupLayout[type], 1);
+    state.blit.pipelineLayout[type] = wgpu_device_create_pipeline_layout(state.device, &state.blit.bindGroupLayout[type], 1, 0);
   }
 
   if (!state.blit.sampler[filter]) {
@@ -1402,7 +1402,7 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
 
     wgpu_render_pass_encoder_set_pipeline(pass, state.blit.pipeline[type][dst->format][dst->srgb]);
     wgpu_render_pass_encoder_set_bind_group(pass, 0, bindGroup, NULL, 0);
-    wgpu_encoder_set_immediate_data(pass, 0, uniforms, sizeof(uniforms));
+    wgpu_encoder_set_immediates(pass, 0, uniforms, sizeof(uniforms));
     wgpu_render_pass_encoder_set_viewport(pass, dstOffset[0], dstOffset[1], dstExtent[0], dstExtent[1], 0.f, 1.f);
     wgpu_render_pass_encoder_set_scissor_rect(pass, (uint32_t) dstOffset[0], (uint32_t) dstOffset[1], (uint32_t) dstExtent[0], (uint32_t) dstExtent[1]);
     wgpu_render_pass_encoder_draw(pass, 3, 1, 0, 0);
@@ -1618,7 +1618,7 @@ bool gpu_init(gpu_config* config) {
     config->limits->workgroupSize[2] = supported.maxComputeWorkgroupSizeZ;
     config->limits->totalWorkgroupSize = supported.maxComputeInvocationsPerWorkgroup;
     config->limits->computeSharedMemory = supported.maxComputeWorkgroupStorageSize;
-    config->limits->pushConstantSize = 0;
+    config->limits->pushConstantSize = supported.maxImmediateSize;
     config->limits->indirectDrawCount = 1;
     config->limits->instances = ~0u;
     config->limits->timestampPeriod = 1.f;

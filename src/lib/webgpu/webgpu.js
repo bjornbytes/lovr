@@ -4,7 +4,11 @@
 #endif
 
 #if MIN_FIREFOX_VERSION < 149
-#warning "Firefox browser before version 149 has issues with WebGPU (e.g. https://bugzilla.mozilla.org/show_bug.cgi?id=2023423 )"
+#warning "Firefox browser before version 149 has issues with WebGPU (e.g. https://bugzil.la/2023423 )"
+#endif
+
+#if MIN_FIREFOX_VERSION < 152
+#warning "Firefox browser before version 152 has issues with WebGPU .mapAsync() function: https://bugzil.la/2023418"
 #endif
 
 {{{
@@ -385,7 +389,7 @@ let api = {
   },
 
   $GPUTextureAndVertexFormats: [, 'r8unorm', 'r8snorm', 'r8uint', 'r8sint', 'r16unorm', 'r16snorm', 'r16uint', 'r16sint', 'r16float', 'rg8unorm', 'rg8snorm', 'rg8uint', 'rg8sint', 'r32uint', 'r32sint', 'r32float', 'rg16unorm', 'rg16snorm', 'rg16uint', 'rg16sint', 'rg16float', 'rgba8unorm', 'rgba8unorm-srgb', 'rgba8snorm', 'rgba8uint', 'rgba8sint', 'bgra8unorm', 'bgra8unorm-srgb', 'rgb9e5ufloat', 'rgb10a2uint', 'rgb10a2unorm', 'rg11b10ufloat', 'rg32uint', 'rg32sint', 'rg32float', 'rgba16unorm', 'rgba16snorm', 'rgba16uint', 'rgba16sint', 'rgba16float', 'rgba32uint', 'rgba32sint', 'rgba32float', 'stencil8', 'depth16unorm', 'depth24plus', 'depth24plus-stencil8', 'depth32float', 'depth32float-stencil8', 'bc1-rgba-unorm', 'bc1-rgba-unorm-srgb', 'bc2-rgba-unorm', 'bc2-rgba-unorm-srgb', 'bc3-rgba-unorm', 'bc3-rgba-unorm-srgb', 'bc4-r-unorm', 'bc4-r-snorm', 'bc5-rg-unorm', 'bc5-rg-snorm', 'bc6h-rgb-ufloat', 'bc6h-rgb-float', 'bc7-rgba-unorm', 'bc7-rgba-unorm-srgb', 'etc2-rgb8unorm', 'etc2-rgb8unorm-srgb', 'etc2-rgb8a1unorm', 'etc2-rgb8a1unorm-srgb', 'etc2-rgba8unorm', 'etc2-rgba8unorm-srgb', 'eac-r11unorm', 'eac-r11snorm', 'eac-rg11unorm', 'eac-rg11snorm', 'astc-4x4-unorm', 'astc-4x4-unorm-srgb', 'astc-5x4-unorm', 'astc-5x4-unorm-srgb', 'astc-5x5-unorm', 'astc-5x5-unorm-srgb', 'astc-6x5-unorm', 'astc-6x5-unorm-srgb', 'astc-6x6-unorm', 'astc-6x6-unorm-srgb', 'astc-8x5-unorm', 'astc-8x5-unorm-srgb', 'astc-8x6-unorm', 'astc-8x6-unorm-srgb', 'astc-8x8-unorm', 'astc-8x8-unorm-srgb', 'astc-10x5-unorm', 'astc-10x5-unorm-srgb', 'astc-10x6-unorm', 'astc-10x6-unorm-srgb', 'astc-10x8-unorm', 'astc-10x8-unorm-srgb', 'astc-10x10-unorm', 'astc-10x10-unorm-srgb', 'astc-12x10-unorm', 'astc-12x10-unorm-srgb', 'astc-12x12-unorm', 'astc-12x12-unorm-srgb', 'uint8', 'uint8x2', 'uint8x4', 'sint8', 'sint8x2', 'sint8x4', 'unorm8', 'unorm8x2', 'unorm8x4', 'snorm8', 'snorm8x2', 'snorm8x4', 'uint16', 'uint16x2', 'uint16x4', 'sint16', 'sint16x2', 'sint16x4', 'unorm16', 'unorm16x2', 'unorm16x4', 'snorm16', 'snorm16x2', 'snorm16x4', 'float16', 'float16x2', 'float16x4', 'float32', 'float32x2', 'float32x3', 'float32x4', 'uint32', 'uint32x2', 'uint32x3', 'uint32x4', 'sint32', 'sint32x2', 'sint32x3', 'sint32x4', 'unorm10-10-10-2', 'unorm8x4-bgra' ],
-  wgpu32BitLimitNames: ['maxTextureDimension1D', 'maxTextureDimension2D', 'maxTextureDimension3D', 'maxTextureArrayLayers', 'maxBindGroups', 'maxBindGroupsPlusVertexBuffers', 'maxBindingsPerBindGroup', 'maxDynamicUniformBuffersPerPipelineLayout', 'maxDynamicStorageBuffersPerPipelineLayout', 'maxSampledTexturesPerShaderStage', 'maxSamplersPerShaderStage', 'maxStorageBuffersPerShaderStage', 'maxStorageBuffersInVertexStage', 'maxStorageBuffersInFragmentStage', 'maxStorageTexturesPerShaderStage', 'maxStorageTexturesInVertexStage', 'maxStorageTexturesInFragmentStage', 'maxUniformBuffersPerShaderStage', 'minUniformBufferOffsetAlignment', 'minStorageBufferOffsetAlignment', 'maxVertexBuffers', 'maxVertexAttributes', 'maxVertexBufferArrayStride', 'maxInterStageShaderVariables', 'maxColorAttachments', 'maxColorAttachmentBytesPerSample', 'maxComputeWorkgroupStorageSize', 'maxComputeInvocationsPerWorkgroup', 'maxComputeWorkgroupSizeX', 'maxComputeWorkgroupSizeY', 'maxComputeWorkgroupSizeZ', 'maxComputeWorkgroupsPerDimension' ],
+  wgpu32BitLimitNames: ['maxTextureDimension1D', 'maxTextureDimension2D', 'maxTextureDimension3D', 'maxTextureArrayLayers', 'maxBindGroups', 'maxBindGroupsPlusVertexBuffers', 'maxImmediateSize', 'maxBindingsPerBindGroup', 'maxDynamicUniformBuffersPerPipelineLayout', 'maxDynamicStorageBuffersPerPipelineLayout', 'maxSampledTexturesPerShaderStage', 'maxSamplersPerShaderStage', 'maxStorageBuffersPerShaderStage', 'maxStorageBuffersInVertexStage', 'maxStorageBuffersInFragmentStage', 'maxStorageTexturesPerShaderStage', 'maxStorageTexturesInVertexStage', 'maxStorageTexturesInFragmentStage', 'maxUniformBuffersPerShaderStage', 'minUniformBufferOffsetAlignment', 'minStorageBufferOffsetAlignment', 'maxVertexBuffers', 'maxVertexAttributes', 'maxVertexBufferArrayStride', 'maxInterStageShaderVariables', 'maxColorAttachments', 'maxColorAttachmentBytesPerSample', 'maxComputeWorkgroupStorageSize', 'maxComputeInvocationsPerWorkgroup', 'maxComputeWorkgroupSizeX', 'maxComputeWorkgroupSizeY', 'maxComputeWorkgroupSizeZ', 'maxComputeWorkgroupsPerDimension' ],
   wgpu64BitLimitNames: ['maxUniformBufferBindingSize', 'maxStorageBufferBindingSize', 'maxBufferSize' ],
   wgpuFeatures: ['core-features-and-limits', 'depth-clip-control', 'depth32float-stencil8', 'texture-compression-bc', 'texture-compression-bc-sliced-3d', 'texture-compression-etc2', 'texture-compression-astc', 'texture-compression-astc-sliced-3d', 'timestamp-query', 'indirect-first-instance', 'shader-f16', 'rg11b10ufloat-renderable', 'bgra8unorm-storage', 'float32-filterable', 'float32-blendable', 'clip-distances', 'dual-source-blending', 'subgroups', 'texture-formats-tier1', 'texture-formats-tier2', 'primitive-index', 'texture-component-swizzle' ],
   $GPUBlendFactors: [, 'zero', 'one', 'src', 'one-minus-src', 'src-alpha', 'one-minus-src-alpha', 'dst', 'one-minus-dst', 'dst-alpha', 'one-minus-dst-alpha', 'src-alpha-saturated', 'constant', 'one-minus-constant', 'src1', 'one-minus-src1', 'src1-alpha', 'one-minus-src1-alpha' ],
@@ -786,7 +790,7 @@ let api = {
   navigator_gpu_get_wgsl_language_features: function() {
     var f = navigator['gpu']['wgslLanguageFeatures'];
     var i = {{{ toWasm64('0') }}};
-    var wgpuSupportedWgslLanguageFeatures = stackAlloc((f.size+1) * 8); // 8 == sizeof(char*) in Wasm64 mode
+    var wgpuSupportedWgslLanguageFeatures = stackAlloc((f.size+1) * 8); // 8 == sizeof(char*) in Wasm64 mode. (In 32-bit mode, this slightly overallocates, but keeping code simple)
     for(var feat of f.keys()) {
 #if MEMORY64
       HEAPU64[BigInt(wgpuSupportedWgslLanguageFeatures) + i >> 3n] = BigInt(stringToUTF8OnStack(feat));
@@ -867,7 +871,7 @@ let api = {
 
     // Assertion in lib_webgpu.h below struct WGpuSupportedLimits must match:
     {{{ wassert('_wgpu64BitLimitNames.length == 3, `Internal error: Number of uint64_t limit fields is not correct.`'); }}}
-    {{{ wassert('_wgpu32BitLimitNames.length == 32, `Internal error: Number of uint32_t limit fields is not correct.`'); }}}
+    {{{ wassert('_wgpu32BitLimitNames.length == 33, `Internal error: Number of uint32_t limit fields is not correct.`'); }}}
 
     // Marshal all the complex 64-bit quantities first ..
     for(let limitName of _wgpu64BitLimitNames) {
@@ -884,6 +888,7 @@ let api = {
 
   $wgpuReadQueueDescriptor: function(heap32Idx) {
 #if MEMORY64
+    {{{ wassert('heap32Idx % 2 == 0'); }}} // Must be aligned at 64-bit boundary
     let v = HEAPU64[heap32Idx >>> 1]; return v ? { 'label': utf8(v) } : void 0;
 #else
     let v = HEAPU32[heap32Idx]; return v ? { 'label': utf8(v) } : void 0;
@@ -908,8 +913,8 @@ let api = {
 
     return {
       'requiredLimits': wgpuReadSupportedLimits(descriptor),
-      'defaultQueue': wgpuReadQueueDescriptor(descriptor+38/*sizeof(WGpuSupportedLimits)*/), // TODO: Check code size here, redundant for release builds?
-      'requiredFeatures': wgpuReadFeaturesBitfield(descriptor+40/*sizeof(WGpuSupportedLimits)+sizeof(WGpuQueueDescriptor)*/)
+      'defaultQueue': wgpuReadQueueDescriptor(descriptor+40/*sizeof(WGpuSupportedLimits)*/), // TODO: Check code size here, redundant for release builds?
+      'requiredFeatures': wgpuReadFeaturesBitfield(descriptor+42/*sizeof(WGpuSupportedLimits)+sizeof(WGpuQueueDescriptor)*/)
     };
   },
 
@@ -1318,7 +1323,7 @@ let api = {
         depthStencilFormat = HEAPU32[depthStencilIdx],
         multisampleCount = HEAPU32[multisampleIdx],
         fragmentModule = HEAPU32[fragmentIdx+6],
-        pipelineLayoutId = HEAPU32[fragmentIdx+10], // sizeof(WGpuPipelineLayout)
+        pipelineLayoutId = HEAPU32[fragmentIdx+10], // sizeof(WGpuFragmentState)
         desc;
 
     {{{ wassert('pipelineLayoutId <= 1/*"auto"*/ || wgpu[pipelineLayoutId]'); }}}
@@ -1551,6 +1556,7 @@ let api = {
     {{{ wassert('Number.isSafeInteger(size)'); }}}
     {{{ wassert('size >= -1'); }}}
 
+    // N.b. mapAsync() is broken in Firefox <= 151. https://bugzil.la/1994733
     wgpu[buffer]['mapAsync'](mode, offset, size < 0 ? void 0 : size).then(() => {{{ makeDynCall('vipidd', 'callback') }}}(buffer, userData, mode, offset, size));
   },
 
@@ -1572,6 +1578,7 @@ let api = {
       buffer = wgpu[buffer];
       ++__wgpuNumAsyncifiedOperationsPending;
 
+      // N.b. mapAsync() is broken in Firefox <= 151. https://bugzil.la/1994733
       return buffer['mapAsync'](mode, offset, size < 0 ? void 0 : size)
         .then(() => --__wgpuNumAsyncifiedOperationsPending);
     });
@@ -1734,7 +1741,7 @@ let api = {
   },
 
   wgpu_device_create_pipeline_layout__deps: ['$wgpuStoreAndSetParent', '$wgpuReadArrayOfItemsMaybeNull'],
-  wgpu_device_create_pipeline_layout: function(device, layouts, numLayouts) {
+  wgpu_device_create_pipeline_layout: function(device, layouts, numLayouts, immediateSize) {
     {{{ wdebuglog('`wgpu_device_create_pipeline_layout(device=${device}, layouts=${layouts}, numLayouts=${numLayouts})`'); }}}
     {{{ wassert('device != 0'); }}}
     {{{ wassert('wgpu[device]'); }}}
@@ -1742,7 +1749,8 @@ let api = {
     device = wgpu[device];
 
     let desc = {
-      'bindGroupLayouts': wgpuReadArrayOfItemsMaybeNull(wgpu, layouts, numLayouts)
+      'bindGroupLayouts': wgpuReadArrayOfItemsMaybeNull(wgpu, layouts, numLayouts),
+      'immediateSize': immediateSize
     };
     {{{ wdebugdir('desc', '`GPUDevice.createPipelineLayout() with descriptor:`') }}};
     return wgpuStoreAndSetParent(device['createPipelineLayout'](desc), device);
@@ -1980,6 +1988,7 @@ let api = {
     return wgpu[texture]['usage'];
   },
 
+  wgpu_texture_binding_view_dimension__deps: ['$GPUTextureViewDimensions'],
   wgpu_texture_binding_view_dimension: function(texture) {
     {{{ wdebuglog('`wgpu_texture_binding_view_dimension(texture=${texture})`'); }}}
     {{{ wassert('texture != 0'); }}}
@@ -2169,7 +2178,7 @@ let api = {
     wgpu[commandEncoder]['copyTextureToTexture'](wgpuReadGpuTexelCopyTextureInfo(source), wgpuReadGpuTexelCopyTextureInfo(destination), [copyWidth, copyHeight, copyDepthOrArrayLayers]);
   },
 
-  wgpu_command_encoder_clear_buffer: function(commandEncoder, buffer, offset, size) {
+  wgpu_command_encoder_clear_buffer: function(commandEncoder, buffer, offset, size) { 
     {{{ wdebuglog('`wgpu_command_encoder_clear_buffer(commandEncoder=${commandEncoder}, buffer=${buffer}, offset=${offset}, size=${size})`'); }}}
     {{{ wassert('commandEncoder != 0'); }}}
     {{{ wassert('wgpu[commandEncoder]'); }}}
@@ -2242,6 +2251,9 @@ let api = {
     {{{ wassert('offset >= 0'); }}}
     {{{ wassert('Number.isSafeInteger(size)'); }}}
     {{{ wassert('size >= -1'); }}}
+    {{{ wassert('buffer == 0 || offset <= wgpu[buffer]["size"]'); }}}
+    {{{ wassert('buffer == 0 || size <= wgpu[buffer]["size"]'); }}}
+    {{{ wassert('buffer == 0 || offset+size <= wgpu[buffer]["size"]'); }}} // Slightly redundant asserts, but check in steps to improve assert failure msg.
 
     wgpu[passEncoder]['setIndexBuffer'](wgpu[buffer], GPUIndexFormats[indexFormat], offset, size < 0 ? void 0 : size);
   },
@@ -2260,6 +2272,9 @@ let api = {
     {{{ wassert('offset >= 0'); }}}
     {{{ wassert('Number.isSafeInteger(size)'); }}}
     {{{ wassert('size >= -1'); }}}
+    {{{ wassert('buffer == 0 || offset <= wgpu[buffer]["size"]'); }}}
+    {{{ wassert('buffer == 0 || size <= wgpu[buffer]["size"]'); }}}
+    {{{ wassert('buffer == 0 || offset+size <= wgpu[buffer]["size"]'); }}} // Slightly redundant asserts, but check in steps to improve assert failure msg.
 
     wgpu[passEncoder]['setVertexBuffer'](slot, wgpu[buffer], offset, size < 0 ? void 0 : size);
   },
@@ -2352,6 +2367,16 @@ let api = {
     return wgpuStore(cmdBuffer);
   },
 
+  _wgpu_browser_is_firefox_check: 'navigator.userAgent.includes("Firefox")',
+
+  _wgpu_browser_is_firefox__deps: ['_wgpu_browser_is_firefox_check'],
+  _wgpu_browser_is_firefox: function() {
+    return __wgpu_browser_is_firefox_check;
+  },
+
+#if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED && (MEMORY64 || CAN_ADDRESS_2GB)
+  wgpu_encoder_set_bind_group__deps: ['_wgpu_browser_is_firefox'],
+#endif
   wgpu_encoder_set_bind_group: function(encoder, index, /*nullable*/ bindGroup, dynamicOffsets, numDynamicOffsets) {
     {{{ wdebuglog('`wgpu_encoder_set_bind_group(encoder=${encoder}, index=${index}, bindGroup=${bindGroup}, dynamicOffsets=${dynamicOffsets}, numDynamicOffsets=${numDynamicOffsets})`'); }}}
     {{{ wassert('encoder != 0'); }}}
@@ -2362,13 +2387,26 @@ let api = {
     {{{ wassert('bindGroup == 0 || wgpu[bindGroup] instanceof GPUBindGroup'); }}}
     {{{ wassert('dynamicOffsets != 0 || numDynamicOffsets == 0'); }}}
 #if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED && (MEMORY64 || CAN_ADDRESS_2GB)
-    // No Wasm4GB/Wasm64 support in Firefox: https://bugzilla.mozilla.org/show_bug.cgi?id=2022805
-    // Make a deep copy of the buffer that is small enough for Firefox to handle.
-    var firefoxWorkaroundBuffer = new Uint32Array(new Uint32Array(HEAPU32.buffer, {{{ shiftPtr('dynamicOffsets', 0) }}}, numDynamicOffsets));
-    wgpu[encoder]['setBindGroup'](index, wgpu[bindGroup], firefoxWorkaroundBuffer);
-#else
-    wgpu[encoder]['setBindGroup'](index, wgpu[bindGroup], HEAPU32, {{{ shiftPtr('dynamicOffsets', 2) }}}, numDynamicOffsets);
+    if (__wgpu_browser_is_firefox()) {
+      // No Wasm4GB/Wasm64 support in Firefox: https://bugzil.la/2022805
+      // Make a deep copy of the buffer that is small enough for Firefox to handle.
+      var firefoxWorkaroundBuffer = new Uint32Array(new Uint32Array(HEAPU32.buffer, {{{ shiftPtr('dynamicOffsets', 0) }}}, numDynamicOffsets));
+      wgpu[encoder]['setBindGroup'](index, wgpu[bindGroup], firefoxWorkaroundBuffer);
+      return;
+    }
 #endif
+    wgpu[encoder]['setBindGroup'](index, wgpu[bindGroup], HEAPU32, {{{ shiftPtr('dynamicOffsets', 2) }}}, numDynamicOffsets);
+  },
+
+  wgpu_encoder_set_immediates: function(encoder, offset, ptr, size) {
+    {{{ wdebuglog('`wgpu_encoder_set_immediates(encoder=${encoder}, offset=${offset}, ptr=${ptr}, size=${size}`'); }}}
+    {{{ wassert('encoder != 0'); }}}
+    {{{ wassert('wgpu[encoder]'); }}}
+    {{{ wassert('wgpu[encoder] instanceof GPUComputePassEncoder || wgpu[encoder] instanceof GPURenderPassEncoder || wgpu[encoder] instanceof GPURenderBundleEncoder'); }}}
+    {{{ wassert('offset >= 0'); }}}
+    {{{ wassert('ptr > 0'); }}}
+    {{{ wassert('size >= 0'); }}}
+    wgpu[encoder]['setImmediates'](offset, HEAPU8, {{{ shiftPtr('ptr', 0) }}}, size);
   },
 
   wgpu_compute_pass_encoder_dispatch_workgroups: function(encoder, workgroupCountX, workgroupCountY, workgroupCountZ) {
@@ -2417,7 +2455,7 @@ let api = {
   },
 
   wgpu_render_pass_encoder_set_stencil_reference: function(encoder, stencilValue) {
-    {{{ wdebuglog('`wgpu_render_pass_encoder_set_stencil_reference(stencilValue=${stencilValue})`'); }}}
+    {{{ wdebuglog('`wgpu_render_pass_encoder_set_stencil_reference(encoder=${encoder}, stencilValue=${stencilValue})`'); }}}
     {{{ wassert('encoder != 0'); }}}
     {{{ wassert('wgpu[encoder]'); }}}
     {{{ wassert('wgpu[encoder] instanceof GPURenderPassEncoder'); }}}
@@ -2425,7 +2463,7 @@ let api = {
   },
 
   wgpu_render_pass_encoder_begin_occlusion_query: function(encoder, queryIndex) {
-    {{{ wdebuglog('`wgpu_render_pass_encoder_begin_occlusion_query(queryIndex=${queryIndex})`'); }}}
+    {{{ wdebuglog('`wgpu_render_pass_encoder_begin_occlusion_query(encoder=${encoder}, queryIndex=${queryIndex})`'); }}}
     {{{ wassert('encoder != 0'); }}}
     {{{ wassert('wgpu[encoder]'); }}}
     {{{ wassert('wgpu[encoder] instanceof GPURenderPassEncoder'); }}}
@@ -2433,7 +2471,7 @@ let api = {
   },
 
   wgpu_render_pass_encoder_end_occlusion_query: function(encoder) {
-    {{{ wdebuglog('`wgpu_render_pass_encoder_end_occlusion_query()`'); }}}
+    {{{ wdebuglog('`wgpu_render_pass_encoder_end_occlusion_query(encoder=${encoder})`'); }}}
     {{{ wassert('encoder != 0'); }}}
     {{{ wassert('wgpu[encoder]'); }}}
     {{{ wassert('wgpu[encoder] instanceof GPURenderPassEncoder'); }}}
@@ -2482,6 +2520,9 @@ let api = {
     wgpu[queue]['onSubmittedWorkDone']().then(() => {{{ makeDynCall('vip', 'callback') }}}(queue, userData));
   },
 
+#if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED && (MEMORY64 || CAN_ADDRESS_2GB)
+  wgpu_queue_write_buffer__deps: ['_wgpu_browser_is_firefox'],
+#endif
   wgpu_queue_write_buffer: function(queue, buffer, bufferOffset, data, size) {
     {{{ wdebuglog('`wgpu_queue_write_buffer(queue=${queue}, buffer=${buffer}, bufferOffset=${bufferOffset}, data=${Number(data)>>>0}, size=${size})`'); }}}
     {{{ wassert('queue != 0'); }}}
@@ -2491,15 +2532,21 @@ let api = {
     {{{ wassert('wgpu[buffer]'); }}}
     {{{ wassert('wgpu[buffer] instanceof GPUBuffer'); }}}
 #if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED && (MEMORY64 || CAN_ADDRESS_2GB)
-    // No Wasm4GB/Wasm64 support in Firefox: https://bugzilla.mozilla.org/show_bug.cgi?id=2022805
-    var firefoxWorkaroundBuffer = new Uint8Array(new Uint8Array(HEAPU8.buffer, {{{ shiftPtr('data', 0) }}}, size));
-    wgpu[queue]['writeBuffer'](wgpu[buffer], bufferOffset, firefoxWorkaroundBuffer);
-#else
-    wgpu[queue]['writeBuffer'](wgpu[buffer], bufferOffset, HEAPU8, {{{ shiftPtr('data', 0) }}}, size);
+    if (__wgpu_browser_is_firefox()) {
+      // No Wasm4GB/Wasm64 support in Firefox: https://bugzil.la/2022805
+      var firefoxWorkaroundBuffer = new Uint8Array(new Uint8Array(HEAPU8.buffer, {{{ shiftPtr('data', 0) }}}, size));
+      wgpu[queue]['writeBuffer'](wgpu[buffer], bufferOffset, firefoxWorkaroundBuffer);
+      return;
+    }
 #endif
+    wgpu[queue]['writeBuffer'](wgpu[buffer], bufferOffset, HEAPU8, {{{ shiftPtr('data', 0) }}}, size);
   },
 
-  wgpu_queue_write_texture__deps: ['$wgpuReadGpuTexelCopyTextureInfo'],
+  wgpu_queue_write_texture__deps: ['$wgpuReadGpuTexelCopyTextureInfo',
+#if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED && (MEMORY64 || CAN_ADDRESS_2GB)
+    '_wgpu_browser_is_firefox',
+#endif
+  ],
   wgpu_queue_write_texture: function(queue, destination, data, bytesPerBlockRow, blockRowsPerImage, writeWidth, writeHeight, writeDepthOrArrayLayers) {
     {{{ wdebuglog('`wgpu_queue_write_texture(queue=${queue}, destination=${destination}, data=${Number(data)>>>0}, bytesPerBlockRow=${bytesPerBlockRow}, blockRowsPerImage=${blockRowsPerImage}, writeWidth=${writeWidth}, writeHeight=${writeHeight}, writeDepthOrArrayLayers=${writeDepthOrArrayLayers})`'); }}}
     {{{ wassert('queue != 0'); }}}
@@ -2507,20 +2554,22 @@ let api = {
     {{{ wassert('wgpu[queue] instanceof GPUQueue'); }}}
     {{{ wassert('destination'); }}}
 #if MIN_FIREFOX_VERSION != TARGET_NOT_SUPPORTED && (MEMORY64 || CAN_ADDRESS_2GB)
-    // No Wasm4GB/Wasm64 support in Firefox: https://bugzilla.mozilla.org/show_bug.cgi?id=2022805
-    var firefoxWorkaroundBuffer = new Uint8Array(new Uint8Array(HEAPU8.buffer, {{{ shiftPtr('data', 0) }}}, bytesPerBlockRow*blockRowsPerImage*writeDepthOrArrayLayers));
-    wgpu[queue]['writeTexture'](wgpuReadGpuTexelCopyTextureInfo(destination), firefoxWorkaroundBuffer,
-      { 'offset': 0,
-        'bytesPerRow': bytesPerBlockRow,
-        'rowsPerImage': blockRowsPerImage
-      }, [writeWidth, writeHeight, writeDepthOrArrayLayers]);
-#else
+    if (__wgpu_browser_is_firefox()) {
+      // No Wasm4GB/Wasm64 support in Firefox: https://bugzil.la/2022805
+      var firefoxWorkaroundBuffer = new Uint8Array(new Uint8Array(HEAPU8.buffer, {{{ shiftPtr('data', 0) }}}, bytesPerBlockRow*blockRowsPerImage*writeDepthOrArrayLayers));
+      wgpu[queue]['writeTexture'](wgpuReadGpuTexelCopyTextureInfo(destination), firefoxWorkaroundBuffer,
+        { 'offset': 0,
+          'bytesPerRow': bytesPerBlockRow,
+          'rowsPerImage': blockRowsPerImage
+        }, [writeWidth, writeHeight, writeDepthOrArrayLayers]);
+      return;
+    }
+#endif
     wgpu[queue]['writeTexture'](wgpuReadGpuTexelCopyTextureInfo(destination), HEAPU8,
       { 'offset': {{{ shiftPtr('data', 0) }}},
         'bytesPerRow': bytesPerBlockRow,
         'rowsPerImage': blockRowsPerImage
       }, [writeWidth, writeHeight, writeDepthOrArrayLayers]);
-#endif
   },
 
   wgpu_queue_copy_external_image_to_texture__deps: ['$wgpuReadGpuTexelCopyTextureInfo', '$HTMLPredefinedColorSpaces'],
@@ -2710,21 +2759,6 @@ let api = {
     c['width'] = width;
     c['height'] = height;
   },
-
-  // EXPERIMENTAL: Not part of the ratified spec yet.
-  // https://github.com/gpuweb/gpuweb/blob/main/proposals/immediate-data.md
-  wgpu_encoder_set_immediate_data: function(encoder, offset, ptr, size) {
-    {{{ wdebuglog('`wgpu_encoder_set_immediate_data(encoder=${encoder}, offset=${offset}, ptr=${ptr}, size=${size}`'); }}}
-    {{{ wassert('encoder != 0'); }}}
-    {{{ wassert('wgpu[encoder]'); }}}
-    {{{ wassert('wgpu[encoder] instanceof GPUComputePassEncoder || wgpu[encoder] instanceof GPURenderPassEncoder || wgpu[encoder] instanceof GPURenderBundleEncoder'); }}}
-    {{{ wassert('offset >= 0'); }}}
-    {{{ wassert('offset <= 64'); }}}
-    {{{ wassert('ptr > 0'); }}}
-    {{{ wassert('size >= 0'); }}}
-    {{{ wassert('size <= 64'); }}}
-    wgpu[encoder]['setImmediateData'](offset, HEAPU8, {{{ shiftPtr('ptr', 0) }}}, size);
-  }
 };
 
 // If building with -jsDWEBGPU_PROFILE=1, then wrap all WebGPU API calls into

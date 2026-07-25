@@ -328,6 +328,7 @@ interface GPUSupportedLimits {
     readonly attribute unsigned long maxTextureArrayLayers;
     readonly attribute unsigned long maxBindGroups;
     readonly attribute unsigned long maxBindGroupsPlusVertexBuffers;
+    readonly attribute unsigned long maxImmediateSize;
     readonly attribute unsigned long maxBindingsPerBindGroup;
     readonly attribute unsigned long maxDynamicUniformBuffersPerPipelineLayout;
     readonly attribute unsigned long maxDynamicStorageBuffersPerPipelineLayout;
@@ -378,6 +379,7 @@ typedef struct WGpuSupportedLimits
   uint32_t maxTextureArrayLayers; // required >= 256
   uint32_t maxBindGroups; // required >= 4
   uint32_t maxBindGroupsPlusVertexBuffers; // required >= 24
+  uint32_t maxImmediateSize; // required >= 64
   uint32_t maxBindingsPerBindGroup; // required >= 1000
   uint32_t maxDynamicUniformBuffersPerPipelineLayout; // required >= 8
   uint32_t maxDynamicStorageBuffersPerPipelineLayout; // required >= 4
@@ -404,13 +406,14 @@ typedef struct WGpuSupportedLimits
   uint32_t maxComputeWorkgroupSizeY; // required >= 256
   uint32_t maxComputeWorkgroupSizeZ; // required >= 64
   uint32_t maxComputeWorkgroupsPerDimension; // required >= 65535
+  uint32_t padding;
 } WGpuSupportedLimits;
 
-VERIFY_STRUCT_SIZE(WGpuSupportedLimits, 38*sizeof(uint32_t));
+VERIFY_STRUCT_SIZE(WGpuSupportedLimits, 40*sizeof(uint32_t));
 
 // Assertion in lib_webgpu.js function $wgpuReadSupportedLimits() must be kept in sync:
 #define _WGPU_NUM_64BIT_LIMIT_FIELDS 3
-#define _WGPU_NUM_32BIT_LIMIT_FIELDS 32
+#define _WGPU_NUM_32BIT_LIMIT_FIELDS 33 + 1 // +1 for padding field
 VERIFY_STRUCT_SIZE(WGpuSupportedLimits, (_WGPU_NUM_64BIT_LIMIT_FIELDS*2+_WGPU_NUM_32BIT_LIMIT_FIELDS)*sizeof(uint32_t));
 
 /*
@@ -757,8 +760,8 @@ WGpuExternalTexture wgpu_device_import_external_texture(WGpuDevice device, const
 WGpuBindGroupLayout wgpu_device_create_bind_group_layout(WGpuDevice device, const WGpuBindGroupLayoutEntry *bindGroupLayoutEntries, int numEntries);
 
 // N.b. not currently using signature WGpuPipelineLayout wgpu_device_create_pipeline_layout(WGpuDevice device, const WGpuPipelineLayoutDescriptor *pipelineLayoutDesc);
-// since WGpuPipelineLayoutDescriptor is a single element struct consisting only of a single array. (if it is expanded in the future, switch to using that signature)
-WGpuPipelineLayout wgpu_device_create_pipeline_layout(WGpuDevice device, const WGpuBindGroupLayout *bindGroupLayouts, int numLayouts);
+// since WGpuPipelineLayoutDescriptor has only two fields. (if it is expanded in the future, switch to using that signature)
+WGpuPipelineLayout wgpu_device_create_pipeline_layout(WGpuDevice device, const WGpuBindGroupLayout *bindGroupLayouts, int numLayouts, int immediateSize _WGPU_DEFAULT_VALUE(0));
 
 // N.b. not currently using signature WGpuBindGroup wgpu_device_create_bind_group(WGpuDevice device, const WGpuBindGroupDescriptor *bindGroupDesc);
 // since WGpuBindGroupDescriptor is a such a light struct. (if it is expanded in the future, switch to using that signature)
@@ -1723,6 +1726,7 @@ WGPU_BOOL wgpu_is_pipeline_layout(WGpuObjectBase object);
 /*
 dictionary GPUPipelineLayoutDescriptor : GPUObjectDescriptorBase {
     required sequence<GPUBindGroupLayout?> bindGroupLayouts;
+    GPUSize32 immediateSize = 0;
 };
 */
 // Currently unused.
@@ -1774,6 +1778,7 @@ typedef struct _WGPU_ALIGN_TO_64BITS WGpuShaderModuleDescriptor
   int numHints;
   uint32_t unused_padding;
 } WGpuShaderModuleDescriptor;
+extern const WGpuShaderModuleDescriptor WGPU_SHADER_MODULE_DESCRIPTOR_DEFAULT_INITIALIZER;
 
 /*
 enum GPUCompilationMessageType {
@@ -2581,6 +2586,9 @@ interface mixin GPUBindingCommandsMixin {
         [AllowShared] Uint32Array dynamicOffsetsData,
                       GPUSize64 dynamicOffsetsDataStart,
                       GPUSize32 dynamicOffsetsDataLength);
+
+    undefined setImmediates(GPUSize32 rangeOffset, AllowSharedBufferSource data,
+        optional GPUSize64 dataOffset = 0, optional GPUSize64 dataSize);
 };
 */
 typedef WGpuObjectBase WGpuBindingCommandsMixin;
@@ -2588,6 +2596,14 @@ typedef WGpuObjectBase WGpuBindingCommandsMixin;
 WGPU_BOOL wgpu_is_binding_commands_mixin(WGpuObjectBase object);
 // When dynamic offsets are used, they apply in the binding order, i.e. dynamicOffsets[0] applies to the first dynamic @binding, dynamicOffsets[1] the second dynamic @binding (not necessarily at index 1), and so on.
 void wgpu_encoder_set_bind_group(WGpuBindingCommandsMixin encoder, uint32_t index, WGpuBindGroup bindGroup, const uint32_t *dynamicOffsets _WGPU_DEFAULT_VALUE(0), uint32_t numDynamicOffsets _WGPU_DEFAULT_VALUE(0));
+
+// Passes a set of immediate data to the encoder.
+// encoder: The current render pass, compute pass or render bundle encoder.
+// offset: Offset into the GPU-side immediate data area to upload to. In range 0 - maxImmediateSize limit.
+//         Condition offset + size <= maxImmediateSize must hold. Also, offset must be a multiple of 4 bytes.
+// ptr: CPU-side starting address of the data to upload.
+// size: The number of bytes to upload. This must be a multiple of 4 bytes.
+void wgpu_encoder_set_immediates(WGpuBindingCommandsMixin encoder, uint32_t offset, const void *ptr, uint32_t size);
 
 // Some of the functions in GPURenderBundleEncoder, GPURenderPassEncoder and GPUComputePassEncoder are identical in implementation,
 // so group them under a common base class.
@@ -2774,16 +2790,19 @@ typedef struct WGpuRenderPassDepthStencilAttachment
 {
   WGpuObjectBase view; // WGpuTexture, or WGpuTextureView
 
-  WGPU_LOAD_OP depthLoadOp; // Either WGPU_LOAD_OP_LOAD (== default, 0) or WGPU_LOAD_OP_CLEAR
-  float depthClearValue; // Must be between 0.0 and 1.0, inclusive.
+  // If view.format has a depth aspect and depthReadOnly == false, then depthLoadOp must be either WGPU_LOAD_OP_LOAD or WGPU_LOAD_OP_CLEAR, and depthStoreOp either WGPU_STORE_OP_STORE or WGPU_STORE_OP_DISCARD.
+  // Otherwise depthLoadOp and depthStoreOp must both be WGPU_LOAD_OP_UNDEFINED.
+  WGPU_LOAD_OP depthLoadOp; // Defaults to WGPU_LOAD_OP_UNDEFINED.
+  float depthClearValue; // Must be between 0.0 and 1.0, inclusive. Defaults to WGPU_NAN.
 
-  WGPU_STORE_OP depthStoreOp;
-  WGPU_BOOL depthReadOnly;
+  WGPU_STORE_OP depthStoreOp; // Defaults to WGPU_STORE_OP_UNDEFINED.
+  WGPU_BOOL depthReadOnly; // Defaults to false.
 
-  WGPU_LOAD_OP stencilLoadOp;  // Either WGPU_LOAD_OP_LOAD (== default, 0) or WGPU_LOAD_OP_CLEAR
-  uint32_t stencilClearValue;
-  WGPU_STORE_OP stencilStoreOp;
-  WGPU_BOOL stencilReadOnly;
+  // If view.format has a stencil aspect and stencilReadOnly == false, then stencilLoadOp must be either WGPU_LOAD_OP_LOAD or WGPU_LOAD_OP_CLEAR, and stencilStoreOp either WGPU_STORE_OP_STORE or WGPU_STORE_OP_DISCARD.
+  WGPU_LOAD_OP stencilLoadOp;  // Defaults to WGPU_LOAD_OP_UNDEFINED.
+  uint32_t stencilClearValue; // Defaults to 0.
+  WGPU_STORE_OP stencilStoreOp; // Defaults to WGPU_STORE_OP_UNDEFINED.
+  WGPU_BOOL stencilReadOnly; // Defaults to false.
 } WGpuRenderPassDepthStencilAttachment;
 extern const WGpuRenderPassDepthStencilAttachment WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_DEFAULT_INITIALIZER;
 
@@ -3512,14 +3531,6 @@ void offscreen_canvas_size(OffscreenCanvasId id, int *outWidth NOTNULL, int *out
 void offscreen_canvas_set_size(OffscreenCanvasId id, int width, int height);
 
 #endif
-
-// EXPERIMENTAL: Not part of the ratified spec yet.
-// setImmediateData: https://github.com/gpuweb/gpuweb/blob/main/proposals/immediate-data.md
-// encoder: The current render pass, compute pass or render bundle encoder.
-// offset: Offset into the GPU-side immediate data area to upload to. In range 0 - 64. Condition offset + size <= 64 must hold.
-// ptr: CPU-side starting address of the data to upload.
-// size: The number of bytes to upload. This must be a multiple of 4 bytes.
-void wgpu_encoder_set_immediate_data(WGpuBindingCommandsMixin encoder, uint32_t offset, const void *ptr, uint32_t size);
 
 #ifdef __cplusplus
 } // ~extern "C"
