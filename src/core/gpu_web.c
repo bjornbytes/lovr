@@ -1043,8 +1043,9 @@ void gpu_bind_bundles(gpu_stream* stream, gpu_shader* shader, gpu_bundle** bundl
 
 void gpu_bind_vertex_buffers(gpu_stream* stream, gpu_buffer** buffers, uint32_t* offsets, uint32_t first, uint32_t count) {
   for (uint32_t i = 0; i < count; i++) {
-    uint64_t size = wgpu_buffer_size(buffers[i]->handle) - offsets[i];
-    wgpu_render_pass_encoder_set_vertex_buffer(stream->pass, first + i, buffers[i]->handle, offsets[i], size);
+    uint32_t offset = offsets ? offsets[i] : 0;
+    uint64_t size = wgpu_buffer_size(buffers[i]->handle) - offset;
+    wgpu_render_pass_encoder_set_vertex_buffer(stream->pass, first + i, buffers[i]->handle, offset, size);
   }
 }
 
