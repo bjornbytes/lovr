@@ -9,6 +9,7 @@ dev
 - Add `lovr.timer.getDisplayTime`.
 - Add support for atomic floats in shaders.
 - Add `ConvexShape:setScale` and `MeshShape:setScale`.
+- Add `t.graphics.lowpower`.
 
 ### Change
 

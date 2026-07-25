@@ -3067,8 +3067,26 @@ bool gpu_init(gpu_config* config) {
     }
 
     if (!state.adapter) {
-      uint32_t deviceCount = 1;
-      VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, &state.adapter), "vkEnumeratePhysicalDevices") goto fail;
+      uint32_t deviceCount = 0;
+      VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, NULL), "vkEnumeratePhysicalDevices") goto fail;
+      VkPhysicalDevice* devices = config->fnAlloc(deviceCount * sizeof(VkPhysicalDevice));
+      VK(vkEnumeratePhysicalDevices(state.instance, &deviceCount, devices), "vkEnumeratePhysicalDevices") goto fail;
+
+      for (uint32_t i = 0; i < deviceCount; i++) {
+        VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+        VkPhysicalDeviceProperties* properties = &properties2.properties;
+        vkGetPhysicalDeviceProperties2(devices[i], &properties2);
+        if (properties->deviceType == (config->lowPower ? VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU : VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)) {
+          state.adapter = devices[i];
+          break;
+        }
+      }
+
+      if (!state.adapter && deviceCount > 0) {
+        state.adapter = devices[0];
+      }
+
+      config->fnFree(devices);
     }
 
     if (!state.adapter) {

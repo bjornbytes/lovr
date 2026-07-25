@@ -672,6 +672,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
 
   gpu_config gpu = {
     .debug = config->debug,
+    .lowPower = config->lowPower,
     .fnLog = onMessage,
     .fnAlloc = lovrMalloc,
     .fnFree = lovrFree,

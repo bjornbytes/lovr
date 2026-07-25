@@ -35,6 +35,7 @@ local conf = {
     vsync = true,
     stencil = false,
     antialias = true,
+    lowpower = false,
     hdr = false,
     shadercache = true
   },

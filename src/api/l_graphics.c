@@ -385,6 +385,7 @@ static int l_lovrGraphicsInitialize(lua_State* L) {
     .vsync = false,
     .stencil = false,
     .antialias = true,
+    .lowPower = false,
     .hdr = false
   };
 
@@ -408,6 +409,10 @@ static int l_lovrGraphicsInitialize(lua_State* L) {
 
       lua_getfield(L, -1, "antialias");
       config.antialias = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "lowpower");
+      config.lowPower = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "hdr");

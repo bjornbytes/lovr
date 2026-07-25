@@ -845,6 +845,7 @@ typedef struct {
 
 typedef struct {
   bool debug;
+  bool lowPower;
   void* userdata;
   void (*fnLog)(void* userdata, const char* message);
   void* (*fnAlloc)(size_t size);

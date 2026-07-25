@@ -27,6 +27,7 @@ typedef struct {
   bool vsync;
   bool stencil;
   bool antialias;
+  bool lowPower;
   bool hdr;
   void* cacheData;
   size_t cacheSize;

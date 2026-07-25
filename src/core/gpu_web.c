@@ -1447,7 +1447,11 @@ bool gpu_init(gpu_config* config) {
     return setError("WebGPU is not supported");
   }
 
-  state.adapter = navigator_gpu_request_adapter_sync_simple();
+  WGpuRequestAdapterOptions options = {
+    .powerPreference = config->lowPower ? WGPU_POWER_PREFERENCE_LOW_POWER : WGPU_POWER_PREFERENCE_HIGH_PERFORMANCE
+  };
+
+  state.adapter = navigator_gpu_request_adapter_sync(&options);
 
   if (!state.adapter) {
     return setError("No WebGPU adapter available");
