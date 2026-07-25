@@ -81,8 +81,7 @@ var headset = {
     return true;
   },
 
-  lovrHeadsetUpdate(dt) {
-    HEAPF64[dt >> 3] = Module['_lovrTimerGetDelta']();
+  lovrHeadsetUpdate() {
     return true;
   },
 
