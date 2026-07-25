@@ -1646,7 +1646,7 @@ void gpu_destroy(void) {
 }
 
 char* gpu_get_error(void) {
-  return NULL;
+  return thread.error;
 }
 
 bool gpu_get_memory_info(uint64_t* budget, uint64_t* usage) {
