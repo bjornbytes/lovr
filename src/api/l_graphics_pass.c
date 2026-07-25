@@ -502,7 +502,7 @@ static int l_lovrPassTransform(lua_State* L) {
 static int l_lovrPassSetAlphaToCoverage(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   lovrPassSetAlphaToCoverage(pass, lua_toboolean(L, 2));
-  return 1;
+  return 0;
 }
 
 static int l_lovrPassSetBlendMode(lua_State* L) {
