@@ -49,6 +49,7 @@ if(EMSCRIPTEN)
     "-sJSPI=1 "
     "-sASYNCIFY_IGNORE_INDIRECT=1 "
     "-sFORCE_FILESYSTEM=1 "
+    "-sSTACK_SIZE=2MB "
     "-sINITIAL_MEMORY=1677721600 "
     "-sMIN_FIREFOX_VERSION=152 "
     "-sEXPORTED_FUNCTIONS=_main,_lovrGraphicsGetWindowTexture,_lovrGraphicsGetWindowPass,_lovrPassSetViewMatrix,_lovrPassSetProjection "
