@@ -94,6 +94,13 @@ static struct {
   uint32_t tick;
   uint32_t lastTickFinished;
   gpu_readback* readbacks;
+  struct {
+    WGpuShaderModule shader;
+    WGpuBindGroupLayout bindGroupLayout[2];
+    WGpuPipelineLayout pipelineLayout[2];
+    WGpuRenderPipeline pipeline[2][GPU_FORMAT_COUNT][2];
+    WGpuSampler sampler[2];
+  } blit;
 } state;
 
 // Helpers
@@ -102,6 +109,8 @@ static struct {
 #define MIN(a, b) (a < b ? a : b)
 #define MAX(a, b) (a > b ? a : b)
 #define ALIGN(p, n) (((uintptr_t) (p) + (n - 1)) & ~(n - 1))
+
+enum { BLIT_2D, BLIT_3D };
 
 static bool setError(const char* message);
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb);
@@ -1192,7 +1201,204 @@ void gpu_clear_tally(gpu_stream* stream, gpu_tally* tally, uint32_t index, uint3
 }
 
 void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], gpu_filter filter) {
-  // TODO
+  int type = src->type == GPU_TEXTURE_3D ? BLIT_3D : BLIT_2D;
+
+  if (!state.blit.shader) {
+    const char* code = ""
+      "struct VertexOutput {\n"
+      "  @builtin(position) position: vec4f,\n"
+      "  @location(0) uv: vec2f,\n"
+      "}\n"
+      "\n"
+      "struct Uniforms {\n"
+      "  srcOffset: vec2f,\n"
+      "  srcExtent: vec2f,\n"
+      "  srcW: f32,\n"
+      "}\n"
+      "\n"
+      "var<immediate> u: Uniforms;\n"
+      "\n"
+      "@vertex\n"
+      "fn vertex(@builtin(vertex_index) VertexIndex: u32) -> VertexOutput {\n"
+      "  let x = -1f + f32((VertexIndex & 1u) << 2u);\n"
+      "  let y = -1f + f32((VertexIndex & 2u) << 1u);\n"
+      "  var output: VertexOutput;\n"
+      "  output.position = vec4f(x, y, 1f, 1f);\n"
+      "  output.uv = vec2f(x, y) * .5 + .5;\n"
+      "  return output;\n"
+      "}\n"
+      "\n"
+      "@group(0) @binding(0) var texture2d: texture_2d<f32>;\n"
+      "@group(0) @binding(1) var texture3d: texture_3d<f32>;\n"
+      "@group(0) @binding(2) var sampler: sampler;\n"
+      "\n"
+      "@fragment\n"
+      "fn fragment2d(input: VertexOutput) -> @location(0) vec4f {\n"
+      "  let uv = u.srcOffset + u.srcExtent * input.uv;\n"
+      "  return textureSample(texture2d, sampler, uv);\n"
+      "}\n"
+      "\n"
+      "@fragment\n"
+      "fn fragment3d(input: VertexOutput) -> @location(0) vec4f {\n"
+      "  let uv = u.srcOffset + u.srcExtent * input.uv;\n"
+      "  return textureSample(texture3d, sampler, vec3f(uv, u.srcW));\n"
+      "}\n";
+
+    state.blit.shader = wgpu_device_create_shader_module(state.device, &(WGpuShaderModuleDescriptor) {
+      .code = code
+    });
+  }
+
+  if (!state.blit.bindGroupLayout[type]) {
+    WGpuBindGroupLayoutEntry entries[] = {
+      {
+        .binding = type == BLIT_2D ? 0 : 1,
+        .visibility = WGPU_SHADER_STAGE_FRAGMENT,
+        .type = WGPU_BIND_GROUP_LAYOUT_TYPE_TEXTURE,
+        .layout.texture.sampleType = WGPU_TEXTURE_SAMPLE_TYPE_FLOAT,
+        .layout.texture.viewDimension = type == BLIT_2D ? WGPU_TEXTURE_VIEW_DIMENSION_2D : WGPU_TEXTURE_VIEW_DIMENSION_3D
+      },
+      {
+        .binding = 2,
+        .visibility = WGPU_SHADER_STAGE_FRAGMENT,
+        .type = WGPU_BIND_GROUP_LAYOUT_TYPE_SAMPLER,
+        .layout.sampler.type = WGPU_SAMPLER_BINDING_TYPE_FILTERING
+      }
+    };
+
+    state.blit.bindGroupLayout[type] = wgpu_device_create_bind_group_layout(state.device, entries, COUNTOF(entries));
+    state.blit.pipelineLayout[type] = wgpu_device_create_pipeline_layout(state.device, &state.blit.bindGroupLayout[type], 1);
+  }
+
+  if (!state.blit.sampler[filter]) {
+    state.blit.sampler[filter] = wgpu_device_create_sampler(state.device, &(WGpuSamplerDescriptor) {
+      .minFilter = filter == GPU_FILTER_NEAREST ? WGPU_FILTER_MODE_NEAREST : WGPU_FILTER_MODE_LINEAR,
+      .magFilter = filter == GPU_FILTER_NEAREST ? WGPU_FILTER_MODE_NEAREST : WGPU_FILTER_MODE_LINEAR,
+      .mipmapFilter = WGPU_MIPMAP_FILTER_MODE_NEAREST,
+      .addressModeU = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+      .addressModeV = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+      .addressModeW = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE
+    });
+  }
+
+  if (!state.blit.pipeline[type][dst->format][dst->srgb]) {
+    state.blit.pipeline[type][dst->format][dst->srgb] = wgpu_device_create_render_pipeline(state.device, &(WGpuRenderPipelineDescriptor) {
+      .vertex = {
+        .module = state.blit.shader,
+        .entryPoint = "vertex"
+      },
+      .primitive = {
+        .topology = WGPU_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .frontFace = WGPU_FRONT_FACE_CW,
+        .cullMode = WGPU_CULL_MODE_NONE
+      },
+      .multisample = {
+        .count = 1,
+        .mask = ~0u
+      },
+      .fragment = {
+        .module = state.blit.shader,
+        .entryPoint = type == BLIT_2D ? "fragment2d" : "fragment3d",
+        .numTargets = 1,
+        .targets = &(WGpuColorTargetState) {
+          .format = convertFormat(dst->format, dst->srgb),
+          .blend.color.operation = WGPU_BLEND_OPERATION_DISABLED,
+          .blend.alpha.operation = WGPU_BLEND_OPERATION_DISABLED,
+          .writeMask = WGPU_COLOR_WRITE_ALL
+        }
+      },
+      .layout = state.blit.pipelineLayout[type]
+    });
+  }
+
+  uint32_t srcWidth = MAX(wgpu_texture_width(src->handle) >> srcOffset[3], 1);
+  uint32_t srcHeight = MAX(wgpu_texture_height(src->handle) >> srcOffset[3], 1);
+  uint32_t srcDepth = type == BLIT_2D ? 1 : MAX(wgpu_texture_depth_or_array_layers(src->handle) >> srcOffset[3], 1);
+
+  uint32_t dstWidth = MAX(wgpu_texture_width(dst->handle) >> dstOffset[3], 1);
+  uint32_t dstHeight = MAX(wgpu_texture_height(dst->handle) >> dstOffset[3], 1);
+  bool fullscreen = dstOffset[0] == 0 && dstOffset[1] == 0 && dstExtent[0] == dstWidth && dstExtent[1] == dstHeight;
+
+  // UV rect
+  float uniforms[5] = {
+    (float) srcOffset[0] / srcWidth,
+    (float) srcOffset[1] / srcHeight,
+    (float) srcExtent[0] / srcWidth,
+    (float) srcExtent[1] / srcHeight,
+    0.f
+  };
+
+  WGpuTextureView srcView3D = 0;
+
+  if (type == BLIT_3D) {
+    srcView3D = wgpu_texture_create_view(src->handle, &(WGpuTextureViewDescriptor) {
+      .format = convertFormat(src->format, src->srgb),
+      .dimension = WGPU_TEXTURE_VIEW_DIMENSION_3D,
+      .baseMipLevel = srcOffset[3],
+      .baseArrayLayer = 0,
+      .mipLevelCount = 1,
+      .arrayLayerCount = 1
+    });
+  }
+
+  for (uint32_t i = 0; i < dstExtent[2]; i++) {
+    WGpuTextureView srcView = type == BLIT_3D ? srcView3D : wgpu_texture_create_view(src->handle, &(WGpuTextureViewDescriptor) {
+      .format = convertFormat(src->format, src->srgb),
+      .dimension = WGPU_TEXTURE_VIEW_DIMENSION_2D,
+      .baseMipLevel = srcOffset[3],
+      .baseArrayLayer = srcOffset[2] + i,
+      .mipLevelCount = 1,
+      .arrayLayerCount = 1
+    });
+
+    WGpuTextureView dstView = wgpu_texture_create_view(dst->handle, &(WGpuTextureViewDescriptor) {
+      .format = convertFormat(dst->format, dst->srgb),
+      .dimension = dst->type == GPU_TEXTURE_3D ? WGPU_TEXTURE_VIEW_DIMENSION_3D : WGPU_TEXTURE_VIEW_DIMENSION_2D,
+      .baseMipLevel = dstOffset[3],
+      .baseArrayLayer = dst->type == GPU_TEXTURE_3D ? 0 : dstOffset[2] + i,
+      .mipLevelCount = 1,
+      .arrayLayerCount = 1
+    });
+
+    WGpuBindGroupEntry bindings[] = {
+      { .binding = type == BLIT_2D ? 0 : 1, .resource = srcView },
+      { .binding = 2, .resource = state.blit.sampler[filter] }
+    };
+
+    WGpuBindGroup bindGroup = wgpu_device_create_bind_group(state.device, state.blit.bindGroupLayout[type], bindings, COUNTOF(bindings));
+
+    // per-slice z coordinate to sample from
+    if (type == BLIT_3D) {
+      uniforms[4] = (srcOffset[2] + srcExtent[2] * ((float) i + .5f) / dstExtent[2]) / srcDepth;
+    }
+
+    WGpuRenderPassColorAttachment attachment = {
+      .view = dstView,
+      .depthSlice = dst->type == GPU_TEXTURE_3D ? dstOffset[2] + i : -1,
+      .loadOp = fullscreen ? WGPU_LOAD_OP_CLEAR : WGPU_LOAD_OP_LOAD,
+      .storeOp = WGPU_STORE_OP_STORE
+    };
+
+    WGpuRenderPassEncoder pass = wgpu_command_encoder_begin_render_pass(stream->commands, &(WGpuRenderPassDescriptor) {
+      .numColorAttachments = 1,
+      .colorAttachments = &attachment,
+      .depthStencilAttachment = { 0 }
+    });
+
+    wgpu_render_pass_encoder_set_pipeline(pass, state.blit.pipeline[type][dst->format][dst->srgb]);
+    wgpu_render_pass_encoder_set_bind_group(pass, 0, bindGroup, NULL, 0);
+    wgpu_encoder_set_immediate_data(pass, 0, uniforms, sizeof(uniforms));
+    wgpu_render_pass_encoder_set_viewport(pass, dstOffset[0], dstOffset[1], dstExtent[0], dstExtent[1], 0.f, 1.f);
+    wgpu_render_pass_encoder_set_scissor_rect(pass, (uint32_t) dstOffset[0], (uint32_t) dstOffset[1], (uint32_t) dstExtent[0], (uint32_t) dstExtent[1]);
+    wgpu_render_pass_encoder_draw(pass, 3, 1, 0, 0);
+    wgpu_render_pass_encoder_end(pass);
+
+    wgpu_object_destroy(bindGroup);
+    if (type == BLIT_2D) wgpu_object_destroy(srcView);
+    wgpu_object_destroy(dstView);
+  }
+
+  wgpu_object_destroy(srcView3D);
 }
 
 void gpu_build_tree(gpu_stream* stream, gpu_tree* tree, gpu_build_info* info) {
@@ -1405,6 +1611,21 @@ bool gpu_init(gpu_config* config) {
 }
 
 void gpu_destroy(void) {
+  for (uint32_t i = 0; i < 2; i++) {
+    wgpu_object_destroy(state.blit.bindGroupLayout[i]);
+    wgpu_object_destroy(state.blit.pipelineLayout[i]);
+    for (uint32_t j = 0; j < GPU_FORMAT_COUNT; j++) {
+      for (uint32_t k = 0; k < 2; k++) {
+        if (state.blit.pipeline[i][j][k]) {
+          wgpu_object_destroy(state.blit.pipeline[i][j][k]);
+        }
+      }
+    }
+  }
+
+  wgpu_object_destroy(state.blit.sampler[0]);
+  wgpu_object_destroy(state.blit.sampler[1]);
+  wgpu_object_destroy(state.blit.shader);
   wgpu_object_destroy(state.device);
   memset(&state, 0, sizeof(state));
 }
