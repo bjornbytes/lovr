@@ -3235,10 +3235,10 @@ bool gpu_init(gpu_config* config) {
 
     VkPhysicalDeviceFeatures2 enabled = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
 
-    enabled.features.fullDrawIndexUint32 = true;
     enabled.features.imageCubeArray = true;
     enabled.features.independentBlend = true;
     enabled.features.sampleRateShading = true;
+    enabled.features.fullDrawIndexUint32 = supported.features.fullDrawIndexUint32;
     enabled.features.samplerAnisotropy = supported.features.samplerAnisotropy;
     enabled.features.multiDrawIndirect = supported.features.multiDrawIndirect;
     enabled.features.shaderClipDistance = supported.features.shaderClipDistance;
