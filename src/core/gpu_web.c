@@ -228,6 +228,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   texture->format = info->format;
   texture->srgb = info->srgb;
 
+  bool transient = info->usage == GPU_TEXTURE_RENDER;
+
   texture->handle = wgpu_device_create_texture(state.device, &(WGpuTextureDescriptor) {
     .usage =
       ((info->usage & GPU_TEXTURE_RENDER) ? WGPU_TEXTURE_USAGE_RENDER_ATTACHMENT : 0) |
@@ -235,8 +237,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
       ((info->usage & GPU_TEXTURE_STORAGE) ? WGPU_TEXTURE_USAGE_STORAGE_BINDING : 0) |
       ((info->usage & GPU_TEXTURE_COPY_SRC) ? WGPU_TEXTURE_USAGE_COPY_SRC : 0) |
       ((info->usage & GPU_TEXTURE_COPY_DST) ? WGPU_TEXTURE_USAGE_COPY_DST : 0) |
-      ((info->usage == GPU_TEXTURE_RENDER) ? WGPU_TEXTURE_USAGE_TRANSIENT_ATTACHMENT : 0) |
-      ((info->usage & GPU_TEXTURE_UPLOAD) ? WGPU_TEXTURE_USAGE_COPY_DST : 0),
+      ((info->usage & GPU_TEXTURE_UPLOAD) ? WGPU_TEXTURE_USAGE_COPY_DST : 0) |
+      (transient ? WGPU_TEXTURE_USAGE_TRANSIENT_ATTACHMENT : 0),
     .dimension = dimensions[info->type],
     .width = info->size[0],
     .height = info->size[1],
@@ -244,7 +246,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .format = convertFormat(info->format, false),
     .mipLevelCount = info->mipmaps,
     .sampleCount = MAX(info->samples, 1),
-    .numViewFormats = info->srgb ? 1 : 0,
+    .numViewFormats = info->srgb && !transient ? 1 : 0,
     .viewFormats = &(WGPU_TEXTURE_FORMAT) { convertFormat(info->format, info->srgb) }
   });
 
