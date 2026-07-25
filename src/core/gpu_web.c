@@ -230,7 +230,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
   texture->format = info->format;
   texture->srgb = info->srgb;
 
-  bool transient = info->usage == GPU_TEXTURE_RENDER;
+  bool transient = info->usage == GPU_TEXTURE_RENDER && !info->srgb;
 
   texture->handle = wgpu_device_create_texture(state.device, &(WGpuTextureDescriptor) {
     .usage =
@@ -248,7 +248,7 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .format = convertFormat(info->format, false),
     .mipLevelCount = info->mipmaps,
     .sampleCount = MAX(info->samples, 1),
-    .numViewFormats = info->srgb && !transient ? 1 : 0,
+    .numViewFormats = info->srgb ? 1 : 0,
     .viewFormats = &(WGPU_TEXTURE_FORMAT) { convertFormat(info->format, info->srgb) }
   });
 
