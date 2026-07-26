@@ -79,6 +79,7 @@ static int l_lovrTextureHasUsage(lua_State* L) {
     int bit = luax_checkenum(L, i, TextureUsage, NULL);
     if (~info->usage & (1 << bit)) {
       lua_pushboolean(L, false);
+      return 1;
     }
   }
   lua_pushboolean(L, true);

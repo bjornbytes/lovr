@@ -36,6 +36,7 @@ dev
 - Fix crash in `lovr.audio.newSource` when decoding invalid sound.
 - Fix `lovr.audio.newAudioMesh` when given a table of `AudioMaterial`.
 - Fix `Pass:cylinder` UVs.
+- Fix `Texture:hasUsage`.
 
 ### Deprecate
 
