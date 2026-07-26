@@ -7,6 +7,7 @@ layout(push_constant) uniform PushConstants {
   uint views;
 };
 
+// input is u64, output is u32
 layout(set = 0, binding = 0) buffer readonly restrict Src { uint src[]; };
 layout(set = 0, binding = 1) buffer writeonly restrict Dst { uint dst[]; };
 
@@ -18,7 +19,7 @@ void main() {
   uint total = 0;
 
   for (uint i = 0; i < views; i++) {
-    total += src[base + i];
+    total += src[2 * (base + i) + 0];
   }
 
   dst[index] = total;

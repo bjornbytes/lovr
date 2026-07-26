@@ -113,7 +113,8 @@ typedef struct {
 #define luax_checkfloat(L, i) (float) luaL_checknumber(L, i)
 #define luax_optfloat(L, i, x) (float) luaL_optnumber(L, i, x)
 #define luax_tofloat(L, i) (float) lua_tonumber(L, i)
-#define luax_assert(L, c) if (!(c)) { lua_pushstring(L, lovrGetError()); lua_error(L); }
+#define luax_throw(L) lua_pushstring(L, lovrGetError()), lua_error(L)
+#define luax_assert(L, c) if (!(c)) { luax_throw(L); }
 #define luax_pushnilerror(L) lua_pushnil(L), lua_pushstring(L, lovrGetError()), 2
 
 void luax_preload(lua_State* L);

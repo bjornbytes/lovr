@@ -331,11 +331,6 @@ typedef enum {
   READBACK_TIMESTAMP
 } ReadbackType;
 
-typedef struct {
-  Pass* pass;
-  double cpuTime;
-} TimingInfo;
-
 struct Readback {
   atomic_uint ref;
   uint32_t tick;
@@ -350,7 +345,8 @@ struct Readback {
     };
     Image* image;
     struct {
-      TimingInfo* times;
+      Pass** passes;
+      Timing* timing;
       uint32_t count;
     };
   };
@@ -611,6 +607,7 @@ static struct {
   _Atomic(Shader*) defaultShaders[DEFAULT_SHADER_COUNT];
   gpu_vertex_format vertexFormats[VERTEX_FORMAT_COUNT];
   Readback* readbacks;
+  Readback* timingReadback;
   MaterialBlock* materials;
   BufferAllocator bufferAllocators[4];
   _Atomic(PipelineJob*) newPipelines;
@@ -898,9 +895,10 @@ void lovrGraphicsDestroy(void) {
 #endif
   while (state.readbacks) {
     Readback* next = state.readbacks->next;
-    lovrReadbackDestroy(state.readbacks);
+    lovrRelease(state.readbacks, lovrReadbackDestroy);
     state.readbacks = next;
   }
+  lovrRelease(state.timingReadback, lovrReadbackDestroy);
   if (state.timestamps) gpu_tally_destroy(state.timestamps);
   lovrFree(state.timestamps);
   if (state.window) lovrFree(state.window->sync);
@@ -1089,6 +1087,10 @@ bool lovrGraphicsIsTimingEnabled(void) {
 
 void lovrGraphicsSetTimingEnabled(bool enable) {
   state.timingEnabled = enable;
+}
+
+Readback* lovrGraphicsGetTiming(void) {
+  return state.timingReadback;
 }
 
 static bool recordComputePass(Pass* pass, gpu_stream* stream, gpu_timestamp_writes* timestamps) {
@@ -1690,7 +1692,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
     gpu_sync(stream, &barrier, 1);
 
     gpu_binding bindings[] = {
-      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tempBuffer->gpu, 0, count * pass->views * sizeof(uint32_t) } },
+      { 0, GPU_SLOT_STORAGE_BUFFER, .buffer = { tempBuffer->gpu, 0, count * pass->views * sizeof(uint64_t) } },
       { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { tally->buffer->gpu, tally->buffer->base + tally->bufferOffset, count * sizeof(uint32_t) } }
     };
 
@@ -1711,7 +1713,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   return true;
 }
 
-static Readback* lovrReadbackCreateTimestamp(TimingInfo* passes, uint32_t count, BufferView view);
+static Readback* lovrReadbackCreateTimestamp(Pass** passes, uint32_t count);
 
 static void syncAttachment(Texture* texture, bool depth, bool resolve, bool load, bool temporary) {
   if (!texture) return;
@@ -1832,15 +1834,10 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     }
   }
 
-  TimingInfo* times = NULL;
-
   if (state.timingEnabled && count > 0) {
-    times = lovrMalloc(count * sizeof(TimingInfo));
-
-    for (uint32_t i = 0; i < count; i++) {
-      times[i].pass = passes[i];
-      lovrRetain(passes[i]);
-    }
+    lovrRelease(state.timingReadback, lovrReadbackDestroy);
+    state.timingReadback = lovrReadbackCreateTimestamp(passes, count);
+    if (!state.timingReadback) goto fail;
 
     uint32_t timestampCount = 2 * count;
 
@@ -1875,7 +1872,7 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     gpu_timestamp_writes renderTimestamps = { 0 };
 
     if (state.timingEnabled) {
-      times[i].cpuTime = os_get_time();
+      state.timingReadback->timing[i].submit = os_get_time();
 
       bool compute = pass->computeCount > 0;
       bool render = pass->canvas.color->texture || pass->canvas.depth.texture;
@@ -1903,7 +1900,7 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     gpu_sync(stream, &renderBarriers[i], 1);
 
     if (state.timingEnabled) {
-      times[i].cpuTime = os_get_time() - times[i].cpuTime;
+      state.timingReadback->timing[i].submit = os_get_time() - state.timingReadback->timing[i].submit;
     }
 
     lovrAssertGoto(fail, gpu_stream_end(stream), "Failed to end GPU command buffer: %s", gpu_get_error());
@@ -1915,12 +1912,8 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
     // Timestamp Readback
     if (state.timingEnabled) {
-      BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, 2 * count * sizeof(uint32_t), 4);
-      if (!view.buffer) goto fail;
+      BufferView view = state.timingReadback->view;
       gpu_copy_tally_buffer(stream, state.timestamps, view.buffer, 0, view.offset, 2 * count);
-      Readback* readback = lovrReadbackCreateTimestamp(times, count, view);
-      if (!readback) goto fail;
-      lovrRelease(readback, lovrReadbackDestroy); // It gets freed when it completes
     }
 
     // OpenXR Swapchain Layout Transitions
@@ -6351,11 +6344,16 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
 
 // Note that this is currently only called from within lovrGraphicsSubmit, so we don't need to lock,
 // because it's already holding the lock
-static Readback* lovrReadbackCreateTimestamp(TimingInfo* times, uint32_t count, BufferView buffer) {
+static Readback* lovrReadbackCreateTimestamp(Pass** passes, uint32_t count) {
+  BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, count * 2 * sizeof(uint64_t), 8);
+  if (!view.buffer) return NULL;
   Readback* readback = lovrReadbackCreate(READBACK_TIMESTAMP);
-  readback->view = buffer;
-  readback->times = times;
+  readback->passes = lovrMalloc(count * sizeof(Pass*));
+  memcpy(readback->passes, passes, count * sizeof(Pass*));
+  for (uint32_t i = 0; i < count; i++) lovrRetain(passes[i]);
+  readback->timing = lovrMalloc(count * sizeof(Timing));
   readback->count = count;
+  readback->view = view;
   return readback;
 }
 
@@ -6371,9 +6369,10 @@ void lovrReadbackDestroy(void* ref) {
       break;
     case READBACK_TIMESTAMP:
       for (uint32_t i = 0; i < readback->count; i++) {
-        lovrRelease(readback->times[i].pass, lovrPassDestroy);
+        lovrRelease(readback->passes[i], lovrPassDestroy);
       }
-      lovrFree(readback->times);
+      lovrFree(readback->passes);
+      lovrFree(readback->timing);
       break;
     default: break;
   }
@@ -6392,11 +6391,26 @@ bool lovrReadbackPoll(Readback* readback) {
         memcpy(data, readback->view.pointer, size);
         break;
       case READBACK_TIMESTAMP:;
-        uint32_t* timestamps = readback->view.pointer;
+        uint64_t* timestamps = readback->view.pointer;
+        double offset = state.device.timestampOffset ? state.device.timestampOffset - lovrTimerGetEpoch() : 0.;
+
         for (uint32_t i = 0; i < readback->count; i++) {
-          Pass* pass = readback->times[i].pass;
-          pass->stats.submitTime = readback->times[i].cpuTime;
-          pass->stats.gpuTime = (timestamps[2 * i + 1] - timestamps[2 * i + 0]) * state.limits.timestampPeriod / 1e9;
+          uint64_t start = timestamps[2 * i + 0];
+          uint64_t finish = timestamps[2 * i + 1];
+
+          readback->timing[i].duration = (finish - start) * state.device.timestampScale;
+
+          if (offset) {
+            readback->timing[i].start = offset + start * state.device.timestampScale;
+            readback->timing[i].finish = offset + finish * state.device.timestampScale;
+          } else {
+            readback->timing[i].start = 0.;
+            readback->timing[i].finish = 0.;
+          }
+
+          // Deprecated
+          readback->passes[i]->stats.submitTime = readback->timing[i].submit;
+          readback->passes[i]->stats.gpuTime = readback->timing[i].duration;
         }
         break;
       default: break;
@@ -6446,6 +6460,14 @@ Blob* lovrReadbackGetBlob(Readback* readback) {
 
 Image* lovrReadbackGetImage(Readback* readback) {
   return lovrReadbackPoll(readback) ? readback->image : NULL;
+}
+
+bool lovrReadbackGetTimestamps(Readback* readback, Pass*** passes, Timing** timing, uint32_t* count) {
+  lovrCheck(readback->type == READBACK_TIMESTAMP, "Invalid Readback type");
+  *passes = readback->passes;
+  *timing = readback->timing;
+  *count = readback->count;
+  return true;
 }
 
 // Pass
@@ -9118,7 +9140,7 @@ bool lovrPassBeginTally(Pass* pass, uint32_t* index) {
     lovrAssert(gpu_tally_init(pass->tally.gpu, &tallyInfo), "Failed to create tally: %s", gpu_get_error());
 
     BufferInfo bufferInfo = {
-      .size = MAX_TALLIES * state.limits.renderSize[2] * sizeof(uint32_t)
+      .size = MAX_TALLIES * state.limits.renderSize[2] * sizeof(uint64_t)
     };
 
     pass->tally.tempBuffer = lovrBufferCreate(&bufferInfo, NULL);
