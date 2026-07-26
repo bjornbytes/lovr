@@ -8408,8 +8408,9 @@ bool lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
     float theta = angle1 + i * angleShift;
     float x = cosf(theta);
     float y = sinf(theta);
-    *vertices++ = (ShapeVertex) { { x, y, -.5f }, { x, y, 0.f }, { x + .5f, .5f - y } };
-    *vertices++ = (ShapeVertex) { { x, y,  .5f }, { x, y, 0.f }, { x + .5f, .5f - y } };
+    float u = (float) i / segments;
+    *vertices++ = (ShapeVertex) { { x, y, -.5f }, { x, y, 0.f }, { u, 1.f } };
+    *vertices++ = (ShapeVertex) { { x, y,  .5f }, { x, y, 0.f }, { u, 0.f } };
   }
 
   // Tube quads
@@ -8433,8 +8434,8 @@ bool lovrPassCylinder(Pass* pass, float* transform, bool capped, float angle1, f
       float theta = angle1 + i * angleShift;
       float x = cosf(theta);
       float y = sinf(theta);
-      *vertices++ = (ShapeVertex) { { x, y, -.5f }, { 0.f, 0.f, -1.f }, { x + .5f, y - .5f } };
-      *vertices++ = (ShapeVertex) { { x, y,  .5f }, { 0.f, 0.f,  1.f }, { x + .5f, y - .5f } };
+      *vertices++ = (ShapeVertex) { { x, y, -.5f }, { 0.f, 0.f, -1.f }, { .5f - x * .5f, .5f - y * .5f } };
+      *vertices++ = (ShapeVertex) { { x, y,  .5f }, { 0.f, 0.f,  1.f }, { .5f + x * .5f, .5f - y * .5f } };
     }
 
     // Cap wedges
