@@ -131,7 +131,11 @@ void lovrSetLogCallback(fn_log* callback, void* userdata) {
 void lovrLog(int level, const char* tag, const char* format, ...) {
   va_list args;
   va_start(args, format);
-  lovrLogCallback(lovrLogUserdata, level, tag, format, args);
+  if (lovrLogCallback) {
+    lovrLogCallback(lovrLogUserdata, level, tag, format, args);
+  } else {
+    vprintf(format, args);
+  }
   va_end(args);
 }
 
