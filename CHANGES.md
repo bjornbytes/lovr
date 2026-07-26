@@ -15,6 +15,7 @@ dev
 - Fix issues when generating mipmaps for texture views.
 - Fix crash in `lovr.audio.newSource` when decoding invalid sound.
 - Fix `lovr.audio.newAudioMesh` when given a table of `AudioMaterial`.
+- Fix `Texture:hasUsage`.
 
 v0.19.0 - 2026-06-07
 ---
