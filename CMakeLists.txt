@@ -5,7 +5,7 @@ cmake_policy(SET CMP0091 NEW)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS deployment version")
 project(lovr)
 
-# Options
+# Modules
 option(LOVR_ENABLE_AUDIO "Enable the audio module" ON)
 option(LOVR_ENABLE_DATA "Enable the data module" ON)
 option(LOVR_ENABLE_EVENT "Enable the event module" ON)
@@ -19,8 +19,10 @@ option(LOVR_ENABLE_TASK "Enable the task module" ON)
 option(LOVR_ENABLE_THREAD "Enable the thread module" ON)
 option(LOVR_ENABLE_TIMER "Enable the timer module" ON)
 
+# Lua Polyfills
 option(LOVR_ENABLE_UTF8 "Enable the utf8 module" ON)
 
+# Optional Libraries
 option(LOVR_USE_GLFW "Use GLFW for desktop windows" ON)
 option(LOVR_USE_LUAJIT "Use LuaJIT instead of Lua" ON)
 option(LOVR_USE_LUAU "Use Luau instead of Lua" OFF)
@@ -30,17 +32,22 @@ option(LOVR_USE_WEBGPU "Use the WebGPU renderer" OFF)
 option(LOVR_USE_STEAM_AUDIO "Use Steam Audio for audio spatialization" ON)
 option(LOVR_USE_TINCTURE "Use tincture to compile shaders" OFF)
 
-option(LOVR_SANITIZE "Enable Address Sanitizer" OFF)
-option(LOVR_PROFILE "Enable Tracy integration" OFF)
-
-option(LOVR_SYSTEM_GLFW "Use the system-provided glfw" OFF)
+# System Libraries
+option(LOVR_SYSTEM_GLFW "Use the system-provided GLFW" OFF)
 option(LOVR_SYSTEM_LUA "Use the system-provided Lua" OFF)
 option(LOVR_SYSTEM_OPENXR "Use the system-provided OpenXR" OFF)
 
+# Debugging
+option(LOVR_SANITIZE "Enable Address Sanitizer" OFF)
+option(LOVR_PROFILE "Enable Tracy integration" OFF)
+
+# Packaging
 option(LOVR_BUILD_EXE "Build an executable (or an apk on Android)" ON)
 option(LOVR_BUILD_SHARED "Build a shared library (takes precedence over LOVR_BUILD_EXE)" OFF)
 option(LOVR_BUILD_BUNDLE "On macOS, build a .app bundle instead of a raw program" OFF)
 option(LOVR_BUILD_WITH_SYMBOLS "Build with C function symbols exposed" OFF)
+
+set(LOVR_PROJECT "${PROJECT_SOURCE_DIR}/etc/nogame" CACHE STRING "The project folder to fuse to the build")
 
 # Setup
 if(EMSCRIPTEN)
@@ -655,13 +662,13 @@ endforeach()
 
 if(NOT ANDROID)
   add_custom_command(TARGET lovr POST_BUILD
-    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/etc/nogame"
-    COMMAND ${CMAKE_COMMAND} -E tar c "${PROJECT_BINARY_DIR}/nogame.lovr" --format=zip .
+    WORKING_DIRECTORY "${LOVR_PROJECT}"
+    COMMAND ${CMAKE_COMMAND} -E tar c "${PROJECT_BINARY_DIR}/project.lovr" --format=zip .
   )
   if(APPLE AND LOVR_BUILD_BUNDLE)
-    add_custom_command(TARGET lovr POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy nogame.lovr lovr.app/Contents/Resources)
+    add_custom_command(TARGET lovr POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy project.lovr lovr.app/Contents/Resources)
   elseif(NOT EMSCRIPTEN)
-    add_custom_command(TARGET lovr POST_BUILD COMMAND ${CMAKE_COMMAND} -E cat nogame.lovr >> "$<TARGET_FILE:lovr>")
+    add_custom_command(TARGET lovr POST_BUILD COMMAND ${CMAKE_COMMAND} -E cat project.lovr >> "$<TARGET_FILE:lovr>")
   endif()
 endif()
 
@@ -816,7 +823,6 @@ elseif(ANDROID)
   if(LOVR_BUILD_EXE)
     set(ANDROID_JAR "${ANDROID_SDK}/platforms/${ANDROID_PLATFORM}/android.jar")
     set(ANDROID_TOOLS "${ANDROID_SDK}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}")
-    set(ANDROID_ASSETS "${PROJECT_SOURCE_DIR}/etc/nogame" CACHE STRING "The project folder to include in the APK")
 
     add_custom_command(TARGET move_files POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy
@@ -843,7 +849,7 @@ elseif(ANDROID)
         --target-sdk-version ${ANDROID_TARGET_SDK_VERSION}
         -I ${ANDROID_JAR}
         -F lovr.unaligned.apk
-        -A ${ANDROID_ASSETS}
+        -A "${LOVR_PROJECT}"
         raw
       COMMAND ${ANDROID_TOOLS}/zipalign -f -p 4 lovr.unaligned.apk lovr.unsigned.apk
       COMMAND ${ANDROID_TOOLS}/apksigner
