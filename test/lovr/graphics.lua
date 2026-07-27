@@ -399,7 +399,21 @@ group('graphics', function()
       expect(texture:hasUsage('storage')).to.be(true)
       expect(texture:hasUsage('storage', 'transfer')).to.be(false)
       expect(texture:hasUsage('storage', 'render')).to.be(true)
-      expect(texture.hasUsage, texture).to.fail()
+      expect(function() texture:hasUsage() end).to.fail()
+    end)
+
+    test(':getPixels', function()
+      local texture = lovr.graphics.newTexture(4, 4, { mipmaps = true, usage = 'transfer' })
+      local image = texture:getPixels(0, 0, 1, 2)
+      expect(image:getDimensions()).to.equal(2, 2)
+    end)
+
+    test(':setPixels', function()
+      local texture = lovr.graphics.newTexture(4, 4, { mipmaps = true, usage = 'transfer' })
+
+      -- Should clamp to size of 2nd mipmap, since width/height are nil
+      local image = lovr.data.newImage(4, 4)
+      texture:setPixels(image, 0, 0, 1, 2)
     end)
   end)
 

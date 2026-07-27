@@ -37,6 +37,7 @@ dev
 - Fix `lovr.audio.newAudioMesh` when given a table of `AudioMaterial`.
 - Fix `Pass:cylinder` UVs.
 - Fix `Texture:hasUsage`.
+- Fix `Texture:get/setPixels` default width/height when copying to/from mipmaps.
 
 ### Deprecate
 
