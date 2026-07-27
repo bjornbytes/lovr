@@ -2828,9 +2828,12 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 
 bool lovrTextureSetPixels(Texture* texture, Image* image, uint32_t dstOffset[4], uint32_t srcOffset[4], uint32_t extent[3]) {
   TextureFormat format = texture->info.format;
-  if (extent[0] == ~0u) extent[0] = MIN(texture->info.width - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
-  if (extent[1] == ~0u) extent[1] = MIN(texture->info.height - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
-  if (extent[2] == ~0u) extent[2] = MIN(texture->info.layers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
+  uint32_t maxWidth = MAX(texture->info.width >> dstOffset[3], 1);
+  uint32_t maxHeight = MAX(texture->info.height >> dstOffset[3], 1);
+  uint32_t maxLayers = texture->info.type == TEXTURE_3D ? MAX(texture->info.layers >> dstOffset[3], 1) : texture->info.layers;
+  if (extent[0] == ~0u) extent[0] = MIN(maxWidth - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
+  if (extent[1] == ~0u) extent[1] = MIN(maxHeight - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
+  if (extent[2] == ~0u) extent[2] = MIN(maxLayers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy to it");
   lovrCheck(texture->info.samples == 1, "Images can't be copied to multisampled textures");
   lovrCheck(lovrImageGetFormat(image) == format, "Image and Texture formats must match");
@@ -6200,8 +6203,8 @@ Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t ext
 }
 
 Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[3]) {
-  if (extent[0] == ~0u) extent[0] = texture->info.width - offset[0];
-  if (extent[1] == ~0u) extent[1] = texture->info.height - offset[1];
+  if (extent[0] == ~0u) extent[0] = MAX(texture->info.width >> offset[3], 1) - offset[0];
+  if (extent[1] == ~0u) extent[1] = MAX(texture->info.height >> offset[3], 1) - offset[1];
   lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
   lovrCheck(texture->info.samples == 1, "Can't get pixels of a multisampled texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");

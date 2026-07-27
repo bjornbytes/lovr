@@ -167,7 +167,7 @@ static int l_lovrTextureSetPixels(lua_State* L) {
 
   Texture* src = luax_totype(L, 2, Texture);
 
-  if (texture) {
+  if (src) {
     Texture* dst = texture;
     uint32_t dstOffset[4];
     uint32_t srcOffset[4];

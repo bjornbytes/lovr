@@ -16,6 +16,7 @@ dev
 - Fix crash in `lovr.audio.newSource` when decoding invalid sound.
 - Fix `lovr.audio.newAudioMesh` when given a table of `AudioMaterial`.
 - Fix `Texture:hasUsage`.
+- Fix `Texture:get/setPixels` default width/height when copying to/from mipmaps.
 
 v0.19.0 - 2026-06-07
 ---
