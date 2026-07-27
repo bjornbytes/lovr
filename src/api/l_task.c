@@ -203,13 +203,15 @@ static int l_lovrTaskStart(lua_State* L) {
   if (!task->waiting) {
     lovrTaskDestroy(task);
 
-    if (status != 0 && status != LUA_YIELD) {
+    if (status == 0) {
+      luax_setthreaddata(T, (void*) &TASK_OK);
+    } else if (status == LUA_YIELD) {
+      luax_setthreaddata(T, NULL);
+    } else {
       lua_pushvalue(T, -1);
       lua_xmove(T, L, 1);
       luax_setthreaddata(T, &TASK_ERR);
       return lua_error(L);
-    } else {
-      luax_setthreaddata(T, (void*) &TASK_OK);
     }
   }
 
@@ -264,7 +266,7 @@ static int l_lovrTaskResume(lua_State* L) {
     lua_xmove(T, L, n);
     return n + 1;
   } else if (status == LUA_YIELD) {
-    luax_setthreaddata(T, &TASK_OK);
+    luax_setthreaddata(T, NULL);
     lua_pushboolean(L, true);
     // It yielded with coroutine.yield, return the results it yielded with
     int n = lua_gettop(T);
@@ -425,10 +427,14 @@ static int l_lovrTaskGetStatus(lua_State* L) {
     lua_pushliteral(L, "running");
   } else if (!data) {
     lua_pushnil(L);
-  } else if (data == &TASK_OK || task->complete) {
-    lua_pushliteral(L, "complete");
-  } else if (data == &TASK_ERR || task->error) {
+  } else if (data == &TASK_ERR) {
     lua_pushliteral(L, "failed");
+  } else if (data == &TASK_OK) {
+    lua_pushliteral(L, "complete");
+  } else if (task->error) {
+    lua_pushliteral(L, "failed");
+  } else if (task->complete) {
+    lua_pushliteral(L, "complete");
   } else if (task->waiting && atomic_load(&task->deps) > 0) {
     lua_pushliteral(L, "waiting");
   } else {
