@@ -53,6 +53,7 @@ set(LOVR_PROJECT "${PROJECT_SOURCE_DIR}/etc/nogame" CACHE STRING "The project fo
 if(EMSCRIPTEN)
   string(CONCAT EMSCRIPTEN_LINKER_FLAGS
     "-Os "
+    "-flto "
     "-sJSPI=1 "
     "-sASYNCIFY_IGNORE_INDIRECT=1 "
     "-sFORCE_FILESYSTEM=1 "
@@ -65,8 +66,10 @@ if(EMSCRIPTEN)
     "--js-library \"${PROJECT_SOURCE_DIR}/src/modules/headset/headset.js\" "
     "--shell-file \"${PROJECT_SOURCE_DIR}/etc/lovr.html\""
   )
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os -sSUPPORT_LONGJMP=wasm -fno-exceptions")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -sSUPPORT_LONGJMP=wasm -fno-exceptions")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -sSUPPORT_LONGJMP=wasm -fno-exceptions -flto")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sSUPPORT_LONGJMP=wasm -fno-exceptions -flto")
+  set(CMAKE_C_FLAGS_RELEASE "-Oz -DNDEBUG")
+  set(CMAKE_CXX_FLAGS_RELEASE "-Oz -DNDEBUG")
   if(LOVR_ENABLE_THREAD)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")

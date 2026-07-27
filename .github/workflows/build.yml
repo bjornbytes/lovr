@@ -118,6 +118,38 @@ jobs:
           name: ${{ matrix.abi == 'arm64-v8a' && 'lovr.apk' || 'lovr-x64.apk' }}
           path: build/lovr.apk
 
+  wasm:
+    name: WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Packages
+        run: sudo apt update
+      - name: Install Packages
+        run: sudo apt install -y glslang-tools
+      - name: Setup emsdk
+        uses: emscripten-core/setup-emsdk@v15
+        with:
+          version: 6.0.0
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+      - name: Clone Tincture
+        run: git clone --depth=1 --recursive https://github.com/bjornbytes/tincture deps/tincture
+      - name: Init
+        run: emcmake cmake -B build -D LOVR_VERSION_HASH=${GITHUB_SHA::6}
+      - name: Build
+        run: emmake make -C build -j2
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: lovr.wasm
+          path: |
+            build/lovr.js
+            build/lovr.wasm
+            build/lovr.html
+            build/project.lovr
+
   macos:
     name: macOS
     runs-on: macos-latest
