@@ -22,6 +22,10 @@ dev
 - Change `lovr.graphics.newFont` to take an `Image` to use for a BMFont atlas.
 - Change `lovr.timer.getDelta/getAverageDelta/getFPS` to return values from the headset when VR is active.
 - Change `Pass:fill` to error unless its argument is nil or a Texture.
+- Change `World:overlapShape` overlap vector to be normalized.
+- Change `World:overlapShape` to contain an extra result for the overlap amount.
+- Change `World:overlapShape` callback return value to a number instead of a boolean.
+- Change `World:overlapShape` to return the closest result when no callback is given.
 
 ### Fix
 

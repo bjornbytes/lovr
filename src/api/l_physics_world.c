@@ -26,7 +26,7 @@ static int luax_pushcastresult(lua_State* L, CastResult* hit) {
   } else {
     lua_pushinteger(L, hit->triangle + 1);
   }
-  lua_pushnumber(L, hit->fraction);
+  lua_pushnumber(L, hit->depth);
   return 10;
 }
 
@@ -44,7 +44,8 @@ static int luax_pushoverlapresult(lua_State* L, OverlapResult* hit) {
   } else {
     lua_pushinteger(L, hit->triangle + 1);
   }
-  return 9;
+  lua_pushnumber(L, hit->depth);
+  return 10;
 }
 
 static float castCallback(void* userdata, CastResult* hit) {
@@ -59,7 +60,7 @@ static float castCallback(void* userdata, CastResult* hit) {
 
 static float castClosestCallback(void* userdata, CastResult* hit) {
   *((CastResult*) userdata) = *hit;
-  return hit->fraction;
+  return hit->depth;
 }
 
 static float overlapCallback(void* userdata, OverlapResult* hit) {
@@ -67,14 +68,14 @@ static float overlapCallback(void* userdata, OverlapResult* hit) {
   lua_pushvalue(L, -1);
   int n = luax_pushoverlapresult(L, hit);
   lua_call(L, n, 1);
-  bool stop = lua_type(L, -1) == LUA_TBOOLEAN && lua_toboolean(L, -1);
+  float depth = lua_type(L, -1) == LUA_TNUMBER ? luax_tofloat(L, -1) : -FLT_MAX;
   lua_pop(L, 1);
-  return stop ? -FLT_MAX : FLT_MAX;
+  return -depth;
 }
 
-static float overlapFirstCallback(void* userdata, OverlapResult* hit) {
+static float overlapClosestCallback(void* userdata, OverlapResult* hit) {
   *((OverlapResult*) userdata) = *hit;
-  return -FLT_MAX;
+  return -hit->depth;
 }
 
 static void queryCallback(void* userdata, Collider* collider) {
@@ -411,7 +412,7 @@ static int l_lovrWorldOverlapShape(lua_State* L) {
   uint32_t filter = luax_checktagmask(L, index++, world);
   if (lua_isnoneornil(L, index)) {
     OverlapResult hit;
-    if (lovrWorldOverlapShape(world, shape, pose, maxDistance, filter, overlapFirstCallback, &hit)) {
+    if (lovrWorldOverlapShape(world, shape, pose, maxDistance, filter, overlapClosestCallback, &hit)) {
       return luax_pushoverlapresult(L, &hit);
     }
   } else {

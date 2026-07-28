@@ -577,7 +577,7 @@ static float raycastCallback(void* arg, const JPH_RayCastResult* result) {
   JPH_Vec3 normal;
   JPH_Body_GetWorldSpaceSurfaceNormal(hit.collider->body, result->subShapeID2, vec3_toJolt(hit.position), &normal);
   vec3_fromJolt(hit.normal, &normal);
-  hit.fraction = result->fraction;
+  hit.depth = result->fraction;
   return ctx->callback(ctx->userdata, &hit);
 }
 
@@ -614,7 +614,7 @@ static float shapecastCallback(void* arg, const JPH_ShapeCastResult* result) {
   JPH_Vec3 normal;
   JPH_Body_GetWorldSpaceSurfaceNormal(hit.collider->body, result->subShapeID2, &result->contactPointOn2, &normal);
   vec3_fromJolt(hit.normal, &normal);
-  hit.fraction = result->fraction;
+  hit.depth = result->fraction;
   return ctx->callback(ctx->userdata, &hit);
 }
 
@@ -661,7 +661,8 @@ static float overlapCallback(void* arg, const JPH_CollideShapeResult* result) {
   hit.shape = subshapeToShape(hit.collider, result->subShapeID2, &hit.triangle);
   vec3_fromJolt(hit.position, &result->contactPointOn2);
   vec3_fromJolt(hit.normal, &result->penetrationAxis);
-  vec3_scale(vec3_normalize(hit.normal), result->penetrationDepth);
+  vec3_normalize(hit.normal);
+  hit.depth = result->penetrationDepth;
   return ctx->callback(ctx->userdata, &hit);
 }
 

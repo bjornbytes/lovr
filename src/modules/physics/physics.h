@@ -60,7 +60,7 @@ typedef struct {
   uint32_t triangle;
   float position[3];
   float normal[3];
-  float fraction;
+  float depth;
 } CastResult;
 
 typedef CastResult OverlapResult;
