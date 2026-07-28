@@ -211,11 +211,15 @@ function lovr.run()
     if lovr.audio then lovr.audio.update(dt) end
     if lovr.graphics then
       local window = lovr.graphics.getWindowPass()
-      local headset = lovr.headset and lovr.headset.getPass()
-      if headset and lovr.draw and lovr.draw(headset) then headset = nil end
-      if window and lovr.mirror and lovr.mirror(window) then window = nil end
-      if headset or window then lovr.graphics.submit(headset, window) end
-      if lovr.headset then lovr.headset.submit() end
+      if lovr.headset then
+        local headset = lovr.headset.getPass()
+        if headset and lovr.draw and lovr.draw(headset) then headset = nil end
+        if window and lovr.mirror and lovr.mirror(window) then window = nil end
+        if headset or window then lovr.graphics.submit(headset, window) end
+        lovr.headset.submit()
+      elseif window and (not lovr.draw or not lovr.draw(window)) then
+        lovr.graphics.submit(window)
+      end
       lovr.graphics.present()
     elseif lovr.headset then
       lovr.headset.submit()
@@ -224,19 +228,16 @@ function lovr.run()
 end
 
 function lovr.mirror(pass)
-  if lovr.headset then
-    local texture = lovr.headset.isActive() and lovr.headset.getTexture()
-    if texture then
-      local w, h = pass:getDimensions()
-      local scale = texture:getWidth() / lovr.headset.getDisplayWidth()
-      pass:setProjection('orthographic')
-      pass:setMaterial(texture)
-      pass:plane(w / 2 * scale, h / 2 * scale, 0, w * scale, -h * scale)
-    else
-      return true
-    end
+  local texture = lovr.headset.getTexture()
+  if texture then
+    local w, h = pass:getDimensions()
+    local scale = texture:getWidth() / lovr.headset.getDisplayWidth()
+    pass:setProjection('orthographic')
+    pass:setMaterial(texture)
+    pass:plane(w / 2 * scale, h / 2 * scale, 0, w * scale, -h * scale)
+    pass:setMaterial()
   else
-    return lovr.draw and lovr.draw(pass)
+    return true
   end
 end
 

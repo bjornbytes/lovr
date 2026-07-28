@@ -7,7 +7,6 @@
 #include "graphics/graphics.h"
 #include "math/math.h"
 #include "system/system.h"
-#include "timer/timer.h"
 #include "core/maf.h"
 #include "core/os.h"
 #include "util.h"
@@ -206,10 +205,12 @@ typedef struct {
 } RenderModel;
 
 typedef struct {
+  bool initialized;
   float poses[MAX_DEVICES][7];
   uint32_t lastButtons[MAX_DEVICES];
   uint32_t buttons[MAX_DEVICES];
-  bool initialized;
+  Texture* texture;
+  Pass* pass;
 } Simulator;
 
 static atomic_uint ref;
@@ -1218,6 +1219,10 @@ stop:
 
 void lovrHeadsetStop(void) {
   if (!state.session) {
+    lovrRelease(state.simulator.texture, lovrTextureDestroy);
+    lovrRelease(state.simulator.pass, lovrPassDestroy);
+    state.simulator.texture = NULL;
+    state.simulator.pass = NULL;
     return;
   }
 
@@ -2777,7 +2782,39 @@ bool lovrHeadsetSetLayers(Layer** layers, uint32_t count, bool main) {
 
 bool lovrHeadsetGetTexture(Texture** texture) {
   if (!state.session) {
-    return lovrGraphicsGetWindowTexture(texture);
+    uint32_t width, height;
+    lovrHeadsetGetDisplayDimensions(&width, &height);
+
+    if (width == 0 || height == 0) {
+      *texture = NULL;
+      return true;
+    }
+
+    const TextureInfo* info = state.simulator.texture ? lovrTextureGetInfo(state.simulator.texture) : NULL;
+
+    if (!info || info->width != width || info->height != height) {
+      lovrRelease(state.simulator.texture, lovrTextureDestroy);
+
+      state.simulator.texture = lovrTextureCreate(&(TextureInfo) {
+        .type = TEXTURE_2D,
+        .format = FORMAT_RGBA8,
+        .srgb = true,
+        .width = width,
+        .height = height,
+        .layers = 1,
+        .mipmaps = 1,
+        .samples = 1,
+        .usage = TEXTURE_RENDER | TEXTURE_TRANSFER | TEXTURE_SAMPLE,
+        .label = "Simulator"
+      });
+
+      if (!state.simulator.texture) {
+        return false;
+      }
+    }
+
+    *texture = state.simulator.texture;
+    return true;
   }
 
   if (!SESSION_RUNNING(state.sessionState)) {
@@ -2823,13 +2860,41 @@ bool lovrHeadsetGetDepthTexture(Texture** texture) {
 
 bool lovrHeadsetGetPass(Pass** pass) {
   if (!state.session) {
-    if (!lovrGraphicsGetWindowPass(pass)) {
+    Texture* texture;
+    if (!lovrHeadsetGetTexture(&texture)) {
       return false;
     }
 
-    if (*pass == NULL) {
+    if (!texture) {
+      *pass = NULL;
       return true;
     }
+
+    if (!state.simulator.pass) {
+      if ((state.simulator.pass = lovrPassCreate("Simulator")) == NULL) {
+        return false;
+      }
+
+      state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
+      if (!lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+        state.depthFormat = state.config.stencil ? FORMAT_D24S8 : FORMAT_D24;
+      }
+    }
+
+    Canvas canvas = {
+      .color[0].texture = texture,
+      .depthFormat = state.depthFormat,
+      .samples = state.config.antialias ? 4 : 1
+    };
+
+    if (!lovrPassSetCanvas(state.simulator.pass, &canvas)) {
+      return false;
+    }
+
+    float background[4][4];
+    LoadAction loads[4] = { LOAD_CLEAR };
+    lovrGraphicsGetBackgroundColor(background[0]);
+    lovrPassSetClear(state.simulator.pass, loads, background, LOAD_CLEAR, 0.f);
 
     float position[3], orientation[4], viewMatrix[16];
     lovrHeadsetGetViewPose(0, position, orientation);
@@ -2840,8 +2905,10 @@ bool lovrHeadsetGetPass(Pass** pass) {
     lovrHeadsetGetViewAngles(0, &left, &right, &up, &down);
     mat4_fov(projection, left, right, up, down, state.clipNear, state.clipFar);
 
-    lovrPassSetViewMatrix(*pass, 0, viewMatrix);
-    lovrPassSetProjection(*pass, 0, projection);
+    lovrPassSetViewMatrix(state.simulator.pass, 0, viewMatrix);
+    lovrPassSetProjection(state.simulator.pass, 0, projection);
+
+    *pass = state.simulator.pass;
     return true;
   }
 
