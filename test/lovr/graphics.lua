@@ -253,13 +253,15 @@ group('graphics', function()
 
     test('format: getFormat with anonymous fields', function()
       buffer = lovr.graphics.newBuffer({ 'vec3', 'vec3', 'vec2' }, 8)
-      expect(buffer:getFormat()).to.equal({
+      local format = buffer:getFormat()
+      expect(format).to.equal({
         { offset = 0, type = 'f32x3' },
         { offset = 12, type = 'f32x3' },
         { offset = 24, type = 'f32x2' },
         stride = 32
       })
-      expect(function() lovr.graphics.newBuffer(buffer:getFormat(), 8) end).to_not.fail()
+      copy = lovr.graphics.newBuffer(format, 8)
+      expect(copy:getFormat()).to.equal(format)
     end)
 
     test('format: getFormat with scalar array', function()
@@ -269,7 +271,7 @@ group('graphics', function()
         { offset = 0, type = 'f32' },
         stride = 4
       })
-      expect(function() copy = lovr.graphics.newBuffer(format, 4) end).to_not.fail()
+      copy = lovr.graphics.newBuffer(format, 4)
       expect(copy:getFormat()).to.equal(format)
     end)
 
