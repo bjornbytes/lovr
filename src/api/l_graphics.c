@@ -740,7 +740,7 @@ static uint32_t luax_checkbufferformat(lua_State* L, int index, DataField* field
 
     lua_getfield(L, -1, "name");
     if (lua_isnil(L, -1)) lua_pop(L, 1), lua_rawgeti(L, -1, 1);
-    luax_check(L, lua_type(L, -1) == LUA_TSTRING, "Buffer fields must have a 'name' key");
+    luax_check(L, lua_isnil(L, -1) || lua_type(L, -1) == LUA_TSTRING, "Buffer field names must be strings");
     field->name = lua_tostring(L, -1);
     lua_pop(L, 1);
 

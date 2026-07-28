@@ -537,6 +537,22 @@ static int l_lovrBufferGetFormat(lua_State* L) {
   if (format) {
     if (format->fieldCount > 0) {
       luax_pushbufferformat(L, format->fields, format->fieldCount);
+      if (format->length > 0) {
+        lua_pushinteger(L, format->stride);
+        lua_setfield(L, -2, "stride");
+      }
+    } else if (format->length > 0) {
+      lua_createtable(L, 1, 1);
+
+      lua_createtable(L, 0, 2);
+      luax_pushenum(L, DataType, format->type);
+      lua_setfield(L, -2, "type");
+      lua_pushinteger(L, format->offset);
+      lua_setfield(L, -2, "offset");
+      lua_rawseti(L, -2, 1);
+
+      lua_pushinteger(L, format->stride);
+      lua_setfield(L, -2, "stride");
     } else {
       luax_pushbufferformat(L, format, 1);
     }

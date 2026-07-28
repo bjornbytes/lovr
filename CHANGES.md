@@ -27,6 +27,7 @@ dev
 - Change `World:overlapShape` to contain an extra result for the overlap amount.
 - Change `World:overlapShape` callback return value to a number instead of a boolean.
 - Change `World:overlapShape` to return the closest result when no callback is given.
+- Change `lovr.graphics.newBuffer` to accept fields without names.
 
 ### Fix
 
@@ -43,6 +44,7 @@ dev
 - Fix `Pass:cylinder` UVs.
 - Fix `Texture:hasUsage`.
 - Fix `Texture:get/setPixels` default width/height when copying to/from mipmaps.
+- Fix `Buffer:getFormat` to return top-level array stride.
 
 ### Deprecate
 

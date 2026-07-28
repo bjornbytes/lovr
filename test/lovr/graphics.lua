@@ -233,6 +233,46 @@ group('graphics', function()
       })
     end)
 
+    test('format: getFormat top-level stride', function()
+      buffer = lovr.graphics.newBuffer({ 'float', stride = 32 })
+      expect(buffer:getFormat()).to.equal({ { type = 'f32', offset = 0 } }) -- no stride for non-array
+
+      buffer = lovr.graphics.newBuffer({ 'float', stride = 32 }, 4)
+      expect(buffer:getFormat()).to.equal({ { type = 'f32', offset = 0 }, stride = 32 })
+
+      buffer = lovr.graphics.newBuffer({ 'float', layout = 'std140' }, 4)
+      expect(buffer:getFormat()).to.equal({ { type = 'f32', offset = 0 }, stride = 16 })
+
+      buffer = lovr.graphics.newBuffer({ 'vec4', 'int', layout = 'std430' }, 4)
+      expect(buffer:getFormat()).to.equal({
+        { type = 'f32x4', offset = 0 },
+        { type = 'i32', offset = 16 },
+        stride = 32
+      })
+    end)
+
+    test('format: getFormat with anonymous fields', function()
+      buffer = lovr.graphics.newBuffer({ 'vec3', 'vec3', 'vec2' }, 8)
+      expect(buffer:getFormat()).to.equal({
+        { offset = 0, type = 'f32x3' },
+        { offset = 12, type = 'f32x3' },
+        { offset = 24, type = 'f32x2' },
+        stride = 32
+      })
+      expect(function() lovr.graphics.newBuffer(buffer:getFormat(), 8) end).to_not.fail()
+    end)
+
+    test('format: getFormat with scalar array', function()
+      buffer = lovr.graphics.newBuffer('float', 4)
+      local format = buffer:getFormat()
+      expect(format).to.equal({
+        { offset = 0, type = 'f32' },
+        stride = 4
+      })
+      expect(function() copy = lovr.graphics.newBuffer(format, 4) end).to_not.fail()
+      expect(copy:getFormat()).to.equal(format)
+    end)
+
     test(':setData offset', function()
       buffer = lovr.graphics.newBuffer('int', { 1, 2, 3 })
       expect(buffer:getSize()).to.be(12)
