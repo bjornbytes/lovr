@@ -30,6 +30,10 @@ void lovrTimerDestroy(void) {
   lovrModuleReset(&ref);
 }
 
+double lovrTimerGetEpoch(void) {
+  return state.epoch;
+}
+
 double lovrTimerGetDelta(void) {
 #ifndef LOVR_DISABLE_HEADSET
   double dt = lovrHeadsetGetDeltaTime();

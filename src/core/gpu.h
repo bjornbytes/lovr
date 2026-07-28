@@ -768,12 +768,14 @@ void gpu_xr_release(gpu_stream* stream, gpu_texture* texture);
 // Entry
 
 typedef struct {
+  bool discrete;
   uint32_t deviceId;
   uint32_t vendorId;
   char deviceName[256];
   const char* renderer;
   uint32_t subgroupSize;
-  bool discrete;
+  double timestampOffset;
+  double timestampScale;
 } gpu_device_info;
 
 enum {
@@ -838,7 +840,6 @@ typedef struct {
   uint32_t pushConstantSize;
   uint32_t indirectDrawCount;
   uint32_t instances;
-  float timestampPeriod;
   float anisotropy;
   float pointSize;
 } gpu_limits;

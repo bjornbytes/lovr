@@ -1462,6 +1462,10 @@ bool gpu_init(gpu_config* config) {
   state.device = wgpu_adapter_request_device_sync_simple(state.adapter);
   state.queue = wgpu_device_get_queue(state.device);
 
+  if (config->device) {
+    config->device->timestampScale = 1e-9;
+  }
+
   if (config->features) {
     config->features->textureBC = wgpu_device_supports_feature(state.device, WGPU_FEATURE_TEXTURE_COMPRESSION_BC);
     config->features->textureASTC = wgpu_device_supports_feature(state.device, WGPU_FEATURE_TEXTURE_COMPRESSION_ASTC);
@@ -1623,7 +1627,6 @@ bool gpu_init(gpu_config* config) {
     config->limits->pushConstantSize = supported.maxImmediateSize;
     config->limits->indirectDrawCount = 1;
     config->limits->instances = ~0u;
-    config->limits->timestampPeriod = 1.f;
     config->limits->anisotropy = 16.f;
     config->limits->pointSize = 1.f;
   }

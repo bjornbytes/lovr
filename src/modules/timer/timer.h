@@ -6,6 +6,7 @@
 
 bool lovrTimerInit(void);
 void lovrTimerDestroy(void);
+double lovrTimerGetEpoch(void);
 double lovrTimerGetDelta(void);
 double lovrTimerGetTime(void);
 double lovrTimerGetDisplayTime(void);

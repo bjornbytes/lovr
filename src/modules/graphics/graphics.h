@@ -123,6 +123,7 @@ void lovrGraphicsSetBackgroundColor(float background[4]);
 
 bool lovrGraphicsIsTimingEnabled(void);
 void lovrGraphicsSetTimingEnabled(bool enable);
+Readback* lovrGraphicsGetTiming(void);
 bool lovrGraphicsSubmit(Pass** passes, uint32_t count);
 bool lovrGraphicsPresent(void);
 bool lovrGraphicsWait(void);
@@ -544,6 +545,13 @@ bool lovrRaytracerBuild(Raytracer* raytracer);
 
 // Readback
 
+typedef struct {
+  double duration;
+  double start;
+  double finish;
+  double submit;
+} Timing;
+
 Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t extent);
 Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[3]);
 void lovrReadbackDestroy(void* ref);
@@ -552,6 +560,7 @@ bool lovrReadbackWait(Readback* readback);
 void* lovrReadbackGetData(Readback* readback, DataField** format, uint32_t* count);
 struct Blob* lovrReadbackGetBlob(Readback* readback);
 struct Image* lovrReadbackGetImage(Readback* readback);
+bool lovrReadbackGetTimestamps(Readback* readback, Pass*** passes, Timing** timings, uint32_t* count);
 
 // Pass
 

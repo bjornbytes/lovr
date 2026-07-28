@@ -243,6 +243,7 @@ typedef struct {
   bool formatFlags2;
   bool hostImageCopy;
   bool atomicFloat;
+  bool calibratedTimestamps;
 } gpu_extensions;
 
 // State
@@ -446,7 +447,8 @@ static void error(const char* message);
   X(vkDestroyAccelerationStructureKHR)\
   X(vkCmdBuildAccelerationStructuresKHR)\
   X(vkCopyMemoryToImageEXT)\
-  X(vkTransitionImageLayoutEXT)
+  X(vkTransitionImageLayoutEXT)\
+  X(vkGetCalibratedTimestampsKHR)
 
 // Used to load/declare Vulkan functions without lots of clutter
 #define GPU_LOAD_ANONYMOUS(fn) fn = (PFN_##fn) vkGetInstanceProcAddr(NULL, #fn);
@@ -2761,7 +2763,7 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
 }
 
 void gpu_copy_tally_buffer(gpu_stream* stream, gpu_tally* src, gpu_buffer* dst, uint32_t srcIndex, uint32_t dstOffset, uint32_t count) {
-  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset, 4, VK_QUERY_RESULT_WAIT_BIT);
+  vkCmdCopyQueryPoolResults(stream->commands, src->handle, srcIndex, count, dst->handle, dstOffset, 8, VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 }
 
 void gpu_clear_buffer(gpu_stream* stream, gpu_buffer* buffer, uint32_t offset, uint32_t extent, uint32_t value) {
@@ -3099,6 +3101,9 @@ bool gpu_init(gpu_config* config) {
     struct { const char* name; bool shouldEnable; bool* flag; } extensions[] = {
       { "VK_KHR_acceleration_structure", true, &state.extensions.accelerationStructure },
       { "VK_KHR_buffer_device_address", true, &state.extensions.bufferDeviceAddress },
+#ifndef __APPLE__
+      { "VK_KHR_calibrated_timestamps", true, &state.extensions.calibratedTimestamps },
+#endif
       { "VK_KHR_create_renderpass2", true, &state.extensions.renderPass2 },
       { "VK_KHR_deferred_host_operations", true, &state.extensions.deferredHostOperations },
       { "VK_KHR_swapchain", true, &state.extensions.swapchain },
@@ -3153,12 +3158,12 @@ bool gpu_init(gpu_config* config) {
 
     if (config->device) {
       VkPhysicalDeviceProperties* properties = &properties2.properties;
+      config->device->discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
       config->device->deviceId = properties->deviceID;
       config->device->vendorId = properties->vendorID;
       memcpy(config->device->deviceName, properties->deviceName, MIN(sizeof(config->device->deviceName), sizeof(properties->deviceName)));
       config->device->renderer = "Vulkan";
       config->device->subgroupSize = subgroupProperties.subgroupSize;
-      config->device->discrete = properties->deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
     }
 
     // Limits
@@ -3199,10 +3204,11 @@ bool gpu_init(gpu_config* config) {
       config->limits->pushConstantSize = limits->maxPushConstantsSize;
       config->limits->indirectDrawCount = limits->maxDrawIndirectCount;
       config->limits->instances = multiviewProperties.maxMultiviewInstanceIndex;
-      config->limits->timestampPeriod = limits->timestampPeriod;
       config->limits->anisotropy = limits->maxSamplerAnisotropy;
       config->limits->pointSize = limits->pointSizeRange[1];
     }
+
+    config->device->timestampScale = (double) properties2.properties.limits.timestampPeriod * 1e-9;
 
     // Features
 
@@ -3600,6 +3606,32 @@ bool gpu_init(gpu_config* config) {
   }
 
   VK(vkCreatePipelineCache(state.device, &cacheInfo, NULL, &state.pipelineCache), "vkCreatePipelineCache") goto fail;
+
+  // Calibrated timestamps
+
+  if (state.extensions.calibratedTimestamps) {
+    VkCalibratedTimestampInfoKHR domains[2] = {
+      {
+        .sType = VK_STRUCTURE_TYPE_CALIBRATED_TIMESTAMP_INFO_KHR,
+        .timeDomain = VK_TIME_DOMAIN_DEVICE_KHR
+      },
+      {
+        .sType = VK_STRUCTURE_TYPE_CALIBRATED_TIMESTAMP_INFO_KHR,
+#ifdef _WIN32
+        .timeDomain = VK_TIME_DOMAIN_QUERY_PERFORMANCE_COUNTER_KHR
+#else
+        .timeDomain = VK_TIME_DOMAIN_CLOCK_MONOTONIC_KHR
+#endif
+      }
+    };
+
+    uint64_t timestamps[2];
+    uint64_t deviation;
+
+    if (vkGetCalibratedTimestampsKHR(state.device, COUNTOF(domains), domains, timestamps, &deviation) == VK_SUCCESS) {
+      config->device->timestampOffset = timestamps[1] * 1e-9 - timestamps[0] * config->device->timestampScale;
+    }
+  }
 
   mtx_init(&state.morgue.lock, mtx_plain);
 

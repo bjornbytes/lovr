@@ -461,6 +461,60 @@ static int l_lovrGraphicsSetTimingEnabled(lua_State* L) {
   return 0;
 }
 
+static bool luax_pollreadback(void** context) {
+  return lovrReadbackPoll(*context);
+}
+
+static bool luax_waitreadback(void** context) {
+  return lovrReadbackWait(*context);
+}
+
+static int luax_pushtiming(lua_State* L, bool success, void* readback) {
+  if (success) {
+    Pass** passes;
+    Timing* timing;
+    uint32_t count;
+
+    if (!lovrReadbackGetTimestamps(readback, &passes, &timing, &count)) {
+      lovrRelease(readback, lovrReadbackDestroy);
+      return luax_throw(L);
+    }
+
+    lua_createtable(L, 0, (int) count);
+    for (uint32_t i = 0; i < count; i++) {
+      luax_pushtype(L, Pass, passes[i]);
+
+      lua_createtable(L, 0, 4);
+      lua_pushnumber(L, timing[i].duration), lua_setfield(L, -2, "duration");
+      lua_pushnumber(L, timing[i].submit), lua_setfield(L, -2, "submit");
+
+      if (timing[i].start != 0.) {
+        lua_pushnumber(L, timing[i].start), lua_setfield(L, -2, "start");
+        lua_pushnumber(L, timing[i].finish), lua_setfield(L, -2, "finish");
+      }
+
+      lua_settable(L, -3);
+    }
+
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 1;
+  } else {
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 0;
+  }
+}
+
+static int l_lovrGraphicsGetTiming(lua_State* L) {
+  Readback* readback = lovrGraphicsGetTiming();
+  if (!readback) {
+    lua_pushnil(L);
+    return 1;
+  } else {
+    lovrRetain(readback);
+    return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushtiming, readback);
+  }
+}
+
 static int l_lovrGraphicsSubmit(lua_State* L) {
   bool table = lua_istable(L, 1);
   int length = table ? luax_len(L, 1) : lua_gettop(L);
@@ -1757,6 +1811,7 @@ static const luaL_Reg lovrGraphics[] = {
   { "isInitialized", l_lovrGraphicsIsInitialized },
   { "isTimingEnabled", l_lovrGraphicsIsTimingEnabled },
   { "setTimingEnabled", l_lovrGraphicsSetTimingEnabled },
+  { "getTiming", l_lovrGraphicsGetTiming },
   { "submit", l_lovrGraphicsSubmit },
   { "present", l_lovrGraphicsPresent },
   { "wait", l_lovrGraphicsWait },

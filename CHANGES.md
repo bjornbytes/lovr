@@ -10,6 +10,7 @@ dev
 - Add support for atomic floats in shaders.
 - Add `ConvexShape:setScale` and `MeshShape:setScale`.
 - Add `t.graphics.lowpower`.
+- Add `lovr.graphics.getTiming`.
 
 ### Change
 
@@ -47,6 +48,7 @@ dev
 
 - Deprecate `lovr.headset.getTime` (use `lovr.timer.getDisplayTime`).
 - Deprecate `lovr.headset.getDeltaTime` (use `lovr.timer.getDelta`).
+- Deprecate `gpuTime` and `submitTime` fields of `Pass:getStats` (use `lovr.graphics.getTiming`).
 
 ### Remove
 

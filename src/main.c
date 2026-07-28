@@ -19,6 +19,7 @@ bool step(void* arg) {
     return false;
   } else {
     int status = lua_tointeger(T, -1);
+    lovrSetLogCallback(NULL, NULL);
     luax_close(T);
     os_destroy();
     exit(status);
@@ -66,6 +67,7 @@ int main(int argc, char** argv) {
       } else {
         luax_checkvariant(T, 2, &cookie);
         if (cookie.type == TYPE_OBJECT) memset(&cookie, 0, sizeof(cookie));
+        lovrSetLogCallback(NULL, NULL);
         luax_close(L);
         break;
       }
