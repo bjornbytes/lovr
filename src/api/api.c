@@ -1,5 +1,6 @@
 #include "api.h"
 #include "math/math.h"
+#include "core/job.h"
 #include "core/maf.h"
 #include "util.h"
 #ifdef LOVR_USE_LUAU
@@ -513,6 +514,18 @@ void luax_atexit(lua_State* L, void (*fn)(void)) {
 void luax_close(lua_State* L) {
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrfinalizers");
   Finalizer* finalizer = lua_touserdata(L, -1);
+
+#ifndef LOVR_DISABLE_TASK
+  lua_getfield(L, LUA_REGISTRYINDEX, "_lovrtasks");
+  lua_pushnil(L);
+  while (lua_next(L, -2) != 0) {
+    Task* task = lua_touserdata(L, -2);
+    while (task->waiting == WAIT_JOB && atomic_load(&task->deps) > 0) job_spin();
+    if (task->continuation) task->continuation(NULL, false, task->context);
+    lovrTaskDestroy(task);
+    lua_pop(L, 1);
+  }
+#endif
 
   lua_close(L);
 
