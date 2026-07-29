@@ -139,7 +139,7 @@ static int l_lovrFontGetLines(lua_State* L) {
   uint32_t count;
   ColoredString stack;
   ColoredString* strings = luax_checkcoloredstrings(L, 2, &count, &stack);
-  float wrap = luax_checkfloat(L, 3);
+  float wrap = luax_optfloat(L, 3, 0.f);
   lua_newtable(L);
   lovrFontGetLines(font, strings, count, wrap, online, L);
   if (strings != &stack) lovrFree(strings);
