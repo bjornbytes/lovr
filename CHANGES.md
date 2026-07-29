@@ -28,7 +28,7 @@ dev
 - Change `World:overlapShape` callback return value to a number instead of a boolean.
 - Change `World:overlapShape` to return the closest result when no callback is given.
 - Change `lovr.graphics.newBuffer` to accept fields without names.
-- Change `Font:getLines` wrap parameter to default to zero.
+- Change `Font:getLines` wrap parameter to default to no wrap limit.
 
 ### Fix
 

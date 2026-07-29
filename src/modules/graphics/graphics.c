@@ -4680,7 +4680,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     previous = codepoint;
 
     // Wrap
-    if (wrap > 0.f && wordStart != lineStart && x + advance > wrap) {
+    if (wrap >= 0.f && wordStart != lineStart && x + advance > wrap) {
       size_t length = wordStart - lineStart;
       while (string[length] == ' ' || string[length] == '\t') length--;
       callback(context, lineStart, length);

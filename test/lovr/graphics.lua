@@ -468,7 +468,7 @@ group('graphics', function()
 
     test(':getLines', function()
       local font = lovr.graphics.getDefaultFont()
-      local lines = font:getLines({ 0xff0000, 'hello ', 0x0000ff, 'world' }, .01)
+      local lines = font:getLines({ 0xff0000, 'hello ', 0x0000ff, 'world' }, 0)
       expect(lines).to.equal({ 'hello ', 'world' })
     end)
   end)
