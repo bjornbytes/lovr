@@ -517,13 +517,15 @@ void luax_close(lua_State* L) {
 
 #ifndef LOVR_DISABLE_TASK
   lua_getfield(L, LUA_REGISTRYINDEX, "_lovrtasks");
-  lua_pushnil(L);
-  while (lua_next(L, -2) != 0) {
-    Task* task = lua_touserdata(L, -2);
-    while (task->waiting == WAIT_JOB && atomic_load(&task->deps) > 0) job_spin();
-    if (task->continuation) task->continuation(NULL, false, task->context);
-    lovrTaskDestroy(task);
-    lua_pop(L, 1);
+  if (!lua_isnil(L, -1)) {
+    lua_pushnil(L);
+    while (lua_next(L, -2) != 0) {
+      Task* task = lua_touserdata(L, -2);
+      while (task->waiting == WAIT_JOB && atomic_load(&task->deps) > 0) job_spin();
+      if (task->continuation) task->continuation(NULL, false, task->context);
+      lovrTaskDestroy(task);
+      lua_pop(L, 1);
+    }
   }
 #endif
 
