@@ -45,6 +45,7 @@ dev
 - Fix `Texture:hasUsage`.
 - Fix `Texture:get/setPixels` default width/height when copying to/from mipmaps.
 - Fix `Buffer:getFormat` to return top-level array stride.
+- Fix memory leak when there are waiting tasks on quit.
 
 ### Deprecate
 
