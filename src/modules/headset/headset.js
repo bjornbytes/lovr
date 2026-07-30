@@ -22,6 +22,9 @@ var headset = {
     state.clipNear = .01;
     state.clipFar = 0;
 
+    state.texture = 0;
+    state.pass = 0;
+
     return true;
   },
 
@@ -58,6 +61,16 @@ var headset = {
   },
 
   lovrHeadsetStop() {
+    if (state.texture && --HEAPU32[state.texture >> 2] === 0) {
+      Module['_lovrTextureDestroy'](state.texture);
+      state.texture = 0;
+    }
+
+    if (state.pass && --HEAPU32[state.pass >> 2] === 0) {
+      Module['_lovrPassDestroy'](state.pass);
+      state.pass = 0;
+    }
+
     return false;
   },
 
@@ -249,8 +262,36 @@ var headset = {
     return false;
   },
 
+  lovrHeadsetGetTexture__deps: ['$stackSave', '$stackAlloc', '$stackRestore'],
   lovrHeadsetGetTexture(texture) {
-    return Module['_lovrGraphicsGetWindowTexture'](texture);
+    if (!state.texture) {
+      const stack = stackSave();
+      const info = stackAlloc(64);
+      HEAPU32[(info >> 2) + 0] = 0; // info.type = TEXTURE_2D
+      HEAPU32[(info >> 2) + 1] = 2; // info.format = FORMAT_RGBA8
+      HEAPU32[(info >> 2) + 2] = Module.canvas.width; // info.width = canvas.width
+      HEAPU32[(info >> 2) + 3] = Module.canvas.height; // info.height = canvas.height
+      HEAPU32[(info >> 2) + 4] = 1; // info.layers = 1
+      HEAPU32[(info >> 2) + 5] = 1; // info.mipmaps = 1
+      HEAPU32[(info >> 2) + 6] = 1; // info.samples = 1
+      HEAPU32[(info >> 2) + 7] = 0x1 | 0x2 | 0x8; // info.usage = TEXTURE_SAMPLE | TEXTURE_RENDER | TEXTURE_TRANSFER
+      HEAPU8[info + 32] = true; // info.srgb = true
+      HEAPU8[info + 33] = false; // info.xr = false
+      HEAPU32[(info >> 2) + 9] = 0; // info.imageCount = 0
+      HEAPU32[(info >> 2) + 10] = 0; // info.images = NULL
+      HEAPU32[(info >> 2) + 11] = 0; // info.label = NULL
+      HEAPU32[(info >> 2) + 12] = 0; // info.handle = NULL
+      state.texture = Module['_lovrTextureCreate'](info);
+      stackRestore(stack);
+
+      if (!state.texture) {
+        return false;
+      }
+    }
+
+    if (texture) HEAPU32[texture >> 2] = state.texture;
+
+    return true;
   },
 
   lovrHeadsetGetDepthTexture(texture) {
@@ -293,19 +334,43 @@ var headset = {
     ], m >> 2);
   },
 
-  lovrHeadsetGetPass__deps: ['$stackSave', '$stackAlloc', '$stackRestore', '$mat4_fromPoseInverse', '$mat4_fov'],
+  lovrHeadsetGetPass__deps: ['lovrHeadsetGetTexture', '$stackSave', '$stackAlloc', '$stackRestore', '$mat4_fromPoseInverse', '$mat4_fov'],
   lovrHeadsetGetPass(out) {
-    if (!Module['_lovrGraphicsGetWindowPass'](out)) {
+    if (!_lovrHeadsetGetTexture(0)) {
       return false;
     }
 
-    const pass = HEAPU32[out >> 2];
-
-    if (pass === 0) {
+    if (!state.texture) {
+      HEAPU32[out >> 2] = 0;
       return true;
     }
 
+    if (!state.pass) {
+      state.pass = Module['_lovrPassCreate'](0);
+
+      if (!state.pass) {
+        return false;
+      }
+    }
+
     const stack = stackSave();
+    const canvas = stackAlloc(96);
+    HEAPU32.fill(0, canvas >> 2, (canvas + 96) >> 2);
+    HEAPU32[(canvas >> 2) + 0] = state.texture; // canvas.color[0].texture = state.texture
+    HEAPU32[(canvas >> 2) + 11] = 19; // canvas.depthFormat = FORMAT_D32F
+    HEAPU32[(canvas >> 2) + 12] = 4; // canvas.samples = 4
+
+    if (!Module['_lovrPassSetCanvas'](state.pass, canvas)) {
+      stackRestore(stack);
+      return false;
+    }
+
+    const background = stackAlloc(16 * 4);
+    Module['_lovrGraphicsGetBackgroundColor'](background);
+    const loads = stackAlloc(4 * 4);
+    HEAPU32[(loads >> 2) + 0] = 0; // loads[0] = LOAD_CLEAR
+    Module['_lovrPassSetClear'](state.pass, loads, background, 0, 0.);
+
     const viewMatrix = stackAlloc(64);
     const projection = stackAlloc(64);
 
@@ -317,10 +382,13 @@ var headset = {
     mat4_fromPoseInverse(viewMatrix, state.poses[0].position, state.poses[0].orientation);
     mat4_fov(projection, fovx, fovy, state.clipNear, state.clipFar);
 
-    Module['_lovrPassSetViewMatrix'](pass, 0, viewMatrix);
-    Module['_lovrPassSetProjection'](pass, 0, projection);
+    Module['_lovrPassSetViewMatrix'](state.pass, 0, viewMatrix);
+    Module['_lovrPassSetProjection'](state.pass, 0, projection);
 
     stackRestore(stack);
+
+    HEAPU32[out >> 2] = state.pass;
+
     return true;
   },
 
