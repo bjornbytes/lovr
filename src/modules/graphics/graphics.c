@@ -3253,10 +3253,6 @@ bool lovrGraphicsCompileShader(ShaderSource* stages, ShaderSource* outputs, uint
 
     glslang_shader_set_options(shaders[i], options);
 
-#ifdef LOVR_WEBGPU
-    glslang_shader_set_invert_y(shaders[i], true);
-#endif
-
     if (!glslang_shader_preprocess(shaders[i], &input)) {
       lovrSetError("Could not preprocess %s shader:\n%s", stageNames[source->stage], glslang_shader_get_info_log(shaders[i]));
       goto fail;

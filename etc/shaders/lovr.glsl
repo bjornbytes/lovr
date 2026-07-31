@@ -553,6 +553,10 @@ void main() {
 
   Position = lovrmain();
 
+#ifdef WEBGPU
+  Position.y = -Position.y;
+#endif
+
   if (flag_uvTransform) {
     UV *= Material.uvScale;
     UV += Material.uvShift;
