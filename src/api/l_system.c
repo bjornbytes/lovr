@@ -150,7 +150,7 @@ static int l_lovrSystemOpenWindow(lua_State* L) {
   luaL_checktype(L, 1, LUA_TTABLE);
 
   lua_getfield(L, 1, "width");
-  window.width = luaL_optinteger(L, -1, 720);
+  window.width = luaL_optinteger(L, -1, 1280);
   lua_pop(L, 1);
 
   lua_getfield(L, 1, "height");
@@ -186,7 +186,7 @@ static int l_lovrSystemOpenWindow(lua_State* L) {
   // Deprecated method for setting fullscreen
   if (window.width == 0 || window.height == 0) {
     window.fullscreen = true;
-    window.width = 720;
+    window.width = 1280;
     window.height = 800;
   }
 

@@ -1738,7 +1738,7 @@ bool lovrHeadsetGetViewAngles(uint32_t view, float* left, float* right, float* u
     uint32_t width, height;
     lovrHeadsetGetDisplayDimensions(&width, &height);
     float aspect = (float) width / height;
-    float fov = .7f;
+    float fov = .6f;
     *left = atanf(tanf(fov) * aspect);
     *right = atanf(tanf(fov) * aspect);
     *up = fov;

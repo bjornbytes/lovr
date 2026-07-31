@@ -61,7 +61,7 @@ local conf = {
     workers = -1
   },
   window = {
-    width = 720,
+    width = 1280,
     height = 800,
     centered = true,
     fullscreen = false,
