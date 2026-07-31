@@ -20,6 +20,7 @@ dev
 - Add `sleep` callback to `World:setCallbacks`.
 - Add `linearDamping` and `angularDamping` settings to `lovr.physics.newWorld`.
 - Add `lovr.headset.getHandPosition/Orientation/Pose`.
+- Add `Material:get/setNumber`, `Material:get/setColor`, `Material:get/setTexture`, and `Material:get/setQuad`.
 
 ### Change
 

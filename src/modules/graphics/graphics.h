@@ -379,35 +379,44 @@ const DataField* lovrShaderGetBufferFormat(Shader* shader, const char* name, uin
 
 // Material
 
-typedef struct {
-  float color[4];
-  float glow[4];
-  float uvShift[2];
-  float uvScale[2];
-  float sdfRange[2];
-  float metalness;
-  float roughness;
-  float clearcoat;
-  float clearcoatRoughness;
-  float occlusionStrength;
-  float normalScale;
-  float alphaCutoff;
-} MaterialData;
+typedef enum {
+  NUMBER_METALNESS,
+  NUMBER_ROUGHNESS,
+  NUMBER_CLEARCOAT,
+  NUMBER_CLEARCOAT_ROUGHNESS,
+  NUMBER_OCCLUSION_STRENGTH,
+  NUMBER_NORMAL_SCALE,
+  NUMBER_ALPHA_CUTOFF,
+  NUMBER_COUNT
+} MaterialNumber;
 
-typedef struct {
-  MaterialData data;
-  Texture* texture;
-  Texture* glowTexture;
-  Texture* metalnessTexture;
-  Texture* roughnessTexture;
-  Texture* clearcoatTexture;
-  Texture* occlusionTexture;
-  Texture* normalTexture;
-} MaterialInfo;
+typedef enum {
+  COLOR_BASE,
+  COLOR_GLOW,
+  COLOR_COUNT
+} MaterialColor;
 
-Material* lovrMaterialCreate(const MaterialInfo* info);
+typedef enum {
+  TEXTURE_COLOR,
+  TEXTURE_GLOW,
+  TEXTURE_METALNESS,
+  TEXTURE_ROUGHNESS,
+  TEXTURE_CLEARCOAT,
+  TEXTURE_OCCLUSION,
+  TEXTURE_NORMAL,
+  TEXTURE_COUNT
+} MaterialTexture;
+
+Material* lovrMaterialCreate(Texture* texture);
 void lovrMaterialDestroy(void* ref);
-const MaterialInfo* lovrMaterialGetInfo(Material* material);
+float lovrMaterialGetNumber(Material* material, MaterialNumber key);
+bool lovrMaterialSetNumber(Material* material, MaterialNumber key, float number);
+const float* lovrMaterialGetColor(Material* material, MaterialColor key);
+bool lovrMaterialSetColor(Material* material, MaterialColor key, float color[4]);
+Texture* lovrMaterialGetTexture(Material* material, MaterialTexture key);
+bool lovrMaterialSetTexture(Material* material, MaterialTexture key, Texture* texture);
+void lovrMaterialGetQuad(Material* material, float* ox, float* oy, float* sx, float* sy);
+bool lovrMaterialSetQuad(Material* material, float ox, float oy, float sx, float sy);
 
 // Font
 
@@ -536,7 +545,8 @@ Buffer* lovrModelGetVertexBuffer(Model* model);
 Buffer* lovrModelGetIndexBuffer(Model* model);
 Mesh* lovrModelGetMesh(Model* model, uint32_t index);
 Texture* lovrModelGetTexture(Model* model, uint32_t index);
-Material* lovrModelGetMaterial(Model* model, uint32_t index);
+bool lovrModelGetMaterial(Model* model, uint32_t index, Material** material);
+bool lovrModelSetMaterial(Model* model, uint32_t index, Material* material);
 bool lovrModelBuildRaytracer(Model* model);
 
 // Raytracer

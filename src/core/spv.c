@@ -173,7 +173,7 @@ const char* spv_result_to_string(spv_result result) {
     case SPV_INVALID: return "Invalid SPIR-V";
     case SPV_TOO_BIG: return "SPIR-V contains too many types/variables (max ID is 65534)";
     case SPV_UNSUPPORTED_SPEC_CONSTANT_TYPE: return "This type of specialization constant is not supported";
-    case SPV_UNSUPPORTED_DATA_TYPE: return "Struct fields must be square float matrices, float/int/uint vectors, 32 bit numbers, or bools";
+    case SPV_UNSUPPORTED_DATA_TYPE: return "Struct fields must be square float matrices, float/int/uint vectors, 8, 16, or 32 bit numbers, or bools";
     default: return NULL;
   }
 }

@@ -163,6 +163,34 @@ StringEntry lovrHorizontalAlign[] = {
   { 0 }
 };
 
+StringEntry lovrMaterialColor[] = {
+  [COLOR_BASE] = ENTRY("base"),
+  [COLOR_GLOW] = ENTRY("glow"),
+  { 0 }
+};
+
+StringEntry lovrMaterialNumber[] = {
+  [NUMBER_METALNESS] = ENTRY("metalness"),
+  [NUMBER_ROUGHNESS] = ENTRY("roughness"),
+  [NUMBER_CLEARCOAT] = ENTRY("clearcoat"),
+  [NUMBER_CLEARCOAT_ROUGHNESS] = ENTRY("clearcoatroughness"),
+  [NUMBER_OCCLUSION_STRENGTH] = ENTRY("occlusionstrength"),
+  [NUMBER_NORMAL_SCALE] = ENTRY("normalscale"),
+  [NUMBER_ALPHA_CUTOFF] = ENTRY("alphacutoff"),
+  { 0 }
+};
+
+StringEntry lovrMaterialTexture[] = {
+  [TEXTURE_COLOR] = ENTRY("color"),
+  [TEXTURE_GLOW] = ENTRY("glow"),
+  [TEXTURE_METALNESS] = ENTRY("metalness"),
+  [TEXTURE_ROUGHNESS] = ENTRY("roughness"),
+  [TEXTURE_CLEARCOAT] = ENTRY("clearcoat"),
+  [TEXTURE_OCCLUSION] = ENTRY("occlusion"),
+  [TEXTURE_NORMAL] = ENTRY("normal"),
+  { 0 }
+};
+
 StringEntry lovrMeshStorage[] = {
   [MESH_CPU] = ENTRY("cpu"),
   [MESH_GPU] = ENTRY("gpu"),
@@ -1459,112 +1487,98 @@ static Texture* luax_opttexture(lua_State* L, int index) {
 }
 
 static int l_lovrGraphicsNewMaterial(lua_State* L) {
-  MaterialInfo info;
-  memset(&info, 0, sizeof(info));
-
-  luaL_checktype(L, 1, LUA_TTABLE);
-
-  lua_getfield(L, 1, "color");
-  luax_optcolor(L, -1, info.data.color);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "glow");
-  if (lua_isnil(L, -1)) {
-    memset(info.data.glow, 0, sizeof(info.data.glow));
-  } else {
-    luax_optcolor(L, -1, info.data.glow);
-  }
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "uvShift");
-  if (lua_type(L, -1) == LUA_TNUMBER) {
-    float shift = lua_tonumber(L, -1);
-    info.data.uvShift[0] = shift;
-    info.data.uvShift[1] = shift;
-  } else if (lua_type(L, -1) == LUA_TTABLE) {
-    lua_rawgeti(L, -1, 1);
-    lua_rawgeti(L, -2, 2);
-    info.data.uvShift[0] = luax_optfloat(L, -2, 0.f);
-    info.data.uvShift[1] = luax_optfloat(L, -1, 0.f);
-    lua_pop(L, 2);
-  }
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "uvScale");
-  if (lua_isnil(L, -1)) {
-    info.data.uvScale[0] = 1.f;
-    info.data.uvScale[1] = 1.f;
-  } else if (lua_isnumber(L, -1)) {
-    float scale = lua_tonumber(L, -1);
-    info.data.uvScale[0] = scale;
-    info.data.uvScale[1] = scale;
-  } else if (lua_type(L, -1) == LUA_TTABLE) {
-    lua_rawgeti(L, -1, 1);
-    lua_rawgeti(L, -2, 2);
-    info.data.uvScale[0] = luax_optfloat(L, -2, 1.f);
-    info.data.uvScale[1] = luax_optfloat(L, -1, 1.f);
-    lua_pop(L, 2);
-  }
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "metalness");
-  info.data.metalness = luax_optfloat(L, -1, 1.f);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "roughness");
-  info.data.roughness = luax_optfloat(L, -1, 1.f);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "clearcoat");
-  info.data.clearcoat = luax_optfloat(L, -1, 0.f);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "clearcoatRoughness");
-  info.data.clearcoatRoughness = luax_optfloat(L, -1, 0.f);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "occlusionStrength");
-  info.data.occlusionStrength = luax_optfloat(L, -1, 1.f);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "normalScale");
-  info.data.normalScale = luax_optfloat(L, -1, 1.f);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "alphaCutoff");
-  info.data.alphaCutoff = luax_optfloat(L, -1, 0.f);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "texture");
-  info.texture = luax_opttexture(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "glowTexture");
-  info.glowTexture = luax_opttexture(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "metalnessTexture");
-  info.metalnessTexture = luax_opttexture(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "roughnessTexture");
-  info.roughnessTexture = luax_opttexture(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "clearcoatTexture");
-  info.clearcoatTexture = luax_opttexture(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "occlusionTexture");
-  info.occlusionTexture = luax_opttexture(L, -1);
-  lua_pop(L, 1);
-
-  lua_getfield(L, 1, "normalTexture");
-  info.normalTexture = luax_opttexture(L, -1);
-  lua_pop(L, 1);
-
-  Material* material = lovrMaterialCreate(&info);
+  Material* material = lovrMaterialCreate(luax_totype(L, 1, Texture));
   luax_assert(L, material);
+
+  if (lua_istable(L, 1)) {
+    float value, color[4];
+
+    for (uint32_t i = 0; i < NUMBER_COUNT; i++) {
+      lua_pushlstring(L, lovrMaterialNumber[i].string, lovrMaterialNumber[i].length);
+      lua_gettable(L, 1);
+      if (!lua_isnil(L, -1)) lovrMaterialSetNumber(material, i, luax_checkfloat(L, -1));
+      lua_pop(L, 1);
+    }
+
+    for (uint32_t i = 0; i < COLOR_COUNT; i++) {
+      if (i == 0) {
+        lua_pushliteral(L, "color");
+      } else {
+        lua_pushlstring(L, lovrMaterialColor[i].string, lovrMaterialColor[i].length);
+      }
+
+      lua_gettable(L, 1);
+      if (!lua_isnil(L, -1)) {
+        luax_optcolor(L, -1, color);
+        lovrMaterialSetColor(material, i, color);
+      }
+      lua_pop(L, 1);
+    }
+
+    for (uint32_t i = 0; i < TEXTURE_COUNT; i++) {
+      if (i == 0) {
+        lua_pushliteral(L, "texture");
+      } else {
+        char key[64];
+        size_t length = lovrMaterialTexture[i].length;
+        memcpy(key, lovrMaterialTexture[i].string, length);
+        memcpy(key + length, "Texture", strlen("Texture"));
+        lua_pushlstring(L, key, length + strlen("Texture"));
+      }
+      lua_gettable(L, 1);
+      if (!lua_isnil(L, -1)) {
+        Texture* texture = luax_checktype(L, -1, Texture);
+        if (!lovrMaterialSetTexture(material, i, texture)) {
+          lovrRelease(material, lovrMaterialDestroy);
+          luax_throw(L);
+        }
+      }
+      lua_pop(L, 1);
+    }
+
+    float quad[4];
+
+    // Deprecated
+    lua_getfield(L, 1, "uvShift");
+    if (lua_istable(L, -1)) {
+      lua_rawgeti(L, -1, 1);
+      lua_rawgeti(L, -2, 2);
+      quad[0] = luax_optfloat(L, -2, 0.f);
+      quad[1] = luax_optfloat(L, -1, 0.f);
+      lua_pop(L, 2);
+    } else if (lua_type(L, -1) == LUA_TNUMBER) {
+      quad[0] = quad[1] = lua_tonumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    // Deprecated
+    lua_getfield(L, 1, "uvScale");
+    if (lua_istable(L, -1)) {
+      lua_rawgeti(L, -1, 1);
+      lua_rawgeti(L, -2, 2);
+      quad[2] = luax_optfloat(L, -2, 1.f);
+      quad[3] = luax_optfloat(L, -1, 1.f);
+      lua_pop(L, 2);
+    } else if (lua_type(L, -1) == LUA_TNUMBER) {
+      quad[2] = quad[3] = lua_tonumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "quad");
+    if (lua_istable(L, -1)) {
+      lua_rawgeti(L, -1, 1);
+      lua_rawgeti(L, -2, 2);
+      lua_rawgeti(L, -3, 3);
+      lua_rawgeti(L, -4, 4);
+      quad[0] = luax_optfloat(L, -4, 0.f);
+      quad[1] = luax_optfloat(L, -3, 0.f);
+      quad[2] = luax_optfloat(L, -2, 1.f);
+      quad[3] = luax_optfloat(L, -1, 1.f);
+      lua_pop(L, 4);
+    }
+    lua_pop(L, 1);
+  }
+
   luax_pushtype(L, Material, material);
   lovrRelease(material, lovrMaterialDestroy);
   return 1;
