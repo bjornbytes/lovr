@@ -47,6 +47,7 @@ dev
 - Fix `Texture:get/setPixels` default width/height when copying to/from mipmaps.
 - Fix `Buffer:getFormat` to return top-level array stride.
 - Fix memory leak when there are waiting tasks on quit.
+- Fix crash when loading invalid image files in `lovr.graphics.newTexture`.
 
 ### Deprecate
 

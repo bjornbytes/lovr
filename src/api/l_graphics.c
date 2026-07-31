@@ -944,6 +944,13 @@ static bool luax_loadtexture(void** userdata) {
       } else { // TODO parallelize
         info->images[i] = lovrImageCreateFromFile(context->blobs[i]);
         lovrRelease(context->blobs[i], lovrBlobDestroy);
+
+        if (!info->images[i]) {
+          for (uint32_t j = 0; j < i; j++) {
+            lovrRelease(info->images[i], lovrImageDestroy);
+          }
+          return false;
+        }
       }
     }
 
