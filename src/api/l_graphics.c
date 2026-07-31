@@ -888,7 +888,7 @@ static bool luax_loadtexture(void** userdata) {
 
         if (!info->images[i]) {
           for (uint32_t j = 0; j < i; j++) {
-            lovrRelease(info->images[i], lovrImageDestroy);
+            lovrRelease(info->images[j], lovrImageDestroy);
           }
           return false;
         }
