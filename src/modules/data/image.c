@@ -538,7 +538,7 @@ Blob* lovrImageEncode(Image* image) {
 }
 
 static bool loadDDS(Blob* blob, Image** result) {
-  enum { DDPF_FOURCC = 0x4, DDPF_RGB = 0x40 };
+  enum { DDPF_FOURCC = 0x4, DDPF_RGB = 0x40, DDPF_LUMINANCE = 0x20000 };
   enum { DDSD_DEPTH = 0x800000 };
   enum { DDS_RESOURCE_MISC_TEXTURECUBE = 0x4 };
   enum { DDS_ALPHA_MODE_PREMULTIPLIED = 0x2 };
@@ -898,6 +898,14 @@ static bool loadDDS(Blob* blob, Image** result) {
     else if (header->format.fourCC == 0x73) format = FORMAT_RG32F;
     else if (header->format.fourCC == 0x74) format = FORMAT_RGBA32F;
     else return lovrSetError("DDS file uses an unsupported FourCC format (%d)", header->format.fourCC);
+  } else if (header->format.flags & DDPF_LUMINANCE) {
+    if (header->format.rgbBitCount == 8 && header->format.rMask == 0x000000ff) {
+      format = FORMAT_R8;
+    } else if (header->format.rgbBitCount == 16 && header->format.rMask == 0x0000ffff) {
+      format = FORMAT_R16;
+    } else {
+      return lovrSetError("DDS file uses an unsupported DDPF_LUMINANCE format");
+    }
   } else {
     return lovrSetError("DDS file uses an unsupported format"); // TODO could handle more uncompressed formats
   }
