@@ -231,10 +231,12 @@ function lovr.mirror(pass)
   local texture = lovr.headset.getTexture()
   if texture then
     local w, h = pass:getDimensions()
-    local scale = texture:getWidth() / lovr.headset.getDisplayWidth()
+    local tw, th = texture:getDimensions()
+    local scale = tw / lovr.headset.getDisplayWidth()
+    local cover = math.max(w / tw, h / th)
     pass:setProjection('orthographic')
     pass:setMaterial(texture)
-    pass:plane(w / 2 * scale, h / 2 * scale, 0, w * scale, -h * scale)
+    pass:plane(w / 2 * scale, h / 2 * scale, 0, tw * scale * cover, -th * scale * cover)
     pass:setMaterial()
   else
     return true
