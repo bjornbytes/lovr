@@ -1175,6 +1175,14 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   Canvas* canvas = &pass->canvas;
 
   if (!canvas->color->texture && !canvas->depth.texture) {
+    if (timestamps) {
+      // Sneaky: if timestamps are enabled, but it isn't possible to do a render pass, do an empty
+      // compute pass with timestamp writes.  This is a cheap way to ensure timestamps are always
+      // written, so that the timestamp code doesn't need to care about empty passes.
+      gpu_compute_begin(stream, timestamps);
+      gpu_compute_end(stream, timestamps);
+    }
+
     return true;
   }
 
