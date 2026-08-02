@@ -7532,10 +7532,11 @@ bool lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture** 
       lovrCheck(textures[i]->info.samples == 1, "Shader variable '%s' is not a multisampled texture, but this texture is multisampled", name);
     }
 
-    lovrCheck(textures[i]->info.type == resource->textureType, "Textures type for shader variable '%s' must match the declared texture type", name);
+    lovrCheck(textures[i]->info.type == resource->textureType, "Texture type for shader variable '%s' must match the declared texture type", name);
 
     if (storage) {
       lovrCheck(textures[i]->info.usage & TEXTURE_STORAGE, "Textures must be created with the 'storage' usage to send them to image variables in shaders");
+      lovrCheck(textures[i]->info.format == resource->storageFormat, "Trying to send a storage texture to '%s', but its format does not match the format declared in the shader", name);
     } else {
       lovrCheck(textures[i]->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to send them to sampler variables in shaders");
       if (uint) {
