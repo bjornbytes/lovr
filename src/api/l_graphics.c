@@ -1077,7 +1077,7 @@ static int l_lovrGraphicsNewTexture(lua_State* L) {
     if (!lua_isnil(L, -1)) {
       context->hasType = true;
       info->type = (uint32_t) luax_checkenum(L, -1, TextureType, NULL);
-      if (info->type == TEXTURE_CUBE && info->imageCount == 0) info->layers = 6;
+      if (info->type == TEXTURE_CUBE && info->imageCount == 0 && lua_type(L, 3) != LUA_TNUMBER) info->layers = 6;
     }
     lua_pop(L, 1);
 

@@ -412,6 +412,16 @@ group('graphics', function()
   end)
 
   group('Texture', function()
+    group('lovr.graphics.newTexture', function()
+      test('sets layer count to 6 when type is cube', function()
+        expect(lovr.graphics.newTexture(4, 4, { type = 'cube' }):getLayerCount()).to.be(6)
+      end)
+
+      test('does not set layer count to 6 when type is cube and layer count is given', function()
+        expect(lovr.graphics.newTexture(4, 4, 12, { type = 'cube' }):getLayerCount()).to.be(12)
+      end)
+    end)
+
     group(':generateMipmaps', function()
       test('texture views', function()
         local texture = lovr.graphics.newTexture(4, 4, 4, { usage = { 'transfer' }, mipmaps = true })
