@@ -118,6 +118,12 @@ static int l_lovrBlobSetData(lua_State* L) {
   return 0;
 }
 
+static int l_lovrBlobClear(lua_State* L) {
+  Blob* blob = luax_checktype(L, 1, Blob);
+  memset(blob->data, 0, blob->size);
+  return 0;
+}
+
 const luaL_Reg lovrBlob[] = {
   { "getName", l_lovrBlobGetName },
   { "getPointer", l_lovrBlobGetPointer },
@@ -140,5 +146,6 @@ const luaL_Reg lovrBlob[] = {
   { "setF32", l_lovrBlobSetF32 },
   { "setF64", l_lovrBlobSetF64 },
   { "setData", l_lovrBlobSetData },
+  { "clear", l_lovrBlobClear },
   { NULL, NULL }
 };
