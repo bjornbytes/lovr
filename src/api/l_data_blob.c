@@ -92,6 +92,32 @@ static int l_lovrBlobSetU32(lua_State* L) { l_lovrBlobSet(L, uint32_t); }
 static int l_lovrBlobSetF32(lua_State* L) { l_lovrBlobSet(L, float); }
 static int l_lovrBlobSetF64(lua_State* L) { l_lovrBlobSet(L, double); }
 
+static int l_lovrBlobSetData(lua_State* L) {
+  Blob* blob = luax_checktype(L, 1, Blob);
+  Blob* sourceBlob = luax_checktype(L, 2, Blob);
+
+  lua_Integer destOffset = luaL_optinteger(L, 3, 0);
+  luax_check(L, destOffset >= 0, "Blob byte offset can not be negative");
+  luax_check(L, (size_t) destOffset < blob->size, "Blob byte offset must be less than the size of the Blob");
+
+  lua_Integer sourceOffset = luaL_optinteger(L, 4, 0);
+  luax_check(L, sourceOffset >= 0, "Blob byte offset can not be negative");
+  luax_check(L, (size_t) sourceOffset < sourceBlob->size, "Blob byte offset must be less than the size of the Blob");
+
+  size_t maxSourceSize = sourceBlob->size - (size_t) sourceOffset;
+  size_t maxDestSize = blob->size - (size_t) destOffset;
+  size_t maxSize = maxSourceSize < maxDestSize ? maxSourceSize : maxDestSize;
+
+  lua_Integer size = luaL_optinteger(L, 5, maxSize);
+  luax_check(L, size >= 0, "Size can not be negative");
+  luax_check(L, (size_t) size <= maxSourceSize, "Blob:setData source range overflows the size of the Blob");
+  luax_check(L, (size_t) size <= maxDestSize, "Blob:setData destination range overflows the size of the Blob");
+
+  memmove((char*)blob->data + destOffset, (char*)sourceBlob->data + sourceOffset, (size_t) size);
+
+  return 0;
+}
+
 const luaL_Reg lovrBlob[] = {
   { "getName", l_lovrBlobGetName },
   { "getPointer", l_lovrBlobGetPointer },
@@ -113,5 +139,6 @@ const luaL_Reg lovrBlob[] = {
   { "setU32", l_lovrBlobSetU32 },
   { "setF32", l_lovrBlobSetF32 },
   { "setF64", l_lovrBlobSetF64 },
+  { "setData", l_lovrBlobSetData },
   { NULL, NULL }
 };
