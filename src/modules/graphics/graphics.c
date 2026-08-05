@@ -4649,6 +4649,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
   size_t bytes;
   uint32_t codepoint;
   uint32_t previous = '\0';
+  int previousIsCJK = 0;
   const char* lineStart = string;
   const char* wordStart = string;
   const char* end = string + totalLength;
@@ -4676,6 +4677,14 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
       string += bytes;
       continue;
     }
+
+    // CJK symbols break words
+    int isCJK = (codepoint >= 0x2E00 && codepoint < 0xE000) || (codepoint >= 0xF900 && codepoint < 0x10000) || (codepoint >= 0x20000 && codepoint < 0x2EBF0);
+    if (isCJK || previousIsCJK) {
+      nextWordStartX = x;
+      wordStart = string;
+    }
+    previousIsCJK = isCJK;
 
     float advance = lovrRasterizerGetAdvance(font->info.rasterizer, codepoint);
 
@@ -4719,6 +4728,7 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
   uint32_t lineStart = 0;
   uint32_t wordStart = 0;
   uint32_t previous = '\0';
+  int previousIsCJK = 0;
   uint32_t codepoint;
   *glyphCount = 0;
   *lineCount = 1;
@@ -4778,6 +4788,15 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
       if (resized) {
         return lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, glyphCount, lineCount, material, flip);
       }
+
+      // CJK symbols break words
+      int isCJK = (codepoint >= 0x2E00 && codepoint < 0xE000) || (codepoint >= 0xF900 && codepoint < 0x10000) || (codepoint >= 0x20000 && codepoint < 0x2EBF0);
+      if (isCJK || previousIsCJK) {
+        prevWordEndX = x;
+        wordStartX = x;
+        wordStart = str;
+      }
+      previousIsCJK = isCJK;
 
       // Keming
       if (previous) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
