@@ -29,6 +29,7 @@ typedef struct {
   bool mask;
   bool stencil;
   bool antialias;
+  bool hdr;
   bool submitDepth;
   bool overlay;
   uint32_t overlayOrder;
@@ -59,6 +60,7 @@ typedef struct {
   bool layerCurve;
   bool layerDepthTest;
   bool layerFilter;
+  bool hdr;
 } HeadsetFeatures;
 
 typedef enum {
@@ -199,6 +201,7 @@ float lovrHeadsetGetRefreshRate(void);
 bool lovrHeadsetSetRefreshRate(float refreshRate);
 void lovrHeadsetGetFoveation(FoveationLevel* level, bool* dynamic);
 bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic);
+bool lovrHeadsetIsHDR(void);
 bool lovrHeadsetIsPassthroughSupported(PassthroughMode mode);
 PassthroughMode lovrHeadsetGetPassthrough(void);
 bool lovrHeadsetSetPassthrough(PassthroughMode mode);
