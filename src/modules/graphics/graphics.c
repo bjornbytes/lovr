@@ -4625,6 +4625,50 @@ float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count) {
   return MAX(maxWidth, x) / font->pixelDensity;
 }
 
+static int isCodepointCJK(uint32_t cp) {
+  // There are many classes of characters, many classes are consecutive, which are merged (godbolt suggested that
+  // the compiler might not do this).  Also merged small gaps containing characters unlikely to
+  // form Latin style words.
+  return cp >= 0x01100 && (
+      (cp <= 0x011FF) ||
+      (cp >= 0x02E80 && cp <= 0x0A4CF) ||  // Gap between these are Lisu characters with specific wrapping rules
+      (cp >= 0x0AC00 && cp <= 0x0D7AF) ||  // Gap contains a block of user definable codepoints
+      (cp >= 0x0F900 && cp <= 0x0FAFF) ||  // Gap contains Latin/Arabic ligatures, followed by (fullwidth) punctuation
+      (cp >= 0x0FF00 && cp <= 0x0FFEF) ||  // Gap is big
+      (cp >= 0x1F200 && cp <= 0x1F2FF) ||  // Gap contains emoji and ?
+      (cp >= 0x20000 && cp <= 0x2FFFF));
+}
+
+// Characters that must NOT begin a line (closing brackets, punctuation)
+static int isNoBreakBefore(uint32_t cp) {
+  // This is likely not exhaustive
+  switch (cp) {
+    case 0x3001: case 0x3002: // 、 。
+    case 0xFF0C: case 0xFF0E: // ，．
+    case 0xFF01: case 0xFF1F: // ！？
+    case 0xFF1A: case 0xFF1B: // ：；
+    case 0x2019: case 0x201D: // ' "
+    case 0x3009: case 0x300B: case 0x300D: case 0x300F: // 〉》」』
+    case 0x3011: case 0xFF09: case 0xFF3D: case 0xFF5D:  // 】）］｝
+    case 0x30FB: case 0x30FC: case 0x3005: // ・ ー 々
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+// Characters that must NOT end a line (opening brackets)
+static int isNoBreakAfter(uint32_t cp) {
+  switch (cp) {
+    case 0x2018: case 0x201C: // ' "
+    case 0x3008: case 0x300A: case 0x300C: case 0x300E: // 〈《「『
+    case 0x3010: case 0xFF08: case 0xFF3B: case 0xFF5B:  // 【（［｛
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context) {
   if (count == 0) return;
 
@@ -4679,10 +4723,13 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     }
 
     // CJK symbols break words
-    int isCJK = (codepoint >= 0x2E00 && codepoint < 0xE000) || (codepoint >= 0xF900 && codepoint < 0x10000) || (codepoint >= 0x20000 && codepoint < 0x2EBF0);
+    int isCJK = isCodepointCJK(codepoint);
     if (isCJK || previousIsCJK) {
-      nextWordStartX = x;
-      wordStart = string;
+      int breakSuppressed = isNoBreakBefore(codepoint) || isNoBreakAfter(previous);
+      if (!breakSuppressed) {
+        nextWordStartX = x;
+        wordStart = string;
+      }
     }
     previousIsCJK = isCJK;
 
@@ -4790,11 +4837,14 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
       }
 
       // CJK symbols break words
-      int isCJK = (codepoint >= 0x2E00 && codepoint < 0xE000) || (codepoint >= 0xF900 && codepoint < 0x10000) || (codepoint >= 0x20000 && codepoint < 0x2EBF0);
+      int isCJK = isCodepointCJK(codepoint);
       if (isCJK || previousIsCJK) {
-        prevWordEndX = x;
-        wordStartX = x;
-        wordStart = str;
+        int breakSuppressed = isNoBreakBefore(codepoint) || isNoBreakAfter(previous);
+        if (!breakSuppressed) {
+          prevWordEndX = x;
+          wordStartX = x;
+          wordStart = vertexCount;
+        }
       }
       previousIsCJK = isCJK;
 
