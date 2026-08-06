@@ -4693,6 +4693,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
   size_t bytes;
   uint32_t codepoint;
   uint32_t previous = '\0';
+  int suppressKerning = true;
   int previousIsCJK = 0;
   const char* lineStart = string;
   const char* wordStart = string;
@@ -4702,7 +4703,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     if (codepoint == ' ' || codepoint == '\t') {
       x += codepoint == '\t' ? space * 4.f : space;
       nextWordStartX = x;
-      previous = '\0';
+      suppressKerning = true;
       string += bytes;
       wordStart = string;
       continue;
@@ -4712,7 +4713,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
       callback(context, lineStart, length);
       nextWordStartX = 0.f;
       x = 0.f;
-      previous = '\0';
+      suppressKerning = true;
       string += bytes;
       lineStart = string;
       wordStart = string;
@@ -4736,18 +4737,19 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     float advance = lovrRasterizerGetAdvance(font->info.rasterizer, codepoint);
 
     // Keming
-    if (previous) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
+    if (!suppressKerning) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
     previous = codepoint;
+    suppressKerning = false;
 
     // Wrap
-    if (wrap >= 0.f && wordStart != lineStart && x + advance > wrap) {
+    if (wrap > 0.f && wordStart != lineStart && x + advance > wrap) {
       size_t length = wordStart - lineStart;
       while (length > 0 && (lineStart[length - 1] == ' ' || lineStart[length - 1] == '\t')) length--;
       callback(context, lineStart, length);
       lineStart = wordStart;
       x -= nextWordStartX;
       nextWordStartX = 0.f;
-      previous = '\0';
+      suppressKerning = true;
     }
 
     // Advance

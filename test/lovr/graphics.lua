@@ -478,7 +478,7 @@ group('graphics', function()
 
     test(':getLines', function()
       local font = lovr.graphics.getDefaultFont()
-      local lines = font:getLines({ 0xff0000, 'hello ', 0x0000ff, 'world' }, 0)
+      local lines = font:getLines({ 0xff0000, 'hello ', 0x0000ff, 'world' }, 0.1)
       expect(lines).to.equal({ 'hello', 'world' })
       
       local wrap = 1.25 -- small enough to require a character per line
@@ -488,7 +488,7 @@ group('graphics', function()
       for idx, line in ipairs(cjkLines) do
         cjkLineLengths[idx] = #line
       end
-      expect(cjkLineLengths).to.equal({6, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6, 3, 3, 6, 13, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6})     
+      expect(cjkLineLengths).to.equal({6, 6, 3, 3, 3, 6, 3, 3, 3, 3, 3, 3, 6, 3, 8, 13, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6})     
       
       local linesWhitespace = font:getLines('123   \n      ', 1e32)
       expect(linesWhitespace).to.equal({ '123', '' })
