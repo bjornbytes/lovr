@@ -1164,6 +1164,7 @@ bool lovrHeadsetStart(void) {
         for (uint32_t i = 0; i < colorSpaceCount; i++) {
           if (colorSpaces[i] == XR_COLOR_SPACE_BT2020_PQ_SONY) {
             state.hdr = true;
+            break;
           }
         }
       }

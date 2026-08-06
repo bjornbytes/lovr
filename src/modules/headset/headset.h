@@ -60,7 +60,6 @@ typedef struct {
   bool layerCurve;
   bool layerDepthTest;
   bool layerFilter;
-  bool hdr;
 } HeadsetFeatures;
 
 typedef enum {
