@@ -2831,13 +2831,10 @@ bool lovrHeadsetGetTexture(Texture** texture) {
     if (!info || info->width != width || info->height != height) {
       lovrRelease(state.simulator.texture, lovrTextureDestroy);
 
-      TextureFormat format = state.hdr ? FORMAT_RGB10A2 : FORMAT_RGBA8;
-      bool srgb = !state.hdr;
-
       state.simulator.texture = lovrTextureCreate(&(TextureInfo) {
         .type = TEXTURE_2D,
-        .format = format,
-        .srgb = srgb,
+        .format = FORMAT_RGBA8,
+        .srgb = true,
         .width = width,
         .height = height,
         .layers = 1,
@@ -3507,6 +3504,7 @@ static bool lovrSwapchainInit(Swapchain* swapchain, uint32_t width, uint32_t hei
 
   if (depth) {
     info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+#ifdef LOVR_VK
     switch (state.depthFormat) {
       case FORMAT_D24: info.format = VK_FORMAT_X8_D24_UNORM_PACK32; break;
       case FORMAT_D32F: info.format = VK_FORMAT_D32_SFLOAT; break;
@@ -3514,11 +3512,14 @@ static bool lovrSwapchainInit(Swapchain* swapchain, uint32_t width, uint32_t hei
       case FORMAT_D32FS8: info.format = VK_FORMAT_D32_SFLOAT_S8_UINT; break;
       default: lovrUnreachable();
     }
+#endif
   } else {
     info.usageFlags |= XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
     info.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
     info.usageFlags |= XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
-    info.format = VK_FORMAT_R8G8B8A8_SRGB;
+#ifdef LOVR_VK
+    info.format = hdr ? VK_FORMAT_A2B10G10R10_UNORM_PACK32 : VK_FORMAT_R8G8B8A8_SRGB;
+#endif
   }
 
   XR(xrCreateSwapchain(state.session, &info, &swapchain->handle), "xrCreateSwapchain");
@@ -3544,8 +3545,8 @@ static bool lovrSwapchainInit(Swapchain* swapchain, uint32_t width, uint32_t hei
   for (uint32_t i = 0; i < textureCount; i++, swapchain->textureCount++) {
     swapchain->textures[i] = lovrTextureCreate(&(TextureInfo) {
       .type = cube ? TEXTURE_CUBE : (stereo || view ? TEXTURE_ARRAY : TEXTURE_2D),
-      .format = depth ? state.depthFormat : FORMAT_RGBA8,
-      .srgb = !depth,
+      .format = depth ? state.depthFormat : hdr ? FORMAT_RGB10A2 : FORMAT_RGBA8,
+      .srgb = !depth && !hdr,
       .width = width,
       .height = height,
       .layers = view ? state.viewCount : ((cube ? 6 : 1) << stereo),
