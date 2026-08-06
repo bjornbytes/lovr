@@ -480,6 +480,15 @@ group('graphics', function()
       local font = lovr.graphics.getDefaultFont()
       local lines = font:getLines({ 0xff0000, 'hello ', 0x0000ff, 'world' }, 0)
       expect(lines).to.equal({ 'hello ', 'world' })
+      
+      local wrap = 1.25 -- small enough to require a character per line
+      local cjkText = "【重要】これは「日本語固有の括弧」と（Latin characters）を組み合わせたテスト文章です。"
+      local cjkLines = font:getLines(cjkText, wrap)
+      local cjkLineLengths = {}
+      for idx, line in ipairs(cjkLines) do
+        cjkLineLengths[idx] = #line
+      end
+      expect(cjkLineLengths).to.equal({6, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6, 3, 3, 6, 13, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6})
     end)
   end)
 
