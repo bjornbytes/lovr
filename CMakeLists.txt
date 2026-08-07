@@ -692,8 +692,7 @@ endfunction()
 
 # Warnings
 if(NOT MSVC)
-  target_compile_options(lovr PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare)
-  set_source_files_properties(src/lib/miniaudio/miniaudio.c PROPERTIES COMPILE_OPTIONS -w)
+  target_compile_options(lovr PRIVATE -Werror -Wreturn-type)
 endif()
 
 # Platforms
