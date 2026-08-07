@@ -4663,7 +4663,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
       continue;
     } else if (codepoint == '\n') {
       size_t length = string - lineStart;
-      while (string[length] == ' ' || string[length] == '\t') length--;
+      while (length > 0 && (lineStart[length - 1] == ' ' || lineStart[length - 1] == '\t')) length--;
       callback(context, lineStart, length);
       nextWordStartX = 0.f;
       x = 0.f;
@@ -4686,7 +4686,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     // Wrap
     if (wrap >= 0.f && wordStart != lineStart && x + advance > wrap) {
       size_t length = wordStart - lineStart;
-      while (string[length] == ' ' || string[length] == '\t') length--;
+      while (length > 0 && (lineStart[length - 1] == ' ' || lineStart[length - 1] == '\t')) length--;
       callback(context, lineStart, length);
       lineStart = wordStart;
       x -= nextWordStartX;
@@ -4700,7 +4700,9 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
   }
 
   if (end - lineStart > 0) {
-    callback(context, lineStart, end - lineStart);
+    size_t length = end - lineStart;
+    while (length > 0 && (lineStart[length - 1] == ' ' || lineStart[length - 1] == '\t')) length--;
+    callback(context, lineStart, length);
   }
 
   stackPop(&thread.stack, stack);
