@@ -123,7 +123,8 @@ enum { BLIT_2D, BLIT_3D };
 static bool setError(const char* message);
 static WGPU_TEXTURE_FORMAT convertFormat(gpu_texture_format format, bool srgb);
 static WGPU_TEXTURE_VIEW_DIMENSION convertTextureType(gpu_texture_type type);
-static uint32_t getRowSize(gpu_texture_format format, uint32_t width);
+static uint32_t getBytesPerRow(gpu_texture_format format, uint32_t width);
+static uint32_t getRowsPerImage(gpu_texture_format format, uint32_t height);
 static WGpuPipelineConstant* convertShaderFlags(gpu_shader_flag* flags, uint32_t count, char* buffer, size_t capacity);
 static gpu_readback* createReadback(gpu_buffer* target, uint32_t offset, uint32_t rowSize, uint32_t rowCount, uint32_t rowStride);
 
@@ -318,8 +319,8 @@ bool gpu_texture_upload(gpu_texture* texture, gpu_upload_info* info) {
       uint32_t width = MAX(info->extent[0] >> i, 1);
       uint32_t height = MAX(info->extent[1] >> i, 1);
 
-      uint32_t bytesPerRow = getRowSize(texture->format, width);
-      uint32_t rowsPerImage = height;
+      uint32_t bytesPerRow = getBytesPerRow(texture->format, width);
+      uint32_t rowsPerImage = getRowsPerImage(texture->format, height);
 
       wgpu_queue_write_texture(state.queue, &destination, info->layers[i * layers + j], bytesPerRow, rowsPerImage, width, height, 1);
     }
@@ -1126,11 +1127,11 @@ void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, u
   wgpu_command_encoder_copy_texture_to_texture(stream->commands, &srcRegion, &dstRegion, extent[0], extent[1], extent[2]);
 }
 
-void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]) {
+void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3], uint32_t texelsPerRow) {
   WGpuTexelCopyBufferInfo srcRegion = {
     .offset = srcOffset,
-    .bytesPerRow = getRowSize(dst->format, extent[0]),
-    .rowsPerImage = extent[1],
+    .bytesPerRow = ALIGN(getBytesPerRow(dst->format, extent[0]), 256),
+    .rowsPerImage = getRowsPerImage(dst->format, extent[1]),
     .buffer = src->handle
   };
 
@@ -1152,8 +1153,8 @@ void gpu_copy_texture_buffer(gpu_stream* stream, gpu_texture* src, gpu_buffer* d
     .aspect = WGPU_TEXTURE_ASPECT_ALL
   };
 
-  uint32_t rowSize = getRowSize(src->format, extent[0]);
-  uint32_t rowCount = extent[1];
+  uint32_t rowSize = getBytesPerRow(src->format, extent[0]);
+  uint32_t rowCount = getRowsPerImage(src->format, extent[1]);
   uint32_t rowStride = ALIGN(rowSize, 256);
 
   WGpuTexelCopyBufferInfo dstRegion = {
@@ -1809,7 +1810,7 @@ static WGPU_TEXTURE_VIEW_DIMENSION convertTextureType(gpu_texture_type type) {
   return types[type];
 }
 
-static uint32_t getRowSize(gpu_texture_format format, uint32_t width) {
+static uint32_t getBytesPerRow(gpu_texture_format format, uint32_t width) {
   switch (format) {
     case GPU_FORMAT_R8:
       return width;
@@ -1840,11 +1841,20 @@ static uint32_t getRowSize(gpu_texture_format format, uint32_t width) {
     case GPU_FORMAT_RGBA32F:
       return width * 16;
     case GPU_FORMAT_BC1:
+      return ((width + 3) / 4) * 8;
     case GPU_FORMAT_BC2:
+      return ((width + 3) / 4) * 16;
     case GPU_FORMAT_BC3:
-    case GPU_FORMAT_BC4U: case GPU_FORMAT_BC4S:
-    case GPU_FORMAT_BC5U: case GPU_FORMAT_BC5S:
-    case GPU_FORMAT_BC6UF: case GPU_FORMAT_BC6SF:
+      return ((width + 3) / 4) * 16;
+    case GPU_FORMAT_BC4U:
+    case GPU_FORMAT_BC4S:
+      return ((width + 3) / 4) * 8;
+    case GPU_FORMAT_BC5U:
+    case GPU_FORMAT_BC5S:
+      return ((width + 3) / 4) * 16;
+    case GPU_FORMAT_BC6UF:
+    case GPU_FORMAT_BC6SF:
+      return ((width + 3) / 4) * 16;
     case GPU_FORMAT_BC7:
       return ((width + 3) / 4) * 16;
     case GPU_FORMAT_ASTC_4x4:
@@ -1876,6 +1886,36 @@ static uint32_t getRowSize(gpu_texture_format format, uint32_t width) {
     case GPU_FORMAT_ASTC_12x12:
       return ((width + 11) / 12) * 16;
     default: return 0;
+  }
+}
+
+static uint32_t getRowsPerImage(gpu_texture_format format, uint32_t height) {
+  switch (format) {
+    case GPU_FORMAT_BC1:
+    case GPU_FORMAT_BC2:
+    case GPU_FORMAT_BC3:
+    case GPU_FORMAT_BC4U:
+    case GPU_FORMAT_BC4S:
+    case GPU_FORMAT_BC5U:
+    case GPU_FORMAT_BC5S:
+    case GPU_FORMAT_BC6UF:
+    case GPU_FORMAT_BC6SF:
+    case GPU_FORMAT_BC7: return (height + 3) / 4;
+    case GPU_FORMAT_ASTC_4x4: return (height + 3) / 4;
+    case GPU_FORMAT_ASTC_5x4: return (height + 3) / 4;
+    case GPU_FORMAT_ASTC_5x5: return (height + 4) / 5;
+    case GPU_FORMAT_ASTC_6x5: return (height + 4) / 5;
+    case GPU_FORMAT_ASTC_6x6: return (height + 5) / 6;
+    case GPU_FORMAT_ASTC_8x5: return (height + 4) / 5;
+    case GPU_FORMAT_ASTC_8x6: return (height + 5) / 6;
+    case GPU_FORMAT_ASTC_8x8: return (height + 7) / 8;
+    case GPU_FORMAT_ASTC_10x5: return (height + 4) / 5;
+    case GPU_FORMAT_ASTC_10x6: return (height + 5) / 6;
+    case GPU_FORMAT_ASTC_10x8: return (height + 7) / 8;
+    case GPU_FORMAT_ASTC_10x10: return (height + 9) / 10;
+    case GPU_FORMAT_ASTC_12x10: return (height + 9) / 10;
+    case GPU_FORMAT_ASTC_12x12: return (height + 11) / 12;
+    default: return height;
   }
 }
 

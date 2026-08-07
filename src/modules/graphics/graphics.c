@@ -641,8 +641,9 @@ static bool getBundles(Layout* layout, gpu_bundle** bundles, uint32_t count);
 static gpu_texture* createTemporaryTexture(const TextureInfo* info, TextureFormat format, bool srgb, uint32_t samples);
 static bool isDepthFormat(TextureFormat format);
 static bool supportsSRGB(TextureFormat format);
+static void getBlockSize(TextureFormat format, uint32_t* w, uint32_t* h, uint32_t* size);
 static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d);
-static bool checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
+static bool checkTextureRegion(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]);
 static void mipmapTexture(gpu_stream* stream, Texture* texture, uint32_t base, uint32_t count);
 static ShaderResource* findShaderResource(Shader* shader, const char* name, size_t length);
 static Access* getNextAccess(Pass* pass, int type, bool texture, bool raytracer);
@@ -2919,27 +2920,48 @@ const TextureInfo* lovrTextureGetInfo(Texture* texture) {
 
 bool lovrTextureSetPixels(Texture* texture, Image* image, uint32_t dstOffset[4], uint32_t srcOffset[4], uint32_t extent[3]) {
   TextureFormat format = texture->info.format;
-  uint32_t maxWidth = MAX(texture->info.width >> dstOffset[3], 1);
-  uint32_t maxHeight = MAX(texture->info.height >> dstOffset[3], 1);
-  uint32_t maxLayers = texture->info.type == TEXTURE_3D ? MAX(texture->info.layers >> dstOffset[3], 1) : texture->info.layers;
-  if (extent[0] == ~0u) extent[0] = MIN(maxWidth - dstOffset[0], lovrImageGetWidth(image, srcOffset[3]) - srcOffset[0]);
-  if (extent[1] == ~0u) extent[1] = MIN(maxHeight - dstOffset[1], lovrImageGetHeight(image, srcOffset[3]) - srcOffset[1]);
-  if (extent[2] == ~0u) extent[2] = MIN(maxLayers - dstOffset[2], lovrImageGetLayerCount(image) - srcOffset[2]);
+
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy to it");
   lovrCheck(texture->info.samples == 1, "Images can't be copied to multisampled textures");
   lovrCheck(lovrImageGetFormat(image) == format, "Image and Texture formats must match");
-  lovrCheck(srcOffset[0] + extent[0] <= lovrImageGetWidth(image, srcOffset[3]), "Image copy region exceeds its %s", "width");
-  lovrCheck(srcOffset[1] + extent[1] <= lovrImageGetHeight(image, srcOffset[3]), "Image copy region exceeds its %s", "height");
-  lovrCheck(srcOffset[2] + extent[2] <= lovrImageGetLayerCount(image), "Image copy region exceeds its %s", "layer count");
-  lovrCheck(srcOffset[3] < lovrImageGetLevelCount(image), "Image copy region exceeds its %s", "mipmap count");
-  if (!checkTextureBounds(&texture->info, dstOffset, extent)) return false;
+  lovrCheck(srcOffset[3] < lovrImageGetLevelCount(image), "Trying to copy from image mipmap %d, but it only has %d mipmaps", srcOffset[3] + 1, lovrImageGetLevelCount(image));
 
   uint32_t srcWidth = lovrImageGetWidth(image, srcOffset[3]);
-  uint32_t rowSize = measureTexture(format, extent[0], 1, 1);
-  uint32_t totalSize = measureTexture(format, extent[0], extent[1], 1) * extent[2];
-  uint32_t layerOffset = measureTexture(format, srcWidth, srcOffset[1], 1);
-  layerOffset += measureTexture(format, srcOffset[0], 1, 1);
-  uint32_t pitch = measureTexture(format, srcWidth, 1, 1);
+  uint32_t srcHeight = lovrImageGetHeight(image, srcOffset[3]);
+  uint32_t srcLayers = lovrImageGetLayerCount(image);
+
+  uint32_t dstWidth = MAX(texture->info.width >> dstOffset[3], 1);
+  uint32_t dstHeight = MAX(texture->info.height >> dstOffset[3], 1);
+  uint32_t dstLayers = texture->info.type == TEXTURE_3D ? MAX(texture->info.layers >> dstOffset[3], 1) : texture->info.layers;
+
+  uint32_t blockWidth, blockHeight, blockSize;
+  getBlockSize(format, &blockWidth, &blockHeight, &blockSize);
+
+  lovrCheck(srcOffset[0] < srcWidth, "Image x offset exceeds its width");
+  lovrCheck(srcOffset[1] < srcHeight, "Image y offset exceeds its height");
+  lovrCheck(srcOffset[2] < srcLayers, "Image layer offset exceeds its layer count");
+
+  lovrCheck(srcOffset[0] % blockWidth == 0, "Image x offset must be a multiple of its block width (%d)", blockWidth);
+  lovrCheck(srcOffset[1] % blockHeight == 0, "Image y offset must be a multiple of its block height (%d)", blockHeight);
+
+  extent[0] = extent[0] == ~0u ? MIN(srcWidth - srcOffset[0], dstWidth - dstOffset[0]) : extent[0];
+  extent[1] = extent[1] == ~0u ? MIN(srcHeight - srcOffset[1], dstHeight - dstOffset[1]) : extent[1];
+  extent[2] = extent[2] == ~0u ? MIN(srcLayers - srcOffset[2], dstLayers - dstOffset[2]) : extent[2];
+
+  lovrCheck(extent[0] <= srcWidth - srcOffset[0], "Image copy region exceeds its %s", "width");
+  lovrCheck(extent[1] <= srcHeight - srcOffset[1], "Image copy region exceeds its %s", "height");
+  lovrCheck(extent[2] <= srcLayers - srcOffset[2], "Image copy region exceeds its %s", "layer count");
+
+  if (!checkTextureRegion(&texture->info, dstOffset, extent)) return false;
+
+  uint32_t xblocks = (extent[0] + blockWidth - 1) / blockWidth;
+  uint32_t yblocks = (extent[1] + blockHeight - 1) / blockHeight;
+  uint32_t dstPitch = ALIGN(xblocks * blockSize, 256); // WebGPU requires 256-byte row alignment
+  uint32_t totalSize = dstPitch * yblocks * extent[2];
+  uint32_t texelsPerRow = dstPitch / blockSize * blockWidth;
+
+  uint32_t srcPitch = (srcWidth + blockWidth - 1) / blockWidth * blockSize;
+  uint32_t layerOffset = srcOffset[1] / blockHeight * srcPitch + srcOffset[0] / blockWidth * blockSize;
 
   mtx_lock(&state.lock);
 
@@ -2950,19 +2972,22 @@ bool lovrTextureSetPixels(Texture* texture, Image* image, uint32_t dstOffset[4],
   gpu_sync(state.stream, &barrier, 1);
 
   uint32_t rootOffset[4] = { dstOffset[0], dstOffset[1], dstOffset[2] + texture->baseLayer, dstOffset[3] + texture->baseLevel };
-  gpu_copy_buffer_texture(state.stream, view.buffer, texture->root->gpu, view.offset, rootOffset, extent);
+  gpu_copy_buffer_texture(state.stream, view.buffer, texture->root->gpu, view.offset, rootOffset, extent, texelsPerRow);
 
+  atomic_fetch_add(&state.textureUploads, 1);
   mtx_unlock(&state.lock);
 
   char* dst = view.pointer;
   for (uint32_t z = 0; z < extent[2]; z++) {
-    const char* src = (char*) lovrImageGetLayerData(image, srcOffset[3], z) + layerOffset;
-    for (uint32_t y = 0; y < extent[1]; y++) {
-      memcpy(dst, src, rowSize);
-      dst += rowSize;
-      src += pitch;
+    const char* src = (char*) lovrImageGetLayerData(image, srcOffset[3], srcOffset[2] + z) + layerOffset;
+    for (uint32_t y = 0; y < yblocks; y++) {
+      memcpy(dst, src, xblocks * blockSize);
+      src += srcPitch;
+      dst += dstPitch;
     }
   }
+
+  atomic_fetch_sub(&state.textureUploads, 1);
 
   return true;
 }
@@ -2976,8 +3001,8 @@ bool lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   lovrCheck(src->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "from");
   lovrCheck(dst->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to copy %s it", "to");
   lovrCheck(src->info.samples == dst->info.samples, "Texture sample counts must match to copy between them");
-  if (!checkTextureBounds(&src->info, srcOffset, extent)) return false;
-  if (!checkTextureBounds(&dst->info, dstOffset, extent)) return false;
+  if (!checkTextureRegion(&src->info, srcOffset, extent)) return false;
+  if (!checkTextureRegion(&dst->info, dstOffset, extent)) return false;
 
   mtx_lock(&state.lock);
 
@@ -3014,8 +3039,8 @@ bool lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
   lovrCheck(!depth || src->info.format == dst->info.format, "Blitting between depth textures requires them to have the same format");
   lovrCheck(((src->info.type == TEXTURE_3D) ^ (dst->info.type == TEXTURE_3D)) == false, "3D textures can only be blitted with other 3D textures");
   lovrCheck(src->info.type == TEXTURE_3D || srcExtent[2] == dstExtent[2], "When blitting between non-3D textures, blit layer counts must match");
-  if (!checkTextureBounds(&src->info, srcOffset, srcExtent)) return false;
-  if (!checkTextureBounds(&dst->info, dstOffset, dstExtent)) return false;
+  if (!checkTextureRegion(&src->info, srcOffset, srcExtent)) return false;
+  if (!checkTextureRegion(&dst->info, dstOffset, dstExtent)) return false;
 
   mtx_lock(&state.lock);
 
@@ -4401,6 +4426,7 @@ typedef struct {
   uint32_t codepoint;
   uint32_t width;
   uint32_t height;
+  uint32_t stride;
   uint8_t* dst;
   float* src;
 } GlyphContext;
@@ -4416,9 +4442,10 @@ static void rasterizeGlyph(void* arg) {
     for (uint32_t x = 0; x < ctx->width; x++) {
       for (uint32_t c = 0; c < 4; c++) {
         float f = *src++; // CLAMP would evaluate this multiple times
-        *dst++ = (uint8_t) (CLAMP(f, 0.f, 1.f) * 255.f + .5f);
+        dst[4 * x + c] = (uint8_t) (CLAMP(f, 0.f, 1.f) * 255.f + .5f);
       }
     }
+    dst += ctx->stride;
   }
 
   atomic_fetch_sub(&state.glyphJobs, 1);
@@ -4559,7 +4586,8 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   }
 
   mtx_lock(&state.lock);
-  BufferView bufferView = getBuffer(GPU_BUFFER_UPLOAD, pixelWidth * pixelHeight * 4 * sizeof(uint8_t), 64);
+  uint32_t rowStride = ALIGN(pixelWidth * 4, 256);
+  BufferView bufferView = getBuffer(GPU_BUFFER_UPLOAD, rowStride * pixelHeight, 64);
 
   if (!bufferView.buffer) {
     mtx_unlock(&state.lock);
@@ -4584,7 +4612,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
 
   uint32_t dstOffset[4] = { glyph->x - font->padding, glyph->y - font->padding, 0, 0 };
   uint32_t extent[3] = { pixelWidth, pixelHeight, 1 };
-  gpu_copy_buffer_texture(state.stream, bufferView.buffer, font->atlas->gpu, bufferView.offset, dstOffset, extent);
+  gpu_copy_buffer_texture(state.stream, bufferView.buffer, font->atlas->gpu, bufferView.offset, dstOffset, extent, rowStride / 4);
 
   state.barrier.prev |= GPU_PHASE_COPY;
   state.barrier.next |= GPU_PHASE_SHADER_FRAGMENT;
@@ -4601,6 +4629,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   context->codepoint = codepoint;
   context->width = pixelWidth;
   context->height = pixelHeight;
+  context->stride = rowStride;
   context->src = lovrMalloc(pixelWidth * pixelHeight * 4 * sizeof(float));
   context->dst = bufferView.pointer;
   atomic_fetch_add(&state.glyphJobs, 1);
@@ -6359,7 +6388,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   lovrCheck(extent[2] == 1, "Currently, only one layer can be read from a Texture");
   lovrCheck(texture->info.samples == 1, "Can't get pixels of a multisampled texture");
   lovrCheck(texture->info.usage & TEXTURE_TRANSFER, "Texture must be created with the 'transfer' usage to read from it");
-  if (!checkTextureBounds(&texture->info, offset, extent)) return NULL;
+  if (!checkTextureRegion(&texture->info, offset, extent)) return NULL;
   Image* image = lovrImageCreateRaw(extent[0], extent[1], texture->info.format, texture->info.srgb);
   lovrAssert(image, "Failed to create image: %s", lovrGetError());
   mtx_lock(&state.lock);
@@ -9579,16 +9608,15 @@ static bool supportsSRGB(TextureFormat format) {
   }
 }
 
-// Returns number of bytes of a 3D texture region of a given format
-static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d) {
+static void getBlockSize(TextureFormat format, uint32_t* w, uint32_t* h, uint32_t* size) {
   switch (format) {
-    case FORMAT_R8: return w * h * d;
+    case FORMAT_R8: *w = *h = 1, *size = 1; break;
     case FORMAT_RG8:
     case FORMAT_R16:
     case FORMAT_R16F:
     case FORMAT_RGB565:
     case FORMAT_RGB5A1:
-    case FORMAT_D16: return w * h * d * 2;
+    case FORMAT_D16: *w = *h = 1, *size = 2; break;
     case FORMAT_RGBA8:
     case FORMAT_BGRA8:
     case FORMAT_RG16:
@@ -9598,49 +9626,62 @@ static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uin
     case FORMAT_RGB10A2:
     case FORMAT_D24:
     case FORMAT_D24S8:
-    case FORMAT_D32F: return w * h * d * 4;
-    case FORMAT_D32FS8: return w * h * d * 5;
+    case FORMAT_D32F: *w = *h = 1, *size = 4; break;
+    case FORMAT_D32FS8: *w = *h = 1, *size = 5; break;
     case FORMAT_RGBA16:
     case FORMAT_RGBA16F:
-    case FORMAT_RG32F: return w * h * d * 8;
-    case FORMAT_RGBA32F: return w * h * d * 16;
-    case FORMAT_BC1: return ((w + 3) / 4) * ((h + 3) / 4) * d * 8;
-    case FORMAT_BC2: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
-    case FORMAT_BC3: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
-    case FORMAT_BC4U: return ((w + 3) / 4) * ((h + 3) / 4) * d * 8;
-    case FORMAT_BC4S: return ((w + 3) / 4) * ((h + 3) / 4) * d * 8;
-    case FORMAT_BC5U: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
-    case FORMAT_BC5S: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
-    case FORMAT_BC6UF: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
-    case FORMAT_BC6SF: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
-    case FORMAT_BC7: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
-    case FORMAT_ASTC_4x4: return ((w + 3) / 4) * ((h + 3) / 4) * d * 16;
-    case FORMAT_ASTC_5x4: return ((w + 4) / 5) * ((h + 3) / 4) * d * 16;
-    case FORMAT_ASTC_5x5: return ((w + 4) / 5) * ((h + 4) / 5) * d * 16;
-    case FORMAT_ASTC_6x5: return ((w + 5) / 6) * ((h + 4) / 5) * d * 16;
-    case FORMAT_ASTC_6x6: return ((w + 5) / 6) * ((h + 5) / 6) * d * 16;
-    case FORMAT_ASTC_8x5: return ((w + 7) / 8) * ((h + 4) / 5) * d * 16;
-    case FORMAT_ASTC_8x6: return ((w + 7) / 8) * ((h + 5) / 6) * d * 16;
-    case FORMAT_ASTC_8x8: return ((w + 7) / 8) * ((h + 7) / 8) * d * 16;
-    case FORMAT_ASTC_10x5: return ((w + 9) / 10) * ((h + 4) / 5) * d * 16;
-    case FORMAT_ASTC_10x6: return ((w + 9) / 10) * ((h + 5) / 6) * d * 16;
-    case FORMAT_ASTC_10x8: return ((w + 9) / 10) * ((h + 7) / 8) * d * 16;
-    case FORMAT_ASTC_10x10: return ((w + 9) / 10) * ((h + 9) / 10) * d * 16;
-    case FORMAT_ASTC_12x10: return ((w + 11) / 12) * ((h + 9) / 10) * d * 16;
-    case FORMAT_ASTC_12x12: return ((w + 11) / 12) * ((h + 11) / 12) * d * 16;
+    case FORMAT_RG32F: *w = *h = 1, *size = 8; break;
+    case FORMAT_RGBA32F: *w = *h = 1, *size = 16; break;
+    case FORMAT_BC1:
+    case FORMAT_BC4U:
+    case FORMAT_BC4S: *w = *h = 4, *size = 8; break;
+    case FORMAT_BC2:
+    case FORMAT_BC3:
+    case FORMAT_BC5U:
+    case FORMAT_BC5S:
+    case FORMAT_BC6UF:
+    case FORMAT_BC6SF:
+    case FORMAT_BC7: *w = *h = 4, *size = 16; break;
+    case FORMAT_ASTC_4x4: *w = 4, *h = 4, *size = 16; break;
+    case FORMAT_ASTC_5x4: *w = 5, *h = 4, *size = 16; break;
+    case FORMAT_ASTC_5x5: *w = 5, *h = 5, *size = 16; break;
+    case FORMAT_ASTC_6x5: *w = 6, *h = 5, *size = 16; break;
+    case FORMAT_ASTC_6x6: *w = 6, *h = 6, *size = 16; break;
+    case FORMAT_ASTC_8x5: *w = 8, *h = 5, *size = 16; break;
+    case FORMAT_ASTC_8x6: *w = 8, *h = 6, *size = 16; break;
+    case FORMAT_ASTC_8x8: *w = 8, *h = 8, *size = 16; break;
+    case FORMAT_ASTC_10x5: *w = 10, *h = 5, *size = 16; break;
+    case FORMAT_ASTC_10x6: *w = 10, *h = 6, *size = 16; break;
+    case FORMAT_ASTC_10x8: *w = 10, *h = 8, *size = 16; break;
+    case FORMAT_ASTC_10x10: *w = 10, *h = 10, *size = 16; break;
+    case FORMAT_ASTC_12x10: *w = 12, *h = 10, *size = 16; break;
+    case FORMAT_ASTC_12x12: *w = 12, *h = 12, *size = 16; break;
     default: lovrUnreachable();
   }
 }
 
-// Check if a 3D texture region is within the texture's bounds
-static bool checkTextureBounds(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]) {
-  uint32_t maxWidth = MAX(info->width >> offset[3], 1);
-  uint32_t maxHeight = MAX(info->height >> offset[3], 1);
-  uint32_t maxLayers = info->type == TEXTURE_3D ? MAX(info->layers >> offset[3], 1) : info->layers;
+// Returns number of bytes of a 3D texture region of a given format
+static uint32_t measureTexture(TextureFormat format, uint32_t w, uint32_t h, uint32_t d) {
+  uint32_t blockWidth, blockHeight, blockSize;
+  getBlockSize(format, &blockWidth, &blockHeight, &blockSize);
+  return ((w + blockWidth - 1) / blockWidth) * ((h + blockHeight - 1) / blockHeight) * d * blockSize;
+}
+
+// Check if a 3D texture region is within the texture's bounds and properly aligned
+static bool checkTextureRegion(const TextureInfo* info, uint32_t offset[4], uint32_t extent[3]) {
+  uint32_t width = MAX(info->width >> offset[3], 1);
+  uint32_t height = MAX(info->height >> offset[3], 1);
+  uint32_t depth = info->type == TEXTURE_3D ? MAX(info->layers >> offset[3], 1) : info->layers;
+  uint32_t blockWidth, blockHeight, blockSize;
+  getBlockSize(info->format, &blockWidth, &blockHeight, &blockSize);
   lovrCheck(extent[0] > 0 && extent[1] > 0 && extent[2] > 0, "Texture copy size can't be zero");
-  lovrCheck(offset[0] < maxWidth && extent[0] <= maxWidth - offset[0], "Texture x range [%d,%d] exceeds width (%d)", offset[0], offset[0] + extent[0], maxWidth);
-  lovrCheck(offset[1] < maxHeight && extent[1] <= maxHeight - offset[1], "Texture y range [%d,%d] exceeds height (%d)", offset[1], offset[1] + extent[1], maxHeight);
-  lovrCheck(offset[2] < maxLayers && extent[2] <= maxLayers - offset[2], "Texture layer range [%d,%d] exceeds layer count (%d)", offset[2], offset[2] + extent[2], maxLayers);
+  lovrCheck(offset[0] % blockWidth == 0, "Texture x offset must be a multiple of %d", blockWidth);
+  lovrCheck(offset[1] % blockHeight == 0, "Texture y offset must be a multiple of %d", blockHeight);
+  lovrCheck(offset[0] < width && extent[0] <= width - offset[0], "Texture x range [%d,%d) exceeds width (%d)", offset[0], offset[0] + extent[0], width);
+  lovrCheck(offset[1] < height && extent[1] <= height - offset[1], "Texture y range [%d,%d) exceeds height (%d)", offset[1], offset[1] + extent[1], height);
+  lovrCheck(offset[2] < depth && extent[2] <= depth - offset[2], "Texture layer range [%d,%d) exceeds layer count (%d)", offset[2], offset[2] + extent[2], depth);
+  lovrCheck((offset[0] + extent[0]) % blockWidth == 0 || offset[0] + extent[0] == width, "Texture copy width must be a multiple of %d", blockWidth);
+  lovrCheck((offset[1] + extent[1]) % blockHeight == 0 || offset[1] + extent[1] == height, "Texture copy height must be a multiple of %d", blockHeight);
   lovrCheck(offset[3] < info->mipmaps, "Texture mipmap %d exceeds its mipmap count (%d)", offset[3] + 1, info->mipmaps);
   return true;
 }

@@ -2737,9 +2737,10 @@ void gpu_copy_textures(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, u
   });
 }
 
-void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3]) {
+void gpu_copy_buffer_texture(gpu_stream* stream, gpu_buffer* src, gpu_texture* dst, uint32_t srcOffset, uint32_t dstOffset[4], uint32_t extent[3], uint32_t texelsPerRow) {
   VkBufferImageCopy region = {
     .bufferOffset = srcOffset,
+    .bufferRowLength = texelsPerRow,
     .imageSubresource.aspectMask = dst->aspect,
     .imageSubresource.mipLevel = dstOffset[3],
     .imageSubresource.baseArrayLayer = dst->layers ? dstOffset[2] : 0,
