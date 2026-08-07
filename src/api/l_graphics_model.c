@@ -276,7 +276,7 @@ int luax_modelmeshiterator(lua_State* L) {
 }
 
 int l_lovrModelMeshes(lua_State* L) {
-  Model* model = luax_checktype(L, 1, Model);
+  luax_checktype(L, 1, Model);
   lua_pushvalue(L, lua_upvalueindex(1));
   lua_pushvalue(L, 1);
   lua_pushnil(L);

@@ -327,6 +327,10 @@ endif()
 
 set_target_properties(lovr PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
 
+if(NOT MSVC)
+  target_compile_options(lovr PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare)
+endif()
+
 target_include_directories(lovr PRIVATE
   ${LOVR_INCLUDES}
   ${LOVR_LUA_INCLUDE}

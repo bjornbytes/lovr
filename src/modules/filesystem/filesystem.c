@@ -1135,7 +1135,7 @@ File* lovrFileCreate(const char* p, OpenMode mode) {
   file->mode = mode;
   file->handle = handle;
   file->archive = archive;
-  file->path = lovrStrdup(path);
+  file->path = memcpy(lovrMalloc(length + 1), path, length + 1);
   lovrRetain(archive);
   return file;
 }
