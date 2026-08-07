@@ -2856,7 +2856,7 @@ void gpu_build_tree(gpu_stream* stream, gpu_tree* tree, gpu_build_info* info) {
     .dstAccelerationStructure = tree->handle,
     .geometryCount = info->type == GPU_TREE_TOP ? 1 : info->count,
     .pGeometries = info->type == GPU_TREE_TOP ? &geometry : tree->geometries,
-    .scratchData = ALIGN(gpu_buffer_get_address(&tree->scratch, 0), 256)
+    .scratchData.deviceAddress = ALIGN(gpu_buffer_get_address(&tree->scratch, 0), 256)
   };
 
   VkAccelerationStructureBuildRangeInfoKHR range = { .primitiveCount = info->count };

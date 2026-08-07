@@ -364,7 +364,7 @@ bool lovrModelDataInitObj(ModelData** result, Blob* source, ModelDataIO* io) {
 
     float* bounds = meta->parts[i].bounds;
 
-    for (size_t j = group->start; j < group->start + group->count; j++) {
+    for (int j = group->start; j < group->start + group->count; j++) {
       ModelVertex* vertex = &vertices.data[indices.data[j]];
       bounds[0] = MIN(bounds[0], vertex->position.x);
       bounds[1] = MAX(bounds[1], vertex->position.x);

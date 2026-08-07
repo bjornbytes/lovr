@@ -314,28 +314,6 @@ static void onMouseWheelMove(GLFWwindow* window, double deltaX, double deltaY) {
   }
 }
 
-static int convertKey(os_key key) {
-  switch (key) {
-    case OS_KEY_W: return GLFW_KEY_W;
-    case OS_KEY_A: return GLFW_KEY_A;
-    case OS_KEY_S: return GLFW_KEY_S;
-    case OS_KEY_D: return GLFW_KEY_D;
-    case OS_KEY_Q: return GLFW_KEY_Q;
-    case OS_KEY_E: return GLFW_KEY_E;
-    case OS_KEY_UP: return GLFW_KEY_UP;
-    case OS_KEY_DOWN: return GLFW_KEY_DOWN;
-    case OS_KEY_LEFT: return GLFW_KEY_LEFT;
-    case OS_KEY_RIGHT: return GLFW_KEY_RIGHT;
-    case OS_KEY_LEFT_SHIFT: return GLFW_KEY_LEFT_SHIFT;
-    case OS_KEY_RIGHT_SHIFT: return GLFW_KEY_RIGHT_SHIFT;
-    case OS_KEY_LEFT_CONTROL: return GLFW_KEY_LEFT_CONTROL;
-    case OS_KEY_RIGHT_CONTROL: return GLFW_KEY_RIGHT_CONTROL;
-    case OS_KEY_ESCAPE: return GLFW_KEY_ESCAPE;
-    case OS_KEY_F5: return GLFW_KEY_F5;
-    default: return GLFW_KEY_UNKNOWN;
-  }
-}
-
 const char* os_get_clipboard_text(void) {
   return glfwGetClipboardString(NULL);
 }

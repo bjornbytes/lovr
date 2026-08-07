@@ -1067,7 +1067,6 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
     uint32_t indexOffset = 0;
     uint32_t skinDataOffset = 0;
     uint32_t blendDataOffset = 0;
-    uint32_t blendShapeIndex = 0;
     ModelBlendShape* blendShapes = meta->blendShapes;
     for (int i = (token++)->size; i > 0; i--, mesh++) {
       mesh->parts = part;

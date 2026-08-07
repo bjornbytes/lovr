@@ -92,9 +92,9 @@ static int l_lovrDataNewBlob(lua_State* L) {
 static int l_lovrDataNewBlobView(lua_State* L) {
   Blob* parent = luax_checktype(L, 1, Blob);
   int ioffset = luaL_checknumber(L, 2);
-  luax_check(L, ioffset >= 0, "BlobView offset must be non-negative");
-  luax_check(L, ioffset < parent->size, "BlobView offset must be less than parent size");
   size_t offset = (size_t) ioffset;
+  luax_check(L, ioffset >= 0, "BlobView offset must be non-negative");
+  luax_check(L, offset < parent->size, "BlobView offset must be less than parent size");
   size_t size = 0;
   if (lua_isnoneornil(L, 3)) {
     size = parent->size - offset;
@@ -228,7 +228,7 @@ static int l_lovrDataNewSound(lua_State* L) {
   if (type == LUA_TNUMBER) {
     uint32_t frames = luax_checku32(L, 1);
     SampleFormat format = luax_checkenum(L, 2, SampleFormat, "f32");
-    uint32_t channels = lua_type(L, 3) == LUA_TNUMBER ? luax_checku32(L, 3) : (1 << luax_checkenum(L, 3, ChannelLayout, NULL));
+    uint32_t channels = lua_type(L, 3) == LUA_TNUMBER ? luax_checku32(L, 3) : (1u << luax_checkenum(L, 3, ChannelLayout, NULL));
     uint32_t sampleRate = luax_optu32(L, 4, 48000);
     Blob* blob = luax_totype(L, 5, Blob);
     Sound* sound = lovrSoundCreate(frames, format, channels, sampleRate);

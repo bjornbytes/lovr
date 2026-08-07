@@ -234,8 +234,6 @@ static JPH_ValidateResult onContactValidate(void* userdata, const JPH_Body* body
 static void onContactPersisted(void* userdata, const JPH_Body* body1, const JPH_Body* body2, const JPH_ContactManifold* manifold, JPH_ContactSettings* settings) {
   World* world = userdata;
   if (!world->callbacks.contact) return;
-  JPH_BodyID id1 = JPH_Body_GetID(body1);
-  JPH_BodyID id2 = JPH_Body_GetID(body2);
   if (world->callbacks.contact) {
     Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body1);
     Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData((JPH_Body*) body2);
@@ -293,8 +291,6 @@ static void onContactRemoved(void* userdata, const JPH_SubShapeIDPair* pair) {
 }
 
 static void queueJob(void* context, JPH_JobFunction* function, void* arg) {
-  World* world = context;
-
 #ifdef LOVR_DISABLE_THREAD
   function(arg);
 #else
@@ -2615,9 +2611,8 @@ void lovrJointSetEnabled(Joint* joint, bool enable) {
 
 float lovrJointGetForce(Joint* joint) {
   JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
-  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
-  Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
-  World* world = b->world;
+  Collider* collider = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
+  World* world = collider->world;
 
   JPH_Vec3 v;
   float force[3];
@@ -2645,9 +2640,8 @@ float lovrJointGetForce(Joint* joint) {
 
 float lovrJointGetTorque(Joint* joint) {
   JPH_TwoBodyConstraint* constraint = (JPH_TwoBodyConstraint*) joint->constraint;
-  Collider* a = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody1(constraint));
-  Collider* b = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
-  World* world = b->world;
+  Collider* collider = (Collider*) (uintptr_t) JPH_Body_GetUserData(JPH_TwoBodyConstraint_GetBody2(constraint));
+  World* world = collider->world;
 
   JPH_Vec3 v;
   float torque[3];

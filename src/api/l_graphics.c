@@ -51,7 +51,7 @@ StringEntry lovrBlendFactor[] = {
   { 0 }
 };
 
-StringEntry lovrBufferLayout[] = {
+StringEntry lovrDataLayout[] = {
   [LAYOUT_PACKED] = ENTRY("packed"),
   [LAYOUT_STD140] = ENTRY("std140"),
   [LAYOUT_STD430] = ENTRY("std430"),
@@ -822,7 +822,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
     }
 
     lua_getfield(L, 1, "layout");
-    layout = luax_checkenum(L, -1, BufferLayout, "packed");
+    layout = luax_checkenum(L, -1, DataLayout, "packed");
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "stride");
@@ -1682,6 +1682,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
         hasData = true;
         break;
       }
+      /* fallthrough */
     default: return luax_typeerror(L, index, "number, table, Blob, or Buffer");
   }
 

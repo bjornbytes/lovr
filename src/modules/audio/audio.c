@@ -1275,7 +1275,7 @@ static bool phonon_mix_source_ambisonic(Source* source, float* src, float* dst) 
 
   // Reverb
   if (source->reverb > 0.f && state.config.reverb.type != REVERB_NONE && state.enabledMeshCount > 0) {
-    IPLAudioBuffer reverbInput = { 1, BUFFER_SIZE };
+    IPLAudioBuffer reverbInput = { 1, BUFFER_SIZE, NULL };
 
     if (source->reverb == 1.f) {
       reverbInput.data = input.data;
@@ -1686,7 +1686,7 @@ static bool phonon_mesh_init(AudioMesh* mesh, float* vertices, uint32_t* indices
 
   settings.triangles = lovrMalloc(settings.numTriangles * sizeof(IPLTriangle));
 
-  for (uint32_t i = 0; i < settings.numTriangles; i++) {
+  for (int i = 0; i < settings.numTriangles; i++) {
     settings.triangles[i].indices[0] = indices[3 * i + 0];
     settings.triangles[i].indices[1] = indices[3 * i + 1];
     settings.triangles[i].indices[2] = indices[3 * i + 2];
@@ -1696,7 +1696,7 @@ static bool phonon_mesh_init(AudioMesh* mesh, float* vertices, uint32_t* indices
     settings.materialIndices = (IPLint32*) materials;
   } else {
     settings.materialIndices = lovrMalloc(settings.numTriangles * sizeof(IPLint32));
-    for (uint32_t i = 0; i < settings.numTriangles; i++) {
+    for (int i = 0; i < settings.numTriangles; i++) {
       settings.materialIndices[i] = material;
     }
   }

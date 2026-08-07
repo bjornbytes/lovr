@@ -489,7 +489,7 @@ group('graphics', function()
         cjkLineLengths[idx] = #line
       end
       expect(cjkLineLengths).to.equal({6, 6, 3, 3, 3, 6, 3, 3, 3, 3, 3, 3, 6, 3, 8, 13, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6})     
-      
+
       local linesWhitespace = font:getLines('123   \n      ', 1e32)
       expect(linesWhitespace).to.equal({ '123', '' })
     end)

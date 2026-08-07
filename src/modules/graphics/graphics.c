@@ -634,7 +634,6 @@ static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type typ
 static BufferView getBuffer(gpu_buffer_type type, uint32_t size, size_t align);
 static void recycleBlocks(BufferAllocator* allocator, BufferBlock* blocks);
 static void destroyBuffers(BufferAllocator* allocator);
-static int u64cmp(const void* a, const void* b);
 static void pollReadbacks(void);
 static Layout* getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(Layout* layout, gpu_binding* bindings, uint32_t count);
@@ -5770,7 +5769,7 @@ void lovrModelSetBlendShapeWeight(Model* model, uint32_t index, float weight) {
   model->blendShapesDirty = true;
 }
 
-void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[3], float scale[3], float rotation[4], OriginType origin) {
+void lovrModelGetNodeTransform(Model* model, uint32_t node, float* position, float* scale, float* rotation, OriginType origin) {
   if (origin == ORIGIN_PARENT) {
     vec3_init(position, model->localTransforms[node].position);
     vec3_init(scale, model->localTransforms[node].scale);
@@ -5786,7 +5785,7 @@ void lovrModelGetNodeTransform(Model* model, uint32_t node, float position[3], f
   }
 }
 
-void lovrModelSetNodeTransform(Model* model, uint32_t node, float position[3], float scale[3], float rotation[4], float alpha) {
+void lovrModelSetNodeTransform(Model* model, uint32_t node, float* position, float* scale, float* rotation, float alpha) {
   if (alpha <= 0.f) return;
 
   NodeTransform* transform = &model->localTransforms[node];
@@ -7123,8 +7122,8 @@ bool lovrPassSetProjection(Pass* pass, uint32_t index, float projection[16]) {
 
 bool lovrPassGetViewRay(Pass* pass, uint32_t view, uint32_t x, uint32_t y, float position[3], float direction[3]) {
   lovrCheck(view < pass->views, "Invalid view index '%d'", view + 1);
-  x = CLAMP(x, 0, pass->width);
-  y = CLAMP(y, 0, pass->height);
+  x = MIN(x, pass->width);
+  y = MIN(y, pass->height);
   float worldFromClip[16];
   Camera* camera = pass->cameras + (pass->cameraCount - 1) * pass->views + view;
   mat4_invert(mat4_mul(mat4_init(worldFromClip, camera->projection), camera->viewMatrix));
@@ -9427,11 +9426,6 @@ static void destroyBuffers(BufferAllocator* allocator) {
     next = block->next;
     lovrFree(block);
   }
-}
-
-static int u64cmp(const void* a, const void* b) {
-  uint64_t x = *(uint64_t*) a, y = *(uint64_t*) b;
-  return (x > y) - (x < y);
 }
 
 // Must not hold lock
