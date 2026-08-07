@@ -302,7 +302,7 @@ static int l_lovrAudioNewAudioMesh(lua_State* L) {
   uint32_t vertexCount, indexCount;
   int index = luax_readmesh(L, 1, &vertices, &vertexCount, &indices, &indexCount);
 
-  AudioMaterial material;
+  AudioMaterial material = MATERIAL_GENERIC;
   AudioMaterial* materials = NULL;
   if (lua_istable(L, index)) {
     materials = lovrMalloc(indexCount / 3 * sizeof(AudioMaterial));

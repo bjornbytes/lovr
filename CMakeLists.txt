@@ -327,10 +327,6 @@ endif()
 
 set_target_properties(lovr PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
 
-if(NOT MSVC)
-  target_compile_options(lovr PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare)
-endif()
-
 target_include_directories(lovr PRIVATE
   ${LOVR_INCLUDES}
   ${LOVR_LUA_INCLUDE}
@@ -693,6 +689,12 @@ function(move_resource)
     COMMAND ${CMAKE_COMMAND} -E copy ${SRC} $<TARGET_FILE_DIR:lovr>/${ARGV0}
   )
 endfunction()
+
+# Warnings
+if(NOT MSVC)
+  target_compile_options(lovr PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare)
+  set_source_files_properties(src/lib/miniaudio/miniaudio.c PROPERTIES COMPILE_OPTIONS -w)
+endif()
 
 # Platforms
 if(WIN32)

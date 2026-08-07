@@ -1580,6 +1580,7 @@ static int l_lovrGraphicsNewFont(lua_State* L) {
         size = luax_tofloat(L, 2);
       } else {
         atlas = luax_totype(L, 2, Image);
+        size = 0.f;
       }
 
       info.spread = luaL_optnumber(L, 3, info.spread);
