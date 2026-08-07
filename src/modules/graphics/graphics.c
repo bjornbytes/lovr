@@ -4780,6 +4780,7 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
   uint32_t wordStart = 0;
   uint32_t previous = '\0';
   int previousIsCJK = 0;
+  int suppressKerning = true;
   uint32_t codepoint;
   *glyphCount = 0;
   *lineCount = 1;
@@ -4805,11 +4806,11 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
 
     while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
       if (codepoint == ' ' || codepoint == '\t') {
-        if (previous) prevWordEndX = x;
+        if (!suppressKerning) prevWordEndX = x;
         wordStart = vertexCount;
         x += codepoint == '\t' ? space * 4.f : space;
         wordStartX = x;
-        previous = '\0';
+        suppressKerning = true;
         str += bytes;
         continue;
       } else if (codepoint == '\n') {
@@ -4821,7 +4822,7 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
         wordStartX = 0.f;
         prevWordEndX = 0.f;
         (*lineCount)++;
-        previous = '\0';
+        suppressKerning = true;
         str += bytes;
         continue;
       } else if (codepoint == '\r') {
@@ -4853,8 +4854,9 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
       previousIsCJK = isCJK;
 
       // Keming
-      if (previous) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
+      if (!suppressKerning) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
       previous = codepoint;
+      suppressKerning = false;
 
       // Wrap
       if (wrap > 0.f && x + glyph->advance > wrap && wordStart != lineStart) {
@@ -4870,6 +4872,7 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
         aline(vertices, lineStart, wordStart, prevWordEndX, halign);
         lineStart = wordStart;
         wordStartX = 0.f;
+        suppressKerning = true;
         (*lineCount)++;
         x -= dx;
         y -= dy;
