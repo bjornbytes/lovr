@@ -48,6 +48,7 @@ dev
 - Fix `Buffer:getFormat` to return top-level array stride.
 - Fix memory leak when there are waiting tasks on quit.
 - Fix crash when loading invalid image files in `lovr.graphics.newTexture`.
+- Fix issue with `Font:getLines` not removing trailing whitespace properly.
 
 ### Deprecate
 
