@@ -52,8 +52,10 @@ typedef struct {
   bool indirectDrawFirstInstance;
   bool packedBuffers;
   bool float64;
+  bool float16;
   bool int64;
   bool int16;
+  bool int8;
 } GraphicsFeatures;
 
 typedef struct {
@@ -131,9 +133,17 @@ bool lovrGraphicsWait(void);
 // Buffer
 
 typedef enum {
+  TYPE_I8,
+  TYPE_I8x2,
   TYPE_I8x4,
+  TYPE_U8,
+  TYPE_U8x2,
   TYPE_U8x4,
+  TYPE_SN8,
+  TYPE_SN8x2,
   TYPE_SN8x4,
+  TYPE_UN8,
+  TYPE_UN8x2,
   TYPE_UN8x4,
   TYPE_SN10x3,
   TYPE_UN10x3,
@@ -143,8 +153,10 @@ typedef enum {
   TYPE_U16,
   TYPE_U16x2,
   TYPE_U16x4,
+  TYPE_SN16,
   TYPE_SN16x2,
   TYPE_SN16x4,
+  TYPE_UN16,
   TYPE_UN16x2,
   TYPE_UN16x4,
   TYPE_I32,
@@ -155,6 +167,7 @@ typedef enum {
   TYPE_U32x2,
   TYPE_U32x3,
   TYPE_U32x4,
+  TYPE_F16,
   TYPE_F16x2,
   TYPE_F16x4,
   TYPE_F32,

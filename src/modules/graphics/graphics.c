@@ -991,8 +991,10 @@ void lovrGraphicsGetFeatures(GraphicsFeatures* features) {
   features->indirectDrawFirstInstance = state.features.indirectDrawFirstInstance;
   features->packedBuffers = state.features.packedBuffers;
   features->float64 = state.features.float64;
+  features->float16 = state.features.float16;
   features->int64 = state.features.int64;
   features->int16 = state.features.int16;
+  features->int8 = state.features.int8;
 }
 
 void lovrGraphicsGetLimits(GraphicsLimits* limits) {
@@ -2094,9 +2096,17 @@ bool lovrGraphicsWait(void) {
 
 uint32_t lovrGraphicsAlignFields(DataField* parent, DataLayout layout) {
   static const struct { uint32_t size, scalarAlign, baseAlign; } table[] = {
+    [TYPE_I8] = { 1, 1, 1 },
+    [TYPE_I8x2] = { 2, 1, 2 },
     [TYPE_I8x4] = { 4, 1, 4 },
+    [TYPE_U8] = { 1, 1, 1 },
+    [TYPE_U8x2] = { 2, 1, 2 },
     [TYPE_U8x4] = { 4, 1, 4 },
+    [TYPE_SN8] = { 1, 1, 1 },
+    [TYPE_SN8x2] = { 2, 1, 2 },
     [TYPE_SN8x4] = { 4, 1, 4 },
+    [TYPE_UN8] = { 1, 1, 1 },
+    [TYPE_UN8x2] = { 2, 1, 2 },
     [TYPE_UN8x4] = { 4, 1, 4 },
     [TYPE_SN10x3] = { 4, 4, 4 },
     [TYPE_UN10x3] = { 4, 4, 4 },
@@ -2106,8 +2116,10 @@ uint32_t lovrGraphicsAlignFields(DataField* parent, DataLayout layout) {
     [TYPE_U16] = { 2, 2, 2 },
     [TYPE_U16x2] = { 4, 2, 4 },
     [TYPE_U16x4] = { 8, 2, 8 },
+    [TYPE_SN16] = { 2, 2, 2 },
     [TYPE_SN16x2] = { 4, 2, 4 },
     [TYPE_SN16x4] = { 8, 2, 8 },
+    [TYPE_UN16] = { 2, 2, 2 },
     [TYPE_UN16x2] = { 4, 2, 4 },
     [TYPE_UN16x4] = { 8, 2, 8 },
     [TYPE_I32] = { 4, 4, 4 },
@@ -2118,6 +2130,7 @@ uint32_t lovrGraphicsAlignFields(DataField* parent, DataLayout layout) {
     [TYPE_U32x2] = { 8, 4, 8 },
     [TYPE_U32x3] = { 12, 4, 16 },
     [TYPE_U32x4] = { 16, 4, 16 },
+    [TYPE_F16] = { 2, 2, 2 },
     [TYPE_F16x2] = { 4, 2, 4 },
     [TYPE_F16x4] = { 8, 2, 8 },
     [TYPE_F32] = { 4, 4, 4 },
@@ -3770,6 +3783,21 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
   for (uint32_t s = 0; s < info->stageCount; s++) {
     for (uint32_t i = 0; i < spv[s].fieldCount; i++) {
       static const DataType dataTypes[] = {
+        [SPV_I8] = TYPE_I8,
+        [SPV_I8x2] = TYPE_I8x2,
+        [SPV_I8x4] = TYPE_I8x4,
+        [SPV_U8] = TYPE_U8,
+        [SPV_U8x2] = TYPE_U8x2,
+        [SPV_U8x4] = TYPE_U8x4,
+        [SPV_I16] = TYPE_I16,
+        [SPV_I16x2] = TYPE_I16x2,
+        [SPV_I16x4] = TYPE_I16x4,
+        [SPV_U16] = TYPE_U16,
+        [SPV_U16x2] = TYPE_U16x2,
+        [SPV_U16x4] = TYPE_U16x4,
+        [SPV_F16] = TYPE_F16,
+        [SPV_F16x2] = TYPE_F16x2,
+        [SPV_F16x4] = TYPE_F16x4,
         [SPV_B32] = TYPE_U32,
         [SPV_I32] = TYPE_I32,
         [SPV_I32x2] = TYPE_I32x2,
@@ -9833,7 +9861,7 @@ static bool checkShaderFeatures(uint32_t* features, uint32_t count) {
       case 2: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "geometry shading");
       case 3: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "tessellation shading");
       case 5: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "linkage");
-      case 9: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "half floats");
+      case 9: lovrCheck(state.features.float16, "GPU does not support shader feature #%d: %s", features[i], "16 bit floats"); break;
       case 10: lovrCheck(state.features.float64, "GPU does not support shader feature #%d: %s", features[i], "64 bit floats"); break;
       case 11: lovrCheck(state.features.int64, "GPU does not support shader feature #%d: %s", features[i], "64 bit integers"); break;
       case 12: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "64 bit atomics");
@@ -9848,7 +9876,7 @@ static bool checkShaderFeatures(uint32_t* features, uint32_t count) {
       case 35: break; // SampleRateShading
       case 36: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "rectangle textures");
       case 37: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "rectangle textures");
-      case 39: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "8 bit integers");
+      case 39: lovrCheck(state.features.int8, "GPU does not support shader feature #%d: %s", features[i], "8 bit integers"); break;
       case 40: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "input attachments");
       case 41: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "sparse residency");
       case 42: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "min LOD");
@@ -9878,8 +9906,13 @@ static bool checkShaderFeatures(uint32_t* features, uint32_t count) {
       case 69: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "layered rendering");
       case 70: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "multiviewport");
       case 4427: break; // ShaderDrawParameters
+      case 4433: lovrCheck(state.features.float16 || state.features.int16, "GPU does not support shader feature #%d: %s", features[i], "16 bit storage buffers"); break;
+      case 4434: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "16 bit uniform/storage buffers");
+      case 4436: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "16 bit shader inputs/outputs");
       case 4437: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "multigpu");
       case 4439: lovrCheck(state.limits.renderSize[2] > 1, "GPU does not support shader feature #%d: %s", features[i], "multiview"); break;
+      case 4448: lovrCheck(state.features.int8, "GPU does not support shader feature #%d: %s", features[i], "8 bit storage buffers"); break;
+      case 4449: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "8 bit uniform/storage buffers");
       case 4472: lovrCheck(state.features.rayQuery, "GPU does not support shader feature #%d: %s", features[i], "raytracing"); break;
       case 5301: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "non-uniform indexing");
       case 5306: return lovrSetError("Shader uses unsupported feature #%d: %s", features[i], "non-uniform indexing");

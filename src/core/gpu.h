@@ -57,9 +57,17 @@ void gpu_buffer_flush(gpu_buffer* buffer, uint32_t offset, uint32_t extent);
 // Tree
 
 typedef enum {
+  GPU_TYPE_I8,
+  GPU_TYPE_I8x2,
   GPU_TYPE_I8x4,
+  GPU_TYPE_U8,
+  GPU_TYPE_U8x2,
   GPU_TYPE_U8x4,
+  GPU_TYPE_SN8,
+  GPU_TYPE_SN8x2,
   GPU_TYPE_SN8x4,
+  GPU_TYPE_UN8,
+  GPU_TYPE_UN8x2,
   GPU_TYPE_UN8x4,
   GPU_TYPE_SN10x3,
   GPU_TYPE_UN10x3,
@@ -69,8 +77,10 @@ typedef enum {
   GPU_TYPE_U16,
   GPU_TYPE_U16x2,
   GPU_TYPE_U16x4,
+  GPU_TYPE_SN16,
   GPU_TYPE_SN16x2,
   GPU_TYPE_SN16x4,
+  GPU_TYPE_UN16,
   GPU_TYPE_UN16x2,
   GPU_TYPE_UN16x4,
   GPU_TYPE_I32,
@@ -81,6 +91,7 @@ typedef enum {
   GPU_TYPE_U32x2,
   GPU_TYPE_U32x3,
   GPU_TYPE_U32x4,
+  GPU_TYPE_F16,
   GPU_TYPE_F16x2,
   GPU_TYPE_F16x4,
   GPU_TYPE_F32,
@@ -807,8 +818,10 @@ typedef struct {
   bool subgroupQuad;
   bool float32AtomicAdd;
   bool float64;
+  bool float16;
   bool int64;
   bool int16;
+  bool int8;
 } gpu_features;
 
 typedef struct {
