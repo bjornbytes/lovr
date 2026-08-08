@@ -1174,14 +1174,6 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   Canvas* canvas = &pass->canvas;
 
   if (!canvas->color->texture && !canvas->depth.texture) {
-    if (timestamps) {
-      // Sneaky: if timestamps are enabled, but it isn't possible to do a render pass, do an empty
-      // compute pass with timestamp writes.  This is a cheap way to ensure timestamps are always
-      // written, so that the timestamp code doesn't need to care about empty passes.
-      gpu_compute_begin(stream, timestamps);
-      gpu_compute_end(stream, timestamps);
-    }
-
     return true;
   }
 
@@ -1892,6 +1884,12 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
       renderTimestamps.beginIndex = compute ? ~0u : 2 * i + 0;
       renderTimestamps.endIndex = 2 * i + 1;
+
+      // Do an empty compute pass if the pass is completely empty, so timestamps always get written
+      if (!render && !compute) {
+        gpu_compute_begin(stream, &computeTimestamps);
+        gpu_compute_end(stream, &computeTimestamps);
+      }
     }
 
     if (!recordComputePass(pass, stream, &computeTimestamps)) {
