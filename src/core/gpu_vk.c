@@ -3235,9 +3235,9 @@ bool gpu_init(gpu_config* config) {
     VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR };
     VkPhysicalDeviceHostImageCopyFeaturesEXT hostImageCopyFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT };
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloatFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT };
-    VkPhysicalDeviceShaderFloat16Int8Features float16int8 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES };
-    VkPhysicalDevice8BitStorageFeatures storage8 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES };
-    VkPhysicalDevice16BitStorageFeatures storage16 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES };
+    VkPhysicalDeviceShaderFloat16Int8Features float16int8Features = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES };
+    VkPhysicalDevice8BitStorageFeatures storage8Features = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES };
+    VkPhysicalDevice16BitStorageFeatures storage16Features = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES };
 
     if (state.extensions.foveation) {
       CHAIN(supported, fragmentDensityMapFeatures);
@@ -3248,15 +3248,15 @@ bool gpu_init(gpu_config* config) {
     }
 
     if (state.extensions.float16Int8) {
-      CHAIN(supported, float16int8);
+      CHAIN(supported, float16int8Features);
     }
 
     if (state.extensions.storage8) {
-      CHAIN(supported, storage8);
+      CHAIN(supported, storage8Features);
     }
 
     if (state.extensions.storage16) {
-      CHAIN(supported, storage16);
+      CHAIN(supported, storage16Features);
     }
 
     vkGetPhysicalDeviceFeatures2(state.adapter, &supported);
@@ -3338,15 +3338,15 @@ bool gpu_init(gpu_config* config) {
     }
 
     if (state.extensions.float16Int8) {
-      CHAIN(enabled, float16int8);
+      CHAIN(enabled, float16int8Features);
     }
 
     if (state.extensions.storage8) {
-      CHAIN(enabled, storage8);
+      CHAIN(enabled, storage8Features);
     }
 
     if (state.extensions.storage16) {
-      CHAIN(enabled, storage16);
+      CHAIN(enabled, storage16Features);
     }
 
     if (config->features) {
@@ -3369,10 +3369,10 @@ bool gpu_init(gpu_config* config) {
       config->features->subgroupQuad = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
       config->features->float32AtomicAdd = atomicFloatFeatures.shaderBufferFloat32AtomicAdd && atomicFloatFeatures.shaderImageFloat32AtomicAdd;
       config->features->float64 = enabled.features.shaderFloat64;
-      config->features->float16 = float16int8.shaderFloat16 && storage16.storageBuffer16BitAccess;
+      config->features->float16 = float16int8Features.shaderFloat16 && storage16Features.storageBuffer16BitAccess;
       config->features->int64 = enabled.features.shaderInt64;
-      config->features->int16 = enabled.features.shaderInt16 && storage16.storageBuffer16BitAccess;
-      config->features->int8 = float16int8.shaderInt8 && storage8.storageBuffer8BitAccess;
+      config->features->int16 = enabled.features.shaderInt16 && storage16Features.storageBuffer16BitAccess;
+      config->features->int8 = float16int8Features.shaderInt8 && storage8Features.storageBuffer8BitAccess;
 
       // Formats
       for (uint32_t i = 0; i < GPU_FORMAT_COUNT; i++) {
