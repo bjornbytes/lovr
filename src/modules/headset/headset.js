@@ -111,6 +111,10 @@ var headset = {
     return false;
   },
 
+  lovrHeadsetIsHDR() {
+    return false;
+  },
+
   lovrHeadsetIsPassthroughSupported(mode) {
     return mode == 0;
   },
