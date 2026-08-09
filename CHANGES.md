@@ -11,6 +11,8 @@ dev
 - Add `ConvexShape:setScale` and `MeshShape:setScale`.
 - Add `t.graphics.lowpower`.
 - Add `lovr.graphics.getTiming`.
+- Add `Blob:setData`.
+- Add `Blob:clear`.
 
 ### Change
 

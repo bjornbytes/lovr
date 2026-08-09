@@ -5,8 +5,8 @@ group('data', function()
       blob = lovr.data.newBlob('foo', 'b' .. 'ar')
       collectgarbage()
       expect(blob:getName()).to.equal('b' .. 'ar')
-    end)    
-    
+    end)
+
     test(':set* byte range', function()
       blob = lovr.data.newBlob(1)
       expect(function() blob:setU8(-10, 7) end).to.fail()
@@ -73,7 +73,7 @@ group('data', function()
       blob:setF64(0, 2 ^ 53)
       expect(blob:getF64(0)).to.equal(2 ^ 53)
     end)
-    
+
     test(':setData', function()
       blob = lovr.data.newBlob(8)
       blob:setU16(0, 1, 2, 3, 4)
