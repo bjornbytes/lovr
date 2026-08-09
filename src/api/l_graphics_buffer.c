@@ -190,9 +190,13 @@ static bool luax_checkfieldv(lua_State* L, int index, const DataField* field, vo
   luax_fieldcheck(L, vector && (field->type < TYPE_MAT2 || field->type > TYPE_MAT4), index, field, false);
   float v[4] = { vector[0], vector[1], vector[2], 1.f };
   switch (field->type) {
+    case TYPE_I8x2: for (int i = 0; i < 2; i++) p.i8[i] = (int8_t) v[i]; break;
     case TYPE_I8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) v[i]; break;
+    case TYPE_U8x2: for (int i = 0; i < 2; i++) p.u8[i] = (uint8_t) v[i]; break;
     case TYPE_U8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) v[i]; break;
+    case TYPE_SN8x2: for (int i = 0; i < 2; i++) p.i8[i] = (int8_t) (CLAMP(v[i], -1.f, 1.f) * INT8_MAX); break;
     case TYPE_SN8x4: for (int i = 0; i < 4; i++) p.i8[i] = (int8_t) (CLAMP(v[i], -1.f, 1.f) * INT8_MAX); break;
+    case TYPE_UN8x2: for (int i = 0; i < 2; i++) p.u8[i] = (uint8_t) (CLAMP(v[i], 0.f, 1.f) * UINT8_MAX); break;
     case TYPE_UN8x4: for (int i = 0; i < 4; i++) p.u8[i] = (uint8_t) (CLAMP(v[i], 0.f, 1.f) * UINT8_MAX); break;
     case TYPE_SN10x3: for (int i = 0; i < 3; i++) p.u32[0] |= (((uint32_t) (int32_t) (CLAMP(v[i], -1.f, 1.f) * 511.f)) & 0x3ff) << (10 * i); break;
     case TYPE_UN10x3: for (int i = 0; i < 3; i++) p.u32[0] |= (((uint32_t) (CLAMP(v[i], 0.f, 1.f) * 1023.f)) & 0x3ff) << (10 * i); break;
@@ -404,9 +408,17 @@ bool luax_checkbufferdata(lua_State* L, int index, const DataField* field, char*
 static int luax_pushfieldn(lua_State* L, DataType type, char* data) {
   DataPointer p = { .raw = data };
   switch (type) {
+    case TYPE_I8: lua_pushinteger(L, p.i8[0]); return 1;
+    case TYPE_I8x2: for (int i = 0; i < 2; i++) lua_pushinteger(L, p.i8[i]); return 2;
     case TYPE_I8x4: for (int i = 0; i < 4; i++) lua_pushinteger(L, p.i8[i]); return 4;
+    case TYPE_U8: lua_pushinteger(L, p.u8[0]); return 1;
+    case TYPE_U8x2: for (int i = 0; i < 2; i++) lua_pushinteger(L, p.u8[i]); return 2;
     case TYPE_U8x4: for (int i = 0; i < 4; i++) lua_pushinteger(L, p.u8[i]); return 4;
+    case TYPE_SN8: lua_pushnumber(L, MAX((float) p.i8[0] / 127, -1.f)); return 1;
+    case TYPE_SN8x2: for (int i = 0; i < 2; i++) lua_pushnumber(L, MAX((float) p.i8[i] / 127, -1.f)); return 2;
     case TYPE_SN8x4: for (int i = 0; i < 4; i++) lua_pushnumber(L, MAX((float) p.i8[i] / 127, -1.f)); return 4;
+    case TYPE_UN8: lua_pushnumber(L, (float) p.u8[0] / 255); return 1;
+    case TYPE_UN8x2: for (int i = 0; i < 2; i++) lua_pushnumber(L, (float) p.u8[i] / 255); return 2;
     case TYPE_UN8x4: for (int i = 0; i < 4; i++) lua_pushnumber(L, (float) p.u8[i] / 255); return 4;
     case TYPE_SN10x3: for (int i = 0; i < 3; i++) lua_pushnumber(L, MAX(((int32_t) (p.i32[0] << (22 - 10 * i)) >> 22) / 511.f, -1.f)); return 3;
     case TYPE_UN10x3: for (int i = 0; i < 3; i++) lua_pushnumber(L, (float) ((p.u32[0] >> (10 * i)) & 0x3ff) / 1023.f); return 3;
@@ -414,8 +426,10 @@ static int luax_pushfieldn(lua_State* L, DataType type, char* data) {
     case TYPE_I16x4: for (int i = 0; i < 4; i++) lua_pushinteger(L, p.i16[i]); return 4;
     case TYPE_U16x2: for (int i = 0; i < 2; i++) lua_pushinteger(L, p.u16[i]); return 2;
     case TYPE_U16x4: for (int i = 0; i < 4; i++) lua_pushinteger(L, p.u16[i]); return 4;
+    case TYPE_SN16: lua_pushnumber(L, MAX((float) p.i16[0] / 32767, -1.f)); return 1;
     case TYPE_SN16x2: for (int i = 0; i < 2; i++) lua_pushnumber(L, MAX((float) p.i16[i] / 32767, -1.f)); return 2;
     case TYPE_SN16x4: for (int i = 0; i < 4; i++) lua_pushnumber(L, MAX((float) p.i16[i] / 32767, -1.f)); return 4;
+    case TYPE_UN16: lua_pushnumber(L, (float) p.u16[0] / 65535); return 1;
     case TYPE_UN16x2: for (int i = 0; i < 2; i++) lua_pushnumber(L, (float) p.u16[i] / 65535); return 2;
     case TYPE_UN16x4: for (int i = 0; i < 4; i++) lua_pushnumber(L, (float) p.u16[i] / 65535); return 4;
     case TYPE_I32: lua_pushinteger(L, p.i32[0]); return 1;
@@ -426,6 +440,7 @@ static int luax_pushfieldn(lua_State* L, DataType type, char* data) {
     case TYPE_U32x2: for (int i = 0; i < 2; i++) lua_pushinteger(L, p.u32[i]); return 2;
     case TYPE_U32x3: for (int i = 0; i < 3; i++) lua_pushinteger(L, p.u32[i]); return 3;
     case TYPE_U32x4: for (int i = 0; i < 4; i++) lua_pushinteger(L, p.u32[i]); return 4;
+    case TYPE_F16: lua_pushnumber(L, float16to32(p.u16[0])); return 1;
     case TYPE_F16x2: for (int i = 0; i < 2; i++) lua_pushnumber(L, float16to32(p.u16[i])); return 2;
     case TYPE_F16x4: for (int i = 0; i < 4; i++) lua_pushnumber(L, float16to32(p.u16[i])); return 4;
     case TYPE_F32: lua_pushnumber(L, p.f32[0]); return 1;
