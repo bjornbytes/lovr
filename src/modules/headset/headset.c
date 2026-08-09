@@ -143,7 +143,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrCreatePassthroughLayerFB)\
   X(xrDestroyPassthroughLayerFB)\
   X(xrGetPassthroughPreferencesMETA)\
-  X(xrGetRecommendedLayerResolutionMETA)
+  X(xrGetRecommendedLayerResolutionMETA)\
+  X(xrEnumerateColorSpacesSONY)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -166,7 +167,8 @@ enum {
   DEPTH = (1 << 2),
   CUBE = (1 << 3),
   STATIC = (1 << 4),
-  FOVEATED = (1 << 5)
+  FOVEATED = (1 << 5),
+  HDR = (1 << 6)
 };
 
 typedef struct {
@@ -229,6 +231,7 @@ static struct {
   XrSpace referenceSpace;
   float* refreshRates;
   uint32_t refreshRateCount;
+  bool hdr;
   XrEnvironmentBlendMode* blendModes;
   XrEnvironmentBlendMode blendMode;
   uint32_t blendModeCount;
@@ -277,6 +280,7 @@ static struct {
   XrDebugUtilsMessengerEXT messenger;
   struct {
     bool battery;
+    bool bodyTracking;
     bool cosmosController;
     bool debug;
     bool depth;
@@ -295,7 +299,7 @@ static struct {
     bool handTrackingElbow;
     bool handTrackingMesh;
     bool handTrackingMotionRange;
-    bool bodyTracking;
+    bool hdr;
     bool headless;
     bool interactionRenderModel;
     bool keyboardTracking;
@@ -505,6 +509,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_META_recommended_layer_resolution", &state.extensions.dynamicResolution, config->dynamicResolution },
     { "XR_ML_ml2_controller_interaction", &state.extensions.ml2Controller, true },
     { "XR_MND_headless", &state.extensions.headless, true },
+    { "XR_SONY_swapchain_color_space", &state.extensions.hdr, config->hdr },
     { "XR_ULTRALEAP_hand_tracking_forearm", &state.extensions.handTrackingElbow, true },
     { "XR_VALVE_frame_controller_interaction", &state.extensions.frameController, true },
     { "XR_VARJO_quad_views", &state.extensions.foveatedInset, true },
@@ -1117,6 +1122,7 @@ bool lovrHeadsetStart(void) {
 
 #ifdef LOVR_VK
     int64_t nativeColorFormat = VK_FORMAT_R8G8B8A8_SRGB;
+    int64_t nativeColorFormatHDR = VK_FORMAT_A2B10G10R10_UNORM_PACK32;
     int64_t nativeDepthFormat;
 
     switch (state.depthFormat) {
@@ -1140,6 +1146,27 @@ bool lovrHeadsetStart(void) {
         supportsColor = true;
       } else if (formats[i] == nativeDepthFormat) {
         supportsDepth = true;
+      }
+    }
+
+    state.hdr = false;
+
+    if (state.extensions.hdr) {
+      XrColorSpacesEnumerateInfoSONY colorSpaceInfo = {
+        .type = XR_TYPE_COLOR_SPACES_ENUMERATE_INFO_SONY,
+        .format = nativeColorFormatHDR
+      };
+
+      uint32_t colorSpaceCount = 0;
+      XrColorSpaceSONY colorSpaces[16];
+
+      if (XR_SUCCEEDED(xrEnumerateColorSpacesSONY(state.session, &colorSpaceInfo, COUNTOF(colorSpaces), &colorSpaceCount, colorSpaces))) {
+        for (uint32_t i = 0; i < colorSpaceCount; i++) {
+          if (colorSpaces[i] == XR_COLOR_SPACE_BT2020_PQ_SONY) {
+            state.hdr = true;
+            break;
+          }
+        }
       }
     }
 
@@ -1567,6 +1594,10 @@ bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic) {
   state.foveationDynamic = dynamic;
 
   return true;
+}
+
+bool lovrHeadsetIsHDR(void) {
+  return state.hdr;
 }
 
 static XrEnvironmentBlendMode convertPassthroughMode(PassthroughMode mode) {
@@ -3437,6 +3468,7 @@ static bool lovrSwapchainInit(Swapchain* swapchain, uint32_t width, uint32_t hei
   bool cube = flags & CUBE;
   bool immutable = flags & STATIC;
   bool foveated = flags & FOVEATED && state.extensions.foveation;
+  bool hdr = flags & HDR && state.hdr;
 
   XrSwapchainCreateInfo info = {
     .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
@@ -3457,11 +3489,23 @@ static bool lovrSwapchainInit(Swapchain* swapchain, uint32_t width, uint32_t hei
   };
 
   if (foveated) {
+    foveation.next = (void*) info.next;
     info.next = &foveation;
+  }
+
+  XrSwapchainCreateInfoColorSpaceSONY colorSpace = {
+    .type = XR_TYPE_SWAPCHAIN_CREATE_INFO_COLOR_SPACE_SONY,
+    .colorSpace = XR_COLOR_SPACE_BT2020_PQ_SONY
+  };
+
+  if (hdr) {
+    colorSpace.next = info.next;
+    info.next = &colorSpace;
   }
 
   if (depth) {
     info.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+#ifdef LOVR_VK
     switch (state.depthFormat) {
       case FORMAT_D24: info.format = VK_FORMAT_X8_D24_UNORM_PACK32; break;
       case FORMAT_D32F: info.format = VK_FORMAT_D32_SFLOAT; break;
@@ -3469,11 +3513,14 @@ static bool lovrSwapchainInit(Swapchain* swapchain, uint32_t width, uint32_t hei
       case FORMAT_D32FS8: info.format = VK_FORMAT_D32_SFLOAT_S8_UINT; break;
       default: lovrUnreachable();
     }
+#endif
   } else {
     info.usageFlags |= XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
     info.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
     info.usageFlags |= XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
-    info.format = VK_FORMAT_R8G8B8A8_SRGB;
+#ifdef LOVR_VK
+    info.format = hdr ? VK_FORMAT_A2B10G10R10_UNORM_PACK32 : VK_FORMAT_R8G8B8A8_SRGB;
+#endif
   }
 
   XR(xrCreateSwapchain(state.session, &info, &swapchain->handle), "xrCreateSwapchain");
@@ -3499,8 +3546,8 @@ static bool lovrSwapchainInit(Swapchain* swapchain, uint32_t width, uint32_t hei
   for (uint32_t i = 0; i < textureCount; i++, swapchain->textureCount++) {
     swapchain->textures[i] = lovrTextureCreate(&(TextureInfo) {
       .type = cube ? TEXTURE_CUBE : (stereo || view ? TEXTURE_ARRAY : TEXTURE_2D),
-      .format = depth ? state.depthFormat : FORMAT_RGBA8,
-      .srgb = !depth,
+      .format = depth ? state.depthFormat : hdr ? FORMAT_RGB10A2 : FORMAT_RGBA8,
+      .srgb = !depth && !hdr,
       .width = width,
       .height = height,
       .layers = view ? state.viewCount : ((cube ? 6 : 1) << stereo),
@@ -3730,7 +3777,7 @@ static bool createSwapchains(void) {
   lovrSwapchainDestroy(&state.swapchains[SWAPCHAIN_COLOR]);
   lovrSwapchainDestroy(&state.swapchains[SWAPCHAIN_DEPTH]);
 
-  if (!lovrSwapchainInit(&state.swapchains[SWAPCHAIN_COLOR], width, height, VIEW | FOVEATED)) {
+  if (!lovrSwapchainInit(&state.swapchains[SWAPCHAIN_COLOR], width, height, VIEW | FOVEATED | HDR)) {
     return false;
   }
 

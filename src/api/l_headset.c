@@ -271,6 +271,11 @@ static int l_lovrHeadsetSetFoveation(lua_State* L) {
   }
 }
 
+static int l_lovrHeadsetIsHDR(lua_State* L) {
+  lua_pushboolean(L, lovrHeadsetIsHDR());
+  return 1;
+}
+
 static int l_lovrHeadsetGetPassthrough(lua_State* L) {
   PassthroughMode mode = lovrHeadsetGetPassthrough();
   luax_pushenum(L, PassthroughMode, mode);
@@ -1028,6 +1033,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getRefreshRates", l_lovrHeadsetGetRefreshRates },
   { "getFoveation", l_lovrHeadsetGetFoveation },
   { "setFoveation", l_lovrHeadsetSetFoveation },
+  { "isHDR", l_lovrHeadsetIsHDR },
   { "getPassthrough", l_lovrHeadsetGetPassthrough },
   { "setPassthrough", l_lovrHeadsetSetPassthrough },
   { "getPassthroughModes", l_lovrHeadsetGetPassthroughModes },
@@ -1092,6 +1098,7 @@ int luaopen_lovr_headset(lua_State* L) {
     .mask = true,
     .stencil = false,
     .antialias = true,
+    .hdr = false,
     .submitDepth = true,
     .overlay = false,
     .overlayOrder = 0,
@@ -1132,6 +1139,10 @@ int luaopen_lovr_headset(lua_State* L) {
 
       lua_getfield(L, -1, "antialias");
       config.antialias = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "hdr");
+      config.hdr = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "submitdepth");

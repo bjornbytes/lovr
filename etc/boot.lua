@@ -47,6 +47,7 @@ local conf = {
     mask = true,
     stencil = false,
     antialias = true,
+    hdr = false,
     supersample = false,
     dynamicresolution = true,
     submitdepth = true,

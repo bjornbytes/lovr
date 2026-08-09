@@ -14,6 +14,7 @@ dev
 - Add `Blob:setData`.
 - Add `Blob:clear`.
 - Add support for Pico 4 Ultra controllers.
+- Add `t.headset.hdr` and `lovr.headset.isHDR`.
 
 ### Change
 
