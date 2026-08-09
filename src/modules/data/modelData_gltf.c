@@ -160,14 +160,18 @@ static void* decodeBase64(char* str, size_t length, size_t* decodedLength) {
   return data;
 }
 
-static jsmntok_t* nomTexture(const char* json, jsmntok_t* token, uint32_t* imageIndex, gltfTexture* textures, ModelMaterial* material) {
+static jsmntok_t* nomTexture(const char* json, jsmntok_t* token, ModelMaterial* material, uint32_t* imageIndex, gltfTexture* textures) {
   for (int k = (token++)->size; k > 0; k--) {
     gltfString key = NOM_STR(json, token);
     if (STR_EQ(key, "index")) {
       uint32_t index = NOM_U32(json, token);
       gltfTexture* texture = &textures[index];
       *imageIndex = texture->image;
-    } else if (material && STR_EQ(key, "extensions")) {
+    } else if (imageIndex == &material->normalTexture && STR_EQ(key, "scale")) {
+      material->normalScale = NOM_FLOAT(json, token);
+    } else if (imageIndex == &material->occlusionTexture && STR_EQ(key, "strength")) {
+      material->occlusionStrength = NOM_FLOAT(json, token);
+    } else if (imageIndex == &material->texture && STR_EQ(key, "extensions")) {
       for (int j = (token++)->size; j > 0; j--) {
         gltfString key = NOM_STR(json, token);
         if (STR_EQ(key, "KHR_texture_transform")) {
@@ -1010,7 +1014,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
               material->color[2] = NOM_FLOAT(json, token);
               material->color[3] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "baseColorTexture")) {
-              token = nomTexture(json, token, &material->texture, textures, material);
+              token = nomTexture(json, token, material, &material->texture, textures);
               startImageJob(model, imageJobs, material->texture, buffers, images, io, filename);
               *root = '\0';
             } else if (STR_EQ(key, "metallicFactor")) {
@@ -1018,7 +1022,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
             } else if (STR_EQ(key, "roughnessFactor")) {
               material->roughness = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "metallicRoughnessTexture")) {
-              token = nomTexture(json, token, &material->metalnessTexture, textures, NULL);
+              token = nomTexture(json, token, material, &material->metalnessTexture, textures);
               startImageJob(model, imageJobs, material->metalnessTexture, buffers, images, io, filename);
               material->roughnessTexture = material->metalnessTexture;
               *root = '\0';
@@ -1027,15 +1031,15 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
             }
           }
         } else if (STR_EQ(key, "normalTexture")) {
-          token = nomTexture(json, token, &material->normalTexture, textures, NULL);
+          token = nomTexture(json, token, material, &material->normalTexture, textures);
           startImageJob(model, imageJobs, material->normalTexture, buffers, images, io, filename);
           *root = '\0';
         } else if (STR_EQ(key, "occlusionTexture")) {
-          token = nomTexture(json, token, &material->occlusionTexture, textures, NULL);
+          token = nomTexture(json, token, material, &material->occlusionTexture, textures);
           startImageJob(model, imageJobs, material->occlusionTexture, buffers, images, io, filename);
           *root = '\0';
         } else if (STR_EQ(key, "emissiveTexture")) {
-          token = nomTexture(json, token, &material->glowTexture, textures, NULL);
+          token = nomTexture(json, token, material, &material->glowTexture, textures);
           startImageJob(model, imageJobs, material->glowTexture, buffers, images, io, filename);
           *root = '\0';
         } else if (STR_EQ(key, "emissiveFactor")) {

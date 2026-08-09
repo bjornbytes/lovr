@@ -52,6 +52,7 @@ dev
 - Fix memory leak when there are waiting tasks on quit.
 - Fix crash when loading invalid image files in `lovr.graphics.newTexture`.
 - Fix issue with `Font:getLines` not removing trailing whitespace properly.
+- Fix issue where `normalScale` and `occlusionStrength` weren't getting imported from glTF models.
 
 ### Deprecate
 
