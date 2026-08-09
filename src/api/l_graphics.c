@@ -101,9 +101,17 @@ StringEntry lovrDrawStyle[] = {
 };
 
 StringEntry lovrDataType[] = {
+  [TYPE_I8] = ENTRY("i8"),
+  [TYPE_I8x2] = ENTRY("i8x2"),
   [TYPE_I8x4] = ENTRY("i8x4"),
+  [TYPE_U8] = ENTRY("u8"),
+  [TYPE_U8x2] = ENTRY("u8x2"),
   [TYPE_U8x4] = ENTRY("u8x4"),
+  [TYPE_SN8] = ENTRY("sn8"),
+  [TYPE_SN8x2] = ENTRY("sn8x2"),
   [TYPE_SN8x4] = ENTRY("sn8x4"),
+  [TYPE_UN8] = ENTRY("un8"),
+  [TYPE_UN8x2] = ENTRY("un8x2"),
   [TYPE_UN8x4] = ENTRY("un8x4"),
   [TYPE_SN10x3] = ENTRY("sn10x3"),
   [TYPE_UN10x3] = ENTRY("un10x3"),
@@ -113,8 +121,10 @@ StringEntry lovrDataType[] = {
   [TYPE_U16] = ENTRY("u16"),
   [TYPE_U16x2] = ENTRY("u16x2"),
   [TYPE_U16x4] = ENTRY("u16x4"),
+  [TYPE_SN16] = ENTRY("sn16"),
   [TYPE_SN16x2] = ENTRY("sn16x2"),
   [TYPE_SN16x4] = ENTRY("sn16x4"),
+  [TYPE_UN16] = ENTRY("un16"),
   [TYPE_UN16x2] = ENTRY("un16x2"),
   [TYPE_UN16x4] = ENTRY("un16x4"),
   [TYPE_I32] = ENTRY("i32"),
@@ -125,6 +135,7 @@ StringEntry lovrDataType[] = {
   [TYPE_U32x2] = ENTRY("u32x2"),
   [TYPE_U32x3] = ENTRY("u32x3"),
   [TYPE_U32x4] = ENTRY("u32x4"),
+  [TYPE_F16] = ENTRY("f16"),
   [TYPE_F16x2] = ENTRY("f16x2"),
   [TYPE_F16x4] = ENTRY("f16x4"),
   [TYPE_F32] = ENTRY("f32"),
@@ -582,8 +593,10 @@ static int l_lovrGraphicsGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.indirectDrawFirstInstance), lua_setfield(L, -2, "indirectDrawFirstInstance");
   lua_pushboolean(L, features.packedBuffers), lua_setfield(L, -2, "packedBuffers");
   lua_pushboolean(L, features.float64), lua_setfield(L, -2, "float64");
+  lua_pushboolean(L, features.float16), lua_setfield(L, -2, "float16");
   lua_pushboolean(L, features.int64), lua_setfield(L, -2, "int64");
   lua_pushboolean(L, features.int16), lua_setfield(L, -2, "int16");
+  lua_pushboolean(L, features.int8), lua_setfield(L, -2, "int8");
   return 1;
 }
 

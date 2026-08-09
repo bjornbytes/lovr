@@ -733,7 +733,13 @@ static spv_result spv_parse_field(spv_context* spv, const uint32_t* word, spv_fi
     }
   }
 
-  if (OP_CODE(word) == 22 && word[2] == 32) { // OpTypeFloat
+  if (OP_CODE(word) == 22 && word[2] == 16) { // OpTypeFloat 16-bit
+    if (columnCount == 1 && componentCount <= 4 && componentCount != 3) {
+      field->type = SPV_F16 + (componentCount / 2);
+    } else {
+      return SPV_UNSUPPORTED_DATA_TYPE;
+    }
+  } else if (OP_CODE(word) == 22 && word[2] == 32) { // OpTypeFloat 32-bit
     if (columnCount >= 2 && columnCount <= 4 && componentCount >= 2 && componentCount <= 4) {
       field->type = SPV_MAT2x2 + (columnCount - 2) * 3 + (componentCount - 2);
     } else if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
@@ -743,7 +749,35 @@ static spv_result spv_parse_field(spv_context* spv, const uint32_t* word, spv_fi
     } else {
       return SPV_UNSUPPORTED_DATA_TYPE;
     }
-  } else if (OP_CODE(word) == 21 && word[2] == 32) { // OpTypeInteger
+  } else if (OP_CODE(word) == 21 && word[2] == 8) { // OpTypeInteger 8-bit
+    if (word[3] > 0) { // signed
+      if (columnCount == 1 && componentCount <= 4 && componentCount != 3) {
+        field->type = SPV_I8 + (componentCount / 2);
+      } else {
+        return SPV_UNSUPPORTED_DATA_TYPE;
+      }
+    } else {
+        if (columnCount == 1 && componentCount <= 4 && componentCount != 3) {
+          field->type = SPV_U8 + (componentCount / 2);
+        } else {
+          return SPV_UNSUPPORTED_DATA_TYPE;
+        }
+    }
+  } else if (OP_CODE(word) == 21 && word[2] == 16) { // OpTypeInteger 16-bit
+    if (word[3] > 0) { // signed
+      if (columnCount == 1 && componentCount <= 4 && componentCount != 3) {
+        field->type = SPV_I16 + (componentCount / 2);
+      } else {
+        return SPV_UNSUPPORTED_DATA_TYPE;
+      }
+    } else {
+      if (columnCount == 1 && componentCount <= 4 && componentCount != 3) {
+        field->type = SPV_U16 + (componentCount / 2);
+      } else {
+        return SPV_UNSUPPORTED_DATA_TYPE;
+      }
+    }
+  } else if (OP_CODE(word) == 21 && word[2] == 32) { // OpTypeInteger 32-bit
     if (word[3] > 0) { // signed
       if (columnCount == 1 && componentCount >= 2 && componentCount <= 4) {
         field->type = SPV_I32x2 + componentCount - 2;
@@ -767,7 +801,7 @@ static spv_result spv_parse_field(spv_context* spv, const uint32_t* word, spv_fi
     return SPV_UNSUPPORTED_DATA_TYPE;
   }
 
-  field->elementSize = 4 * componentCount * columnCount;
+  field->elementSize = (word[2] / 8) * componentCount * columnCount;
 
   return SPV_OK;
 }

@@ -4,6 +4,21 @@
 #pragma once
 
 typedef enum {
+  SPV_I8,
+  SPV_I8x2,
+  SPV_I8x4,
+  SPV_U8,
+  SPV_U8x2,
+  SPV_U8x4,
+  SPV_I16,
+  SPV_I16x2,
+  SPV_I16x4,
+  SPV_U16,
+  SPV_U16x2,
+  SPV_U16x4,
+  SPV_F16,
+  SPV_F16x2,
+  SPV_F16x4,
   SPV_B32,
   SPV_I32,
   SPV_I32x2,

@@ -645,9 +645,17 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
   };
 
   static const WGPU_VERTEX_FORMAT attributeTypes[] = {
+    [GPU_TYPE_I8] = WGPU_VERTEX_FORMAT_SINT8,
+    [GPU_TYPE_I8x2] = WGPU_VERTEX_FORMAT_SINT8X2,
     [GPU_TYPE_I8x4] = WGPU_VERTEX_FORMAT_SINT8X4,
+    [GPU_TYPE_U8] = WGPU_VERTEX_FORMAT_UINT8,
+    [GPU_TYPE_U8x2] = WGPU_VERTEX_FORMAT_UINT8X2,
     [GPU_TYPE_U8x4] = WGPU_VERTEX_FORMAT_UINT8X4,
+    [GPU_TYPE_SN8] = WGPU_VERTEX_FORMAT_SNORM8,
+    [GPU_TYPE_SN8x2] = WGPU_VERTEX_FORMAT_SNORM8X2,
     [GPU_TYPE_SN8x4] = WGPU_VERTEX_FORMAT_SNORM8X4,
+    [GPU_TYPE_UN8] = WGPU_VERTEX_FORMAT_UNORM8,
+    [GPU_TYPE_UN8x2] = WGPU_VERTEX_FORMAT_UNORM8X2,
     [GPU_TYPE_UN8x4] = WGPU_VERTEX_FORMAT_UNORM8X4,
     [GPU_TYPE_SN10x3] = WGPU_VERTEX_FORMAT_UNORM10_10_10_2, // TODO
     [GPU_TYPE_UN10x3] = WGPU_VERTEX_FORMAT_UNORM10_10_10_2,
@@ -657,8 +665,10 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
     [GPU_TYPE_U16] = WGPU_VERTEX_FORMAT_UINT16,
     [GPU_TYPE_U16x2] = WGPU_VERTEX_FORMAT_UINT16X2,
     [GPU_TYPE_U16x4] = WGPU_VERTEX_FORMAT_UINT16X4,
+    [GPU_TYPE_SN16] = WGPU_VERTEX_FORMAT_SNORM16,
     [GPU_TYPE_SN16x2] = WGPU_VERTEX_FORMAT_SNORM16X2,
     [GPU_TYPE_SN16x4] = WGPU_VERTEX_FORMAT_SNORM16X4,
+    [GPU_TYPE_UN16] = WGPU_VERTEX_FORMAT_UNORM16,
     [GPU_TYPE_UN16x2] = WGPU_VERTEX_FORMAT_UNORM16X2,
     [GPU_TYPE_UN16x4] = WGPU_VERTEX_FORMAT_UNORM16X4,
     [GPU_TYPE_I32] = WGPU_VERTEX_FORMAT_SINT32,
@@ -669,6 +679,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
     [GPU_TYPE_U32x2] = WGPU_VERTEX_FORMAT_UINT32X2,
     [GPU_TYPE_U32x3] = WGPU_VERTEX_FORMAT_UINT32X3,
     [GPU_TYPE_U32x4] = WGPU_VERTEX_FORMAT_UINT32X4,
+    [GPU_TYPE_F16] = WGPU_VERTEX_FORMAT_FLOAT16,
     [GPU_TYPE_F16x2] = WGPU_VERTEX_FORMAT_FLOAT16X2,
     [GPU_TYPE_F16x4] = WGPU_VERTEX_FORMAT_FLOAT16X4,
     [GPU_TYPE_F32] = WGPU_VERTEX_FORMAT_FLOAT32,
@@ -1486,8 +1497,10 @@ bool gpu_init(gpu_config* config) {
     config->features->subgroupQuad = false;
     config->features->float32AtomicAdd = false;
     config->features->float64 = false;
+    config->features->float16 = wgpu_device_supports_feature(state.device, WGPU_FEATURE_SHADER_F16);
     config->features->int64 = false;
     config->features->int16 = false;
+    config->features->int8 = false;
 
     config->features->formats[GPU_FORMAT_R8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;
     config->features->formats[GPU_FORMAT_RG8][0] = GPU_FEATURE_SAMPLE | GPU_FEATURE_RENDER | GPU_FEATURE_BLIT;

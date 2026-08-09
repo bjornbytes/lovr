@@ -7,9 +7,17 @@
 #include <string.h>
 
 static const uint32_t typeComponents[] = {
+  [TYPE_I8] = 1,
+  [TYPE_I8x2] = 2,
   [TYPE_I8x4] = 4,
+  [TYPE_U8] = 1,
+  [TYPE_U8x2] = 2,
   [TYPE_U8x4] = 4,
+  [TYPE_SN8] = 1,
+  [TYPE_SN8x2] = 2,
   [TYPE_SN8x4] = 4,
+  [TYPE_UN8] = 1,
+  [TYPE_UN8x2] = 2,
   [TYPE_UN8x4] = 4,
   [TYPE_SN10x3] = 3,
   [TYPE_UN10x3] = 3,
@@ -19,8 +27,10 @@ static const uint32_t typeComponents[] = {
   [TYPE_U16] = 1,
   [TYPE_U16x2] = 2,
   [TYPE_U16x4] = 4,
+  [TYPE_SN16] = 1,
   [TYPE_SN16x2] = 2,
   [TYPE_SN16x4] = 4,
+  [TYPE_UN16] = 1,
   [TYPE_UN16x2] = 2,
   [TYPE_UN16x4] = 4,
   [TYPE_I32] = 1,
@@ -31,6 +41,7 @@ static const uint32_t typeComponents[] = {
   [TYPE_U32x2] = 2,
   [TYPE_U32x3] = 3,
   [TYPE_U32x4] = 4,
+  [TYPE_F16] = 1,
   [TYPE_F16x2] = 2,
   [TYPE_F16x4] = 4,
   [TYPE_F32] = 1,
@@ -120,9 +131,17 @@ static bool luax_checkfieldn(lua_State* L, int index, const DataField* field, vo
     luax_fieldcheck(L, lua_type(L, index + i) == LUA_TNUMBER, index + i, field, false);
     double x = lua_tonumber(L, index + i);
     switch (field->type) {
+      case TYPE_I8: p.i8[i] = (int8_t) x; break;
+      case TYPE_I8x2: p.i8[i] = (int8_t) x; break;
       case TYPE_I8x4: p.i8[i] = (int8_t) x; break;
+      case TYPE_U8: p.u8[i] = (uint8_t) x; break;
+      case TYPE_U8x2: p.u8[i] = (uint8_t) x; break;
       case TYPE_U8x4: p.u8[i] = (uint8_t) x; break;
+      case TYPE_SN8: p.i8[i] = (int8_t)(CLAMP(x, -1.f, 1.f) * INT8_MAX); break;
+      case TYPE_SN8x2: p.i8[i] = (int8_t)(CLAMP(x, -1.f, 1.f) * INT8_MAX); break;
       case TYPE_SN8x4: p.i8[i] = (int8_t) (CLAMP(x, -1.f, 1.f) * INT8_MAX); break;
+      case TYPE_UN8: p.u8[i] = (uint8_t)(CLAMP(x, 0.f, 1.f) * UINT8_MAX); break;
+      case TYPE_UN8x2: p.u8[i] = (uint8_t)(CLAMP(x, 0.f, 1.f) * UINT8_MAX); break;
       case TYPE_UN8x4: p.u8[i] = (uint8_t) (CLAMP(x, 0.f, 1.f) * UINT8_MAX); break;
       case TYPE_SN10x3: p.u32[0] |= (((uint32_t) (int32_t) (CLAMP(x, -1.f, 1.f) * 511.f)) & 0x3ff) << (10 * i); break;
       case TYPE_UN10x3: p.u32[0] |= (((uint32_t) (CLAMP(x, 0.f, 1.f) * 1023.f)) & 0x3ff) << (10 * i); break;
@@ -132,8 +151,10 @@ static bool luax_checkfieldn(lua_State* L, int index, const DataField* field, vo
       case TYPE_U16: p.u16[i] = (uint16_t) x; break;
       case TYPE_U16x2: p.u16[i] = (uint16_t) x; break;
       case TYPE_U16x4: p.u16[i] = (uint16_t) x; break;
+      case TYPE_SN16: p.i16[i] = (int16_t)(CLAMP(x, -1.f, 1.f) * INT16_MAX); break;
       case TYPE_SN16x2: p.i16[i] = (int16_t) (CLAMP(x, -1.f, 1.f) * INT16_MAX); break;
       case TYPE_SN16x4: p.i16[i] = (int16_t) (CLAMP(x, -1.f, 1.f) * INT16_MAX); break;
+      case TYPE_UN16: p.u16[i] = (uint16_t)(CLAMP(x, 0.f, 1.f) * UINT16_MAX); break;
       case TYPE_UN16x2: p.u16[i] = (uint16_t) (CLAMP(x, 0.f, 1.f) * UINT16_MAX); break;
       case TYPE_UN16x4: p.u16[i] = (uint16_t) (CLAMP(x, 0.f, 1.f) * UINT16_MAX); break;
       case TYPE_I32: p.i32[i] = (int32_t) x; break;
@@ -143,7 +164,8 @@ static bool luax_checkfieldn(lua_State* L, int index, const DataField* field, vo
       case TYPE_U32: p.u32[i] = (uint32_t) x; break;
       case TYPE_U32x2: p.u32[i] = (uint32_t) x; break;
       case TYPE_U32x3: p.u32[i] = (uint32_t) x; break;
-      case TYPE_U32x4: p.i32[i] = (uint32_t) x; break;
+      case TYPE_U32x4: p.u32[i] = (uint32_t) x; break;
+      case TYPE_F16: p.u16[i] = float32to16(x); break;
       case TYPE_F16x2: p.u16[i] = float32to16(x); break;
       case TYPE_F16x4: p.u16[i] = float32to16(x); break;
       case TYPE_F32: p.f32[i] = (float) x; break;
