@@ -13,6 +13,7 @@ dev
 - Add `lovr.graphics.getTiming`.
 - Add `Blob:setData`.
 - Add `Blob:clear`.
+- Add support for Pico 4 Ultra controllers.
 
 ### Change
 

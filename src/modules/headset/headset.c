@@ -315,6 +315,7 @@ static struct {
     bool palmPose;
     bool passthroughPreferences;
     bool picoController;
+    bool picoUltraController;
     bool presence;
     bool questPassthrough;
     bool renderModel;
@@ -483,6 +484,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_EXT_view_configuration_views_change", &state.extensions.resize, true },
     { "XR_BD_body_tracking", &state.extensions.bodyTracking, true },
     { "XR_BD_controller_interaction", &state.extensions.picoController, true },
+    { "XR_BD_ultra_controller_interaction", &state.extensions.picoUltraController, true },
     { "XR_FB_composition_layer_depth_test", &state.extensions.layerDepthTest, true },
     { "XR_FB_composition_layer_settings", &state.extensions.layerSettings, true },
     { "XR_FB_display_refresh_rate", &state.extensions.refreshRate, true },
@@ -829,6 +831,10 @@ bool lovrHeadsetConnect(void) {
   if (!state.extensions.picoController) {
     bindingCount[PROFILE_PICO_NEO3] = 0;
     bindingCount[PROFILE_PICO4] = 0;
+  }
+
+  if (!state.extensions.picoUltraController) {
+    bindingCount[PROFILE_PICO_ULTRA] = 0;
   }
 
   if (!state.extensions.viveTrackers) {
