@@ -163,6 +163,14 @@ typedef enum {
   SOURCE_HAND
 } SkeletonSource;
 
+typedef enum {
+  SCANNER_SURFACE,
+  SCANNER_QR,
+  SCANNER_MICRO_QR,
+  SCANNER_ARUCO,
+  SCANNER_APRIL
+} ScannerType;
+
 bool lovrHeadsetInit(HeadsetConfig* config);
 void lovrHeadsetDestroy(void);
 bool lovrHeadsetConnect(void);
@@ -170,6 +178,7 @@ bool lovrHeadsetIsConnected(void);
 const char* lovrHeadsetGetName(void);
 const char* lovrHeadsetGetDriver(void);
 void lovrHeadsetGetFeatures(HeadsetFeatures* features);
+bool lovrHeadsetIsScannerSupported(ScannerType type);
 bool lovrHeadsetIsSeated(void);
 bool lovrHeadsetStart(void);
 void lovrHeadsetStop(void);
