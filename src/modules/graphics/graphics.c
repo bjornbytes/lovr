@@ -4243,6 +4243,8 @@ Material* lovrMaterialCreate(Texture* texture) {
   material->ref = 1;
 
   material->data = (MaterialData) {
+    .numbers[NUMBER_OCCLUSION_STRENGTH] = 1.f,
+    .numbers[NUMBER_NORMAL_SCALE] = 1.f,
     .colors[COLOR_BASE] = { 1.f, 1.f, 1.f, 1.f },
     .quad = { 0.f, 0.f, 1.f, 1.f }
   };
