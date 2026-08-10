@@ -1491,8 +1491,6 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
   luax_assert(L, material);
 
   if (lua_istable(L, 1)) {
-    float value, color[4];
-
     for (uint32_t i = 0; i < NUMBER_COUNT; i++) {
       lua_pushlstring(L, lovrMaterialNumber[i].string, lovrMaterialNumber[i].length);
       lua_gettable(L, 1);
@@ -1509,6 +1507,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
 
       lua_gettable(L, 1);
       if (!lua_isnil(L, -1)) {
+        float color[4];
         luax_optcolor(L, -1, color);
         lovrMaterialSetColor(material, i, color);
       }
@@ -1536,7 +1535,7 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
       lua_pop(L, 1);
     }
 
-    float quad[4];
+    float quad[4] = { 0.f, 0.f, 1.f, 1.f };
 
     // Deprecated
     lua_getfield(L, 1, "uvShift");
@@ -1577,6 +1576,8 @@ static int l_lovrGraphicsNewMaterial(lua_State* L) {
       lua_pop(L, 4);
     }
     lua_pop(L, 1);
+
+    lovrMaterialSetQuad(material, quad[0], quad[1], quad[2], quad[3]);
   }
 
   luax_pushtype(L, Material, material);

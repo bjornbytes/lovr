@@ -4208,9 +4208,11 @@ static bool lovrMaterialAllocate(Material* material) {
 static void lovrMaterialRecycle(Material* material) {
   if (!material->block) return;
   mtx_lock(&state.lock);
-  material->block->nodes[material->index].tick = state.tick;
-  material->block->tail = material->index;
-  if (material->block->head == ~0u) material->block->head = material->block->tail;
+  MaterialBlock* block = material->block;
+  block->nodes[material->index].tick = state.tick;
+  if (block->head == ~0u) block->head = material->index;
+  else block->nodes[block->tail].next = material->index;
+  block->tail = material->index;
   material->block = NULL;
   material->index = ~0u;
   material->bundle = NULL;
@@ -4224,7 +4226,7 @@ static bool lovrMaterialUpload(Material* material) {
 
   mtx_lock(&state.lock);
   BufferView staging = getBuffer(GPU_BUFFER_STREAM, sizeof(MaterialData), 4);
-  if (!staging.buffer) return mtx_unlock(&state.lock), NULL;
+  if (!staging.buffer) return mtx_unlock(&state.lock), false;
   gpu_copy_buffers(state.stream, staging.buffer, material->block->buffer, staging.offset, MATERIAL_STRIDE * material->index, sizeof(MaterialData));
   state.barrier.prev |= GPU_PHASE_COPY;
   state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
@@ -4232,7 +4234,15 @@ static bool lovrMaterialUpload(Material* material) {
   state.barrier.clear |= GPU_CACHE_UNIFORM;
   material->bufferTick = state.tick;
   material->pointer = staging.pointer;
-  memcpy(material->pointer, &material->data, sizeof(MaterialData));
+  memcpy(material->pointer->numbers, &material->data.numbers, sizeof(material->data.numbers));
+  for (uint32_t i = 0; i < COLOR_COUNT; i++) {
+    material->pointer->colors[i][0] = lovrMathGammaToLinear(material->data.colors[i][0]);
+    material->pointer->colors[i][1] = lovrMathGammaToLinear(material->data.colors[i][1]);
+    material->pointer->colors[i][2] = lovrMathGammaToLinear(material->data.colors[i][2]);
+    material->pointer->colors[i][3] = material->data.colors[i][3];
+  }
+  memcpy(material->pointer->quad, material->data.quad, sizeof(material->data.quad));
+  memcpy(material->pointer->sdfRange, material->data.sdfRange, sizeof(material->data.sdfRange));
   mtx_unlock(&state.lock);
 
   return true;

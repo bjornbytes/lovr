@@ -29,7 +29,7 @@ static int l_lovrMaterialSetNumber(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   MaterialNumber key = luax_checkenum(L, 2, MaterialNumber, NULL);
   float number = luax_checkfloat(L, 3);
-  lovrMaterialSetNumber(material, key, number);
+  luax_assert(L, lovrMaterialSetNumber(material, key, number));
   return 0;
 }
 
@@ -50,7 +50,7 @@ static int l_lovrMaterialSetColor(lua_State* L) {
   float color[4];
   MaterialColor key = lua_type(L, index) == LUA_TSTRING ? luax_checkenum(L, index++, MaterialColor, NULL) : COLOR_BASE;
   luax_readcolor(L, index, color);
-  lovrMaterialSetColor(material, key, color);
+  luax_assert(L, lovrMaterialSetColor(material, key, color));
   return 0;
 }
 
@@ -67,7 +67,7 @@ static int l_lovrMaterialSetTexture(lua_State* L) {
   int index = 2;
   MaterialTexture key = lua_type(L, index) == LUA_TSTRING ? luax_checkenum(L, index++, MaterialTexture, NULL) : TEXTURE_COLOR;
   Texture* texture = luax_checktype(L, index, Texture);
-  lovrMaterialSetTexture(material, key, texture);
+  luax_assert(L, lovrMaterialSetTexture(material, key, texture));
   return 0;
 }
 
