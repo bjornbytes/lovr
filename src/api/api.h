@@ -63,6 +63,7 @@ extern StringEntry lovrProjectionType[];
 extern StringEntry lovrReverbMode[];
 extern StringEntry lovrReverbType[];
 extern StringEntry lovrSampleFormat[];
+extern StringEntry lovrScannerType[];
 extern StringEntry lovrShaderStage[];
 extern StringEntry lovrShaderType[];
 extern StringEntry lovrShapeType[];

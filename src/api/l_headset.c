@@ -111,6 +111,15 @@ StringEntry lovrDeviceAxis[] = {
   { 0 }
 };
 
+StringEntry lovrScannerType[] = {
+  [SCANNER_SURFACE] = ENTRY("surface"),
+  [SCANNER_QR] = ENTRY("qr"),
+  [SCANNER_MICRO_QR] = ENTRY("microqr"),
+  [SCANNER_ARUCO] = ENTRY("aruco"),
+  [SCANNER_APRIL] = ENTRY("april"),
+  { 0 }
+};
+
 static Device luax_optdevice(lua_State* L, int index) {
   const char* str = luaL_optstring(L, 1, "head");
   if (!strcmp(str, "left")) {
@@ -160,6 +169,13 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.proximity), lua_setfield(L, -2, "proximity");
   lua_pushboolean(L, features.refreshRate), lua_setfield(L, -2, "refreshRate");
   lua_pushboolean(L, features.viveTrackers), lua_setfield(L, -2, "viveTrackers");
+  return 1;
+}
+
+static int l_lovrHeadsetIsScannerSupported(lua_State* L) {
+  ScannerType type = luax_checkenum(L, 1, ScannerType, NULL);
+  bool supported = lovrHeadsetIsScannerSupported(type);
+  lua_pushboolean(L, supported);
   return 1;
 }
 
@@ -1092,6 +1108,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getName", l_lovrHeadsetGetName },
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getFeatures", l_lovrHeadsetGetFeatures },
+  { "isScannerSupported", l_lovrHeadsetIsScannerSupported },
   { "isSeated", l_lovrHeadsetIsSeated },
   { "start", l_lovrHeadsetStart },
   { "stop", l_lovrHeadsetStop },

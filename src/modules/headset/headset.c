@@ -144,7 +144,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrDestroyPassthroughLayerFB)\
   X(xrGetPassthroughPreferencesMETA)\
   X(xrGetRecommendedLayerResolutionMETA)\
-  X(xrEnumerateColorSpacesSONY)
+  X(xrEnumerateColorSpacesSONY)\
+  X(xrEnumerateSpatialCapabilitiesEXT)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -268,6 +269,8 @@ static struct {
   XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
   XrBodyTrackerBD bodyTracker;
+  XrSpatialCapabilityEXT spatialCapabilities;
+  uint32_t spatialCapabilityCount;
   XrRenderModelIdEXT* modelKeys;
   RenderModel* models;
   uint32_t modelCount;
@@ -281,6 +284,7 @@ static struct {
   bool mainSessionVisible;
   XrDebugUtilsMessengerEXT messenger;
   struct {
+    bool anchors;
     bool battery;
     bool bodyTracking;
     bool cosmosController;
@@ -314,6 +318,7 @@ static struct {
     bool layerEquirect2;
     bool layerSettings;
     bool localFloor;
+    bool markerTracking;
     bool microgestures;
     bool ml2Controller;
     bool mxInk;
@@ -322,11 +327,13 @@ static struct {
     bool passthroughPreferences;
     bool picoController;
     bool picoUltraController;
+    bool planeTracking;
     bool presence;
     bool questPassthrough;
     bool renderModel;
     bool resize;
     bool reverbController;
+    bool spatialEntities;
     bool swapchainUpdate;
     bool refreshRate;
     bool threadHint;
@@ -356,6 +363,7 @@ static bool createReferenceSpace(XrTime time);
 static XrAction getPoseActionForDevice(Device device);
 static XrHandTrackerEXT getHandTracker(Device device);
 static XrBodyTrackerBD getBodyTracker(void);
+static bool supportsScanner(ScannerType type);
 static bool loadControllerModels(void);
 static bool loadVisibilityMask(void);
 
@@ -485,6 +493,10 @@ bool lovrHeadsetConnect(void) {
     { "XR_EXT_local_floor", &state.extensions.localFloor, true },
     { "XR_EXT_palm_pose", &state.extensions.palmPose, true },
     { "XR_EXT_render_model", &state.extensions.renderModel, true },
+    { "XR_EXT_spatial_anchor", &state.extensions.anchors, true },
+    { "XR_EXT_spatial_entities", &state.extensions.spatialEntities, true },
+    { "XR_EXT_spatial_marker_tracking", &state.extensions.markerTracking, true },
+    { "XR_EXT_spatial_plane_tracking", &state.extensions.planeTracking, true },
     { "XR_EXT_user_presence", &state.extensions.presence, true },
     { "XR_EXT_uuid", &state.extensions.uuid, true },
     { "XR_EXT_view_configuration_views_change", &state.extensions.resize, true },
@@ -689,6 +701,14 @@ bool lovrHeadsetConnect(void) {
   state.blendModes = lovrMalloc(state.blendModeCount * sizeof(XrEnvironmentBlendMode));
   XRG(xrEnumerateEnvironmentBlendModes(state.instance, state.system, state.viewConfiguration, state.blendModeCount, &state.blendModeCount, state.blendModes), "xrEnumerateEnvironmentBlendModes", fail);
   state.blendMode = state.blendModes[0];
+
+  // Scanner types
+
+  if (state.extensions.spatialEntities) {
+    XRG(xrEnumerateSpatialCapabilitiesEXT(state.instance, state.system, 0, &state.spatialCapabilityCount, NULL), "xrEnumerateSpatialCapabilitiesEXT", fail);
+    state.spatialCapabilities = lovrMalloc(state.spatialCapabilityCount * sizeof(XrSpatialCapabilityEXT));
+    XRG(xrEnumerateSpatialCapabilitiesEXT(state.instance, state.system, state.spatialCapabilityCount, &state.spatialCapabilityCount, capabilities), "xrEnumerateSpatialCapabilitiesEXT", fail);
+  }
 
   // Actions
 
@@ -986,6 +1006,10 @@ void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
   features->proximity = state.extensions.presence;
   features->refreshRate = state.extensions.refreshRate;
   features->viveTrackers = state.extensions.viveTrackers;
+}
+
+bool lovrHeadsetIsScannerSupported(ScannerType type) {
+  return supportsScanner(type);
 }
 
 bool lovrHeadsetIsSeated(void) {
@@ -3990,6 +4014,26 @@ static XrHandTrackerEXT getHandTracker(Device device) {
 
 static XrBodyTrackerBD getBodyTracker(void) {
   return state.bodyTracker;
+}
+
+static bool supportsScanner(ScannerType type) {
+  XrSpatialCapabilityEXT lookup[] = {
+    [SCANNER_SURFACE] = XR_SPATIAL_CAPABILITY_PLANE_TRACKING_EXT,
+    [SCANNER_QR] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT,
+    [SCANNER_MICRO_QR] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT,
+    [SCANNER_ARUCO] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT,
+    [SCANNER_APRIL] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT
+  };
+
+  if (!state.extensions.spatialEntities || !state.spatialCapabilities) return false;
+
+  for (uint32_t i = 0; i < state.spatialCapabilityCount; i++) {
+    if (state.spatialCapabilities[i] == lookup[type]) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 static bool loadControllerModels(void) {
