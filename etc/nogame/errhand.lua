@@ -3,6 +3,12 @@ function lovr.errhand(message)
 
   print('Error:\n\n' .. tostring(message) .. traceback)
 
+  local hasHeadset = lovr.headset and (lovr.headset.isActive() or lovr.system.isWindowOpen())
+
+  if not lovr.graphics or not lovr.graphics.isInitialized() or not hasHeadset then
+    return function() return 1 end
+  end
+
   local headerSize = 32
   local textSize = 24
   local margin = 16
@@ -436,10 +442,6 @@ function lovr.errhand(message)
     end
 
     setLevel(index)
-  end
-
-  if not lovr.graphics or not lovr.graphics.isInitialized() then
-    return function() return 1 end
   end
 
   if lovr.audio then lovr.audio.stop() end
