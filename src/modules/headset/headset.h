@@ -13,6 +13,7 @@ struct ModelData;
 struct Texture;
 struct Pass;
 
+typedef struct Scanner Scanner;
 typedef struct Layer Layer;
 
 typedef enum {
@@ -226,6 +227,16 @@ bool lovrHeadsetGetPass(struct Pass** pass);
 bool lovrHeadsetSubmit(void);
 void lovrHeadsetSetPose(Device device, float* position, float* orientation);
 void lovrHeadsetSetButton(Device device, DeviceButton button, bool down);
+
+// Scanner
+
+typedef struct {
+  ScannerType type;
+} ScannerInfo;
+
+Scanner* lovrScannerCreate(ScannerInfo* info);
+void lovrScannerDestroy(void* ref);
+bool lovrScannerIsCreated(Scanner* scanner);
 
 // Layer
 
