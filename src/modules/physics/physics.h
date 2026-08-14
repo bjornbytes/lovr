@@ -45,6 +45,8 @@ typedef struct {
   uint32_t maxColliders;
   bool threadSafe;
   bool allowSleep;
+  float linearDamping;
+  float angularDamping;
   float stabilization;
   float maxOverlap;
   float restitutionThreshold;

@@ -37,6 +37,8 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     .maxColliders = 16384,
     .threadSafe = true,
     .allowSleep = true,
+    .linearDamping = .05f,
+    .angularDamping = .05f,
     .stabilization = .2f,
     .maxOverlap = .01f,
     .restitutionThreshold = 1.f,
@@ -55,6 +57,14 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
 
     lua_getfield(L, 1, "allowSleep");
     if (!lua_isnil(L, -1)) info.allowSleep = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "linearDamping");
+    if (!lua_isnil(L, -1)) info.linearDamping = luax_checkfloat(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "angularDamping");
+    if (!lua_isnil(L, -1)) info.angularDamping = luax_checkfloat(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "stabilization");

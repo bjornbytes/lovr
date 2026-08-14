@@ -18,6 +18,7 @@ dev
 - Add `float16` and `int8` `GraphicsFeature`s.
 - Add `i8`, `i8x2`, `u8`, `u8x2`, `sn8`, `sn8x2`, `un8`, `un8x2`, `sn16`, `un16`, and `f16` `DataType`s.
 - Add `sleep` callback to `World:setCallbacks`.
+- Add `linearDamping` and `angularDamping` settings to `lovr.physics.newWorld`.
 
 ### Change
 

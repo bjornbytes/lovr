@@ -359,8 +359,8 @@ World* lovrWorldCreate(WorldInfo* info) {
   World* world = lovrCalloc(sizeof(World));
 
   world->ref = 1;
-  world->defaultLinearDamping = .05f;
-  world->defaultAngularDamping = .05f;
+  world->defaultLinearDamping = info->linearDamping;
+  world->defaultAngularDamping = info->angularDamping;
   world->defaultIsSleepingAllowed = info->allowSleep;
   mtx_init(&world->lock, mtx_plain);
 
