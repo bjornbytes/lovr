@@ -150,7 +150,6 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.handTrackingElbow), lua_setfield(L, -2, "handTrackingElbow");
   lua_pushboolean(L, features.bodyTracking), lua_setfield(L, -2, "bodyTracking");
   lua_pushboolean(L, features.bodyTrackingMeta), lua_setfield(L, -2, "bodyTrackingMeta");
-  lua_pushboolean(L, features.bodyTrackingHTC), lua_setfield(L, -2, "bodyTrackingHTC");
   lua_pushboolean(L, features.keyboardTracking), lua_setfield(L, -2, "keyboardTracking");
   lua_pushboolean(L, features.viveTrackers), lua_setfield(L, -2, "viveTrackers");
   lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
@@ -166,12 +165,11 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
 }
 
 static int l_lovrHeadsetGetBodyTrackingProviders(lua_State* L) {
-  bool bd = false, meta = false, htc = false;
-  lovrHeadsetGetBodyTrackingProviders(&bd, &meta, &htc);
+  bool bd = false, meta = false;
+  lovrHeadsetGetBodyTrackingProviders(&bd, &meta);
   lua_newtable(L);
   lua_pushboolean(L, bd), lua_setfield(L, -2, "bd");
   lua_pushboolean(L, meta), lua_setfield(L, -2, "meta");
-  lua_pushboolean(L, htc), lua_setfield(L, -2, "htc");
   return 1;
 }
 

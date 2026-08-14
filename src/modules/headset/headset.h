@@ -52,7 +52,6 @@ typedef struct {
   bool handTrackingElbow;
   bool bodyTracking;
   bool bodyTrackingMeta;
-  bool bodyTrackingHTC;
   bool keyboardTracking;
   bool viveTrackers;
   bool handModel;
@@ -176,7 +175,7 @@ bool lovrHeadsetIsConnected(void);
 const char* lovrHeadsetGetName(void);
 const char* lovrHeadsetGetDriver(void);
 void lovrHeadsetGetFeatures(HeadsetFeatures* features);
-void lovrHeadsetGetBodyTrackingProviders(bool* bd, bool* meta, bool* htc);
+void lovrHeadsetGetBodyTrackingProviders(bool* bd, bool* meta);
 bool lovrHeadsetIsSeated(void);
 bool lovrHeadsetStart(void);
 void lovrHeadsetStop(void);
