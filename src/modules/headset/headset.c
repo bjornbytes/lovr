@@ -128,6 +128,12 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrCreateBodyTrackerBD)\
   X(xrDestroyBodyTrackerBD)\
   X(xrLocateBodyJointsBD)\
+  X(xrCreateBodyTrackerFB)\
+  X(xrDestroyBodyTrackerFB)\
+  X(xrLocateBodyJointsFB)\
+  X(xrCreateBodyTrackerHTC)\
+  X(xrDestroyBodyTrackerHTC)\
+  X(xrLocateBodyJointsHTC)\
   X(xrGetHandMeshFB)\
   X(xrGetDisplayRefreshRateFB)\
   X(xrEnumerateDisplayRefreshRatesFB)\
@@ -268,6 +274,8 @@ static struct {
   XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
   XrBodyTrackerBD bodyTracker;
+  XrBodyTrackerFB bodyTrackerFB;
+  XrBodyTrackerHTC bodyTrackerHTC;
   XrRenderModelIdEXT* modelKeys;
   RenderModel* models;
   uint32_t modelCount;
@@ -282,6 +290,9 @@ static struct {
   struct {
     bool battery;
     bool bodyTracking;
+    bool bodyTrackingFB;
+    bool bodyTrackingMeta;
+    bool bodyTrackingHTC;
     bool cosmosController;
     bool debug;
     bool depth;
@@ -490,6 +501,9 @@ bool lovrHeadsetConnect(void) {
     { "XR_BD_body_tracking", &state.extensions.bodyTracking, true },
     { "XR_BD_controller_interaction", &state.extensions.picoController, true },
     { "XR_BD_ultra_controller_interaction", &state.extensions.picoUltraController, true },
+    { "XR_FB_body_tracking", &state.extensions.bodyTrackingFB, true },
+    { "XR_META_body_tracking_full_body", &state.extensions.bodyTrackingMeta, true },
+    { "XR_HTC_body_tracking", &state.extensions.bodyTrackingHTC, true },
     { "XR_FB_composition_layer_depth_test", &state.extensions.layerDepthTest, true },
     { "XR_FB_composition_layer_settings", &state.extensions.layerSettings, true },
     { "XR_FB_display_refresh_rate", &state.extensions.refreshRate, true },
@@ -616,6 +630,9 @@ bool lovrHeadsetConnect(void) {
   XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = { .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB };
   XrSystemUserPresencePropertiesEXT presenceProperties = { .type = XR_TYPE_SYSTEM_USER_PRESENCE_PROPERTIES_EXT };
   XrSystemPassthroughProperties2FB passthroughProperties = { .type = XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB };
+  XrSystemBodyTrackingPropertiesFB bodyTrackingPropertiesFB = { .type = XR_TYPE_SYSTEM_BODY_TRACKING_PROPERTIES_FB };
+  XrSystemPropertiesBodyTrackingFullBodyMETA bodyTrackingPropertiesMeta = { .type = XR_TYPE_SYSTEM_PROPERTIES_BODY_TRACKING_FULL_BODY_META };
+  XrSystemBodyTrackingPropertiesHTC bodyTrackingPropertiesHTC = { .type = XR_TYPE_SYSTEM_BODY_TRACKING_PROPERTIES_HTC };
 
   if (state.extensions.gaze) {
     eyeGazeProperties.next = state.systemProperties.next;
@@ -647,6 +664,21 @@ bool lovrHeadsetConnect(void) {
     state.systemProperties.next = &passthroughProperties;
   }
 
+  if (state.extensions.bodyTrackingFB) {
+    bodyTrackingPropertiesFB.next = state.systemProperties.next;
+    state.systemProperties.next = &bodyTrackingPropertiesFB;
+  }
+
+  if (state.extensions.bodyTrackingMeta) {
+    bodyTrackingPropertiesMeta.next = state.systemProperties.next;
+    state.systemProperties.next = &bodyTrackingPropertiesMeta;
+  }
+
+  if (state.extensions.bodyTrackingHTC) {
+    bodyTrackingPropertiesHTC.next = state.systemProperties.next;
+    state.systemProperties.next = &bodyTrackingPropertiesHTC;
+  }
+
   XRG(xrGetSystemProperties(state.instance, state.system, &state.systemProperties), "xrGetSystemProperties", fail);
   state.extensions.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
   state.extensions.handTracking = handTrackingProperties.supportsHandTracking;
@@ -654,6 +686,9 @@ bool lovrHeadsetConnect(void) {
   state.extensions.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
   state.extensions.presence = presenceProperties.supportsUserPresence;
   state.extensions.questPassthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
+  state.extensions.bodyTrackingFB = bodyTrackingPropertiesFB.supportsBodyTracking;
+  state.extensions.bodyTrackingMeta = bodyTrackingPropertiesMeta.supportsFullBodyTracking;
+  state.extensions.bodyTrackingHTC = bodyTrackingPropertiesHTC.supportsBodyTracking;
 
   // View Configuration
 
@@ -974,6 +1009,8 @@ void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
   features->handTracking = state.extensions.handTracking;
   features->handTrackingElbow = state.extensions.handTrackingElbow;
   features->bodyTracking = state.extensions.bodyTracking;
+  features->bodyTrackingMeta = state.extensions.bodyTrackingMeta;
+  features->bodyTrackingHTC = state.extensions.bodyTrackingHTC;
   features->keyboardTracking = state.extensions.keyboardTracking;
   features->viveTrackers = state.extensions.viveTrackers;
   features->handModel = state.extensions.handTrackingMesh;
@@ -1255,6 +1292,28 @@ bool lovrHeadsetStart(void) {
     }
   }
 
+  if (state.extensions.bodyTrackingFB) {
+    XrBodyTrackerCreateInfoFB info = {
+      .type = XR_TYPE_BODY_TRACKER_CREATE_INFO_FB,
+      .bodyJointSet = state.extensions.bodyTrackingMeta ? XR_BODY_JOINT_SET_FULL_BODY_META : XR_BODY_JOINT_SET_DEFAULT_FB
+    };
+    if (XR_FAILED(xrCreateBodyTrackerFB(state.session, &info, &state.bodyTrackerFB))) {
+      lovrLog(LOG_WARN, "XR", "Failed to create FB body tracker");
+      state.bodyTrackerFB = XR_NULL_HANDLE;
+    }
+  }
+
+  if (state.extensions.bodyTrackingHTC) {
+    XrBodyTrackerCreateInfoHTC info = {
+      .type = XR_TYPE_BODY_TRACKER_CREATE_INFO_HTC,
+      .bodyJointSet = XR_BODY_JOINT_SET_FULL_HTC
+    };
+    if (XR_FAILED(xrCreateBodyTrackerHTC(state.session, &info, &state.bodyTrackerHTC))) {
+      lovrLog(LOG_WARN, "XR", "Failed to create HTC body tracker");
+      state.bodyTrackerHTC = XR_NULL_HANDLE;
+    }
+  }
+
   state.showMainLayer = true;
   return true;
 
@@ -1317,6 +1376,8 @@ void lovrHeadsetStop(void) {
   if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
 
   if (state.bodyTracker) xrDestroyBodyTrackerBD(state.bodyTracker);
+  if (state.bodyTrackerFB) xrDestroyBodyTrackerFB(state.bodyTrackerFB);
+  if (state.bodyTrackerHTC) xrDestroyBodyTrackerHTC(state.bodyTrackerHTC);
 
   if (state.passthrough) xrDestroyPassthroughFB(state.passthrough);
   if (state.passthroughLayerHandle) xrDestroyPassthroughLayerFB(state.passthroughLayerHandle);
@@ -2124,8 +2185,45 @@ bool lovrHeadsetGetAxis(Device device, DeviceAxis axis, float* value) {
   }
 }
 
-bool lovrHeadsetGetSkeleton(Device device, float* poses, SkeletonSource* source) {
+bool lovrHeadsetGetSkeleton(Device device, float* poses, uint32_t* count, SkeletonSource* source) {
   if (device == DEVICE_BODY) {
+    // Prefer the Meta full-body tracker (84 joints, includes legs) when it is actively
+    // tracking. Fall back to the BD tracker (24 joints) otherwise.
+    if (state.bodyTrackerFB && state.extensions.bodyTrackingMeta && state.frameState.predictedDisplayTime > 0) {
+      XrBodyJointsLocateInfoFB locateInfo = {
+        .type = XR_TYPE_BODY_JOINTS_LOCATE_INFO_FB,
+        .baseSpace = state.referenceSpace,
+        .time = state.frameState.predictedDisplayTime
+      };
+
+      XrBodyJointLocationFB joints[BODY_JOINT_COUNT_META];
+      XrBodyJointLocationsFB locations = {
+        .type = XR_TYPE_BODY_JOINT_LOCATIONS_FB,
+        .jointCount = BODY_JOINT_COUNT_META,
+        .jointLocations = joints
+      };
+
+      if (!XR_FAILED(xrLocateBodyJointsFB(state.bodyTrackerFB, &locateInfo, &locations)) && locations.isActive) {
+        float* pose = poses;
+        for (uint32_t i = 0; i < BODY_JOINT_COUNT_META; i++) {
+          memset(pose, 0, 8 * sizeof(float));
+
+          if (joints[i].locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
+            memcpy(pose, &joints[i].pose.position.x, 3 * sizeof(float));
+          }
+          if (joints[i].locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
+            memcpy(pose + 4, &joints[i].pose.orientation.x, 4 * sizeof(float));
+          }
+
+          pose += 8;
+        }
+
+        if (count) *count = BODY_JOINT_COUNT_META;
+        if (source) *source = SOURCE_BODY_META;
+        return true;
+      }
+    }
+
     XrBodyTrackerBD tracker = getBodyTracker();
 
     if (!tracker || state.frameState.predictedDisplayTime <= 0) {
@@ -2150,7 +2248,7 @@ bool lovrHeadsetGetSkeleton(Device device, float* poses, SkeletonSource* source)
     }
 
     float* pose = poses;
-    for (uint32_t i = 0; i < BODY_JOINT_COUNT; i++) {
+    for (uint32_t i = 0; i < BODY_JOINT_COUNT_BD; i++) {
       memset(pose, 0, 8 * sizeof(float));
 
       if (joints[i].locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
@@ -2163,9 +2261,8 @@ bool lovrHeadsetGetSkeleton(Device device, float* poses, SkeletonSource* source)
       pose += 8;
     }
 
-    if (source) {
-      *source = SOURCE_UNKNOWN;
-    }
+    if (count) *count = BODY_JOINT_COUNT_BD;
+    if (source) *source = SOURCE_BODY_BD;
 
     return true;
   }
@@ -2227,6 +2324,8 @@ bool lovrHeadsetGetSkeleton(Device device, float* poses, SkeletonSource* source)
   } else {
     *source = SOURCE_UNKNOWN;
   }
+
+  if (count) *count = HAND_JOINT_COUNT;
 
   return true;
 }
@@ -3983,6 +4082,66 @@ static XrHandTrackerEXT getHandTracker(Device device) {
 
 static XrBodyTrackerBD getBodyTracker(void) {
   return state.bodyTracker;
+}
+
+void lovrHeadsetGetBodyTrackingProviders(bool* bd, bool* meta, bool* htc) {
+  *bd = false;
+  *meta = false;
+  *htc = false;
+
+  if (state.frameState.predictedDisplayTime <= 0) return;
+
+  if (state.bodyTracker) {
+    XrBodyJointsLocateInfoBD locateInfo = {
+      .type = XR_TYPE_BODY_JOINTS_LOCATE_INFO_BD,
+      .baseSpace = state.referenceSpace,
+      .time = state.frameState.predictedDisplayTime
+    };
+    XrBodyJointLocationBD joints[XR_BODY_JOINT_COUNT_BD];
+    XrBodyJointLocationsBD locations = {
+      .type = XR_TYPE_BODY_JOINT_LOCATIONS_BD,
+      .jointLocationCount = XR_BODY_JOINT_COUNT_BD,
+      .jointLocations = joints
+    };
+    if (!XR_FAILED(xrLocateBodyJointsBD(state.bodyTracker, &locateInfo, &locations))) {
+      *bd = locations.allJointPosesTracked;
+    }
+  }
+
+  if (state.bodyTrackerFB) {
+    XrBodyJointsLocateInfoFB locateInfo = {
+      .type = XR_TYPE_BODY_JOINTS_LOCATE_INFO_FB,
+      .baseSpace = state.referenceSpace,
+      .time = state.frameState.predictedDisplayTime
+    };
+    uint32_t jointCount = state.extensions.bodyTrackingMeta ? XR_FULL_BODY_JOINT_COUNT_META : XR_BODY_JOINT_COUNT_FB;
+    XrBodyJointLocationFB joints[XR_FULL_BODY_JOINT_COUNT_META];
+    XrBodyJointLocationsFB locations = {
+      .type = XR_TYPE_BODY_JOINT_LOCATIONS_FB,
+      .jointCount = jointCount,
+      .jointLocations = joints
+    };
+    if (!XR_FAILED(xrLocateBodyJointsFB(state.bodyTrackerFB, &locateInfo, &locations))) {
+      *meta = state.extensions.bodyTrackingMeta && locations.isActive;
+    }
+  }
+
+  if (state.bodyTrackerHTC) {
+    XrBodyJointsLocateInfoHTC locateInfo = {
+      .type = XR_TYPE_BODY_JOINTS_LOCATE_INFO_HTC,
+      .baseSpace = state.referenceSpace,
+      .time = state.frameState.predictedDisplayTime
+    };
+    XrBodyJointLocationHTC joints[XR_BODY_JOINT_COUNT_HTC];
+    XrBodyJointLocationsHTC locations = {
+      .type = XR_TYPE_BODY_JOINT_LOCATIONS_HTC,
+      .jointLocationCount = XR_BODY_JOINT_COUNT_HTC,
+      .jointLocations = joints
+    };
+    if (!XR_FAILED(xrLocateBodyJointsHTC(state.bodyTrackerHTC, &locateInfo, &locations))) {
+      *htc = locations.confidenceLevel != XR_BODY_JOINT_CONFIDENCE_NONE_HTC;
+    }
+  }
 }
 
 static bool loadControllerModels(void) {

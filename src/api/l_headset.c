@@ -149,6 +149,8 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.handTracking), lua_setfield(L, -2, "handTracking");
   lua_pushboolean(L, features.handTrackingElbow), lua_setfield(L, -2, "handTrackingElbow");
   lua_pushboolean(L, features.bodyTracking), lua_setfield(L, -2, "bodyTracking");
+  lua_pushboolean(L, features.bodyTrackingMeta), lua_setfield(L, -2, "bodyTrackingMeta");
+  lua_pushboolean(L, features.bodyTrackingHTC), lua_setfield(L, -2, "bodyTrackingHTC");
   lua_pushboolean(L, features.keyboardTracking), lua_setfield(L, -2, "keyboardTracking");
   lua_pushboolean(L, features.viveTrackers), lua_setfield(L, -2, "viveTrackers");
   lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
@@ -160,6 +162,16 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.layerCurve), lua_setfield(L, -2, "layerCurve");
   lua_pushboolean(L, features.layerDepthTest), lua_setfield(L, -2, "layerDepthTest");
   lua_pushboolean(L, features.layerFilter), lua_setfield(L, -2, "layerFilter");
+  return 1;
+}
+
+static int l_lovrHeadsetGetBodyTrackingProviders(lua_State* L) {
+  bool bd = false, meta = false, htc = false;
+  lovrHeadsetGetBodyTrackingProviders(&bd, &meta, &htc);
+  lua_newtable(L);
+  lua_pushboolean(L, bd), lua_setfield(L, -2, "bd");
+  lua_pushboolean(L, meta), lua_setfield(L, -2, "meta");
+  lua_pushboolean(L, htc), lua_setfield(L, -2, "htc");
   return 1;
 }
 
@@ -645,10 +657,10 @@ static int l_lovrHeadsetGetAxis(lua_State* L) {
 
 static int l_lovrHeadsetGetSkeleton(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  uint32_t jointCount = (device == DEVICE_BODY) ? BODY_JOINT_COUNT : HAND_JOINT_COUNT;
+  uint32_t jointCount = 0;
   float poses[MAX(BODY_JOINT_COUNT, HAND_JOINT_COUNT) * 8];
   SkeletonSource source = SOURCE_UNKNOWN;
-  if (lovrHeadsetGetSkeleton(device, poses, &source)) {
+  if (lovrHeadsetGetSkeleton(device, poses, &jointCount, &source)) {
     if (!lua_istable(L, 2)) {
       lua_createtable(L, jointCount, 0);
     } else {
@@ -687,6 +699,11 @@ static int l_lovrHeadsetGetSkeleton(lua_State* L) {
     if (source != SOURCE_UNKNOWN) {
       lua_pushboolean(L, source == SOURCE_CONTROLLER);
       lua_setfield(L, -2, "controller");
+    }
+
+    if (device == DEVICE_BODY) {
+      lua_pushstring(L, source == SOURCE_BODY_META ? "meta" : "bd");
+      lua_setfield(L, -2, "source");
     }
 
     return 1;
@@ -1089,6 +1106,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getName", l_lovrHeadsetGetName },
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getFeatures", l_lovrHeadsetGetFeatures },
+  { "getBodyTrackingProviders", l_lovrHeadsetGetBodyTrackingProviders },
   { "isSeated", l_lovrHeadsetIsSeated },
   { "start", l_lovrHeadsetStart },
   { "stop", l_lovrHeadsetStop },
