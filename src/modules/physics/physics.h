@@ -37,6 +37,7 @@ typedef struct {
   void (*enter)(void* userdata, World* world, Collider* a, Collider* b, Contact* contact);
   void (*exit)(void* userdata, World* world, Collider* a, Collider* b);
   void (*contact)(void* userdata, World* world, Collider* a, Collider* b, Contact* contact);
+  void (*sleep)(void* userdata, World* world, Collider* a, bool asleep);
   void* userdata;
 } WorldCallbacks;
 

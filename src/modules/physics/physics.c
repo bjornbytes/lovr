@@ -199,6 +199,7 @@ static void onAwake(void* arg, JPH_BodyID id, uint64_t userData) {
   Collider* collider = (Collider*) (uintptr_t) userData;
   collider->activeIndex = world->activeColliderCount++;
   world->activeColliders[collider->activeIndex] = collider;
+  if (world->callbacks.sleep) world->callbacks.sleep(world->callbacks.userdata, world, collider, false);
   mtx_unlock(&world->lock);
 }
 
@@ -213,6 +214,7 @@ static void onSleep(void* arg, JPH_BodyID id, uint64_t userData) {
   }
   world->activeColliderCount--;
   collider->activeIndex = ~0u;
+  if (world->callbacks.sleep) world->callbacks.sleep(world->callbacks.userdata, world, collider, true);
   mtx_unlock(&world->lock);
 }
 
@@ -777,13 +779,14 @@ void lovrWorldSetCallbacks(World* world, WorldCallbacks* callbacks) {
     world->listener = NULL;
   }
 
-  if (!callbacks || (!callbacks->filter && !callbacks->enter && !callbacks->exit && !callbacks->contact)) {
+  if (!callbacks->filter && !callbacks->enter && !callbacks->exit && !callbacks->contact) {
     JPH_PhysicsSystem_SetContactListener(world->system, NULL);
   } else {
-    world->callbacks = *callbacks;
     world->listener = JPH_ContactListener_Create(world);
     JPH_PhysicsSystem_SetContactListener(world->system, world->listener);
   }
+
+  world->callbacks = *callbacks;
 }
 
 // Collider

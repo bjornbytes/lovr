@@ -148,6 +148,19 @@ static void contactCallback(void* userdata, World* world, Collider* a, Collider*
   }
 }
 
+static void sleepCallback(void* userdata, World* world, Collider* collider, bool asleep) {
+  lua_State* L = userdata;
+  luax_pushstash(L, "lovr.world.sleep");
+  luax_pushtype(L, World, world);
+  lua_rawget(L, -2);
+  lua_remove(L, -2);
+  luax_pushtype(L, Collider, collider);
+  lua_pushboolean(L, asleep);
+  if (lua_pcall(L, 2, 0, 0)) {
+    lua_settop(L, 3); // Only keep first error
+  }
+}
+
 static int l_lovrWorldNewCollider(lua_State* L) {
   World* world = luax_checkworld(L, 1);
   float position[3];
@@ -491,7 +504,7 @@ static int l_lovrWorldIsCollisionEnabledBetween(lua_State* L) {
 static int l_lovrWorldGetCallbacks(lua_State* L) {
   luax_checkworld(L, 1);
   lua_settop(L, 1);
-  lua_createtable(L, 0, 3);
+  lua_createtable(L, 0, 5);
 
   luax_pushstash(L, "lovr.world.filter");
   lua_pushvalue(L, 1);
@@ -515,6 +528,12 @@ static int l_lovrWorldGetCallbacks(lua_State* L) {
   lua_pushvalue(L, 1);
   lua_rawget(L, -2);
   lua_setfield(L, 2, "exit");
+  lua_pop(L, 1);
+
+  luax_pushstash(L, "lovr.world.sleep");
+  lua_pushvalue(L, 1);
+  lua_rawget(L, -2);
+  lua_setfield(L, 2, "sleep");
   lua_pop(L, 1);
 
   return 1;
@@ -557,11 +576,19 @@ static int l_lovrWorldSetCallbacks(lua_State* L) {
   lua_rawset(L, -3);
   lua_pop(L, 1);
 
+  luax_pushstash(L, "lovr.world.sleep");
+  lua_pushvalue(L, 1);
+  lua_getfield(L, 2, "sleep");
+  bool sleep = lua_type(L, -1) == LUA_TFUNCTION;
+  lua_rawset(L, -3);
+  lua_pop(L, 1);
+
   lovrWorldSetCallbacks(world, &(WorldCallbacks) {
     .filter = filter ? filterCallback : NULL,
     .enter = enter ? enterCallback : NULL,
     .exit = exit ? exitCallback : NULL,
     .contact = contact ? contactCallback : NULL,
+    .sleep = sleep ? sleepCallback : NULL,
     .userdata = L
   });
 
