@@ -1049,6 +1049,8 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
           material->glow[2] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "alphaCutoff")) {
           material->alphaCutoff = NOM_FLOAT(json, token);
+        } else if (STR_EQ(key, "doubleSided")) {
+          material->doubleSided = NOM_BOOL(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
           meta->materialLookup[material - meta->materials] = (uint32_t) hash64(name.data, name.length);

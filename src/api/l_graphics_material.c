@@ -92,6 +92,20 @@ static int l_lovrMaterialSetQuad(lua_State* L) {
   return 0;
 }
 
+static int l_lovrMaterialIsDoubleSided(lua_State* L) {
+  Material* material = luax_checktype(L, 1, Material);
+  bool doubleSided = lovrMaterialIsDoubleSided(material);
+  lua_pushboolean(L, doubleSided);
+  return 1;
+}
+
+static int l_lovrMaterialSetDoubleSided(lua_State* L) {
+  Material* material = luax_checktype(L, 1, Material);
+  bool doubleSided = lua_toboolean(L, 2);
+  lovrMaterialSetDoubleSided(material, doubleSided);
+  return 0;
+}
+
 // Deprecated
 static int l_lovrMaterialGetProperties(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
@@ -170,6 +184,8 @@ const luaL_Reg lovrMaterial[] = {
   { "setTexture", l_lovrMaterialSetTexture },
   { "getQuad", l_lovrMaterialGetQuad },
   { "setQuad", l_lovrMaterialSetQuad },
+  { "isDoubleSided", l_lovrMaterialIsDoubleSided },
+  { "setDoubleSided", l_lovrMaterialSetDoubleSided },
 
   // Deprecated
   { "getProperties", l_lovrMaterialGetProperties },

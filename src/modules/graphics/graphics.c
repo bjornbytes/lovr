@@ -207,6 +207,7 @@ struct Material {
   uint32_t index;
   MaterialBlock* block;
   MaterialData data;
+  bool doubleSided;
   Texture* textures[TEXTURE_COUNT];
   gpu_binding bindings[1 + TEXTURE_COUNT];
   gpu_bundle* bundle;
@@ -453,6 +454,7 @@ typedef struct {
 typedef struct {
   bool dirty;
   bool viewCull;
+  CullMode faceCull;
   DrawMode mode;
   float color[4];
   Buffer* lastVertexBuffer;
@@ -4391,6 +4393,14 @@ bool lovrMaterialSetQuad(Material* material, float ox, float oy, float sx, float
   return true;
 }
 
+bool lovrMaterialIsDoubleSided(Material* material) {
+  return material->doubleSided;
+}
+
+void lovrMaterialSetDoubleSided(Material* material, bool doubleSided) {
+  material->doubleSided = doubleSided;
+}
+
 static bool lovrMaterialSetSDFRange(Material* material, float x, float y) {
   if (!lovrMaterialUpload(material)) return false;
   material->data.sdfRange[0] = x;
@@ -5467,7 +5477,8 @@ Model* lovrModelCreate(const ModelInfo* info) {
       lovrMaterialSetNumber(material, NUMBER_ALPHA_CUTOFF, properties->alphaCutoff);
       lovrMaterialSetColor(material, COLOR_BASE, properties->color);
       lovrMaterialSetColor(material, COLOR_GLOW, properties->glow);
-      lovrMaterialSetQuad(material, properties->quad[0], properties->quad[1], properties->quad[0], properties->quad[1]);
+      lovrMaterialSetQuad(material, properties->quad[0], properties->quad[1], properties->quad[2], properties->quad[3]);
+      lovrMaterialSetDoubleSided(material, properties->doubleSided);
 
       uint32_t textures[] = {
         [TEXTURE_COLOR] = properties->texture,
@@ -6827,6 +6838,7 @@ void lovrPassReset(Pass* pass) {
 
   pass->pipelineIndex = 0;
   memset(pass->pipeline, 0, sizeof(Pipeline));
+  pass->pipeline->faceCull = CULL_AUTO;
   pass->pipeline->mode = DRAW_TRIANGLES;
   pass->pipeline->lastVertexFormat = ~0u;
   pass->pipeline->color[0] = 1.f;
@@ -7430,8 +7442,11 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
 }
 
 void lovrPassSetFaceCull(Pass* pass, CullMode mode) {
-  pass->pipeline->dirty |= pass->pipeline->info.rasterizer.cullMode != (gpu_cull_mode) mode;
-  pass->pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
+  if (mode != CULL_AUTO) {
+    pass->pipeline->dirty |= pass->pipeline->info.rasterizer.cullMode != (gpu_cull_mode) mode;
+    pass->pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
+  }
+  pass->pipeline->faceCull = mode;
 }
 
 void lovrPassSetFont(Pass* pass, Font* font) {
@@ -7843,6 +7858,12 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
     pipeline->info.flags = NULL;
     pipeline->info.flagCount = 0;
     pipeline->dirty = true;
+  }
+
+  if (pipeline->faceCull == CULL_AUTO) {
+    gpu_cull_mode cullMode = draw->material->doubleSided ? GPU_CULL_NONE : GPU_CULL_BACK;
+    pipeline->dirty |= cullMode != pipeline->info.rasterizer.cullMode;
+    pipeline->info.rasterizer.cullMode = cullMode;
   }
 
   // Vertex formats

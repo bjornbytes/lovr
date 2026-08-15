@@ -630,6 +630,8 @@ static int l_lovrModelDataGetMaterial(lua_State* L) {
   PUSH_IMAGE(occlusionTexture);
   PUSH_IMAGE(normalTexture);
 
+  lua_pushboolean(L, material->doubleSided), lua_setfield(L, -2, "doubleSided");
+
   return 1;
 }
 

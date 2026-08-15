@@ -92,6 +92,7 @@ typedef struct {
   uint32_t clearcoatTexture;
   uint32_t occlusionTexture;
   uint32_t normalTexture;
+  bool doubleSided;
   const char* name;
 } ModelMaterial;
 

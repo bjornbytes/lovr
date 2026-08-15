@@ -417,6 +417,8 @@ Texture* lovrMaterialGetTexture(Material* material, MaterialTexture key);
 bool lovrMaterialSetTexture(Material* material, MaterialTexture key, Texture* texture);
 void lovrMaterialGetQuad(Material* material, float* ox, float* oy, float* sx, float* sy);
 bool lovrMaterialSetQuad(Material* material, float ox, float oy, float sx, float sy);
+bool lovrMaterialIsDoubleSided(Material* material);
+void lovrMaterialSetDoubleSided(Material* material, bool doubleSided);
 
 // Font
 
@@ -675,7 +677,8 @@ typedef struct {
 typedef enum {
   CULL_NONE,
   CULL_FRONT,
-  CULL_BACK
+  CULL_BACK,
+  CULL_AUTO
 } CullMode;
 
 typedef enum {

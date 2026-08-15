@@ -617,10 +617,12 @@ static int l_lovrPassSetDepthClamp(lua_State* L) {
 static int l_lovrPassSetFaceCull(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   CullMode mode;
-  if (lua_type(L, 2) == LUA_TBOOLEAN) {
+  if (lua_isnoneornil(L, 2)) {
+    mode = CULL_AUTO;
+  } else if (lua_type(L, 2) == LUA_TBOOLEAN) {
     mode = lua_toboolean(L, 2) ? CULL_BACK : CULL_NONE;
   } else {
-    mode = luax_checkenum(L, 2, CullMode, "none");
+    mode = luax_checkenum(L, 2, CullMode, NULL);
   }
   lovrPassSetFaceCull(pass, mode);
   return 0;
