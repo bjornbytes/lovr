@@ -5467,7 +5467,7 @@ Model* lovrModelCreate(const ModelInfo* info) {
       lovrMaterialSetNumber(material, NUMBER_ALPHA_CUTOFF, properties->alphaCutoff);
       lovrMaterialSetColor(material, COLOR_BASE, properties->color);
       lovrMaterialSetColor(material, COLOR_GLOW, properties->glow);
-      lovrMaterialSetQuad(material, properties->uvShift[0], properties->uvShift[1], properties->uvScale[0], properties->uvScale[1]);
+      lovrMaterialSetQuad(material, properties->quad[0], properties->quad[1], properties->quad[0], properties->quad[1]);
 
       uint32_t textures[] = {
         [TEXTURE_COLOR] = properties->texture,

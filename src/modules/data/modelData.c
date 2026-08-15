@@ -109,10 +109,6 @@ void lovrModelDataAllocate(ModelData* model) {
 
   for (uint32_t i = 0; i < meta->materialCount; i++) {
     meta->materials[i] = (ModelMaterial) {
-      .color = { 1.f, 1.f, 1.f, 1.f },
-      .glow = { 0.f, 0.f, 0.f, 1.f },
-      .uvShift = { 0.f, 0.f },
-      .uvScale = { 1.f, 1.f },
       .metalness = 1.f,
       .roughness = 1.f,
       .clearcoat = 0.f,
@@ -120,6 +116,9 @@ void lovrModelDataAllocate(ModelData* model) {
       .occlusionStrength = 1.f,
       .normalScale = 1.f,
       .alphaCutoff = 0.f,
+      .color = { 1.f, 1.f, 1.f, 1.f },
+      .glow = { 0.f, 0.f, 0.f, 1.f },
+      .quad = { 0.f, 0.f, 1.f, 1.f },
       .texture = ~0u,
       .glowTexture = ~0u,
       .metalnessTexture = ~0u,

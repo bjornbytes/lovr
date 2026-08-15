@@ -58,10 +58,6 @@ static bool parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
     if (STARTS_WITH(line, "newmtl ")) {
       map_set(names, hash64(line + 7, length - 7), materials->length);
       arr_push(materials, ((ModelMaterial) {
-        .color = { 1.f, 1.f, 1.f, 1.f },
-        .glow = { 0.f, 0.f, 0.f, 1.f },
-        .uvShift = { 0.f, 1.f },
-        .uvScale = { 1.f, 1.f },
         .metalness = 1.f,
         .roughness = 1.f,
         .clearcoat = 0.f,
@@ -69,6 +65,9 @@ static bool parseMtl(char* path, char* base, ModelDataIO* io, arr_image_t* image
         .occlusionStrength = 1.f,
         .normalScale = 1.f,
         .alphaCutoff = 0.f,
+        .color = { 1.f, 1.f, 1.f, 1.f },
+        .glow = { 0.f, 0.f, 0.f, 1.f },
+        .quad = { 0.f, 1.f, 1.f, 1.f },
         .texture = ~0u,
         .glowTexture = ~0u,
         .metalnessTexture = ~0u,
