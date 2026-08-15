@@ -146,9 +146,12 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrGetRecommendedLayerResolutionMETA)\
   X(xrEnumerateColorSpacesSONY)\
   X(xrPollFutureEXT)\
+  X(xrCancelFutureEXT)\
   X(xrEnumerateSpatialCapabilitiesEXT)\
   X(xrEnumerateSpatialCapabilityComponentTypesEXT)\
-  X(xrCreateSpatialContextAsyncEXT)
+  X(xrCreateSpatialContextAsyncEXT)\
+  X(xrCreateSpatialContextCompleteEXT)\
+  X(xrDestroySpatialContextEXT)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -377,7 +380,8 @@ static XrBodyTrackerBD getBodyTracker(void);
 static bool supportsScanner(ScannerType type);
 static bool loadControllerModels(void);
 static bool loadVisibilityMask(void);
-static bool isFutureReady(XrFutureEXT future);
+static bool pollFuture(XrFutureEXT future, bool* ready);
+static void cancelFuture(XrFutureEXT future);
 
 // Entry
 
@@ -3236,8 +3240,8 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
   lovrCheck(supportsScanner(info->type), "This scanner type is not supported");
 
   XrSpatialCapabilityConfigurationBaseHeaderEXT base;
+  XrSpatialCapabilityConfigurationArucoMarkerEXT arucoConfig = { .type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT };
   XrSpatialCapabilityConfigurationAprilTagEXT aprilConfig = { .type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_APRIL_TAG_EXT };
-  XrSpatialCapabilityConfigurationAprilTagEXT arucoConfig = { .type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT };
   XrSpatialCapabilityConfigurationBaseHeaderEXT* header = &base;
 
   switch (info->type) {
@@ -3256,16 +3260,41 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
     case SCANNER_ARUCO:
       header = (XrSpatialCapabilityConfigurationBaseHeaderEXT*) &arucoConfig;
       header->capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT;
-      // TODO dictionary
+      switch (info->arucoType) {
+        case ARUCO_4x4_50: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_4X4_50_EXT; break;
+        case ARUCO_4x4_100: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_4X4_100_EXT; break;
+        case ARUCO_4x4_250: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_4X4_250_EXT; break;
+        case ARUCO_4x4_1000: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_4X4_1000_EXT; break;
+        case ARUCO_5x5_50: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_5X5_50_EXT; break;
+        case ARUCO_5x5_100: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_5X5_100_EXT; break;
+        case ARUCO_5x5_250: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_5X5_250_EXT; break;
+        case ARUCO_5x5_1000: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_5X5_1000_EXT; break;
+        case ARUCO_6x6_50: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_6X6_50_EXT; break;
+        case ARUCO_6x6_100: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_6X6_100_EXT; break;
+        case ARUCO_6x6_250: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_6X6_250_EXT; break;
+        case ARUCO_6x6_1000: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_6X6_1000_EXT; break;
+        case ARUCO_7x7_50: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_7X7_50_EXT; break;
+        case ARUCO_7x7_100: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_7X7_100_EXT; break;
+        case ARUCO_7x7_250: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_7X7_250_EXT; break;
+        case ARUCO_7x7_1000: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_7X7_1000_EXT; break;
+        default: break;
+      }
       break;
     case SCANNER_APRIL:
       header = (XrSpatialCapabilityConfigurationBaseHeaderEXT*) &aprilConfig;
       header->capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT;
-      // TODO dictionary
+      switch (info->aprilType) {
+        case APRIL_16H5: aprilConfig.aprilDict = XR_SPATIAL_MARKER_APRIL_TAG_DICT_16H5_EXT; break;
+        case APRIL_25H9: aprilConfig.aprilDict = XR_SPATIAL_MARKER_APRIL_TAG_DICT_25H9_EXT; break;
+        case APRIL_36H10: aprilConfig.aprilDict = XR_SPATIAL_MARKER_APRIL_TAG_DICT_36H10_EXT; break;
+        case APRIL_36H11: aprilConfig.aprilDict = XR_SPATIAL_MARKER_APRIL_TAG_DICT_36H11_EXT; break;
+        default: break;
+      }
       break;
     default: lovrUnreachable();
   }
 
+  // Query list of components
   XrSpatialCapabilityComponentTypesEXT componentInfo = { .type = XR_TYPE_SPATIAL_CAPABILITY_COMPONENT_TYPES_EXT };
   XR(xrEnumerateSpatialCapabilityComponentTypesEXT(state.instance, state.system, header->capability, &componentInfo), "xrEnumerateSpatialCapabilityComponentTypesEXT");
   uint32_t componentCount = componentInfo.componentTypeCountOutput;
@@ -3274,6 +3303,7 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
   componentInfo.componentTypes = components;
   XR(xrEnumerateSpatialCapabilityComponentTypesEXT(state.instance, state.system, header->capability, &componentInfo), "xrEnumerateSpatialCapabilityComponentTypesEXT");
 
+  // Make a list of components we care about
   for (uint32_t i = 0; i < componentCount; i++) {
     switch (components[i]) {
       case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT:
@@ -3301,6 +3331,7 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
 
   Scanner* scanner = lovrMalloc(sizeof(Scanner));
   scanner->ref = 1;
+  scanner->handle = XR_NULL_HANDLE;
 
   XrSpatialContextCreateInfoEXT createInfo = {
     .type = XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT,
@@ -3317,11 +3348,25 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
 
 void lovrScannerDestroy(void* ref) {
   Scanner* scanner = ref;
+  if (scanner->handle) xrDestroySpatialContextEXT(scanner->handle);
+  cancelFuture(scanner->future);
   lovrFree(scanner);
 }
 
-bool lovrScannerIsReady(Scanner* scanner) {
-  return isFutureReady(scanner->future);
+bool lovrScannerIsCreated(Scanner* scanner, bool* created) {
+  if (scanner->handle) return *created = true, true;
+  if (!scanner->future) return *created = false, true;
+
+  bool ready = false;
+  if (!pollFuture(scanner->future, &ready)) return false;
+  if (!ready) return *created = false, true;
+
+  XrCreateSpatialContextCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_CONTEXT_COMPLETION_EXT };
+  XR(xrCreateSpatialContextCompleteEXT(state.session, scanner->future, &completion), "xrCreateSpatialContextCompleteEXT");
+  XR(completion.futureResult, "xrCreateSpatialContextAsyncEXT future");
+  scanner->handle = completion.spatialContext;
+  scanner->future = XR_NULL_HANDLE;
+  return true;
 }
 
 // Layer
@@ -4322,7 +4367,7 @@ static bool loadVisibilityMask(void) {
   return true;
 }
 
-static bool isFutureReady(XrFutureEXT future) {
+static bool pollFuture(XrFutureEXT future, bool* ready) {
   XrFuturePollInfoEXT info = {
     .type = XR_TYPE_FUTURE_POLL_INFO_EXT,
     .future = future
@@ -4335,6 +4380,15 @@ static bool isFutureReady(XrFutureEXT future) {
   }
 
   return result.state == XR_FUTURE_STATE_READY_EXT;
+}
+
+static void cancelFuture(XrFutureEXT future) {
+  if (future) {
+    xrCancelFutureEXT(state.instance, &(XrFutureCancelInfoEXT) {
+      .type = XR_TYPE_FUTURE_CANCEL_INFO_EXT,
+      .future = future
+    });
+  }
 }
 
 #ifdef _WIN32
