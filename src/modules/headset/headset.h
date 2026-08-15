@@ -230,13 +230,43 @@ void lovrHeadsetSetButton(Device device, DeviceButton button, bool down);
 
 // Scanner
 
+typedef enum {
+  ARUCO_4x4_50,
+  ARUCO_4x4_100,
+  ARUCO_4x4_250,
+  ARUCO_4x4_1000,
+  ARUCO_5x5_50,
+  ARUCO_5x5_100,
+  ARUCO_5x5_250,
+  ARUCO_5x5_1000,
+  ARUCO_6x6_50,
+  ARUCO_6x6_100,
+  ARUCO_6x6_250,
+  ARUCO_6x6_1000,
+  ARUCO_7x7_50,
+  ARUCO_7x7_100,
+  ARUCO_7x7_250,
+  ARUCO_7x7_1000
+} ArucoType;
+
+typedef enum {
+  APRIL_16H5,
+  APRIL_25H9,
+  APRIL_36H10,
+  APRIL_36H11
+} AprilType;
+
 typedef struct {
   ScannerType type;
+  ArucoType arucoType;
+  AprilType aprilType;
+  bool fixedSizeMarkers;
+  float markerSize;
 } ScannerInfo;
 
 Scanner* lovrScannerCreate(ScannerInfo* info);
 void lovrScannerDestroy(void* ref);
-bool lovrScannerIsCreated(Scanner* scanner);
+bool lovrScannerIsCreated(Scanner* scanner, bool* created);
 
 // Layer
 
