@@ -58,6 +58,7 @@ dev
 - Fix crash when loading invalid image files in `lovr.graphics.newTexture`.
 - Fix issue with `Font:getLines` not removing trailing whitespace properly.
 - Fix issue where `normalScale` and `occlusionStrength` weren't getting imported from glTF models.
+- Fix distorted audio when 2 sources share an MP3 sound.
 
 ### Deprecate
 

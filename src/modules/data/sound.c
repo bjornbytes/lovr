@@ -53,12 +53,13 @@ static uint32_t lovrSoundReadOgg(Sound* sound, uint32_t offset, uint32_t count, 
 }
 
 static uint32_t lovrSoundReadMp3(Sound* sound, uint32_t offset, uint32_t count, void* data) {
+  uint32_t channels = lovrSoundGetChannelCount(sound);
+
   if (sound->cursor != offset) {
-    mp3dec_ex_seek(sound->decoder, offset);
+    mp3dec_ex_seek(sound->decoder, offset * channels);
     sound->cursor = offset;
   }
 
-  uint32_t channels = lovrSoundGetChannelCount(sound);
   size_t samples = mp3dec_ex_read(sound->decoder, data, count * channels);
   uint32_t frames = (uint32_t) (samples / channels);
   sound->cursor += frames;
