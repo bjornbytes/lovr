@@ -150,6 +150,7 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
   lua_pushboolean(L, features.handTracking), lua_setfield(L, -2, "handTracking");
   lua_pushboolean(L, features.handTrackingElbow), lua_setfield(L, -2, "handTrackingElbow");
+  lua_pushboolean(L, features.haptics), lua_setfield(L, -2, "haptics");
   lua_pushboolean(L, features.keyboardTracking), lua_setfield(L, -2, "keyboardTracking");
   lua_pushboolean(L, features.layerColor), lua_setfield(L, -2, "layerColor");
   lua_pushboolean(L, features.layerCurve), lua_setfield(L, -2, "layerCurve");

@@ -300,6 +300,7 @@ static struct {
     bool handTrackingElbow;
     bool handTrackingMesh;
     bool handTrackingMotionRange;
+    bool hapticParametric;
     bool hdr;
     bool headless;
     bool interactionRenderModel;
@@ -478,6 +479,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_EXT_hand_joints_motion_range", &state.extensions.handTrackingMotionRange, true },
     { "XR_EXT_hand_tracking", &state.extensions.handTracking, true },
     { "XR_EXT_hand_tracking_data_source", &state.extensions.handTrackingDataSource, true },
+    { "XR_EXT_haptic_parametric", &state.extensions.hapticParametric, true },
     { "XR_EXT_hp_mixed_reality_controller", &state.extensions.reverbController, true },
     { "XR_EXT_interaction_profile_battery_state_display", &state.extensions.battery, true },
     { "XR_EXT_interaction_render_model", &state.extensions.interactionRenderModel, true },
@@ -975,6 +977,7 @@ void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
   features->handModel = state.extensions.handTrackingMesh;
   features->handTracking = state.extensions.handTracking;
   features->handTrackingElbow = state.extensions.handTrackingElbow;
+  features->haptics = state.extensions.hapticParametric;
   features->keyboardTracking = state.extensions.keyboardTracking;
   features->layerColor = state.extensions.layerColor;
   features->layerCurve = state.extensions.layerCurve;

@@ -50,6 +50,7 @@ typedef struct {
   bool handModel;
   bool handTracking;
   bool handTrackingElbow;
+  bool haptics;
   bool keyboardTracking;
   bool layerColor;
   bool layerCurve;
