@@ -12,8 +12,8 @@ uint32_t luax_checkblendshape(lua_State* L, int index, Model* model) {
       size_t length;
       const char* name = lua_tolstring(L, index, &length);
       uint32_t hash = (uint32_t) hash64(name, length);
-      for (uint32_t i = 0; i < meta->animationCount; i++) {
-        if (meta->animationLookup[i] == hash) {
+      for (uint32_t i = 0; i < meta->blendShapeCount; i++) {
+        if (meta->blendShapeLookup[i] == hash) {
           return i;
         }
       }
