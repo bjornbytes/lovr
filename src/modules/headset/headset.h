@@ -39,27 +39,27 @@ typedef struct {
 } HeadsetConfig;
 
 typedef struct {
-  bool overlay;
   bool battery;
-  bool proximity;
-  bool passthrough;
-  bool refreshRate;
-  bool depthSubmission;
-  bool eyeTracking;
-  bool handTracking;
-  bool handTrackingElbow;
   bool bodyTracking;
-  bool keyboardTracking;
-  bool viveTrackers;
-  bool handModel;
+  bool cubeBackground;
   bool controllerModel;
   bool controllerSkeleton;
-  bool cubeBackground;
+  bool depthSubmission;
   bool equirectBackground;
+  bool eyeTracking;
+  bool handModel;
+  bool handTracking;
+  bool handTrackingElbow;
+  bool keyboardTracking;
   bool layerColor;
   bool layerCurve;
   bool layerDepthTest;
   bool layerFilter;
+  bool overlay;
+  bool passthrough;
+  bool proximity;
+  bool refreshRate;
+  bool viveTrackers;
 } HeadsetFeatures;
 
 typedef enum {

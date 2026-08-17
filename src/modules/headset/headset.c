@@ -964,27 +964,27 @@ const char* lovrHeadsetGetDriver(void) {
 }
 
 void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
-  features->overlay = state.extensions.overlay;
   features->battery = state.extensions.battery;
-  features->proximity = state.extensions.presence;
-  features->passthrough = lovrHeadsetIsPassthroughSupported(PASSTHROUGH_BLEND) || lovrHeadsetIsPassthroughSupported(PASSTHROUGH_ADD);
-  features->refreshRate = state.extensions.refreshRate;
-  features->depthSubmission = state.extensions.depth;
-  features->eyeTracking = state.extensions.gaze;
-  features->handTracking = state.extensions.handTracking;
-  features->handTrackingElbow = state.extensions.handTrackingElbow;
   features->bodyTracking = state.extensions.bodyTracking;
-  features->keyboardTracking = state.extensions.keyboardTracking;
-  features->viveTrackers = state.extensions.viveTrackers;
-  features->handModel = state.extensions.handTrackingMesh;
   features->controllerModel = state.extensions.renderModel;
   features->controllerSkeleton = state.extensions.handTrackingDataSource && state.extensions.handTrackingMotionRange;
   features->cubeBackground = state.extensions.layerCube;
+  features->depthSubmission = state.extensions.depth;
   features->equirectBackground = state.extensions.layerEquirect || state.extensions.layerEquirect2;
+  features->eyeTracking = state.extensions.gaze;
+  features->handModel = state.extensions.handTrackingMesh;
+  features->handTracking = state.extensions.handTracking;
+  features->handTrackingElbow = state.extensions.handTrackingElbow;
+  features->keyboardTracking = state.extensions.keyboardTracking;
   features->layerColor = state.extensions.layerColor;
   features->layerCurve = state.extensions.layerCurve;
   features->layerDepthTest = state.extensions.layerDepthTest;
   features->layerFilter = state.extensions.layerSettings && state.extensions.layerAutoFilter;
+  features->overlay = state.extensions.overlay;
+  features->passthrough = lovrHeadsetIsPassthroughSupported(PASSTHROUGH_BLEND) || lovrHeadsetIsPassthroughSupported(PASSTHROUGH_ADD);
+  features->proximity = state.extensions.presence;
+  features->refreshRate = state.extensions.refreshRate;
+  features->viveTrackers = state.extensions.viveTrackers;
 }
 
 bool lovrHeadsetIsSeated(void) {

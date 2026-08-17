@@ -140,26 +140,26 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lovrHeadsetGetFeatures(&features);
   lua_newtable(L);
   lua_pushboolean(L, features.battery), lua_setfield(L, -2, "battery");
-  lua_pushboolean(L, features.overlay), lua_setfield(L, -2, "overlay");
-  lua_pushboolean(L, features.proximity), lua_setfield(L, -2, "proximity");
-  lua_pushboolean(L, features.passthrough), lua_setfield(L, -2, "passthrough");
-  lua_pushboolean(L, features.refreshRate), lua_setfield(L, -2, "refreshRate");
-  lua_pushboolean(L, features.depthSubmission), lua_setfield(L, -2, "depthSubmission");
-  lua_pushboolean(L, features.eyeTracking), lua_setfield(L, -2, "eyeTracking");
-  lua_pushboolean(L, features.handTracking), lua_setfield(L, -2, "handTracking");
-  lua_pushboolean(L, features.handTrackingElbow), lua_setfield(L, -2, "handTrackingElbow");
   lua_pushboolean(L, features.bodyTracking), lua_setfield(L, -2, "bodyTracking");
-  lua_pushboolean(L, features.keyboardTracking), lua_setfield(L, -2, "keyboardTracking");
-  lua_pushboolean(L, features.viveTrackers), lua_setfield(L, -2, "viveTrackers");
-  lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
   lua_pushboolean(L, features.controllerModel), lua_setfield(L, -2, "controllerModel");
   lua_pushboolean(L, features.controllerSkeleton), lua_setfield(L, -2, "controllerSkeleton");
   lua_pushboolean(L, features.cubeBackground), lua_setfield(L, -2, "cubeBackground");
+  lua_pushboolean(L, features.depthSubmission), lua_setfield(L, -2, "depthSubmission");
   lua_pushboolean(L, features.equirectBackground), lua_setfield(L, -2, "equirectBackground");
+  lua_pushboolean(L, features.eyeTracking), lua_setfield(L, -2, "eyeTracking");
+  lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
+  lua_pushboolean(L, features.handTracking), lua_setfield(L, -2, "handTracking");
+  lua_pushboolean(L, features.handTrackingElbow), lua_setfield(L, -2, "handTrackingElbow");
+  lua_pushboolean(L, features.keyboardTracking), lua_setfield(L, -2, "keyboardTracking");
   lua_pushboolean(L, features.layerColor), lua_setfield(L, -2, "layerColor");
   lua_pushboolean(L, features.layerCurve), lua_setfield(L, -2, "layerCurve");
   lua_pushboolean(L, features.layerDepthTest), lua_setfield(L, -2, "layerDepthTest");
   lua_pushboolean(L, features.layerFilter), lua_setfield(L, -2, "layerFilter");
+  lua_pushboolean(L, features.overlay), lua_setfield(L, -2, "overlay");
+  lua_pushboolean(L, features.passthrough), lua_setfield(L, -2, "passthrough");
+  lua_pushboolean(L, features.proximity), lua_setfield(L, -2, "proximity");
+  lua_pushboolean(L, features.refreshRate), lua_setfield(L, -2, "refreshRate");
+  lua_pushboolean(L, features.viveTrackers), lua_setfield(L, -2, "viveTrackers");
   return 1;
 }
 
