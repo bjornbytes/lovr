@@ -20,6 +20,7 @@ dev
 - Fix memory leak when there are waiting tasks on quit.
 - Fix crash when loading invalid image files in `lovr.graphics.newTexture`.
 - Fix distorted audio when 2 sources share an MP3 sound.
+- Fix Model:get/setBlendShapeWeight not affecting the correct blend shape.
 
 v0.19.0 - 2026-06-07
 ---
