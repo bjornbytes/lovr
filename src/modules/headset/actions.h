@@ -46,6 +46,8 @@ enum {
   ACTION_NIB_DOWN,
   ACTION_NIB_FORCE,
   ACTION_HAND_VIBRATE,
+  ACTION_TRIGGER_VIBRATE,
+  ACTION_THUMBREST_VIBRATE,
   ACTION_STYLUS_VIBRATE,
   MAX_ACTIONS
 };
@@ -272,6 +274,10 @@ static Binding* lovrActionBindings[] = {
     { ACTION_NIB_FORCE, "/user/hand/right/input/stylus_fb/force" },
     { ACTION_HAND_VIBRATE, "/user/hand/left/output/haptic" },
     { ACTION_HAND_VIBRATE, "/user/hand/right/output/haptic" },
+    { ACTION_TRIGGER_VIBRATE, "/user/hand/left/output/haptic_trigger_fb" },
+    { ACTION_TRIGGER_VIBRATE, "/user/hand/right/output/haptic_trigger_fb" },
+    { ACTION_THUMBREST_VIBRATE, "/user/hand/left/output/haptic_thumb_fb" },
+    { ACTION_THUMBREST_VIBRATE, "/user/hand/right/output/haptic_thumb_fb" },
     { 0, NULL }
   },
   [PROFILE_GO] = (Binding[]) {

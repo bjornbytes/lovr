@@ -715,7 +715,7 @@ static int l_lovrHeadsetVibrate(lua_State* L) {
   float strength = luax_optfloat(L, 2, 1.f);
   float duration = luax_optfloat(L, 3, .5f);
   float frequency = luax_optfloat(L, 4, 0.f);
-  bool success = lovrHeadsetVibrate(device, strength, duration, frequency);
+  bool success = lovrHeadsetVibrate(device, ~0u, strength, duration, frequency);
   lua_pushboolean(L, success);
   return 1;
 }

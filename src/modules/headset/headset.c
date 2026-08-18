@@ -799,6 +799,8 @@ bool lovrHeadsetConnect(void) {
     { 0, NULL, "nib_down",         XR_ACTION_TYPE_BOOLEAN_INPUT,    0, NULL, "Nib Down" },
     { 0, NULL, "nib_force",        XR_ACTION_TYPE_FLOAT_INPUT,      0, NULL, "Nib Force" },
     { 0, NULL, "vibrate",          XR_ACTION_TYPE_VIBRATION_OUTPUT, 2, hands, "Vibrate" },
+    { 0, NULL, "trigger_vibrate",  XR_ACTION_TYPE_VIBRATION_OUTPUT, 2, hands, "Trigger Vibrate" },
+    { 0, NULL, "thumb_vibrate",    XR_ACTION_TYPE_VIBRATION_OUTPUT, 2, hands, "Thumb Vibrate" },
     { 0, NULL, "stylus_vibrate",   XR_ACTION_TYPE_VIBRATION_OUTPUT, 0, NULL, "Stylus Vibrate" }
   };
 
@@ -2263,20 +2265,37 @@ bool lovrHeadsetGetBattery(Device device, float* level, bool* charging) {
   return true;
 }
 
-bool lovrHeadsetVibrate(Device device, float power, float duration, float frequency) {
-  static const uint8_t actions[MAX_DEVICES] = {
+static uint8_t getVibrateAction(Device device, DeviceButton button) {
+  static const uint8_t deviceActions[MAX_DEVICES] = {
     [DEVICE_HAND_LEFT] = ACTION_HAND_VIBRATE,
     [DEVICE_HAND_RIGHT] = ACTION_HAND_VIBRATE,
     [DEVICE_STYLUS] = ACTION_STYLUS_VIBRATE
   };
 
-  if (!state.session || !actions[device]) {
+  static const uint8_t buttonActions[MAX_DEVICES][MAX_BUTTONS] = {
+    [DEVICE_HAND_LEFT] = {
+      [BUTTON_TRIGGER] = ACTION_TRIGGER_VIBRATE,
+      [BUTTON_THUMBREST] = ACTION_THUMBREST_VIBRATE
+    },
+    [DEVICE_HAND_RIGHT] = {
+      [BUTTON_TRIGGER] = ACTION_TRIGGER_VIBRATE,
+      [BUTTON_THUMBREST] = ACTION_THUMBREST_VIBRATE
+    }
+  };
+
+  return button < MAX_BUTTONS ? buttonActions[device][button] : deviceActions[device];
+}
+
+bool lovrHeadsetVibrate(Device device, DeviceButton button, float power, float duration, float frequency) {
+  uint8_t action = getVibrateAction(device, button);
+
+  if (!state.session || !action) {
     return false;
   }
 
   XrHapticActionInfo info = {
     .type = XR_TYPE_HAPTIC_ACTION_INFO,
-    .action = state.actions[actions[device]],
+    .action = state.actions[action],
     .subactionPath = state.actionFilters[device]
   };
 
@@ -2290,20 +2309,16 @@ bool lovrHeadsetVibrate(Device device, float power, float duration, float freque
   return XR_SUCCEEDED(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration));
 }
 
-void lovrHeadsetStopVibration(Device device) {
-  static const uint8_t actions[MAX_DEVICES] = {
-    [DEVICE_HAND_LEFT] = ACTION_HAND_VIBRATE,
-    [DEVICE_HAND_RIGHT] = ACTION_HAND_VIBRATE,
-    [DEVICE_STYLUS] = ACTION_STYLUS_VIBRATE
-  };
+void lovrHeadsetStopVibration(Device device, DeviceButton button) {
+  uint8_t action = getVibrateAction(device, button);
 
-  if (!state.session || !actions[device]) {
+  if (!state.session || !action) {
     return;
   }
 
   XrHapticActionInfo info = {
     .type = XR_TYPE_HAPTIC_ACTION_INFO,
-    .action = state.actions[actions[device]],
+    .action = state.actions[action],
     .subactionPath = state.actionFilters[device]
   };
 
