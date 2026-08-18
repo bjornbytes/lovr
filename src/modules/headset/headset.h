@@ -164,6 +164,18 @@ typedef enum {
   SOURCE_HAND
 } SkeletonSource;
 
+typedef struct {
+  double time;
+  float value;
+} VibrationData;
+
+typedef struct {
+  uint32_t amplitudeCount;
+  uint32_t frequencyCount;
+  VibrationData amplitude[100];
+  VibrationData frequency[100];
+} Vibration;
+
 bool lovrHeadsetInit(HeadsetConfig* config);
 void lovrHeadsetDestroy(void);
 bool lovrHeadsetConnect(void);
@@ -204,7 +216,8 @@ bool lovrHeadsetIsTouched(Device device, DeviceButton button, bool* touched);
 bool lovrHeadsetGetAxis(Device device, DeviceAxis axis, float* value);
 bool lovrHeadsetGetSkeleton(Device device, float* poses, SkeletonSource* source);
 bool lovrHeadsetGetBattery(Device device, float* level, bool* charging);
-bool lovrHeadsetVibrate(Device device, DeviceButton button, float strength, float duration, float frequency);
+bool lovrHeadsetVibrateSimple(Device device, DeviceButton button, float strength, float duration, float frequency);
+bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration* vibration);
 void lovrHeadsetStopVibration(Device device, DeviceButton button);
 uint64_t* lovrHeadsetGetModelKeys(uint32_t* count);
 struct ModelData* lovrHeadsetNewModelData(uint64_t key);
