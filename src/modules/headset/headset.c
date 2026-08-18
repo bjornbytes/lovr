@@ -2286,7 +2286,7 @@ static uint8_t getVibrateAction(Device device, DeviceButton button) {
   return button < MAX_BUTTONS ? buttonActions[device][button] : deviceActions[device];
 }
 
-bool lovrHeadsetVibrate(Device device, DeviceButton button, float power, float duration, float frequency) {
+bool lovrHeadsetVibrateSimple(Device device, DeviceButton button, float power, float duration, float frequency) {
   uint8_t action = getVibrateAction(device, button);
 
   if (!state.session || !action) {
@@ -2304,6 +2304,120 @@ bool lovrHeadsetVibrate(Device device, DeviceButton button, float power, float d
     .duration = (XrDuration) (duration * 1e9f + .5f),
     .frequency = frequency,
     .amplitude = power
+  };
+
+  return XR_SUCCEEDED(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration));
+}
+
+bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration* data) {
+  if (!state.extensions.hapticParametric) {
+    return false; // TODO emulate
+  }
+
+  uint8_t action = getVibrateAction(device, action);
+
+  if (!state.session || !action || data->amplitudeCount == 0) {
+    return false;
+  }
+
+  XrHapticActionInfo info = {
+    .type = XR_TYPE_HAPTIC_ACTION_INFO,
+    .action = state.actions[action],
+    .subactionPath = state.actionFilters[device]
+  };
+
+  XrHapticParametricPointEXT amplitude[COUNTOF(data->amplitude) + 1];
+  XrHapticParametricPointEXT frequency[COUNTOF(data->frequency)];
+  uint32_t amplitudeCount = data->amplitudeCount;
+  uint32_t frequencyCount = data->frequencyCount;
+
+  for (uint32_t i = 0; i < amplitudeCount; i++) {
+    XrDuration time = (XrDuration) (data->amplitude[i].time * 1e9 + .5);
+
+    // Timestamps must be sorted.  Not using qsort because it isn't stable
+    uint32_t index = i;
+    while (index > 0 && amplitude[index - 1].time > time) {
+      amplitude[index] = amplitude[index - 1];
+      index--;
+    }
+
+    amplitude[index].time = time;
+    amplitude[index].value = CLAMP(data->amplitude[i].value, 0.f, 1.f);
+  }
+
+  float minFrequency = 0.f;
+  float maxFrequency = 0.f;
+
+  for (uint32_t i = 0; i < frequencyCount; i++) {
+    minFrequency = MIN(minFrequency, data->frequency[i].value);
+    maxFrequency = MAX(maxFrequency, data->frequency[i].value);
+  }
+
+  // If any frequencies were > 1, set minFrequency/maxFrequency and map frequency data to 0-1
+  // Otherwise, treat them as already normalized, and let the runtime map them to absolute Hz
+  if (maxFrequency > 1.f) {
+    minFrequency = CLAMP(minFrequency, XR_HAPTIC_PARAMETRIC_FREQUENCY_MIN_HZ_EXT, XR_HAPTIC_PARAMETRIC_FREQUENCY_MAX_HZ_EXT);
+    maxFrequency = CLAMP(maxFrequency, XR_HAPTIC_PARAMETRIC_FREQUENCY_MIN_HZ_EXT, XR_HAPTIC_PARAMETRIC_FREQUENCY_MAX_HZ_EXT);
+  } else {
+    minFrequency = 0.f;
+    maxFrequency = 0.f;
+  }
+
+  for (uint32_t i = 0; i < frequencyCount; i++) {
+    XrDuration time = (XrDuration) (data->frequency[i].time * 1e9 + .5);
+
+    // Timestamps must be sorted.  Not using qsort because it isn't stable
+    uint32_t index = i;
+    while (index > 0 && frequency[index - 1].time > time) {
+      frequency[index] = frequency[index - 1];
+      index--;
+    }
+
+    frequency[index].time = time;
+
+    if (maxFrequency > 0.f) {
+      frequency[index].value = CLAMP((data->frequency[i].value - minFrequency) / (maxFrequency - minFrequency), 0.f, 1.f);
+    } else {
+      frequency[index].value = MAX(data->frequency[i].value, 0.f);
+    }
+  }
+
+  // There needs to be at least 2 amplitude points
+  if (amplitudeCount == 1) {
+    amplitude[1] = amplitude[0];
+    amplitude[0].time = 0; // This could cause both timestamps to be zero, which seems to be allowed
+    amplitudeCount++;
+  }
+
+  // The first amplitude point must be at t=0
+  if (amplitude[0].time > 0) {
+    memmove(&amplitude[1], &amplitude[0], amplitudeCount * sizeof(amplitude[0]));
+    amplitude[0].time = 0;
+    amplitude[0].value = amplitude[1].value;
+    amplitudeCount++;
+  }
+
+  // The first frequency point must be at t=0
+  if (frequencyCount > 0 && frequency[0].time > 0) {
+    memmove(&frequency[1], &frequency[0], frequencyCount * sizeof(frequency[0]));
+    frequency[0].time = 0;
+    frequency[0].value = frequency[1].value;
+    frequencyCount++;
+  }
+
+  // The time of the last frequency point can't be after the last amplitude point
+  if (frequencyCount > 0 && frequency[frequencyCount - 1].time > amplitude[amplitudeCount - 1].time) {
+    amplitude[amplitudeCount - 1].time = frequency[frequencyCount - 1].time;
+  }
+
+  XrHapticParametricVibrationEXT vibration = {
+    .type = XR_TYPE_HAPTIC_PARAMETRIC_VIBRATION_EXT,
+    .amplitudePointCount = amplitudeCount,
+    .frequencyPointCount = frequencyCount,
+    .amplitudePoints = amplitude,
+    .frequencyPoints = frequency,
+    .minFrequencyHz = minFrequency,
+    .maxFrequencyHz = maxFrequency
   };
 
   return XR_SUCCEEDED(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration));
