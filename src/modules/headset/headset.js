@@ -180,6 +180,10 @@ var headset = {
     HEAPF32[height >> 2] = 0;
   },
 
+  lovrHeadsetGetHandPose(side, type, position, orientation) {
+    return false; // TODO
+  },
+
   lovrHeadsetGetPose(device, position, orientation) {
     HEAPF32[(position >> 2) + 0] = state.poses[device].position[0];
     HEAPF32[(position >> 2) + 1] = state.poses[device].position[1];
