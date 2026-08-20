@@ -78,20 +78,34 @@ typedef enum {
 } PassthroughMode;
 
 typedef enum {
+  SIDE_LEFT,
+  SIDE_RIGHT
+} Side;
+
+typedef enum {
+  HAND_GRIP,
+  HAND_POINT,
+  HAND_PINCH,
+  HAND_POKE,
+  HAND_PALM,
+  MAX_HAND_POSES
+} HandPose;
+
+typedef enum {
   DEVICE_HEAD,
   DEVICE_FLOOR,
   DEVICE_HAND_LEFT,
   DEVICE_HAND_RIGHT,
-  DEVICE_HAND_LEFT_GRIP,
-  DEVICE_HAND_RIGHT_GRIP,
-  DEVICE_HAND_LEFT_POINT,
-  DEVICE_HAND_RIGHT_POINT,
-  DEVICE_HAND_LEFT_PINCH,
-  DEVICE_HAND_RIGHT_PINCH,
-  DEVICE_HAND_LEFT_POKE,
-  DEVICE_HAND_RIGHT_POKE,
-  DEVICE_HAND_LEFT_PALM,
-  DEVICE_HAND_RIGHT_PALM,
+  DEVICE_HAND_LEFT_GRIP, // Deprecated
+  DEVICE_HAND_RIGHT_GRIP, // Deprecated
+  DEVICE_HAND_LEFT_POINT, // Deprecated
+  DEVICE_HAND_RIGHT_POINT, // Deprecated
+  DEVICE_HAND_LEFT_PINCH, // Deprecated
+  DEVICE_HAND_RIGHT_PINCH, // Deprecated
+  DEVICE_HAND_LEFT_POKE, // Deprecated
+  DEVICE_HAND_RIGHT_POKE, // Deprecated
+  DEVICE_HAND_LEFT_PALM, // Deprecated
+  DEVICE_HAND_RIGHT_PALM, // Deprecated
   DEVICE_ELBOW_LEFT,
   DEVICE_ELBOW_RIGHT,
   DEVICE_SHOULDER_LEFT,
@@ -210,6 +224,7 @@ bool lovrHeadsetGetViewAngles(uint32_t view, float* left, float* right, float* u
 void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar);
 void lovrHeadsetSetClipDistance(float clipNear, float clipFar);
 void lovrHeadsetGetBoundsDimensions(float* width, float* depth);
+bool lovrHeadsetGetHandPose(Side side, HandPose type, float* position, float* orientation);
 bool lovrHeadsetGetPose(Device device, float* position, float* orientation);
 bool lovrHeadsetGetVelocity(Device device, float* velocity, float* angularVelocity);
 bool lovrHeadsetIsDown(Device device, DeviceButton button, bool* down, bool* changed);

@@ -19,6 +19,7 @@ dev
 - Add `i8`, `i8x2`, `u8`, `u8x2`, `sn8`, `sn8x2`, `un8`, `un8x2`, `sn16`, `un16`, and `f16` `DataType`s.
 - Add `sleep` callback to `World:setCallbacks`.
 - Add `linearDamping` and `angularDamping` settings to `lovr.physics.newWorld`.
+- Add `lovr.headset.getHandPosition/Orientation/Pose`.
 
 ### Change
 
@@ -66,6 +67,7 @@ dev
 - Deprecate `lovr.headset.getTime` (use `lovr.timer.getDisplayTime`).
 - Deprecate `lovr.headset.getDeltaTime` (use `lovr.timer.getDelta`).
 - Deprecate `gpuTime` and `submitTime` fields of `Pass:getStats` (use `lovr.graphics.getTiming`).
+- Deprecate the `grip`, `point`, `pinch`, `poke`, and `palm` hand devices (use `lovr.headset.getHandPose`).
 
 ### Remove
 

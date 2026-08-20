@@ -236,6 +236,7 @@ static struct {
   XrEnvironmentBlendMode blendMode;
   uint32_t blendModeCount;
   XrSpace spaces[MAX_DEVICES];
+  XrSpace handSpaces[2][MAX_HAND_POSES];
   TextureFormat depthFormat;
   Pass* pass;
   Swapchain swapchains[3];
@@ -1104,6 +1105,18 @@ bool lovrHeadsetStart(void) {
 
       XRG(xrCreateActionSpace(state.session, &actionSpaceInfo, &state.spaces[i]), "xrCreateActionSpace", stop);
     }
+
+    // TODO can replace this once deprecated hand pose devices are removed
+    state.handSpaces[SIDE_LEFT][HAND_GRIP] = state.spaces[DEVICE_HAND_LEFT_GRIP];
+    state.handSpaces[SIDE_LEFT][HAND_POINT] = state.spaces[DEVICE_HAND_LEFT_POINT];
+    state.handSpaces[SIDE_LEFT][HAND_PINCH] = state.spaces[DEVICE_HAND_LEFT_PINCH];
+    state.handSpaces[SIDE_LEFT][HAND_POKE] = state.spaces[DEVICE_HAND_LEFT_POKE];
+    state.handSpaces[SIDE_LEFT][HAND_PALM] = state.spaces[DEVICE_HAND_LEFT_PALM];
+    state.handSpaces[SIDE_RIGHT][HAND_GRIP] = state.spaces[DEVICE_HAND_RIGHT_GRIP];
+    state.handSpaces[SIDE_RIGHT][HAND_POINT] = state.spaces[DEVICE_HAND_RIGHT_POINT];
+    state.handSpaces[SIDE_RIGHT][HAND_PINCH] = state.spaces[DEVICE_HAND_RIGHT_PINCH];
+    state.handSpaces[SIDE_RIGHT][HAND_POKE] = state.spaces[DEVICE_HAND_RIGHT_POKE];
+    state.handSpaces[SIDE_RIGHT][HAND_PALM] = state.spaces[DEVICE_HAND_RIGHT_PALM];
   }
 
   // Swapchain
@@ -1817,6 +1830,25 @@ void lovrHeadsetGetBoundsDimensions(float* width, float* depth) {
     *width = 0.f;
     *depth = 0.f;
   }
+}
+
+bool lovrHeadsetGetHandPose(Side side, HandPose type, float* position, float* orientation) {
+  if (!state.session) {
+    Device device = side == SIDE_LEFT ? DEVICE_HAND_LEFT : DEVICE_HAND_RIGHT;
+    vec3_init(position, state.simulator.poses[device] + 0);
+    quat_init(orientation, state.simulator.poses[device] + 3);
+    return type == HAND_GRIP;
+  }
+
+  if (state.frameState.predictedDisplayTime <= 0) {
+    return false;
+  }
+
+  XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
+  xrLocateSpace(state.handSpaces[side][type], state.referenceSpace, state.frameState.predictedDisplayTime, &location);
+  memcpy(orientation, &location.pose.orientation, 4 * sizeof(float));
+  memcpy(position, &location.pose.position, 3 * sizeof(float));
+  return location.locationFlags & (XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
 }
 
 bool lovrHeadsetGetPose(Device device, float* position, float* orientation) {

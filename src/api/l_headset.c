@@ -30,6 +30,21 @@ StringEntry lovrPassthroughMode[] = {
   { 0 }
 };
 
+StringEntry lovrSide[] = {
+  [SIDE_LEFT] = ENTRY("left"),
+  [SIDE_RIGHT] = ENTRY("right"),
+  { 0 }
+};
+
+StringEntry lovrHandPose[] = {
+  [HAND_GRIP] = ENTRY("grip"),
+  [HAND_POINT] = ENTRY("point"),
+  [HAND_PINCH] = ENTRY("pinch"),
+  [HAND_POKE] = ENTRY("poke"),
+  [HAND_PALM] = ENTRY("palm"),
+  { 0 }
+};
+
 StringEntry lovrDevice[] = {
   [DEVICE_HEAD] = ENTRY("head"),
   [DEVICE_FLOOR] = ENTRY("floor"),
@@ -397,6 +412,64 @@ static int l_lovrHeadsetIsTracked(lua_State* L) {
   float position[3], orientation[4];
   lua_pushboolean(L, luax_getpose(L, 1, position, orientation));
   return 1;
+}
+
+static int l_lovrHeadsetGetHandPosition(lua_State* L) {
+  float position[3], orientation[4];
+  Side side = luax_checkenum(L, 1, Side, NULL);
+  HandPose type = luax_checkenum(L, 2, HandPose, "grip");
+  if (lovrHeadsetGetHandPose(side, type, position, orientation)) {
+    lua_pushnumber(L, position[0]);
+    lua_pushnumber(L, position[1]);
+    lua_pushnumber(L, position[2]);
+  } else {
+    lua_pushnumber(L, 0.);
+    lua_pushnumber(L, 0.);
+    lua_pushnumber(L, 0.);
+  }
+  return 3;
+}
+
+static int l_lovrHeadsetGetHandOrientation(lua_State* L) {
+  float position[3], orientation[4];
+  Side side = luax_checkenum(L, 1, Side, NULL);
+  HandPose type = luax_checkenum(L, 2, HandPose, "grip");
+  if (lovrHeadsetGetHandPose(side, type, position, orientation)) {
+    float angle, ax, ay, az;
+    quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+  } else {
+    lua_pushnumber(L, 0.);
+    lua_pushnumber(L, 0.);
+    lua_pushnumber(L, 0.);
+    lua_pushnumber(L, 0.);
+  }
+  return 4;
+}
+
+static int l_lovrHeadsetGetHandPose(lua_State* L) {
+  float position[3], orientation[4];
+  Side side = luax_checkenum(L, 1, Side, NULL);
+  HandPose type = luax_checkenum(L, 2, HandPose, "grip");
+  if (lovrHeadsetGetHandPose(side, type, position, orientation)) {
+    float angle, ax, ay, az;
+    quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+    lua_pushnumber(L, position[0]);
+    lua_pushnumber(L, position[1]);
+    lua_pushnumber(L, position[2]);
+    lua_pushnumber(L, angle);
+    lua_pushnumber(L, ax);
+    lua_pushnumber(L, ay);
+    lua_pushnumber(L, az);
+  } else {
+    for (int i = 0; i < 7; i++) {
+      lua_pushnumber(L, 0.);
+    }
+  }
+  return 7;
 }
 
 static int l_lovrHeadsetGetPose(lua_State* L) {
@@ -1046,6 +1119,9 @@ static const luaL_Reg lovrHeadset[] = {
   { "getBoundsDepth", l_lovrHeadsetGetBoundsDepth },
   { "getBoundsDimensions", l_lovrHeadsetGetBoundsDimensions },
   { "isTracked", l_lovrHeadsetIsTracked },
+  { "getHandPose", l_lovrHeadsetGetHandPose },
+  { "getHandPosition", l_lovrHeadsetGetHandPosition },
+  { "getHandOrientation", l_lovrHeadsetGetHandOrientation },
   { "getPose", l_lovrHeadsetGetPose },
   { "getPosition", l_lovrHeadsetGetPosition },
   { "getOrientation", l_lovrHeadsetGetOrientation },
