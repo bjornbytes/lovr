@@ -6838,7 +6838,6 @@ void lovrPassReset(Pass* pass) {
 
   pass->pipelineIndex = 0;
   memset(pass->pipeline, 0, sizeof(Pipeline));
-  pass->pipeline->faceCull = CULL_AUTO;
   pass->pipeline->mode = DRAW_TRIANGLES;
   pass->pipeline->lastVertexFormat = ~0u;
   pass->pipeline->color[0] = 1.f;
