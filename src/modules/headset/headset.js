@@ -219,7 +219,7 @@ var headset = {
     return false;
   },
 
-  lovrHeadsetGetSkeleton(device, poses, source) {
+  lovrHeadsetGetSkeleton(device, poses, count, source) {
     return false;
   },
 
