@@ -58,6 +58,7 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 #define SESSION_RUNNING(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
 #define MAX_IMAGES 4
 #define MAX_HAND_JOINTS 27
+#define MAX_HAPTIC_STREAMS 8
 
 #define XR_FOREACH(X)\
   X(xrDestroyInstance)\
@@ -144,7 +145,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrDestroyPassthroughLayerFB)\
   X(xrGetPassthroughPreferencesMETA)\
   X(xrGetRecommendedLayerResolutionMETA)\
-  X(xrEnumerateColorSpacesSONY)
+  X(xrEnumerateColorSpacesSONY)\
+  X(xrHapticParametricGetPropertiesEXT)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -215,6 +217,17 @@ typedef struct {
   Pass* pass;
 } Simulator;
 
+typedef struct {
+  XrTime startTime;
+  XrTime lastFlushTime;
+  uint32_t count;
+  XrHapticActionInfo actionInfo;
+  XrHapticParametricStreamFrameTypeEXT mode;
+  XrHapticParametricPropertiesEXT properties;
+  XrHapticParametricPointEXT amplitude[16];
+  XrHapticParametricPointEXT frequency[16];
+} HapticStream;
+
 static atomic_uint ref;
 
 static struct {
@@ -268,6 +281,9 @@ static struct {
   XrPath actionFilters[MAX_DEVICES];
   XrHandTrackerEXT handTrackers[2];
   XrBodyTrackerBD bodyTracker;
+  uint32_t hapticStreamCount;
+  HapticStream hapticStreams[MAX_HAPTIC_STREAMS];
+  uint8_t hapticStreamMap[MAX_DEVICES][MAX_BUTTONS + 1];
   XrRenderModelIdEXT* modelKeys;
   RenderModel* models;
   uint32_t modelCount;
@@ -356,6 +372,7 @@ static bool createReferenceSpace(XrTime time);
 static XrAction getPoseActionForDevice(Device device);
 static XrHandTrackerEXT getHandTracker(Device device);
 static XrBodyTrackerBD getBodyTracker(void);
+static bool flushHapticStream(HapticStream* stream);
 static bool loadControllerModels(void);
 static bool loadVisibilityMask(void);
 
@@ -618,6 +635,7 @@ bool lovrHeadsetConnect(void) {
   XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = { .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB };
   XrSystemUserPresencePropertiesEXT presenceProperties = { .type = XR_TYPE_SYSTEM_USER_PRESENCE_PROPERTIES_EXT };
   XrSystemPassthroughProperties2FB passthroughProperties = { .type = XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB };
+  XrSystemHapticParametricPropertiesEXT hapticParametricProperties = { .type = XR_TYPE_SYSTEM_HAPTIC_PARAMETRIC_PROPERTIES_EXT };
 
   if (state.extensions.gaze) {
     eyeGazeProperties.next = state.systemProperties.next;
@@ -649,6 +667,11 @@ bool lovrHeadsetConnect(void) {
     state.systemProperties.next = &passthroughProperties;
   }
 
+  if (state.extensions.hapticParametric) {
+    hapticParametricProperties.next = state.systemProperties.next;
+    state.systemProperties.next = &hapticParametricProperties;
+  }
+
   XRG(xrGetSystemProperties(state.instance, state.system, &state.systemProperties), "xrGetSystemProperties", fail);
   state.extensions.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
   state.extensions.handTracking = handTrackingProperties.supportsHandTracking;
@@ -656,6 +679,7 @@ bool lovrHeadsetConnect(void) {
   state.extensions.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
   state.extensions.presence = presenceProperties.supportsUserPresence;
   state.extensions.questPassthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
+  state.extensions.hapticParametric = hapticParametricProperties.supportsParametricHaptics;
 
   // View Configuration
 
@@ -1260,6 +1284,10 @@ bool lovrHeadsetStart(void) {
     }
   }
 
+  if (state.extensions.hapticParametric) {
+    memset(state.hapticStreamMap, 0xff, sizeof(state.hapticStreamMap));
+  }
+
   state.showMainLayer = true;
   return true;
 
@@ -1322,6 +1350,8 @@ void lovrHeadsetStop(void) {
   if (state.handTrackers[1]) xrDestroyHandTrackerEXT(state.handTrackers[1]);
 
   if (state.bodyTracker) xrDestroyBodyTrackerBD(state.bodyTracker);
+
+  state.hapticStreamCount = 0;
 
   if (state.passthrough) xrDestroyPassthroughFB(state.passthrough);
   if (state.passthroughLayerHandle) xrDestroyPassthroughLayerFB(state.passthroughLayerHandle);
@@ -1469,6 +1499,12 @@ bool lovrHeadsetUpdate(void) {
   }
 
   if (SESSION_RUNNING(state.sessionState)) {
+    if (state.extensions.hapticParametric) {
+      for (uint32_t i = 0; i < state.hapticStreamCount; i++) {
+        flushHapticStream(&state.hapticStreams[i]);
+      }
+    }
+
     state.lastDisplayTime = state.frameState.predictedDisplayTime;
     XR(xrWaitFrame(state.session, NULL, &state.frameState), "xrWaitFrame");
     state.waited = true;
@@ -2286,27 +2322,105 @@ static uint8_t getVibrateAction(Device device, DeviceButton button) {
   return button < MAX_BUTTONS ? buttonActions[device][button] : deviceActions[device];
 }
 
-bool lovrHeadsetVibrateSimple(Device device, DeviceButton button, float power, float duration, float frequency) {
+bool lovrHeadsetVibrateSimple(Device device, DeviceButton button, float amplitude, float duration, float frequency) {
   uint8_t action = getVibrateAction(device, button);
 
   if (!state.session || !action) {
     return false;
   }
 
-  XrHapticActionInfo info = {
+  XrHapticActionInfo actionInfo = {
     .type = XR_TYPE_HAPTIC_ACTION_INFO,
     .action = state.actions[action],
     .subactionPath = state.actionFilters[device]
   };
 
+  if (duration < 0.f) {
+    if (!state.extensions.hapticParametric) {
+      return false;
+    }
+
+    HapticStream* stream;
+
+    if (state.hapticStreamMap[device][button] == 0xff) {
+      if (state.hapticStreamCount >= MAX_HAPTIC_STREAMS) {
+        return false;
+      }
+
+      stream = &state.hapticStreams[state.hapticStreamCount];
+
+      stream->properties.type = XR_TYPE_HAPTIC_PARAMETRIC_PROPERTIES_EXT;
+      if (XR_FAILED(xrHapticParametricGetPropertiesEXT(state.session, &actionInfo, &stream->properties))) {
+        return false;
+      }
+
+      if (stream->properties.idealFrameSubmissionRate == 0) {
+        stream->properties.idealFrameSubmissionRate = (XrDuration) (.05 * 1e9);
+      }
+
+      if (stream->properties.minimumFirstFrameDuration == 0) {
+        stream->properties.minimumFirstFrameDuration = stream->properties.idealFrameSubmissionRate;
+      }
+
+      if (stream->properties.minFrequencyHz == XR_FREQUENCY_UNSPECIFIED) {
+        stream->properties.minFrequencyHz = XR_HAPTIC_PARAMETRIC_FREQUENCY_MIN_HZ_EXT;
+      }
+
+      if (stream->properties.maxFrequencyHz == XR_FREQUENCY_UNSPECIFIED) {
+        stream->properties.maxFrequencyHz = XR_HAPTIC_PARAMETRIC_FREQUENCY_MAX_HZ_EXT;
+      }
+
+      stream->actionInfo = actionInfo;
+      stream->mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT;
+      stream->count = 0;
+
+      state.hapticStreamMap[device][button] = state.hapticStreamCount++;
+    } else {
+      stream = &state.hapticStreams[state.hapticStreamMap[device][button]];
+    }
+
+    if (stream->mode == XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT) {
+      stream->mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_FIRST_FRAME_EXT;
+      stream->startTime = state.frameState.predictedDisplayTime;
+      stream->lastFlushTime = state.frameState.predictedDisplayTime;
+      stream->count = 0;
+    }
+
+    XrDuration time = state.frameState.predictedDisplayTime - stream->startTime;
+
+    // If the buffer is full, or multiple points are added in a single frame, overwrite the last point
+    stream->count = MIN(stream->count, COUNTOF(stream->amplitude) - 1);
+    if (stream->count > 0 && stream->amplitude[stream->count - 1].time == time) stream->count--;
+
+    if (frequency > 1.f) {
+      frequency = (frequency - stream->properties.minFrequencyHz) / (stream->properties.maxFrequencyHz - stream->properties.minFrequencyHz);
+    }
+
+    stream->amplitude[stream->count].time = time;
+    stream->amplitude[stream->count].value = amplitude;
+    stream->frequency[stream->count].time = time;
+    stream->frequency[stream->count].value = frequency;
+    stream->count++;
+
+    if (stream->count >= COUNTOF(stream->amplitude)) {
+      flushHapticStream(stream);
+    }
+
+    return true;
+  }
+
+  if (state.hapticStreamMap[device][button] != 0xff) {
+    state.hapticStreams[state.hapticStreamMap[device][button]].mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT;
+  }
+
   XrHapticVibration vibration = {
     .type = XR_TYPE_HAPTIC_VIBRATION,
     .duration = (XrDuration) (duration * 1e9f + .5f),
     .frequency = frequency,
-    .amplitude = power
+    .amplitude = amplitude
   };
 
-  return XR_SUCCEEDED(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration));
+  return XR_SUCCEEDED(xrApplyHapticFeedback(state.session, &actionInfo, (XrHapticBaseHeader*) &vibration));
 }
 
 bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration* data) {
@@ -2314,7 +2428,7 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
     return false; // TODO emulate
   }
 
-  uint8_t action = getVibrateAction(device, action);
+  uint8_t action = getVibrateAction(device, button);
 
   if (!state.session || !action || data->amplitudeCount == 0) {
     return false;
@@ -2327,7 +2441,7 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
   };
 
   XrHapticParametricPointEXT amplitude[COUNTOF(data->amplitude) + 1];
-  XrHapticParametricPointEXT frequency[COUNTOF(data->frequency)];
+  XrHapticParametricPointEXT frequency[COUNTOF(data->frequency) + 1];
   uint32_t amplitudeCount = data->amplitudeCount;
   uint32_t frequencyCount = data->frequencyCount;
 
@@ -2345,7 +2459,7 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
     amplitude[index].value = CLAMP(data->amplitude[i].value, 0.f, 1.f);
   }
 
-  float minFrequency = 0.f;
+  float minFrequency = INFINITY;
   float maxFrequency = 0.f;
 
   for (uint32_t i = 0; i < frequencyCount; i++) {
@@ -2375,7 +2489,9 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
 
     frequency[index].time = time;
 
-    if (maxFrequency > 0.f) {
+    if (minFrequency >= maxFrequency) {
+      frequency[index].value = 1.f;
+    } else if (maxFrequency > 0.f) {
       frequency[index].value = CLAMP((data->frequency[i].value - minFrequency) / (maxFrequency - minFrequency), 0.f, 1.f);
     } else {
       frequency[index].value = MAX(data->frequency[i].value, 0.f);
@@ -2410,6 +2526,10 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
     amplitude[amplitudeCount - 1].time = frequency[frequencyCount - 1].time;
   }
 
+  if (state.hapticStreamMap[device][button] != 0xff) {
+    state.hapticStreams[state.hapticStreamMap[device][button]].mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT;
+  }
+
   XrHapticParametricVibrationEXT vibration = {
     .type = XR_TYPE_HAPTIC_PARAMETRIC_VIBRATION_EXT,
     .amplitudePointCount = amplitudeCount,
@@ -2428,6 +2548,10 @@ void lovrHeadsetStopVibration(Device device, DeviceButton button) {
 
   if (!state.session || !action) {
     return;
+  }
+
+  if (state.hapticStreamMap[device][button] != 0xff) {
+    state.hapticStreams[state.hapticStreamMap[device][button]].mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT;
   }
 
   XrHapticActionInfo info = {
@@ -4115,6 +4239,56 @@ static XrHandTrackerEXT getHandTracker(Device device) {
 
 static XrBodyTrackerBD getBodyTracker(void) {
   return state.bodyTracker;
+}
+
+static bool flushHapticStream(HapticStream* stream) {
+  if (stream->count == 0 || stream->mode == XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT) {
+    return false;
+  }
+
+  bool first = stream->mode == XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_FIRST_FRAME_EXT;
+  XrDuration targetLength = first ? stream->properties.minimumFirstFrameDuration : stream->properties.idealFrameSubmissionRate;
+  XrDuration bufferLength = state.frameState.predictedDisplayTime - stream->lastFlushTime;
+
+  // For the start of the stream, we can only flush if the stream length is minimumFirstFrameDuration
+  // Otherwise, we should flush if we've reached idealFrameSubmissionRate, or if the buffer is full
+  if (first && bufferLength < targetLength) {
+    return false;
+  } else if (!first && bufferLength < targetLength && stream->count < COUNTOF(stream->amplitude)) {
+    return false;
+  }
+
+  // The timestamp of the last amplitude point has to be >= targetLength, for the first frame
+  if (first && stream->amplitude[stream->count - 1].time < targetLength) {
+    if (stream->count < COUNTOF(stream->amplitude)) {
+      stream->amplitude[stream->count].time = targetLength;
+      stream->amplitude[stream->count].value = stream->amplitude[stream->count - 1].value;
+      stream->count++;
+    } else {
+      // If the buffer is full, some data was probably lost anyway...sorry
+      stream->amplitude[stream->count - 1].time = targetLength;
+    }
+  }
+
+  XrHapticParametricVibrationEXT vibration = {
+    .type = XR_TYPE_HAPTIC_PARAMETRIC_VIBRATION_EXT,
+    .amplitudePointCount = stream->count,
+    .frequencyPointCount = stream->count,
+    .amplitudePoints = stream->amplitude,
+    .frequencyPoints = stream->frequency,
+    .minFrequencyHz = stream->properties.minFrequencyHz,
+    .maxFrequencyHz = stream->properties.maxFrequencyHz,
+    .streamFrameType = stream->mode
+  };
+
+  if (XR_FAILED(xrApplyHapticFeedback(state.session, &stream->actionInfo, (XrHapticBaseHeader*) &vibration))) {
+    return false;
+  }
+
+  stream->mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_INTERMEDIATE_FRAME_EXT;
+  stream->lastFlushTime = state.frameState.predictedDisplayTime;
+  stream->count = 0;
+  return true;
 }
 
 static bool loadControllerModels(void) {

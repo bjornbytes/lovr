@@ -733,8 +733,8 @@ static void luax_tovibrationdata(lua_State* L, int index, VibrationData* data, u
     for (int i = 0; i < length && i < max; i += 2, ++*count) {
       lua_rawgeti(L, index, i + 1);
       lua_rawgeti(L, index, i + 2);
-      data[*count].time = lua_tonumber(L, -2);
-      data[*count].value = luax_tofloat(L, -1);
+      data[i].time = lua_tonumber(L, -2);
+      data[i].value = luax_tofloat(L, -1);
       lua_pop(L, 2);
     }
   }
