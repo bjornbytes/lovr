@@ -38,6 +38,10 @@ layout(set = 0, binding = 2) uniform DrawBuffer { layout(row_major) Draw Draws[2
 layout(set = 0, binding = 3) uniform sampler Sampler;
 
 struct MaterialData {
+  vec4 color;
+  vec4 glow;
+  vec4 quad;
+  vec2 sdfRange;
   float metalness;
   float roughness;
   float clearcoat;
@@ -45,10 +49,6 @@ struct MaterialData {
   float occlusionStrength;
   float normalScale;
   float alphaCutoff;
-  vec4 color;
-  vec4 glow;
-  vec4 quad;
-  vec2 sdfRange;
 };
 
 layout(set = 1, binding = 0) uniform MaterialBuffer {

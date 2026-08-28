@@ -20,9 +20,9 @@ dev
 - Add `sleep` callback to `World:setCallbacks`.
 - Add `linearDamping` and `angularDamping` settings to `lovr.physics.newWorld`.
 - Add `lovr.headset.getHandPosition/Orientation/Pose`.
-- Add `Material:get/setNumber`, `Material:get/setColor`, and `Material:get/setTexture`.
-- Add `Material:get/setQuad`.
-- Add `Material:is/setDoubleSided`.
+- Add getters and setters for `Material` properties.
+- Add `doubleSided` property to `Material`.
+- Add `Model:setMaterial`.
 
 ### Change
 
@@ -42,6 +42,8 @@ dev
 - Change `lovr.graphics.newBuffer` to accept fields without names.
 - Change `Font:getLines` wrap parameter to default to no wrap limit.
 - Change `lovr.headset.isVisible` to also return whether the main session is visible, for overlays.
+- Change `lovr.graphics.newMaterial` to also take a `Texture` or an `Image`.
+- Change `uvShift` and `uvScale` material properties to be named `quad`.
 
 ### Fix
 

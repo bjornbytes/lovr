@@ -74,6 +74,10 @@ typedef struct {
 } ModelMesh;
 
 typedef struct {
+  float color[4];
+  float glow[4];
+  float quad[4];
+  float sdfRange[2];
   float metalness;
   float roughness;
   float clearcoat;
@@ -81,10 +85,7 @@ typedef struct {
   float occlusionStrength;
   float normalScale;
   float alphaCutoff;
-  float color[4];
-  float glow[4];
-  float quad[4];
-  float sdfRange[2];
+  bool doubleSided;
   uint32_t texture;
   uint32_t glowTexture;
   uint32_t metalnessTexture;
@@ -92,7 +93,6 @@ typedef struct {
   uint32_t clearcoatTexture;
   uint32_t occlusionTexture;
   uint32_t normalTexture;
-  bool doubleSided;
   const char* name;
 } ModelMaterial;
 

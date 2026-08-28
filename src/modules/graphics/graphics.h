@@ -380,23 +380,6 @@ const DataField* lovrShaderGetBufferFormat(Shader* shader, const char* name, uin
 // Material
 
 typedef enum {
-  NUMBER_METALNESS,
-  NUMBER_ROUGHNESS,
-  NUMBER_CLEARCOAT,
-  NUMBER_CLEARCOAT_ROUGHNESS,
-  NUMBER_OCCLUSION_STRENGTH,
-  NUMBER_NORMAL_SCALE,
-  NUMBER_ALPHA_CUTOFF,
-  NUMBER_COUNT
-} MaterialNumber;
-
-typedef enum {
-  COLOR_BASE,
-  COLOR_GLOW,
-  COLOR_COUNT
-} MaterialColor;
-
-typedef enum {
   TEXTURE_COLOR,
   TEXTURE_GLOW,
   TEXTURE_METALNESS,
@@ -404,21 +387,37 @@ typedef enum {
   TEXTURE_CLEARCOAT,
   TEXTURE_OCCLUSION,
   TEXTURE_NORMAL,
-  TEXTURE_COUNT
+  MAX_MATERIAL_TEXTURES
 } MaterialTexture;
 
 Material* lovrMaterialCreate(Texture* texture);
 void lovrMaterialDestroy(void* ref);
-float lovrMaterialGetNumber(Material* material, MaterialNumber key);
-bool lovrMaterialSetNumber(Material* material, MaterialNumber key, float number);
-const float* lovrMaterialGetColor(Material* material, MaterialColor key);
-bool lovrMaterialSetColor(Material* material, MaterialColor key, float color[4]);
-Texture* lovrMaterialGetTexture(Material* material, MaterialTexture key);
-bool lovrMaterialSetTexture(Material* material, MaterialTexture key, Texture* texture);
-void lovrMaterialGetQuad(Material* material, float* ox, float* oy, float* sx, float* sy);
-bool lovrMaterialSetQuad(Material* material, float ox, float oy, float sx, float sy);
+void lovrMaterialGetColor(Material* material, float color[4]);
+bool lovrMaterialSetColor(Material* material, float color[4]);
+void lovrMaterialGetGlow(Material* material, float glow[4]);
+bool lovrMaterialSetGlow(Material* material, float glow[4]);
+void lovrMaterialGetQuad(Material* material, float quad[4]);
+bool lovrMaterialSetQuad(Material* material, float quad[4]);
+void lovrMaterialGetSdfRange(Material* material, float* x, float* y);
+bool lovrMaterialSetSdfRange(Material* material, float x, float y);
+float lovrMaterialGetMetalness(Material* material);
+bool lovrMaterialSetMetalness(Material* material, float metalness);
+float lovrMaterialGetRoughness(Material* material);
+bool lovrMaterialSetRoughness(Material* material, float roughness);
+float lovrMaterialGetClearcoat(Material* material);
+bool lovrMaterialSetClearcoat(Material* material, float clearcoat);
+float lovrMaterialGetClearcoatRoughness(Material* material);
+bool lovrMaterialSetClearcoatRoughness(Material* material, float clearcoatRoughness);
+float lovrMaterialGetOcclusionStrength(Material* material);
+bool lovrMaterialSetOcclusionStrength(Material* material, float occlusionStrength);
+float lovrMaterialGetNormalScale(Material* material);
+bool lovrMaterialSetNormalScale(Material* material, float normalScale);
+float lovrMaterialGetAlphaCutoff(Material* material);
+bool lovrMaterialSetAlphaCutoff(Material* material, float alphaCutoff);
 bool lovrMaterialIsDoubleSided(Material* material);
 void lovrMaterialSetDoubleSided(Material* material, bool doubleSided);
+Texture* lovrMaterialGetTexture(Material* material, MaterialTexture type);
+bool lovrMaterialSetTexture(Material* material, MaterialTexture type, Texture* texture);
 
 // Font
 
@@ -677,8 +676,7 @@ typedef struct {
 typedef enum {
   CULL_NONE,
   CULL_FRONT,
-  CULL_BACK,
-  CULL_AUTO
+  CULL_BACK
 } CullMode;
 
 typedef enum {

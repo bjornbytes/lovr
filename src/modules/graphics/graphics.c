@@ -18,6 +18,7 @@
 #include <math.h>
 #include <threads.h>
 #include <stdatomic.h>
+#include <assert.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -179,14 +180,6 @@ struct Shader {
 };
 
 typedef struct {
-  float numbers[NUMBER_COUNT];
-  float padding;
-  float colors[COLOR_COUNT][4];
-  float quad[4];
-  float sdfRange[2];
-} MaterialData;
-
-typedef struct {
   uint32_t next;
   uint32_t tick;
 } MaterialNode;
@@ -202,18 +195,34 @@ typedef struct {
   gpu_bundle* bundles;
 } MaterialBlock;
 
+typedef struct {
+  float color[4];
+  float glow[4];
+  float quad[4];
+  float sdfRange[2];
+  float metalness;
+  float roughness;
+  float clearcoat;
+  float clearcoatRoughness;
+  float occlusionStrength;
+  float normalScale;
+  float alphaCutoff;
+  bool doubleSided; // Doesn't need to go here, but can hide in padding bytes for now
+} MaterialData;
+
+static_assert(offsetof(MaterialData, alphaCutoff) == offsetof(ModelMaterial, alphaCutoff), "MaterialData != ModelMaterial");
+
 struct Material {
   atomic_uint ref;
   uint32_t index;
   MaterialBlock* block;
-  MaterialData data;
-  bool doubleSided;
-  Texture* textures[TEXTURE_COUNT];
-  gpu_binding bindings[1 + TEXTURE_COUNT];
-  gpu_bundle* bundle;
-  MaterialData* pointer;
-  uint32_t bundleTick;
   uint32_t bufferTick;
+  uint32_t bundleTick;
+  MaterialData data;
+  MaterialData* pointer;
+  gpu_bundle* bundle;
+  gpu_binding bindings[1 + MAX_MATERIAL_TEXTURES];
+  Texture* textures[MAX_MATERIAL_TEXTURES];
 };
 
 typedef struct {
@@ -454,7 +463,6 @@ typedef struct {
 typedef struct {
   bool dirty;
   bool viewCull;
-  CullMode faceCull;
   DrawMode mode;
   float color[4];
   Buffer* lastVertexBuffer;
@@ -3111,10 +3119,7 @@ void lovrTextureSetSampler(Texture* texture, Sampler* sampler) {
 Material* lovrTextureToMaterial(Texture* texture) {
   if (!texture->material) {
     texture->material = lovrMaterialCreate(texture);
-
-    if (!texture->material) {
-      return NULL;
-    }
+    if (!texture->material) return NULL;
 
     // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
     // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
@@ -4221,32 +4226,22 @@ static void lovrMaterialRecycle(Material* material) {
   mtx_unlock(&state.lock);
 }
 
-static bool lovrMaterialUpload(Material* material) {
-  if (material->bufferTick == state.tick) {
-    return true;
+static bool lovrMaterialUpload(Material* material, size_t offset, size_t size) {
+  if (material->bufferTick != state.tick) {
+    mtx_lock(&state.lock);
+    BufferView staging = getBuffer(GPU_BUFFER_STREAM, sizeof(MaterialData), 4);
+    if (!staging.buffer) return mtx_unlock(&state.lock), false;
+    gpu_copy_buffers(state.stream, staging.buffer, material->block->buffer, staging.offset, MATERIAL_STRIDE * material->index, sizeof(MaterialData));
+    state.barrier.prev |= GPU_PHASE_COPY;
+    state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
+    state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
+    state.barrier.clear |= GPU_CACHE_UNIFORM;
+    material->bufferTick = state.tick;
+    material->pointer = staging.pointer;
+    mtx_unlock(&state.lock);
   }
 
-  mtx_lock(&state.lock);
-  BufferView staging = getBuffer(GPU_BUFFER_STREAM, sizeof(MaterialData), 4);
-  if (!staging.buffer) return mtx_unlock(&state.lock), false;
-  gpu_copy_buffers(state.stream, staging.buffer, material->block->buffer, staging.offset, MATERIAL_STRIDE * material->index, sizeof(MaterialData));
-  state.barrier.prev |= GPU_PHASE_COPY;
-  state.barrier.next |= GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
-  state.barrier.flush |= GPU_CACHE_TRANSFER_WRITE;
-  state.barrier.clear |= GPU_CACHE_UNIFORM;
-  material->bufferTick = state.tick;
-  material->pointer = staging.pointer;
-  memcpy(material->pointer->numbers, &material->data.numbers, sizeof(material->data.numbers));
-  for (uint32_t i = 0; i < COLOR_COUNT; i++) {
-    material->pointer->colors[i][0] = lovrMathGammaToLinear(material->data.colors[i][0]);
-    material->pointer->colors[i][1] = lovrMathGammaToLinear(material->data.colors[i][1]);
-    material->pointer->colors[i][2] = lovrMathGammaToLinear(material->data.colors[i][2]);
-    material->pointer->colors[i][3] = material->data.colors[i][3];
-  }
-  memcpy(material->pointer->quad, material->data.quad, sizeof(material->data.quad));
-  memcpy(material->pointer->sdfRange, material->data.sdfRange, sizeof(material->data.sdfRange));
-  mtx_unlock(&state.lock);
-
+  memcpy((char*) material->pointer + offset, (char*) &material->data + offset, size);
   return true;
 }
 
@@ -4255,48 +4250,45 @@ Material* lovrMaterialCreate(Texture* texture) {
   material->ref = 1;
 
   material->data = (MaterialData) {
-    .numbers[NUMBER_OCCLUSION_STRENGTH] = 1.f,
-    .numbers[NUMBER_NORMAL_SCALE] = 1.f,
-    .colors[COLOR_BASE] = { 1.f, 1.f, 1.f, 1.f },
-    .quad = { 0.f, 0.f, 1.f, 1.f }
+    .color = { 1.f, 1.f, 1.f, 1.f },
+    .quad = { 0.f, 0.f, 1.f, 1.f },
+    .metalness = 1.f,
+    .roughness = 1.f,
+    .occlusionStrength = 1.f,
+    .normalScale = 1.f
   };
 
-  for (uint32_t i = 0; i < TEXTURE_COUNT; i++) {
-    Texture* t = state.defaultTexture;
-    material->textures[i] = t;
+  for (uint32_t i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
     material->bindings[i + 1] = (gpu_binding) {
       .number = i + 1,
       .type = GPU_SLOT_SAMPLED_TEXTURE,
-      .texture.object = t->sampleViewFloat
+      .texture.object = state.defaultTexture->sampleViewFloat
     };
-    lovrRetain(t);
   }
 
+  // Setting the texture takes care of allocating the material and writing the bindings, and avoids
+  // writing bindings twice.  But it only works if the texture is non-NULL
   if (texture) {
-    // This will take care of allocating the material and writing all the bindings
     if (!lovrMaterialSetTexture(material, TEXTURE_COLOR, texture)) {
-      lovrFree(material);
-      return NULL;
+      lovrMaterialDestroy(material);
+      return false;
     }
   } else {
     if (!lovrMaterialAllocate(material)) {
-      lovrFree(material);
-      return NULL;
+      return false;
     }
 
-    gpu_bundle_info bundleInfo = {
+    gpu_bundle_write(&material->bundle, &(gpu_bundle_info) {
       .layout = state.materialLayout->gpu,
       .bindings = material->bindings,
       .count = COUNTOF(material->bindings)
-    };
-
-    gpu_bundle_write(&material->bundle, &bundleInfo, 1);
+    }, 1);
   }
 
   if (material->pointer) {
     memcpy(material->pointer, &material->data, sizeof(MaterialData));
   } else {
-    lovrMaterialUpload(material);
+    lovrMaterialUpload(material, 0, sizeof(MaterialData));
   }
 
   return material;
@@ -4305,57 +4297,155 @@ Material* lovrMaterialCreate(Texture* texture) {
 void lovrMaterialDestroy(void* ref) {
   Material* material = ref;
   lovrMaterialRecycle(material);
-  for (uint32_t i = 0; i < TEXTURE_COUNT; i++) {
+  for (uint32_t i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
     lovrRelease(material->textures[i], lovrTextureDestroy);
   }
   lovrFree(material);
 }
 
-float lovrMaterialGetNumber(Material* material, MaterialNumber key) {
-  return material->data.numbers[key];
+void lovrMaterialGetColor(Material* material, float color[4]) {
+  color[0] = lovrMathLinearToGamma(material->data.color[0]);
+  color[1] = lovrMathLinearToGamma(material->data.color[1]);
+  color[2] = lovrMathLinearToGamma(material->data.color[2]);
+  color[3] = material->data.color[3];
 }
 
-bool lovrMaterialSetNumber(Material* material, MaterialNumber key, float number) {
-  if (!lovrMaterialUpload(material)) return false;
-  material->data.numbers[key] = number;
-  material->pointer->numbers[key] = number;
-  return true;
+bool lovrMaterialSetColor(Material* material, float color[4]) {
+  material->data.color[0] = lovrMathGammaToLinear(color[0]);
+  material->data.color[1] = lovrMathGammaToLinear(color[1]);
+  material->data.color[2] = lovrMathGammaToLinear(color[2]);
+  material->data.color[3] = color[3];
+  return lovrMaterialUpload(material, offsetof(MaterialData, color), sizeof(material->data.color));
 }
 
-const float* lovrMaterialGetColor(Material* material, MaterialColor key) {
-  return material->data.colors[key];
+void lovrMaterialGetGlow(Material* material, float glow[4]) {
+  glow[0] = lovrMathLinearToGamma(material->data.glow[0]);
+  glow[1] = lovrMathLinearToGamma(material->data.glow[1]);
+  glow[2] = lovrMathLinearToGamma(material->data.glow[2]);
+  glow[3] = material->data.glow[3];
 }
 
-bool lovrMaterialSetColor(Material* material, MaterialColor key, float color[4]) {
-  if (!lovrMaterialUpload(material)) return false;
-  memcpy(material->data.colors[key], color, 4 * sizeof(float));
-  material->pointer->colors[key][0] = lovrMathGammaToLinear(color[0]);
-  material->pointer->colors[key][1] = lovrMathGammaToLinear(color[1]);
-  material->pointer->colors[key][2] = lovrMathGammaToLinear(color[2]);
-  material->pointer->colors[key][3] = color[3];
-  return true;
+bool lovrMaterialSetGlow(Material* material, float glow[4]) {
+  material->data.glow[0] = lovrMathGammaToLinear(glow[0]);
+  material->data.glow[1] = lovrMathGammaToLinear(glow[1]);
+  material->data.glow[2] = lovrMathGammaToLinear(glow[2]);
+  material->data.glow[3] = glow[3];
+  return lovrMaterialUpload(material, offsetof(MaterialData, glow), sizeof(material->data.glow));
 }
 
-Texture* lovrMaterialGetTexture(Material* material, MaterialTexture key) {
-  return material->textures[key];
+void lovrMaterialGetQuad(Material* material, float quad[4]) {
+  memcpy(quad, material->data.quad, 4 * sizeof(float));
 }
 
-bool lovrMaterialSetTexture(Material* material, MaterialTexture key, Texture* texture) {
-  if (texture == material->textures[key]) return true;
+bool lovrMaterialSetQuad(Material* material, float quad[4]) {
+  memcpy(quad, material->data.quad, 4 * sizeof(float));
+  return lovrMaterialUpload(material, offsetof(MaterialData, quad), sizeof(material->data.quad));
+}
 
-  lovrCheck(key == TEXTURE_COLOR || texture->info.type == TEXTURE_2D, "Material textures must be 2D");
-  lovrCheck(texture->info.samples == 1, "Material textures can not be multisampled");
-  lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to use them in Materials");
+void lovrMaterialGetSdfRange(Material* material, float* x, float* y) {
+  *x = material->data.sdfRange[0];
+  *y = material->data.sdfRange[1];
+}
 
-  lovrRelease(material->textures[key], lovrTextureDestroy);
-  material->textures[key] = texture;
-  material->bindings[key + 1].texture.object = texture->sampleViewFloat;
+bool lovrMaterialSetSdfRange(Material* material, float x, float y) {
+  material->data.sdfRange[0] = x;
+  material->data.sdfRange[1] = y;
+  return lovrMaterialUpload(material, offsetof(MaterialData, sdfRange), sizeof(material->data.sdfRange));
+}
+
+float lovrMaterialGetMetalness(Material* material) {
+  return material->data.metalness;
+}
+
+bool lovrMaterialSetMetalness(Material* material, float metalness) {
+  material->data.metalness = metalness;
+  return lovrMaterialUpload(material, offsetof(MaterialData, metalness), sizeof(material->data.metalness));
+}
+
+float lovrMaterialGetRoughness(Material* material) {
+  return material->data.roughness;
+}
+
+bool lovrMaterialSetRoughness(Material* material, float roughness) {
+  material->data.roughness = roughness;
+  return lovrMaterialUpload(material, offsetof(MaterialData, roughness), sizeof(material->data.roughness));
+}
+
+float lovrMaterialGetClearcoat(Material* material) {
+  return material->data.clearcoat;
+}
+
+bool lovrMaterialSetClearcoat(Material* material, float clearcoat) {
+  material->data.clearcoat = clearcoat;
+  return lovrMaterialUpload(material, offsetof(MaterialData, clearcoat), sizeof(material->data.clearcoat));
+}
+
+float lovrMaterialGetClearcoatRoughness(Material* material) {
+  return material->data.clearcoatRoughness;
+}
+
+bool lovrMaterialSetClearcoatRoughness(Material* material, float clearcoatRoughness) {
+  material->data.clearcoatRoughness = clearcoatRoughness;
+  return lovrMaterialUpload(material, offsetof(MaterialData, clearcoatRoughness), sizeof(material->data.clearcoatRoughness));
+}
+
+float lovrMaterialGetOcclusionStrength(Material* material) {
+  return material->data.occlusionStrength;
+}
+
+bool lovrMaterialSetOcclusionStrength(Material* material, float occlusionStrength) {
+  material->data.occlusionStrength = occlusionStrength;
+  return lovrMaterialUpload(material, offsetof(MaterialData, occlusionStrength), sizeof(material->data.occlusionStrength));
+}
+
+float lovrMaterialGetNormalScale(Material* material) {
+  return material->data.normalScale;
+}
+
+bool lovrMaterialSetNormalScale(Material* material, float normalScale) {
+  material->data.normalScale = normalScale;
+  return lovrMaterialUpload(material, offsetof(MaterialData, normalScale), sizeof(material->data.normalScale));
+}
+
+float lovrMaterialGetAlphaCutoff(Material* material) {
+  return material->data.alphaCutoff;
+}
+
+bool lovrMaterialSetAlphaCutoff(Material* material, float alphaCutoff) {
+  material->data.alphaCutoff = alphaCutoff;
+  return lovrMaterialUpload(material, offsetof(MaterialData, alphaCutoff), sizeof(material->data.alphaCutoff));
+}
+
+bool lovrMaterialIsDoubleSided(Material* material) {
+  return material->data.doubleSided;
+}
+
+void lovrMaterialSetDoubleSided(Material* material, bool doubleSided) {
+  material->data.doubleSided = doubleSided;
+}
+
+Texture* lovrMaterialGetTexture(Material* material, MaterialTexture type) {
+  return material->textures[type];
+}
+
+bool lovrMaterialSetTexture(Material* material, MaterialTexture type, Texture* texture) {
+  if (texture == material->textures[type]) return true;
+
+  if (texture) {
+    lovrCheck(type == TEXTURE_COLOR || texture->info.type == TEXTURE_2D, "Material textures must be 2D");
+    lovrCheck(texture->info.samples == 1, "Material textures can not be multisampled");
+    lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to use them in Materials");
+  }
+
+  lovrRelease(material->textures[type], lovrTextureDestroy);
+  material->textures[type] = texture;
+  material->bindings[type + 1].texture.object = (texture ? texture : state.defaultTexture)->sampleViewFloat;
   lovrRetain(texture);
 
   gpu_bundle_info bundleInfo = { .layout = state.materialLayout->gpu };
 
   if (material->bundleTick == state.tick) {
-    bundleInfo.bindings = &material->bindings[key + 1];
+    bundleInfo.bindings = &material->bindings[type + 1];
     bundleInfo.count = 1;
   } else {
     lovrMaterialRecycle(material);
@@ -4370,43 +4460,6 @@ bool lovrMaterialSetTexture(Material* material, MaterialTexture key, Texture* te
 
   gpu_bundle_write(&material->bundle, &bundleInfo, 1);
 
-  return true;
-}
-
-void lovrMaterialGetQuad(Material* material, float* ox, float* oy, float* sx, float* sy) {
-  *ox = material->data.quad[0];
-  *oy = material->data.quad[1];
-  *sx = material->data.quad[2];
-  *sy = material->data.quad[3];
-}
-
-bool lovrMaterialSetQuad(Material* material, float ox, float oy, float sx, float sy) {
-  if (!lovrMaterialUpload(material)) return false;
-  material->data.quad[0] = ox;
-  material->data.quad[1] = oy;
-  material->data.quad[2] = sx;
-  material->data.quad[3] = sy;
-  material->pointer->quad[0] = ox;
-  material->pointer->quad[1] = oy;
-  material->pointer->quad[2] = sx;
-  material->pointer->quad[3] = sy;
-  return true;
-}
-
-bool lovrMaterialIsDoubleSided(Material* material) {
-  return material->doubleSided;
-}
-
-void lovrMaterialSetDoubleSided(Material* material, bool doubleSided) {
-  material->doubleSided = doubleSided;
-}
-
-static bool lovrMaterialSetSDFRange(Material* material, float x, float y) {
-  if (!lovrMaterialUpload(material)) return false;
-  material->data.sdfRange[0] = x;
-  material->data.sdfRange[1] = y;
-  material->pointer->sdfRange[0] = x;
-  material->pointer->sdfRange[1] = y;
   return true;
 }
 
@@ -4645,7 +4698,7 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
     }
 
     Material* material = lovrMaterialCreate(atlas);
-    lovrMaterialSetSDFRange(material, font->info.spread / newWidth, font->info.spread / newHeight);
+    lovrMaterialSetSdfRange(material, font->info.spread / newWidth, font->info.spread / newHeight);
 
     if (!material) {
       lovrTextureDestroy(atlas);
@@ -5468,17 +5521,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
       model->materials[i] = material;
 
       ModelMaterial* properties = &meta->materials[i];
-      lovrMaterialSetNumber(material, NUMBER_METALNESS, properties->metalness);
-      lovrMaterialSetNumber(material, NUMBER_ROUGHNESS, properties->roughness);
-      lovrMaterialSetNumber(material, NUMBER_CLEARCOAT, properties->clearcoat);
-      lovrMaterialSetNumber(material, NUMBER_CLEARCOAT_ROUGHNESS, properties->clearcoatRoughness);
-      lovrMaterialSetNumber(material, NUMBER_OCCLUSION_STRENGTH, properties->occlusionStrength);
-      lovrMaterialSetNumber(material, NUMBER_NORMAL_SCALE, properties->normalScale);
-      lovrMaterialSetNumber(material, NUMBER_ALPHA_CUTOFF, properties->alphaCutoff);
-      lovrMaterialSetColor(material, COLOR_BASE, properties->color);
-      lovrMaterialSetColor(material, COLOR_GLOW, properties->glow);
-      lovrMaterialSetQuad(material, properties->quad[0], properties->quad[1], properties->quad[2], properties->quad[3]);
-      lovrMaterialSetDoubleSided(material, properties->doubleSided);
+      memcpy(&material->data, properties, sizeof(MaterialData));
+      material->data.doubleSided = properties->doubleSided;
+      lovrMaterialUpload(material, 0, sizeof(MaterialData));
 
       uint32_t textures[] = {
         [TEXTURE_COLOR] = properties->texture,
@@ -7441,11 +7486,8 @@ void lovrPassSetDepthClamp(Pass* pass, bool clamp) {
 }
 
 void lovrPassSetFaceCull(Pass* pass, CullMode mode) {
-  if (mode != CULL_AUTO) {
-    pass->pipeline->dirty |= pass->pipeline->info.rasterizer.cullMode != (gpu_cull_mode) mode;
-    pass->pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
-  }
-  pass->pipeline->faceCull = mode;
+  pass->pipeline->dirty |= pass->pipeline->info.rasterizer.cullMode != (gpu_cull_mode) mode;
+  pass->pipeline->info.rasterizer.cullMode = (gpu_cull_mode) mode;
 }
 
 void lovrPassSetFont(Pass* pass, Font* font) {
@@ -7846,6 +7888,7 @@ bool lovrPassSendData(Pass* pass, const char* name, size_t length, void** data, 
 static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw* prev) {
   Pipeline* pipeline = pass->pipeline;
   Shader* shader = draw->shader;
+  bool disableCulling = false;
 
   if (pipeline->info.drawMode != (gpu_draw_mode) info->mode) {
     pipeline->info.drawMode = (gpu_draw_mode) info->mode;
@@ -7859,10 +7902,9 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
     pipeline->dirty = true;
   }
 
-  if (pipeline->faceCull == CULL_AUTO) {
-    gpu_cull_mode cullMode = draw->material->doubleSided ? GPU_CULL_NONE : GPU_CULL_BACK;
-    pipeline->dirty |= cullMode != pipeline->info.rasterizer.cullMode;
-    pipeline->info.rasterizer.cullMode = cullMode;
+  if (pipeline->info.rasterizer.cullMode != GPU_CULL_NONE && draw->material->data.doubleSided) {
+    if (prev) pipeline->dirty |= !prev->material->data.doubleSided;
+    disableCulling = true;
   }
 
   // Vertex formats
@@ -7930,6 +7972,7 @@ static void lovrPassResolvePipeline(Pass* pass, DrawInfo* info, Draw* draw, Draw
     pipeline->dirty = false;
     draw->pipelineInfo = lovrPassAllocate(pass, sizeof(gpu_pipeline_info));
     memcpy(draw->pipelineInfo, &pipeline->info, sizeof(pipeline->info));
+    if (disableCulling) draw->pipelineInfo->rasterizer.cullMode = GPU_CULL_NONE;
     draw->pipeline = NULL;
   } else {
     draw->pipelineInfo = prev->pipelineInfo;
@@ -9932,16 +9975,9 @@ static void trackTexture(Pass* pass, Texture* texture, gpu_phase phase, gpu_cach
 }
 
 static void trackMaterial(Pass* pass, Material* material) {
-  gpu_phase phase = GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT;
-  gpu_cache cache = GPU_CACHE_TEXTURE;
-
-  trackTexture(pass, material->textures[TEXTURE_COLOR], phase, cache);
-  trackTexture(pass, material->textures[TEXTURE_GLOW], phase, cache);
-  trackTexture(pass, material->textures[TEXTURE_METALNESS], phase, cache);
-  trackTexture(pass, material->textures[TEXTURE_ROUGHNESS], phase, cache);
-  trackTexture(pass, material->textures[TEXTURE_CLEARCOAT], phase, cache);
-  trackTexture(pass, material->textures[TEXTURE_OCCLUSION], phase, cache);
-  trackTexture(pass, material->textures[TEXTURE_NORMAL], phase, cache);
+  for (uint32_t i = 0; i < MAX_MATERIAL_TEXTURES; i++) {
+    trackTexture(pass, material->textures[i], GPU_PHASE_SHADER_VERTEX | GPU_PHASE_SHADER_FRAGMENT, GPU_CACHE_TEXTURE);
+  }
 }
 
 static void trackRaytracer(Pass* pass, Raytracer* raytracer, gpu_phase phase, gpu_cache cache) {
