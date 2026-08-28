@@ -174,7 +174,7 @@ bool lovrHeadsetIsSeated(void);
 bool lovrHeadsetStart(void);
 void lovrHeadsetStop(void);
 bool lovrHeadsetIsActive(void);
-bool lovrHeadsetIsVisible(void);
+bool lovrHeadsetIsVisible(bool* main);
 bool lovrHeadsetIsFocused(void);
 bool lovrHeadsetIsMounted(void);
 bool lovrHeadsetPollEvents(void);

@@ -278,6 +278,7 @@ static struct {
   XrPassthroughLayerFB passthroughLayerHandle;
   bool passthroughActive;
   bool mounted;
+  bool mainSessionVisible;
   XrDebugUtilsMessengerEXT messenger;
   struct {
     bool battery;
@@ -1341,7 +1342,8 @@ bool lovrHeadsetIsActive(void) {
   return state.session;
 }
 
-bool lovrHeadsetIsVisible(void) {
+bool lovrHeadsetIsVisible(bool* main) {
+  *main = state.mainSessionVisible;
   return state.sessionState >= XR_SESSION_STATE_VISIBLE;
 }
 
@@ -1405,6 +1407,11 @@ bool lovrHeadsetPollEvents(void) {
         }
 
         state.sessionState = event->state;
+        break;
+      }
+      case XR_TYPE_EVENT_DATA_MAIN_SESSION_VISIBILITY_CHANGED_EXTX: {
+        XrEventDataMainSessionVisibilityChangedEXTX* event = (XrEventDataMainSessionVisibilityChangedEXTX*) &e;
+        state.mainSessionVisible = event->visible;
         break;
       }
       case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING: {

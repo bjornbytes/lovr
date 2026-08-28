@@ -38,6 +38,7 @@ dev
 - Change `World:overlapShape` to return the closest result when no callback is given.
 - Change `lovr.graphics.newBuffer` to accept fields without names.
 - Change `Font:getLines` wrap parameter to default to no wrap limit.
+- Change `lovr.headset.isVisible` to also return whether the main session is visible, for overlays.
 
 ### Fix
 

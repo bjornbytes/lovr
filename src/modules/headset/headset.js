@@ -78,7 +78,7 @@ var headset = {
     return false;
   },
 
-  lovrHeadsetIsVisible() {
+  lovrHeadsetIsVisible(main) {
     return false;
   },
 

@@ -183,8 +183,11 @@ static int l_lovrHeadsetIsActive(lua_State* L) {
 }
 
 static int l_lovrHeadsetIsVisible(lua_State* L) {
-  lua_pushboolean(L, lovrHeadsetIsVisible());
-  return 1;
+  bool main;
+  bool visible = lovrHeadsetIsVisible(&main);
+  lua_pushboolean(L, visible);
+  lua_pushboolean(L, main);
+  return 2;
 }
 
 static int l_lovrHeadsetIsFocused(lua_State* L) {
