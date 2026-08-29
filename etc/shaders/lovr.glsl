@@ -40,8 +40,7 @@ layout(set = 0, binding = 3) uniform sampler Sampler;
 struct MaterialData {
   vec4 color;
   vec4 glow;
-  vec2 uvShift;
-  vec2 uvScale;
+  vec4 quad;
   vec2 sdfRange;
   float metalness;
   float roughness;
@@ -558,8 +557,8 @@ void main() {
 #endif
 
   if (flag_uvTransform) {
-    UV *= Material.uvScale;
-    UV += Material.uvShift;
+    UV *= Material.quad.zw;
+    UV += Material.quad.xy;
   }
 }
 #endif

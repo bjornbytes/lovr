@@ -602,19 +602,32 @@ static int l_lovrModelDataGetMaterial(lua_State* L) {
   lua_rawseti(L, -2, 4);
   lua_setfield(L, -2, "glow");
 
+  // Deprecated
   lua_createtable(L, 2, 0);
-  lua_pushnumber(L, material->uvShift[0]);
+  lua_pushnumber(L, material->quad[0]);
   lua_rawseti(L, -2, 1);
-  lua_pushnumber(L, material->uvShift[1]);
+  lua_pushnumber(L, material->quad[1]);
   lua_rawseti(L, -2, 2);
   lua_setfield(L, -2, "uvShift");
 
+  // Deprecated
   lua_createtable(L, 2, 0);
-  lua_pushnumber(L, material->uvScale[0]);
+  lua_pushnumber(L, material->quad[2]);
   lua_rawseti(L, -2, 1);
-  lua_pushnumber(L, material->uvScale[1]);
+  lua_pushnumber(L, material->quad[3]);
   lua_rawseti(L, -2, 2);
   lua_setfield(L, -2, "uvScale");
+
+  lua_createtable(L, 4, 0);
+  lua_pushnumber(L, material->quad[0]);
+  lua_rawseti(L, -2, 1);
+  lua_pushnumber(L, material->quad[1]);
+  lua_rawseti(L, -2, 2);
+  lua_pushnumber(L, material->quad[2]);
+  lua_rawseti(L, -2, 3);
+  lua_pushnumber(L, material->quad[3]);
+  lua_rawseti(L, -2, 4);
+  lua_setfield(L, -2, "quad");
 
   lua_pushnumber(L, material->metalness), lua_setfield(L, -2, "metalness");
   lua_pushnumber(L, material->roughness), lua_setfield(L, -2, "roughness");
@@ -632,6 +645,8 @@ static int l_lovrModelDataGetMaterial(lua_State* L) {
   PUSH_IMAGE(clearcoatTexture);
   PUSH_IMAGE(occlusionTexture);
   PUSH_IMAGE(normalTexture);
+
+  lua_pushboolean(L, material->doubleSided), lua_setfield(L, -2, "doubleSided");
 
   return 1;
 }

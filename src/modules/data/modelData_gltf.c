@@ -179,12 +179,12 @@ static jsmntok_t* nomTexture(const char* json, jsmntok_t* token, ModelMaterial* 
             gltfString key = NOM_STR(json, token);
             if (STR_EQ(key, "offset")) {
               token++; // Enter array
-              material->uvShift[0] = NOM_FLOAT(json, token);
-              material->uvShift[1] = NOM_FLOAT(json, token);
+              material->quad[0] = NOM_FLOAT(json, token);
+              material->quad[1] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "scale")) {
               token++; // Enter array
-              material->uvScale[0] = NOM_FLOAT(json, token);
-              material->uvScale[1] = NOM_FLOAT(json, token);
+              material->quad[2] = NOM_FLOAT(json, token);
+              material->quad[3] = NOM_FLOAT(json, token);
             } else {
               token = NOM(token);
             }
@@ -1049,6 +1049,8 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
           material->glow[2] = NOM_FLOAT(json, token);
         } else if (STR_EQ(key, "alphaCutoff")) {
           material->alphaCutoff = NOM_FLOAT(json, token);
+        } else if (STR_EQ(key, "doubleSided")) {
+          material->doubleSided = NOM_BOOL(json, token);
         } else if (STR_EQ(key, "name")) {
           gltfString name = NOM_STR(json, token);
           meta->materialLookup[material - meta->materials] = (uint32_t) hash64(name.data, name.length);

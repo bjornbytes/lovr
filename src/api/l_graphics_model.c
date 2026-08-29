@@ -247,10 +247,18 @@ static int l_lovrModelGetTexture(lua_State* L) {
 static int l_lovrModelGetMaterial(lua_State* L) {
   Model* model = luax_checktype(L, 1, Model);
   uint32_t index = luax_checkmaterialindex(L, 2, lovrModelGetMetadata(model));
-  Material* material = lovrModelGetMaterial(model, index);
-  luax_assert(L, material);
+  Material* material;
+  luax_assert(L, lovrModelGetMaterial(model, index, &material));
   luax_pushtype(L, Material, material);
   return 1;
+}
+
+static int l_lovrModelSetMaterial(lua_State* L) {
+  Model* model = luax_checktype(L, 1, Model);
+  uint32_t index = luax_checkmaterialindex(L, 2, lovrModelGetMetadata(model));
+  Material* material = luax_optmaterial(L, 3);
+  luax_assert(L, lovrModelSetMaterial(model, index, material));
+  return 0;
 }
 
 static int l_lovrModelBuildRaytracer(lua_State* L) {
@@ -402,6 +410,7 @@ const luaL_Reg lovrModel[] = {
   { "getMaterialCount", l_lovrModelMetaGetMaterialCount },
   { "getMaterialName", l_lovrModelMetaGetMaterialName },
   { "getMaterial", l_lovrModelGetMaterial },
+  { "setMaterial", l_lovrModelSetMaterial },
 
   { "buildRaytracer", l_lovrModelBuildRaytracer },
 

@@ -379,35 +379,45 @@ const DataField* lovrShaderGetBufferFormat(Shader* shader, const char* name, uin
 
 // Material
 
-typedef struct {
-  float color[4];
-  float glow[4];
-  float uvShift[2];
-  float uvScale[2];
-  float sdfRange[2];
-  float metalness;
-  float roughness;
-  float clearcoat;
-  float clearcoatRoughness;
-  float occlusionStrength;
-  float normalScale;
-  float alphaCutoff;
-} MaterialData;
+typedef enum {
+  TEXTURE_COLOR,
+  TEXTURE_GLOW,
+  TEXTURE_METALNESS,
+  TEXTURE_ROUGHNESS,
+  TEXTURE_CLEARCOAT,
+  TEXTURE_OCCLUSION,
+  TEXTURE_NORMAL,
+  MAX_MATERIAL_TEXTURES
+} MaterialTexture;
 
-typedef struct {
-  MaterialData data;
-  Texture* texture;
-  Texture* glowTexture;
-  Texture* metalnessTexture;
-  Texture* roughnessTexture;
-  Texture* clearcoatTexture;
-  Texture* occlusionTexture;
-  Texture* normalTexture;
-} MaterialInfo;
-
-Material* lovrMaterialCreate(const MaterialInfo* info);
+Material* lovrMaterialCreate(Texture* texture);
 void lovrMaterialDestroy(void* ref);
-const MaterialInfo* lovrMaterialGetInfo(Material* material);
+void lovrMaterialGetColor(Material* material, float color[4]);
+bool lovrMaterialSetColor(Material* material, float color[4]);
+void lovrMaterialGetGlow(Material* material, float glow[4]);
+bool lovrMaterialSetGlow(Material* material, float glow[4]);
+void lovrMaterialGetQuad(Material* material, float quad[4]);
+bool lovrMaterialSetQuad(Material* material, float quad[4]);
+void lovrMaterialGetSdfRange(Material* material, float* x, float* y);
+bool lovrMaterialSetSdfRange(Material* material, float x, float y);
+float lovrMaterialGetMetalness(Material* material);
+bool lovrMaterialSetMetalness(Material* material, float metalness);
+float lovrMaterialGetRoughness(Material* material);
+bool lovrMaterialSetRoughness(Material* material, float roughness);
+float lovrMaterialGetClearcoat(Material* material);
+bool lovrMaterialSetClearcoat(Material* material, float clearcoat);
+float lovrMaterialGetClearcoatRoughness(Material* material);
+bool lovrMaterialSetClearcoatRoughness(Material* material, float clearcoatRoughness);
+float lovrMaterialGetOcclusionStrength(Material* material);
+bool lovrMaterialSetOcclusionStrength(Material* material, float occlusionStrength);
+float lovrMaterialGetNormalScale(Material* material);
+bool lovrMaterialSetNormalScale(Material* material, float normalScale);
+float lovrMaterialGetAlphaCutoff(Material* material);
+bool lovrMaterialSetAlphaCutoff(Material* material, float alphaCutoff);
+bool lovrMaterialIsDoubleSided(Material* material);
+void lovrMaterialSetDoubleSided(Material* material, bool doubleSided);
+Texture* lovrMaterialGetTexture(Material* material, MaterialTexture type);
+bool lovrMaterialSetTexture(Material* material, MaterialTexture type, Texture* texture);
 
 // Font
 
@@ -536,7 +546,8 @@ Buffer* lovrModelGetVertexBuffer(Model* model);
 Buffer* lovrModelGetIndexBuffer(Model* model);
 Mesh* lovrModelGetMesh(Model* model, uint32_t index);
 Texture* lovrModelGetTexture(Model* model, uint32_t index);
-Material* lovrModelGetMaterial(Model* model, uint32_t index);
+bool lovrModelGetMaterial(Model* model, uint32_t index, Material** material);
+bool lovrModelSetMaterial(Model* model, uint32_t index, Material* material);
 bool lovrModelBuildRaytracer(Model* model);
 
 // Raytracer

@@ -51,6 +51,7 @@ extern StringEntry lovrHorizontalAlign[];
 extern StringEntry lovrJointType[];
 extern StringEntry lovrKeyboardKey[];
 extern StringEntry lovrLayerType[];
+extern StringEntry lovrMaterialTexture[];
 extern StringEntry lovrMeshStorage[];
 extern StringEntry lovrModelDrawMode[];
 extern StringEntry lovrMotorMode[];
