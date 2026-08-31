@@ -4858,6 +4858,50 @@ float lovrFontGetWidth(Font* font, ColoredString* strings, uint32_t count) {
   return MAX(maxWidth, x) / font->pixelDensity;
 }
 
+static int isCodepointCJK(uint32_t cp) {
+  // There are many classes of characters, many classes are consecutive, which are merged (godbolt suggested that
+  // the compiler might not do this).  Also merged small gaps containing characters unlikely to
+  // form Latin style words.
+  return cp >= 0x01100 && (
+      (cp <= 0x011FF) ||
+      (cp >= 0x02E80 && cp <= 0x0A4CF) ||  // Gap between these are Lisu characters with specific wrapping rules
+      (cp >= 0x0AC00 && cp <= 0x0D7AF) ||  // Gap contains a block of user definable codepoints
+      (cp >= 0x0F900 && cp <= 0x0FAFF) ||  // Gap contains Latin/Arabic ligatures, followed by (fullwidth) punctuation
+      (cp >= 0x0FF00 && cp <= 0x0FFEF) ||  // Gap is big
+      (cp >= 0x1F200 && cp <= 0x1F2FF) ||  // Gap contains emoji and ?
+      (cp >= 0x20000 && cp <= 0x2FFFF));
+}
+
+// Characters that must NOT begin a line (closing brackets, punctuation)
+static int isNoBreakBefore(uint32_t cp) {
+  // This is likely not exhaustive
+  switch (cp) {
+    case 0x3001: case 0x3002: // 、 。
+    case 0xFF0C: case 0xFF0E: // ，．
+    case 0xFF01: case 0xFF1F: // ！？
+    case 0xFF1A: case 0xFF1B: // ：；
+    case 0x2019: case 0x201D: // ' "
+    case 0x3009: case 0x300B: case 0x300D: case 0x300F: // 〉》」』
+    case 0x3011: case 0xFF09: case 0xFF3D: case 0xFF5D:  // 】）］｝
+    case 0x30FB: case 0x30FC: case 0x3005: // ・ ー 々
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+// Characters that must NOT end a line (opening brackets)
+static int isNoBreakAfter(uint32_t cp) {
+  switch (cp) {
+    case 0x2018: case 0x201C: // ' "
+    case 0x3008: case 0x300A: case 0x300C: case 0x300E: // 〈《「『
+    case 0x3010: case 0xFF08: case 0xFF3B: case 0xFF5B:  // 【（［｛
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float wrap, void (*callback)(void* context, const char* string, size_t length), void* context) {
   if (count == 0) return;
 
@@ -4882,6 +4926,8 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
   size_t bytes;
   uint32_t codepoint;
   uint32_t previous = '\0';
+  int suppressKerning = true;
+  int previousIsCJK = 0;
   const char* lineStart = string;
   const char* wordStart = string;
   const char* end = string + totalLength;
@@ -4890,7 +4936,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
     if (codepoint == ' ' || codepoint == '\t') {
       x += codepoint == '\t' ? space * 4.f : space;
       nextWordStartX = x;
-      previous = '\0';
+      suppressKerning = true;
       string += bytes;
       wordStart = string;
       continue;
@@ -4900,7 +4946,7 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
       callback(context, lineStart, length);
       nextWordStartX = 0.f;
       x = 0.f;
-      previous = '\0';
+      suppressKerning = true;
       string += bytes;
       lineStart = string;
       wordStart = string;
@@ -4910,21 +4956,33 @@ void lovrFontGetLines(Font* font, ColoredString* strings, uint32_t count, float 
       continue;
     }
 
+    // CJK symbols break words
+    int isCJK = isCodepointCJK(codepoint);
+    if (isCJK || previousIsCJK) {
+      int breakSuppressed = isNoBreakBefore(codepoint) || isNoBreakAfter(previous);
+      if (!breakSuppressed) {
+        nextWordStartX = x;
+        wordStart = string;
+      }
+    }
+    previousIsCJK = isCJK;
+
     float advance = lovrRasterizerGetAdvance(font->info.rasterizer, codepoint);
 
     // Keming
-    if (previous) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
+    if (!suppressKerning) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
     previous = codepoint;
+    suppressKerning = false;
 
     // Wrap
-    if (wrap >= 0.f && wordStart != lineStart && x + advance > wrap) {
+    if (wrap > 0.f && wordStart != lineStart && x + advance > wrap) {
       size_t length = wordStart - lineStart;
       while (length > 0 && (lineStart[length - 1] == ' ' || lineStart[length - 1] == '\t')) length--;
       callback(context, lineStart, length);
       lineStart = wordStart;
       x -= nextWordStartX;
       nextWordStartX = 0.f;
-      previous = '\0';
+      suppressKerning = true;
     }
 
     // Advance
@@ -4954,6 +5012,8 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
   uint32_t lineStart = 0;
   uint32_t wordStart = 0;
   uint32_t previous = '\0';
+  int previousIsCJK = 0;
+  int suppressKerning = true;
   uint32_t codepoint;
   *glyphCount = 0;
   *lineCount = 1;
@@ -4979,11 +5039,11 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
 
     while ((bytes = utf8_decode(str, end, &codepoint)) > 0) {
       if (codepoint == ' ' || codepoint == '\t') {
-        if (previous) prevWordEndX = x;
+        if (!suppressKerning) prevWordEndX = x;
         wordStart = vertexCount;
         x += codepoint == '\t' ? space * 4.f : space;
         wordStartX = x;
-        previous = '\0';
+        suppressKerning = true;
         str += bytes;
         continue;
       } else if (codepoint == '\n') {
@@ -4995,7 +5055,7 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
         wordStartX = 0.f;
         prevWordEndX = 0.f;
         (*lineCount)++;
-        previous = '\0';
+        suppressKerning = true;
         str += bytes;
         continue;
       } else if (codepoint == '\r') {
@@ -5014,9 +5074,22 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
         return lovrFontGetVertices(font, strings, count, wrap, halign, valign, vertices, glyphCount, lineCount, material, flip);
       }
 
+      // CJK symbols break words
+      int isCJK = isCodepointCJK(codepoint);
+      if (isCJK || previousIsCJK) {
+        int breakSuppressed = isNoBreakBefore(codepoint) || isNoBreakAfter(previous);
+        if (!breakSuppressed) {
+          prevWordEndX = x;
+          wordStartX = x;
+          wordStart = vertexCount;
+        }
+      }
+      previousIsCJK = isCJK;
+
       // Keming
-      if (previous) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
+      if (!suppressKerning) x += lovrRasterizerGetKerning(font->info.rasterizer, previous, codepoint);
       previous = codepoint;
+      suppressKerning = false;
 
       // Wrap
       if (wrap > 0.f && x + glyph->advance > wrap && wordStart != lineStart) {
@@ -5032,6 +5105,7 @@ bool lovrFontGetVertices(Font* font, ColoredString* strings, uint32_t count, flo
         aline(vertices, lineStart, wordStart, prevWordEndX, halign);
         lineStart = wordStart;
         wordStartX = 0.f;
+        suppressKerning = true;
         (*lineCount)++;
         x -= dx;
         y -= dy;
