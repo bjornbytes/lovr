@@ -4338,7 +4338,7 @@ void lovrMaterialGetQuad(Material* material, float quad[4]) {
 }
 
 bool lovrMaterialSetQuad(Material* material, float quad[4]) {
-  memcpy(quad, material->data.quad, 4 * sizeof(float));
+  memcpy(material->data.quad, quad, 4 * sizeof(float));
   return lovrMaterialUpload(material, offsetof(MaterialData, quad), sizeof(material->data.quad));
 }
 
