@@ -121,6 +121,7 @@ endif()
 # Lua
 if(LOVR_USE_LUAU)
   set(LOVR_ENABLE_UTF8 OFF)
+  set(LUAU_BUILD_SHARED ON)
   set(LUAU_BUILD_TESTS OFF CACHE BOOL "")
   set(LUAU_BUILD_CLI OFF CACHE BOOL "")
   set(LUAU_EXTERN_C ON CACHE BOOL "")
@@ -138,7 +139,7 @@ if(LOVR_USE_LUAU)
     Luau.Require
     PROPERTIES EXCLUDE_FROM_ALL 1
   )
-  set(LOVR_LUA Luau.VM Luau.Compiler Luau.Ast)
+  set(LOVR_LUA Luau.VM Luau.Compiler Luau.Ast Luau.Common)
   set_target_properties(${LOVR_LUA} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 elseif(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
   if(LOVR_SYSTEM_LUA)
@@ -716,17 +717,19 @@ if(WIN32)
   target_compile_definitions(lovr PRIVATE _CRT_NONSTDC_NO_WARNINGS)
 
   function(move_dll)
-    if(TARGET ${ARGV0})
-      add_custom_command(TARGET move_files POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        $<TARGET_FILE:${ARGV0}>
-        $<TARGET_FILE_DIR:lovr>/$<TARGET_FILE_NAME:${ARGV0}>
-      )
-    endif()
+    foreach(LIB IN ITEMS ${ARGV0})
+      if(TARGET ${LIB})
+        add_custom_command(TARGET move_files POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_FILE:${LIB}>
+          $<TARGET_FILE_DIR:lovr>/$<TARGET_FILE_NAME:${LIB}>
+        )
+      endif()
+    endforeach()
   endfunction()
 
   move_dll(${LOVR_GLFW})
-  move_dll(${LOVR_LUA})
+  move_dll("${LOVR_LUA}") # Luau version multiple ddls
   move_dll(${LOVR_MSDF})
   move_dll(${LOVR_JOLT})
   move_dll(${LOVR_GLSLANG})
@@ -761,25 +764,27 @@ elseif(APPLE)
     set_target_properties(lovr PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
   endif()
   function(move_lib)
-    if(TARGET ${ARGV0})
-      get_target_property(TARGET_TYPE ${ARGV0} TYPE)
-      if(${TARGET_TYPE} STREQUAL "SHARED_LIBRARY")
-        add_custom_command(TARGET move_files POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E copy
-          $<TARGET_SONAME_FILE:${ARGV0}>
-          ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${ARGV0}>
-        )
-      else()
-        add_custom_command(TARGET move_files POST_BUILD
-          COMMAND ${CMAKE_COMMAND} -E copy
-          $<TARGET_FILE:${ARGV0}>
-          ${EXE_DIR}/$<TARGET_FILE_NAME:${ARGV0}>
-        )
+    foreach(LIB IN ITEMS ${ARGV0})
+      if(TARGET ${LIB})
+        get_target_property(TARGET_TYPE ${LIB} TYPE)
+        if(${TARGET_TYPE} STREQUAL "SHARED_LIBRARY")
+          add_custom_command(TARGET move_files POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_SONAME_FILE:${LIB}>
+            ${EXE_DIR}/$<TARGET_SONAME_FILE_NAME:${LIB}>
+          )
+        else()
+          add_custom_command(TARGET move_files POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:${LIB}>
+            ${EXE_DIR}/$<TARGET_FILE_NAME:${LIB}>
+          )
+        endif()
       endif()
-    endif()
+    endforeach()
   endfunction()
   move_lib(${LOVR_GLFW})
-  move_lib(${LOVR_LUA})
+  move_lib("${LOVR_LUA}") # Luau version contains multiple libraries
   move_lib(${LOVR_MSDF})
   move_lib(${LOVR_JOLT})
   move_lib(${LOVR_GLSLANG})
