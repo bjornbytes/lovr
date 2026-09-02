@@ -4238,11 +4238,13 @@ static bool lovrMaterialUpload(Material* material, size_t offset, size_t size) {
     state.barrier.clear |= GPU_CACHE_UNIFORM;
     material->bufferTick = state.tick;
     material->pointer = staging.pointer;
+    memcpy(material->pointer, &material->data, sizeof(MaterialData));
     mtx_unlock(&state.lock);
+    return true;
+  } else {
+    memcpy((char*) material->pointer + offset, (char*) &material->data + offset, size);
+    return true;
   }
-
-  memcpy((char*) material->pointer + offset, (char*) &material->data + offset, size);
-  return true;
 }
 
 Material* lovrMaterialCreate(Texture* texture) {
