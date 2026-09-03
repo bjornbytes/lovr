@@ -1,4 +1,5 @@
 #include "event/event.h"
+#include "headset/headset.h"
 #include "thread/thread.h"
 #include "util.h"
 #include <threads.h>
@@ -28,6 +29,9 @@ void lovrEventDestroy(void) {
   for (size_t i = state.head; i < state.events.length; i++) {
     Event* event = &state.events.data[i];
     switch (event->type) {
+      case EVENT_VISIBLE: lovrRelease(event->data.visible.window, lovrWindowDestroy); break;
+      case EVENT_FOCUS: lovrRelease(event->data.focus.window, lovrWindowDestroy); break;
+      case EVENT_RESIZE: lovrRelease(event->data.resize.window, lovrWindowDestroy); break;
 #ifndef LOVR_DISABLE_THREAD
       case EVENT_THREAD_ERROR: lovrRelease(event->data.thread.thread, lovrThreadDestroy); break;
 #endif
