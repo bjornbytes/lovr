@@ -22,6 +22,7 @@ dev
 - Fix distorted audio when 2 sources share an MP3 sound.
 - Fix `Model:get/setBlendShapeWeight` not affecting the correct blend shape.
 - Fix `Pass:drawPart` when view culling is enabled.
+- Fix `Blob:set*` methods to correctly return zero values.
 
 v0.19.0 - 2026-06-07
 ---
