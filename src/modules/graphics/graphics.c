@@ -9247,11 +9247,20 @@ bool lovrPassDrawPart(Pass* pass, Model* model, uint32_t meshIndex, uint32_t par
   for (uint32_t i = 0; i < partCount; i++) {
     ModelPart* part = &mesh->parts[partIndex + i];
 
+    float bounds[6] = {
+      (part->bounds[0] + part->bounds[1]) / 2.f,
+      (part->bounds[2] + part->bounds[3]) / 2.f,
+      (part->bounds[4] + part->bounds[5]) / 2.f,
+      (part->bounds[1] - part->bounds[0]) / 2.f,
+      (part->bounds[3] - part->bounds[2]) / 2.f,
+      (part->bounds[5] - part->bounds[4]) / 2.f
+    };
+
     DrawInfo draw = {
       .mode = part->mode == DRAW_POINT_LIST ? DRAW_POINTS : part->mode == DRAW_LINE_LIST ? DRAW_LINES : DRAW_TRIANGLES,
       .material = part->material != ~0u ? model->materials[part->material] : NULL,
       .transform = transform, // TODO fix skinned mesh transforms?
-      .bounds = part->bounds,
+      .bounds = bounds,
       .vertex.buffer = model->vertexBuffer,
       .index.buffer = mesh->indexCount > 0 ? model->indexBuffer : NULL,
       .start = (mesh->indexCount > 0 ? mesh->indexOffset : mesh->vertexOffset) + part->start,

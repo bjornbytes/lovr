@@ -81,7 +81,7 @@ static int l_lovrBlobGetF64(lua_State* L) { l_lovrBlobGet(L, double); }
       memcpy((char*)blob->data + offset + i * sizeof(T), &value, sizeof(T));\
     }\
   }\
-  return count;
+  return 0;
 
 static int l_lovrBlobSetI8(lua_State* L) { l_lovrBlobSet(L, int8_t); }
 static int l_lovrBlobSetU8(lua_State* L) { l_lovrBlobSet(L, uint8_t); }

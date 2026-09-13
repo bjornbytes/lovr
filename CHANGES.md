@@ -70,7 +70,9 @@ dev
 - Fix issue with `Font:getLines` not removing trailing whitespace properly.
 - Fix issue where `normalScale` and `occlusionStrength` weren't getting imported from glTF models.
 - Fix distorted audio when 2 sources share an MP3 sound.
-- Fix Model:get/setBlendShapeWeight not affecting the correct blend shape.
+- Fix `Model:get/setBlendShapeWeight` not affecting the correct blend shape.
+- Fix `Pass:drawPart` when view culling is enabled.
+- Fix `Blob:set*` methods to correctly return zero values.
 
 ### Deprecate
 
