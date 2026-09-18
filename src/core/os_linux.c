@@ -49,8 +49,8 @@ static struct {
   uint32_t height;
   bool keyDown[OS_KEY_COUNT];
   os_mouse_mode mouseMode;
-  int16_t mouseX;
-  int16_t mouseY;
+  double mouseX;
+  double mouseY;
   int16_t grabX;
   int16_t grabY;
   bool visible;
@@ -329,13 +329,17 @@ void os_poll_events(double timeout) {
 
       case XCB_MOTION_NOTIFY:
         if (state.mouseMode == OS_MOUSE_RELATIVE) break;
-        if (state.mouseX == event.motion->event_x && state.mouseY == event.motion->event_y) break;
 
-        state.mouseX = event.motion->event_x;
-        state.mouseY = event.motion->event_y;
+        double x = (double) event.motion->event_x;
+        double y = (double) event.motion->event_y;
 
-        if (state.onMouseMove) {
-          state.onMouseMove(state.mouseX, state.mouseY);
+        if (state.mouseX != x || state.mouseY != y) {
+          state.mouseX = x;
+          state.mouseY = y;
+
+          if (state.onMouseMove) {
+            state.onMouseMove(x, y);
+          }
         }
         break;
 
@@ -345,8 +349,8 @@ void os_poll_events(double timeout) {
 
           if (state.onMouseMove && (mask[0] & 0x3) == 0x3) {
             xcb_input_fp3232_t* values = xcb_input_raw_button_press_axisvalues(event.raw);
-            state.mouseX += values[0].integral;
-            state.mouseY += values[1].integral;
+            state.mouseX += values[0].integral + (double) values[0].frac / UINT32_MAX;
+            state.mouseY += values[1].integral + (double) values[1].frac / UINT32_MAX;
             state.onMouseMove(state.mouseX, state.mouseY);
           }
         }
@@ -658,14 +662,14 @@ void os_set_mouse_mode(os_mouse_mode mode) {
 
     uint32_t events = XCB_EVENT_MASK_BUTTON_RELEASE;
     xcb_grab_pointer(state.connection, 0, state.window, events, 1, 1, state.window, state.hiddenCursor, XCB_CURRENT_TIME);
-    state.grabX = state.mouseX;
-    state.grabY = state.mouseY;
+    state.grabX = (int16_t) state.mouseX;
+    state.grabY = (int16_t) state.mouseY;
   } else {
     xcb_change_window_attributes(state.connection, state.window, XCB_CW_CURSOR, &(uint32_t) { XCB_CURSOR_NONE });
     xcb_warp_pointer(state.connection, XCB_NONE, state.window, 0, 0, 0, 0, state.grabX, state.grabY);
     xcb_ungrab_pointer(state.connection, XCB_CURRENT_TIME);
-    state.mouseX = state.grabX;
-    state.mouseY = state.grabY;
+    state.mouseX = (double) state.grabX;
+    state.mouseY = (double) state.grabY;
   }
 }
 
