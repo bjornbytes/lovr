@@ -1966,7 +1966,7 @@ bool lovrHeadsetIsDown(Device device, DeviceButton button, bool* down, bool* cha
       [BUTTON_DPAD_DOWN] = ACTION_DPAD_DOWN_DOWN,
       [BUTTON_DPAD_LEFT] = ACTION_DPAD_LEFT_DOWN,
       [BUTTON_DPAD_RIGHT] = ACTION_DPAD_RIGHT_DOWN,
-      [BUTTON_BUMPER] = ACTION_BUMPER_DOWN,
+      [BUTTON_SHOULDER] = ACTION_SHOULDER_DOWN,
       [BUTTON_NIB] = ACTION_NIB_DOWN
     },
     [DEVICE_HAND_RIGHT] = {
@@ -1984,7 +1984,7 @@ bool lovrHeadsetIsDown(Device device, DeviceButton button, bool* down, bool* cha
       [BUTTON_DPAD_DOWN] = ACTION_DPAD_DOWN_DOWN,
       [BUTTON_DPAD_LEFT] = ACTION_DPAD_LEFT_DOWN,
       [BUTTON_DPAD_RIGHT] = ACTION_DPAD_RIGHT_DOWN,
-      [BUTTON_BUMPER] = ACTION_BUMPER_DOWN,
+      [BUTTON_SHOULDER] = ACTION_SHOULDER_DOWN,
       [BUTTON_NIB] = ACTION_NIB_DOWN
     },
     [DEVICE_STYLUS] = {
@@ -2034,7 +2034,7 @@ bool lovrHeadsetIsTouched(Device device, DeviceButton button, bool* touched) {
       [BUTTON_DPAD_DOWN] = ACTION_DPAD_DOWN_TOUCH,
       [BUTTON_DPAD_LEFT] = ACTION_DPAD_LEFT_TOUCH,
       [BUTTON_DPAD_RIGHT] = ACTION_DPAD_RIGHT_TOUCH,
-      [BUTTON_BUMPER] = ACTION_BUMPER_TOUCH
+      [BUTTON_SHOULDER] = ACTION_SHOULDER_TOUCH
     },
     [DEVICE_HAND_RIGHT] = {
       [BUTTON_TRIGGER] = ACTION_TRIGGER_TOUCH,
@@ -2051,7 +2051,7 @@ bool lovrHeadsetIsTouched(Device device, DeviceButton button, bool* touched) {
       [BUTTON_DPAD_DOWN] = ACTION_DPAD_DOWN_TOUCH,
       [BUTTON_DPAD_LEFT] = ACTION_DPAD_LEFT_TOUCH,
       [BUTTON_DPAD_RIGHT] = ACTION_DPAD_RIGHT_TOUCH,
-      [BUTTON_BUMPER] = ACTION_BUMPER_TOUCH
+      [BUTTON_SHOULDER] = ACTION_SHOULDER_TOUCH
     }
   };
 
