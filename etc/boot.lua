@@ -131,7 +131,7 @@ function lovr.boot()
   else
     lovr.filesystem.setSource(source)
     local confPath = _VERSION == 'Luau' and lovr.filesystem.isFile('conf.luau') and 'conf.luau' or 'conf.lua'
-    if lovr.filesystem.getRealDirectory(confPath) == source then
+    if lovr.filesystem.getRealDirectory(confPath) == lovr.filesystem.getRealDirectory(main) then
       ok, failure = pcall(require, 'conf')
       if ok and lovr.conf then
         ok, failure = pcall(lovr.conf, conf)
