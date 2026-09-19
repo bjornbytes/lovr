@@ -14,6 +14,7 @@ struct Texture;
 struct Pass;
 
 typedef struct Layer Layer;
+typedef struct Window Window;
 
 typedef enum {
   SKELETON_NONE,
@@ -32,6 +33,7 @@ typedef struct {
   bool hdr;
   bool submitDepth;
   bool overlay;
+  bool window;
   uint32_t overlayOrder;
   ControllerSkeletonMode controllerSkeleton;
   uint32_t extensionCount;
@@ -60,6 +62,7 @@ typedef struct {
   bool proximity;
   bool refreshRate;
   bool viveTrackers;
+  bool window;
 } HeadsetFeatures;
 
 typedef enum {
@@ -209,9 +212,7 @@ uint64_t* lovrHeadsetGetModelKeys(uint32_t* count);
 struct ModelData* lovrHeadsetNewModelData(uint64_t key);
 bool lovrHeadsetGetModelPose(struct Model* model, float* position, float* orientation);
 bool lovrHeadsetAnimate(struct Model* model);
-struct Texture* lovrHeadsetSetBackground(uint32_t width, uint32_t height, uint32_t layers);
-Layer** lovrHeadsetGetLayers(uint32_t* count, bool* main);
-bool lovrHeadsetSetLayers(Layer** layers, uint32_t count, bool main);
+Window* lovrHeadsetGetWindow(void);
 bool lovrHeadsetGetTexture(struct Texture** texture);
 bool lovrHeadsetGetPass(struct Pass** pass);
 bool lovrHeadsetSubmit(void);
@@ -245,6 +246,33 @@ void lovrLayerGetViewport(Layer* layer, int32_t* viewport);
 void lovrLayerSetViewport(Layer* layer, int32_t* viewport);
 struct Texture* lovrLayerGetTexture(Layer* layer);
 struct Pass* lovrLayerGetPass(Layer* layer);
+
+// Window
+
+typedef struct {
+  float size[3];
+  bool fullscreen;
+  bool hdr;
+} WindowInfo;
+
+Window* lovrWindowCreate(const WindowInfo* info);
+void lovrWindowDestroy(void* ref);
+bool lovrWindowIsOpen(Window* window);
+void lovrWindowClose(Window* window);
+bool lovrWindowIsVisible(Window* window);
+bool lovrWindowSetVisible(Window* window, bool visible);
+bool lovrWindowIsFocused(Window* window);
+bool lovrWindowIsFullscreen(Window* window);
+bool lovrWindowSetFullscreen(Window* window, bool fullscreen);
+bool lovrWindowGetBounds(Window* window, float* bounds);
+bool lovrWindowGetPose(Window* window, float* position, float* orientation);
+bool lovrWindowGetViewPose(Window* window, uint32_t view, float* position, float* orientation);
+bool lovrWindowGetViewAngles(Window* window, uint32_t view, float* left, float* right, float* up, float* down);
+bool lovrWindowGetTexture(Window* window, struct Texture** texture);
+bool lovrWindowGetPass(Window* window, struct Pass** pass);
+struct Texture* lovrWindowSetBackground(Window* window, uint32_t width, uint32_t height, uint32_t layers);
+Layer** lovrWindowGetLayers(Window* window, uint32_t* count, bool* main);
+bool lovrWindowSetLayers(Window* window, Layer** layers, uint32_t count, bool main);
 
 // Private
 
