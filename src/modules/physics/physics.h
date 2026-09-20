@@ -50,6 +50,8 @@ typedef struct {
   float stabilization;
   float maxOverlap;
   float restitutionThreshold;
+  float sleepVelocityThreshold;
+  float timeBeforeSleep;
   uint32_t velocitySteps;
   uint32_t positionSteps;
   const char* tags[MAX_TAGS];
