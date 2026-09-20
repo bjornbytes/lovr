@@ -61,6 +61,14 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     if (!lua_isnil(L, -1)) info.allowSleep = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
+    lua_getfield(L, 1, "timeBeforeSleep");
+    if (!lua_isnil(L, -1)) info.timeBeforeSleep = luax_checkfloat(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "sleepVelocityThreshold");
+    if (!lua_isnil(L, -1)) info.sleepVelocityThreshold = luax_checkfloat(L, -1);
+    lua_pop(L, 1);
+
     lua_getfield(L, 1, "linearDamping");
     if (!lua_isnil(L, -1)) info.linearDamping = luax_checkfloat(L, -1);
     lua_pop(L, 1);
@@ -87,14 +95,6 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
 
     lua_getfield(L, 1, "positionSteps");
     if (!lua_isnil(L, -1)) info.positionSteps = luax_checku32(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 1, "sleepVelocityThreshold");
-    if (!lua_isnil(L, -1)) info.sleepVelocityThreshold = luax_checkfloat(L, -1);
-    lua_pop(L, 1);
-
-    lua_getfield(L, 1, "timeBeforeSleep");
-    if (!lua_isnil(L, -1)) info.timeBeforeSleep = luax_checkfloat(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "tags");
