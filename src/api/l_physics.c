@@ -43,7 +43,9 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
     .maxOverlap = .01f,
     .restitutionThreshold = 1.f,
     .velocitySteps = 10,
-    .positionSteps = 2
+    .positionSteps = 2,
+    .timeBeforeSleep = 0.5f,
+    .sleepVelocityThreshold = 0.03f
   };
 
   if (lua_istable(L, 1)) {
@@ -85,6 +87,14 @@ static int l_lovrPhysicsNewWorld(lua_State* L) {
 
     lua_getfield(L, 1, "positionSteps");
     if (!lua_isnil(L, -1)) info.positionSteps = luax_checku32(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "sleepVelocityThreshold");
+    if (!lua_isnil(L, -1)) info.sleepVelocityThreshold = luax_checkfloat(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "timeBeforeSleep");
+    if (!lua_isnil(L, -1)) info.timeBeforeSleep = luax_checkfloat(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 1, "tags");

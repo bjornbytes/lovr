@@ -426,6 +426,8 @@ World* lovrWorldCreate(WorldInfo* info) {
   settings.minVelocityForRestitution = MAX(info->restitutionThreshold, 0.f);
   settings.numVelocitySteps = MAX(settings.numVelocitySteps, 2);
   settings.numPositionSteps = MAX(settings.numPositionSteps, 1);
+  settings.pointVelocitySleepThreshold = MAX(info->sleepVelocityThreshold, 0.f);
+  settings.timeBeforeSleep = MAX(info->timeBeforeSleep, 0.f);
   JPH_PhysicsSystem_SetPhysicsSettings(world->system, &settings);
 
   world->bodyInterfaceNoLock = JPH_PhysicsSystem_GetBodyInterfaceNoLock(world->system);
