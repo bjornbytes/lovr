@@ -46,9 +46,7 @@ typedef struct {
   uint64_t offset;
 } Handle;
 
-struct Archive {
-  atomic_uint ref;
-  struct Archive* next;
+typedef struct {
   bool (*open)(Archive* archive, const char* path, Handle* handle);
   bool (*close)(Archive* archive, Handle* handle);
   bool (*read)(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count);
@@ -56,6 +54,12 @@ struct Archive {
   bool (*fsize)(Archive* archive, Handle* handle, uint64_t* size);
   bool (*stat)(Archive* archive, const char* path, fs_info* info, bool needTime);
   void (*list)(Archive* archive, const char* path, fs_list_cb callback, void* context);
+} ArchiveInterface;
+
+struct Archive {
+  atomic_uint ref;
+  struct Archive* next;
+  ArchiveInterface* vtable;
   char* path;
   char* mountpoint;
   size_t pathLength;
@@ -330,7 +334,7 @@ static Archive* archiveStat(const char* p, fs_info* info, bool needTime) {
 
   FOREACH_ARCHIVE(archive) {
     if (archiveContains(archive, path, length)) {
-      if (archive->stat(archive, path, info, needTime)) {
+      if (archive->vtable->stat(archive, path, info, needTime)) {
         return archive;
       }
     } else if (mountpointContains(archive, path, length)) {
@@ -396,18 +400,18 @@ void* lovrFilesystemRead(const char* p, size_t* size) {
         continue;
       }
 
-      if (!archive->open(archive, path, &handle)) {
+      if (!archive->vtable->open(archive, path, &handle)) {
         continue;
       }
 
       uint64_t bytes;
-      if (!archive->fsize(archive, &handle, &bytes)) {
-        archive->close(archive, &handle);
+      if (!archive->vtable->fsize(archive, &handle, &bytes)) {
+        archive->vtable->close(archive, &handle);
         return NULL;
       }
 
       if (bytes > SIZE_MAX) {
-        archive->close(archive, &handle);
+        archive->vtable->close(archive, &handle);
         lovrSetError("File is too big");
         return NULL;
       }
@@ -415,11 +419,11 @@ void* lovrFilesystemRead(const char* p, size_t* size) {
       *size = (size_t) bytes;
       void* data = lovrMalloc(*size);
 
-      if (archive->read(archive, &handle, data, *size, size)) {
-        archive->close(archive, &handle);
+      if (archive->vtable->read(archive, &handle, data, *size, size)) {
+        archive->vtable->close(archive, &handle);
         return data;
       } else {
-        archive->close(archive, &handle);
+        archive->vtable->close(archive, &handle);
         lovrFree(data);
         return NULL;
       }
@@ -436,7 +440,7 @@ void lovrFilesystemGetDirectoryItems(const char* p, void (*callback)(void* conte
   if (sanitize(p, path, &length)) {
     FOREACH_ARCHIVE(archive) {
       if (archive->mountLength == 0) {
-        archive->list(archive, path, callback, context);
+        archive->vtable->list(archive, path, callback, context);
       } else if (memcmp(archive->mountpoint, path, MIN(length, archive->mountLength))) {
         continue;
       } else if (length < archive->mountLength && (archive->mountpoint[length] == '/' || length == 0)) {
@@ -449,7 +453,7 @@ void lovrFilesystemGetDirectoryItems(const char* p, void (*callback)(void* conte
         buffer[sublength] = '\0';
         callback(context, buffer);
       } else if (path[archive->mountLength] == '/' || path[archive->mountLength] == '\0') {
-        archive->list(archive, path, callback, context);
+        archive->vtable->list(archive, path, callback, context);
       }
     }
   }
@@ -679,6 +683,16 @@ static void dir_list(Archive* archive, const char* path, fs_list_cb callback, vo
     fs_list(resolved, callback, context);
   }
 }
+
+static ArchiveInterface ArchiveDir = {
+  .open = dir_open,
+  .close = dir_close,
+  .read = dir_read,
+  .seek = dir_seek,
+  .fsize = dir_fsize,
+  .stat = dir_stat,
+  .list = dir_list
+};
 
 // Archive: zip
 
@@ -1045,6 +1059,16 @@ static void zip_list(Archive* archive, const char* path, fs_list_cb callback, vo
   }
 }
 
+static ArchiveInterface ArchiveZip = {
+  .open = zip_open,
+  .close = zip_close,
+  .read = zip_read,
+  .seek = zip_seek,
+  .fsize = zip_fsize,
+  .stat = zip_stat,
+  .list = zip_list
+};
+
 // Archive
 
 Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char* root) {
@@ -1057,21 +1081,9 @@ Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char*
   archive->ref = 1;
 
   if (info.type == FILE_DIRECTORY) {
-    archive->open = dir_open;
-    archive->close = dir_close;
-    archive->read = dir_read;
-    archive->seek = dir_seek;
-    archive->fsize = dir_fsize;
-    archive->stat = dir_stat;
-    archive->list = dir_list;
+    archive->vtable = &ArchiveDir;
   } else if (zip_init(archive, path, root)) {
-    archive->open = zip_open;
-    archive->close = zip_close;
-    archive->read = zip_read;
-    archive->seek = zip_seek;
-    archive->fsize = zip_fsize;
-    archive->stat = zip_stat;
-    archive->list = zip_list;
+    archive->vtable = &ArchiveZip;
   } else {
     lovrFree(archive);
     return NULL;
@@ -1112,7 +1124,7 @@ File* lovrFileCreate(const char* p, OpenMode mode) {
 
   if (mode == OPEN_READ) {
     FOREACH_ARCHIVE(a) {
-      if (archiveContains(a, path, length) && a->open(a, path, &handle)) {
+      if (archiveContains(a, path, length) && a->vtable->open(a, path, &handle)) {
         archive = a;
         break;
       }
@@ -1142,7 +1154,7 @@ File* lovrFileCreate(const char* p, OpenMode mode) {
 
 void lovrFileDestroy(void* ref) {
   File* file = ref;
-  if (file->archive) file->archive->close(file->archive, &file->handle);
+  if (file->archive) file->archive->vtable->close(file->archive, &file->handle);
   lovrRelease(file->archive, lovrArchiveDestroy);
   lovrFree(file->path);
   lovrFree(file);
@@ -1157,12 +1169,12 @@ OpenMode lovrFileGetMode(File* file) {
 }
 
 bool lovrFileGetSize(File* file, uint64_t* size) {
-  return file->archive->fsize(file->archive, &file->handle, size);
+  return file->archive->vtable->fsize(file->archive, &file->handle, size);
 }
 
 bool lovrFileRead(File* file, void* data, size_t size, size_t* count) {
   lovrCheck(file->mode == OPEN_READ, "File was not opened for reading");
-  return file->archive->read(file->archive, &file->handle, data, size, count);
+  return file->archive->vtable->read(file->archive, &file->handle, data, size, count);
 }
 
 bool lovrFileWrite(File* file, const void* data, size_t size, size_t* count) {
@@ -1171,7 +1183,7 @@ bool lovrFileWrite(File* file, const void* data, size_t size, size_t* count) {
 }
 
 bool lovrFileSeek(File* file, uint64_t offset) {
-  return file->archive->seek(file->archive, &file->handle, offset);
+  return file->archive->vtable->seek(file->archive, &file->handle, offset);
 }
 
 uint64_t lovrFileTell(File* file) {
