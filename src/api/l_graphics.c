@@ -847,6 +847,7 @@ static int l_lovrGraphicsNewBuffer(lua_State* L) {
 
   void* data;
   Buffer* buffer = lovrBufferCreate(&info, (blob || hasData) ? &data : NULL);
+  luax_assert(L, buffer);
 
   // Write data
   if (blob) {
