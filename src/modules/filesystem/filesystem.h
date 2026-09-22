@@ -16,6 +16,17 @@ typedef enum {
   FILE_RENAME
 } FileAction;
 
+typedef enum {
+  FILE_DIRECTORY,
+  FILE_REGULAR
+} FileType;
+
+typedef struct {
+  FileType type;
+  uint64_t size;
+  uint64_t lastModified;
+} FileInfo;
+
 bool lovrFilesystemInit(void);
 void lovrFilesystemDestroy(void);
 bool lovrFilesystemSetSource(const char* source);
@@ -26,10 +37,7 @@ void lovrFilesystemUnwatch(void);
 bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char *root);
 bool lovrFilesystemUnmount(const char* path);
 const char* lovrFilesystemGetRealDirectory(const char* path);
-bool lovrFilesystemIsFile(const char* path);
-bool lovrFilesystemIsDirectory(const char* path);
-bool lovrFilesystemGetSize(const char* path, uint64_t* size);
-bool lovrFilesystemGetLastModified(const char* path, uint64_t* modtime);
+bool lovrFilesystemGetInfo(const char* path, FileInfo* info, bool needTime);
 void* lovrFilesystemRead(const char* path, size_t* size);
 void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* context, const char* path), void* context);
 const char* lovrFilesystemGetIdentity(void);

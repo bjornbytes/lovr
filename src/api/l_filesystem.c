@@ -201,10 +201,10 @@ static int l_lovrFilesystemGetIdentity(lua_State* L) {
 
 static int l_lovrFilesystemGetLastModified(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  uint64_t modtime;
-  bool success = lovrFilesystemGetLastModified(path, &modtime);
+  FileInfo info;
+  bool success = lovrFilesystemGetInfo(path, &info, true);
   if (!success) return luax_pushnilerror(L);
-  lua_pushinteger(L, modtime);
+  lua_pushinteger(L, info.lastModified);
   return 1;
 }
 
@@ -226,11 +226,17 @@ static int l_lovrFilesystemGetSaveDirectory(lua_State* L) {
 
 static int l_lovrFilesystemGetSize(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  uint64_t size;
-  bool success = lovrFilesystemGetSize(path, &size);
+  FileInfo info;
+  bool success = lovrFilesystemGetInfo(path, &info, false);
   if (!success) return luax_pushnilerror(L);
-  lua_pushinteger(L, size);
-  return 1;
+  if (info.type != FILE_REGULAR) {
+    lua_pushnil(L);
+    lua_pushliteral(L, "Is directory");
+    return 2;
+  } else {
+    lua_pushinteger(L, info.size);
+    return 1;
+  }
 }
 
 static int l_lovrFilesystemGetSource(lua_State* L) {
@@ -271,13 +277,17 @@ static int l_lovrFilesystemGetWorkingDirectory(lua_State* L) {
 
 static int l_lovrFilesystemIsDirectory(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  lua_pushboolean(L, lovrFilesystemIsDirectory(path));
+  FileInfo info;
+  bool success = lovrFilesystemGetInfo(path, &info, false);
+  lua_pushboolean(L, success && info.type == FILE_DIRECTORY);
   return 1;
 }
 
 static int l_lovrFilesystemIsFile(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
-  lua_pushboolean(L, lovrFilesystemIsFile(path));
+  FileInfo info;
+  bool success = lovrFilesystemGetInfo(path, &info, false);
+  lua_pushboolean(L, success && info.type == FILE_REGULAR);
   return 1;
 }
 
@@ -444,7 +454,8 @@ static int luaLoader(lua_State* L) {
     if (*p == ';' || *p == '\0') {
       *f = '\0';
 
-      if (lovrFilesystemIsFile(filename)) {
+      FileInfo info;
+      if (lovrFilesystemGetInfo(filename, &info, false) && info.type == FILE_REGULAR) {
         return luax_loadfile(L, filename, debug, NULL);
       }
 

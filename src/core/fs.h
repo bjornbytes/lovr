@@ -22,14 +22,14 @@ typedef enum {
 } fs_error;
 
 typedef enum {
-  FILE_DIRECTORY,
-  FILE_REGULAR
+  FS_DIRECTORY,
+  FS_REGULAR
 } fs_type;
 
 typedef struct {
+  fs_type type;
   uint64_t size;
   uint64_t lastModified;
-  fs_type type;
 } fs_info;
 
 typedef void fs_list_cb(void*, const char*);
