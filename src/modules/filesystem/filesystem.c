@@ -359,9 +359,11 @@ const char* lovrFilesystemGetRealDirectory(const char* path) {
 bool lovrFilesystemGetInfo(const char* path, FileInfo* info, bool needTime) {
   fs_info stat;
   if (archiveStat(path, &stat, needTime)) {
-    info->type = (FileType) stat.type;
-    info->size = stat.size;
-    info->lastModified = stat.lastModified;
+    if (info) {
+      info->type = (FileType) stat.type;
+      info->size = stat.size;
+      info->lastModified = stat.lastModified;
+    }
     return true;
   } else {
     return false;

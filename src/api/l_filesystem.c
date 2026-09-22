@@ -149,6 +149,11 @@ static int l_lovrFilesystemGetRealDirectory(lua_State* L) {
   return 1;
 }
 
+static int l_lovrFilesystemExists(lua_State* L) {
+  lua_pushboolean(L, lovrFilesystemGetInfo(luaL_checkstring(L, 1), NULL, false));
+  return 1;
+}
+
 static int l_lovrFilesystemIsDirectory(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   FileInfo info;
@@ -408,6 +413,7 @@ static const luaL_Reg lovrFilesystem[] = {
   { "mount", l_lovrFilesystemMount },
   { "unmount", l_lovrFilesystemUnmount },
   { "getRealDirectory", l_lovrFilesystemGetRealDirectory },
+  { "exists", l_lovrFilesystemExists },
   { "isDirectory", l_lovrFilesystemIsDirectory },
   { "isFile", l_lovrFilesystemIsFile },
   { "getSize", l_lovrFilesystemGetSize },
