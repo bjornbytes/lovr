@@ -30,6 +30,7 @@ dev
 - Add `t.headset.dynamicresolution`.
 - Add `t.headset.compressedfoveation`.
 - Add `readonly` flag to `depth` table in `Pass:setCanvas`.
+- Add `lovr.filesystem.exists`.
 
 ### Change
 
