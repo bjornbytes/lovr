@@ -18,7 +18,7 @@ bool step(void* arg) {
   if (lua_type(T, 1) == LUA_TSTRING && !strcmp(lua_tostring(T, 1), "restart")) {
     return false;
   } else {
-    int status = lua_tointeger(T, -1);
+    int status = lua_tointeger(T, 1);
     luax_close(T);
     os_destroy();
     exit(status);
