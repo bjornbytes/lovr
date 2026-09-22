@@ -75,6 +75,7 @@ dev
 - Fix `Pass:drawPart` when view culling is enabled.
 - Fix `Blob:set*` methods to correctly return zero values.
 - Fix `lovr.graphics.newBuffer` not throwing errors properly.
+- Fix issue where exit status was always zero.
 
 ### Deprecate
 
