@@ -154,7 +154,7 @@ fs_error fs_stat(const char* path, fs_info* info) {
   }
 
   FILETIME lastModified = attributes.ftLastWriteTime;
-  info->type = (attributes.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? FILE_DIRECTORY : FILE_REGULAR;
+  info->type = (attributes.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? FS_DIRECTORY : FS_REGULAR;
   info->lastModified = ((uint64_t) lastModified.dwHighDateTime << 32) | lastModified.dwLowDateTime;
   info->lastModified /= 10000000ULL; // Convert windows 100ns ticks to seconds
   info->lastModified -= 11644473600ULL; // Convert windows epoch (1601) to POSIX epoch (1970)
@@ -301,7 +301,7 @@ fs_error fs_fstat(fs_handle file, fs_info* info) {
   int result = fstat(file.fd, &stats);
   info->size = (uint64_t) stats.st_size;
   info->lastModified = (uint64_t) stats.st_mtime;
-  info->type = S_ISDIR(stats.st_mode) ? FILE_DIRECTORY : FILE_REGULAR;
+  info->type = S_ISDIR(stats.st_mode) ? FS_DIRECTORY : FS_REGULAR;
   return check(result);
 }
 
@@ -338,7 +338,7 @@ fs_error fs_stat(const char* path, fs_info* info) {
   int result = stat(path, &stats);
   info->size = (uint64_t) stats.st_size;
   info->lastModified = (uint64_t) stats.st_mtime;
-  info->type = S_ISDIR(stats.st_mode) ? FILE_DIRECTORY : FILE_REGULAR;
+  info->type = S_ISDIR(stats.st_mode) ? FS_DIRECTORY : FS_REGULAR;
   return check(result);
 }
 

@@ -258,7 +258,7 @@ void lovrFilesystemWatch(void) {
   const char* path = state.source;
 #endif
   fs_info info;
-  if (!watcher.id && fs_stat(path, &info) == FS_OK && info.type == FILE_DIRECTORY) {
+  if (!watcher.id && fs_stat(path, &info) == FS_OK && info.type == FS_DIRECTORY) {
     dmon_init();
     watcher = dmon_watch(path, onFileEvent, DMON_WATCHFLAGS_RECURSIVE, NULL);
   }
@@ -339,7 +339,7 @@ static Archive* archiveStat(const char* p, fs_info* info, bool needTime) {
       }
     } else if (mountpointContains(archive, path, length)) {
       // Virtual directory
-      info->type = FILE_DIRECTORY;
+      info->type = FS_DIRECTORY;
       info->lastModified = ~0ull;
       info->size = 0;
       return archive;
@@ -356,34 +356,12 @@ const char* lovrFilesystemGetRealDirectory(const char* path) {
   return archive ? archive->path : NULL;
 }
 
-bool lovrFilesystemIsFile(const char* path) {
-  fs_info info;
-  return archiveStat(path, &info, false) && info.type == FILE_REGULAR;
-}
-
-bool lovrFilesystemIsDirectory(const char* path) {
-  fs_info info;
-  return archiveStat(path, &info, false) && info.type == FILE_DIRECTORY;
-}
-
-bool lovrFilesystemGetSize(const char* path, uint64_t* size) {
-  fs_info info;
-  if (archiveStat(path, &info, false)) {
-    if (info.type == FILE_REGULAR) {
-      *size = info.size;
-      return true;
-    } else {
-      return lovrSetError("Is directory");
-    }
-  } else {
-    return false;
-  }
-}
-
-bool lovrFilesystemGetLastModified(const char* path, uint64_t* modtime) {
-  fs_info info;
-  if (archiveStat(path, &info, true)) {
-    *modtime = info.lastModified;
+bool lovrFilesystemGetInfo(const char* path, FileInfo* info, bool needTime) {
+  fs_info stat;
+  if (archiveStat(path, &stat, needTime)) {
+    info->type = (FileType) stat.type;
+    info->size = stat.size;
+    info->lastModified = stat.lastModified;
     return true;
   } else {
     return false;
@@ -1043,7 +1021,7 @@ static bool zip_stat(Archive* archive, const char* path, fs_info* info, bool nee
   }
 
   info->size = node->uncompressedSize;
-  info->type = node->directory ? FILE_DIRECTORY : FILE_REGULAR;
+  info->type = node->directory ? FS_DIRECTORY : FS_REGULAR;
   return true;
 }
 
@@ -1080,7 +1058,7 @@ Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char*
   Archive* archive = lovrCalloc(sizeof(Archive));
   archive->ref = 1;
 
-  if (info.type == FILE_DIRECTORY) {
+  if (info.type == FS_DIRECTORY) {
     archive->vtable = &ArchiveDir;
   } else if (zip_init(archive, path, root)) {
     archive->vtable = &ArchiveZip;
