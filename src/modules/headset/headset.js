@@ -252,18 +252,8 @@ var headset = {
     return false;
   },
 
-  lovrHeadsetSetBackground(width, height, layers) {
+  lovrHeadsetGetWindow() {
     return 0;
-  },
-
-  lovrHeadsetGetLayers(count, main) {
-    HEAPU32[count >> 2] = 0;
-    HEAPU32[main >> 2] = 1;
-    return 0;
-  },
-
-  lovrHeadsetSetLayers(layers, count, main) {
-    return false;
   },
 
   lovrHeadsetGetTexture__deps: ['$stackSave', '$stackAlloc', '$stackRestore'],
@@ -415,6 +405,8 @@ var headset = {
     state.poses[device].buttons |= (down << button);
   },
 
+  // Layer
+
   lovrLayerCreate(info) {
     return 0;
   },
@@ -478,6 +470,87 @@ var headset = {
   lovrLayerGetPass(layer) {
     return 0;
   },
+
+  // Window
+
+  lovrWindowCreate(info) {
+    return 0;
+  },
+
+  lovrWindowDestroy(ref) {
+    return;
+  },
+
+  lovrWindowIsOpen(w) {
+    return false;
+  },
+
+  lovrWindowClose(w) {
+    //
+  },
+
+  lovrWindowIsVisible(w) {
+    return false;
+  },
+
+  lovrWindowSetVisible(w, visible) {
+    return false;
+  },
+
+  lovrWindowIsFocused(w) {
+    return false;
+  },
+
+  lovrWindowSetFocused(w, focused) {
+    return false;
+  },
+
+  lovrWindowIsFullscreen(w) {
+    return false;
+  },
+
+  lovrWindowSetFullscreen(w, fullscreen) {
+    return false;
+  },
+
+  lovrWindowGetBounds(w, bounds) {
+    return false;
+  },
+
+  lovrWindowGetPose(w, position, orientation) {
+    return false;
+  },
+
+  lovrWindowGetViewPose(w, view, position, orientation) {
+    return false;
+  },
+
+  lovrWindowGetViewAngles(w, view, left, right, up, down) {
+    return false;
+  },
+
+  lovrWindowGetTexture(w, texture) {
+    return false;
+  },
+
+  lovrWindowGetPass(w, pass) {
+    return false;
+  },
+
+  lovrWindowSetBackground(w, width, height, layers) {
+    return 0;
+  },
+
+  lovrWindowGetLayers(w, count, main) {
+    HEAPU32[count >> 2] = 0;
+    HEAPU32[main >> 2] = 1;
+    return 0;
+  },
+
+  lovrWindowSetLayers(w, layers, count, main) {
+    return false;
+  },
+
 
   lovrHeadsetGetDisplayTime() {
     return 0;

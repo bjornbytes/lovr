@@ -189,6 +189,11 @@ struct Material* luax_optmaterial(lua_State* L, int index);
 struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
 #endif
 
+#ifndef LOVR_DISABLE_HEADSET
+struct Image;
+void luax_checkimages(lua_State* L, int index, struct Image** images, uint32_t capacity, uint32_t* count, uint32_t* layers);
+#endif
+
 #ifndef LOVR_DISABLE_MATH
 uint64_t luax_checkrandomseed(lua_State* L, int index);
 #endif

@@ -56,12 +56,20 @@ static int nextEvent(lua_State* L) {
 
     case EVENT_VISIBLE:
       lua_pushboolean(L, event.data.visible.visible);
-      luax_pushenum(L, DisplayType, event.data.visible.display);
+      if (event.data.visible.window) {
+        luax_pushtype(L, Window, event.data.visible.window);
+      } else {
+        luax_pushenum(L, DisplayType, event.data.visible.display);
+      }
       return 3;
 
     case EVENT_FOCUS:
       lua_pushboolean(L, event.data.focus.focused);
-      luax_pushenum(L, DisplayType, event.data.focus.display);
+      if (event.data.focus.window) {
+        luax_pushtype(L, Window, event.data.focus.window);
+      } else {
+        luax_pushenum(L, DisplayType, event.data.focus.display);
+      }
       return 3;
 
     case EVENT_MOUNT:
@@ -75,8 +83,13 @@ static int nextEvent(lua_State* L) {
       return 1;
 
     case EVENT_RESIZE:
-      lua_pushinteger(L, event.data.resize.width);
-      lua_pushinteger(L, event.data.resize.height);
+      lua_pushnumber(L, event.data.resize.width);
+      lua_pushnumber(L, event.data.resize.height);
+      if (event.data.resize.window) {
+        lua_pushnumber(L, event.data.resize.depth);
+        luax_pushtype(L, Window, event.data.resize.window);
+        return 5;
+      }
       return 3;
 
     case EVENT_KEYPRESSED:
