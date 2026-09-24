@@ -27,6 +27,11 @@ typedef struct {
   uint64_t lastModified;
 } FileInfo;
 
+typedef enum {
+  MOUNT_READ,
+  MOUNT_READWRITE
+} MountMode;
+
 bool lovrFilesystemInit(void);
 void lovrFilesystemDestroy(void);
 bool lovrFilesystemSetSource(const char* source);
@@ -34,18 +39,18 @@ const char* lovrFilesystemGetSource(void);
 bool lovrFilesystemIsFused(void);
 void lovrFilesystemWatch(void);
 void lovrFilesystemUnwatch(void);
-bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char *root);
+bool lovrFilesystemMount(const char* path, const char* mountpoint, MountMode mode, bool append, const char *root);
 bool lovrFilesystemUnmount(const char* path);
 const char* lovrFilesystemGetRealDirectory(const char* path);
 bool lovrFilesystemGetInfo(const char* path, FileInfo* info, bool needTime);
 void* lovrFilesystemRead(const char* path, size_t* size);
+bool lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append);
+bool lovrFilesystemRemove(const char* path);
+bool lovrFilesystemCreateDirectory(const char* path);
 void lovrFilesystemGetDirectoryItems(const char* path, void (*callback)(void* context, const char* path), void* context);
 const char* lovrFilesystemGetIdentity(void);
 bool lovrFilesystemSetIdentity(const char* identity, bool precedence);
 const char* lovrFilesystemGetSaveDirectory(void);
-bool lovrFilesystemCreateDirectory(const char* path);
-bool lovrFilesystemRemove(const char* path);
-bool lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append);
 size_t lovrFilesystemGetAppdataDirectory(char* buffer, size_t size);
 size_t lovrFilesystemGetBundlePath(char* buffer, size_t size, const char** root);
 size_t lovrFilesystemGetExecutablePath(char* buffer, size_t size);
@@ -56,7 +61,7 @@ void lovrFilesystemSetRequirePath(const char* requirePath);
 
 // Archive
 
-Archive* lovrArchiveCreate(const char* path, const char* mountpoint, const char* root);
+Archive* lovrArchiveCreate(const char* path, const char* mountpoint, MountMode mode, const char* root);
 void lovrArchiveDestroy(void* ref);
 
 // File
