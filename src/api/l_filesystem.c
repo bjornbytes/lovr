@@ -19,6 +19,12 @@ StringEntry lovrFileAction[] = {
   { 0 }
 };
 
+StringEntry lovrMountMode[] = {
+  [MOUNT_READ] = ENTRY("read"),
+  [MOUNT_READWRITE] = ENTRY("readwrite"),
+  { 0 }
+};
+
 StringEntry lovrOpenMode[] = {
   [OPEN_READ] = ENTRY("r"),
   [OPEN_WRITE] = ENTRY("w"),
@@ -132,9 +138,11 @@ static int l_lovrFilesystemUnwatch(lua_State* L) {
 static int l_lovrFilesystemMount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   const char* mountpoint = luaL_optstring(L, 2, NULL);
-  bool append = lua_toboolean(L, 3);
-  const char* root = luaL_optstring(L, 4, NULL);
-  return luax_pushsuccess(L, lovrFilesystemMount(path, mountpoint, append, root));
+  int index = 3;
+  MountMode mode = lua_type(L, 3) == LUA_TSTRING ? luax_checkenum(L, index++, MountMode, "read") : MOUNT_READ;
+  bool append = lua_toboolean(L, index++);
+  const char* root = luaL_optstring(L, index++, NULL);
+  return luax_pushsuccess(L, lovrFilesystemMount(path, mountpoint, mode, append, root));
 }
 
 static int l_lovrFilesystemUnmount(lua_State* L) {
