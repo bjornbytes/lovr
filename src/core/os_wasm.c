@@ -282,6 +282,10 @@ void os_poll_events(double timeout) {
   //
 }
 
+void os_on_file_drop(fn_file_drop* callback) {
+  //
+}
+
 void os_on_permission(fn_permission* callback) {
   //
 }

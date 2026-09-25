@@ -147,6 +147,7 @@ typedef void fn_text(uint32_t codepoint);
 typedef void fn_mouse_button(int button, bool pressed);
 typedef void fn_mouse_move(double x, double y);
 typedef void fn_mousewheel_move(double deltaX, double deltaY);
+typedef void fn_file_drop(const char* path);
 typedef void fn_permission(os_permission permission, bool granted);
 
 bool os_init(void);
@@ -174,6 +175,7 @@ void os_on_text(fn_text* callback);
 void os_on_mouse_button(fn_mouse_button* callback);
 void os_on_mouse_move(fn_mouse_move* callback);
 void os_on_mousewheel_move(fn_mousewheel_move* callback);
+void os_on_file_drop(fn_file_drop* callback);
 void os_on_permission(fn_permission* callback);
 
 bool os_window_open(const os_window_config* config);

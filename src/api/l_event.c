@@ -32,6 +32,7 @@ StringEntry lovrEventType[] = {
   [EVENT_THREAD_ERROR] = ENTRY("threaderror"),
 #endif
   [EVENT_FILECHANGED] = ENTRY("filechanged"),
+  [EVENT_FILEDROPPED] = ENTRY("filedropped"),
   [EVENT_PERMISSION] = ENTRY("permission"),
   { 0 }
 };
@@ -130,6 +131,11 @@ static int nextEvent(lua_State* L) {
       lovrFree(event.data.file.path);
       lovrFree(event.data.file.oldpath);
       return 4;
+
+    case EVENT_FILEDROPPED:
+      lua_pushstring(L, event.data.drop.path);
+      lovrFree(event.data.drop.path);
+      return 2;
 
     case EVENT_PERMISSION:
       luax_pushenum(L, Permission, event.data.permission.permission);
