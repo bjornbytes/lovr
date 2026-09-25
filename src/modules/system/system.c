@@ -99,6 +99,13 @@ static void onPermission(os_permission permission, bool granted) {
   });
 }
 
+static void onFileDrop(const char* path) {
+  lovrEventPush((Event) {
+    .type = EVENT_FILEDROPPED,
+    .data.drop.path = (char*) path
+  });
+}
+
 static void onQuit(void) {
   lovrEventPush((Event) {
     .type = EVENT_QUIT,
@@ -129,6 +136,7 @@ bool lovrSystemInit(void) {
   os_on_mouse_button(onMouseButton);
   os_on_mouse_move(onMouseMove);
   os_on_mousewheel_move(onWheelMove);
+  os_on_file_drop(onFileDrop);
   os_on_permission(onPermission);
   os_get_mouse_position(&state.mouseX, &state.mouseY);
   lovrModuleReady(&ref);
@@ -139,6 +147,7 @@ void lovrSystemDestroy(void) {
   if (!lovrModuleRelease(&ref)) return;
   os_on_key(NULL);
   os_on_text(NULL);
+  os_on_file_drop(NULL);
   os_on_permission(NULL);
   memset(&state, 0, sizeof(state));
   lovrModuleReset(&ref);
