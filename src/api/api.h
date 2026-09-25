@@ -55,6 +55,7 @@ extern StringEntry lovrMaterialTexture[];
 extern StringEntry lovrMeshStorage[];
 extern StringEntry lovrModelDrawMode[];
 extern StringEntry lovrMotorMode[];
+extern StringEntry lovrMountMode[];
 extern StringEntry lovrMouseMode[];
 extern StringEntry lovrOpenMode[];
 extern StringEntry lovrOriginType[];
