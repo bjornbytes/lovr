@@ -1,4 +1,17 @@
 group('data', function()
+  test('lovr.data.compress', function()
+    local xs = ('x'):rep(50000)
+    local blob = lovr.data.newBlob(xs)
+    for i, format in ipairs({ 'deflate', 'gzip', 'zlib' }) do
+      expect(lovr.data.compress('', format)).to.be('')
+      expect(lovr.data.decompress(lovr.data.compress('x', format))).to.be('x')
+      expect(lovr.data.decompress(lovr.data.compress('x', format), format)).to.be('x')
+      expect(lovr.data.decompress(lovr.data.compress(xs, format))).to.be(xs)
+      expect(lovr.data.decompress(lovr.data.compress(xs, format), format)).to.be(xs)
+      expect(lovr.data.decompress(lovr.data.compress(blob, format)):getString()).to.be(xs)
+    end
+  end)
+
   group('Blob', function()
     test(':getName', function()
       -- Test that Blob copies its name instead of relying on Lua string staying live
