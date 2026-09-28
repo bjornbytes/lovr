@@ -60,6 +60,10 @@ void lovrEventPush(Event event) {
     event.data.file.oldpath = lovrStrdup(event.data.file.oldpath);
   }
 
+  if (event.type == EVENT_FILEDROPPED) {
+    event.data.drop.path = lovrStrdup(event.data.drop.path);
+  }
+
   mtx_lock(&state.lock);
   arr_push(&state.events, event);
   mtx_unlock(&state.lock);

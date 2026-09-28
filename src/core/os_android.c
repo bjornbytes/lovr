@@ -338,6 +338,10 @@ void os_on_mousewheel_move(fn_mousewheel_move* callback) {
   //
 }
 
+void os_on_file_drop(fn_file_drop* callback) {
+  //
+}
+
 void os_on_permission(fn_permission* callback) {
   state.onPermissionEvent = callback;
 }

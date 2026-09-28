@@ -64,8 +64,11 @@ void os_on_mouse_move(fn_mouse_move* callback) {
   //
 }
 
-void os_on_mousewheel_move(fn_wheel_move* callback)
-{
+void os_on_mousewheel_move(fn_wheel_move* callback) {
+  //
+}
+
+void os_on_file_drop(fn_file_drop* callback) {
   //
 }
 
@@ -136,6 +139,7 @@ static struct {
   fn_mouse_button* onMouseButton;
   fn_mouse_move* onMouseMove;
   fn_mousewheel_move* onMouseWheelMove;
+  fn_file_drop* onFileDrop;
   uint32_t width;
   uint32_t height;
   bool fullscreen;
@@ -314,6 +318,14 @@ static void onMouseWheelMove(GLFWwindow* window, double deltaX, double deltaY) {
   }
 }
 
+static void onFileDrop(GLFWwindow* window, int count, const char** paths) {
+  if (glfwState.onFileDrop) {
+    for (int i = 0; i < count; i++) {
+      glfwState.onFileDrop(paths[i]);
+    }
+  }
+}
+
 const char* os_get_clipboard_text(void) {
   return glfwGetClipboardString(NULL);
 }
@@ -404,6 +416,7 @@ bool os_window_open(const os_window_config* config) {
   glfwSetMouseButtonCallback(glfwState.window, onMouseButton);
   glfwSetCursorPosCallback(glfwState.window, onMouseMove);
   glfwSetScrollCallback(glfwState.window, onMouseWheelMove);
+  glfwSetDropCallback(glfwState.window, onFileDrop);
   glfwState.width = config->width;
   glfwState.height = config->height;
   glfwState.fullscreen = config->fullscreen;
@@ -500,6 +513,10 @@ void os_on_mouse_move(fn_mouse_move* callback) {
 
 void os_on_mousewheel_move(fn_mousewheel_move* callback) {
   glfwState.onMouseWheelMove = callback;
+}
+
+void os_on_file_drop(fn_file_drop* callback) {
+  glfwState.onFileDrop = callback;
 }
 
 void os_get_mouse_position(double* x, double* y) {

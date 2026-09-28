@@ -27,6 +27,7 @@ dev
 - Add `OriginType` parameter to `ModelData` node transform accessors.
 - Add `ModelData:getTriangles`.
 - Add `timeBeforeSleep` and `sleepVelocityThreshold` settings to `lovr.physics.newWorld`.
+- Add `lovr.filesystem.exists`.
 
 ### Change
 

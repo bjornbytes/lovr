@@ -489,6 +489,10 @@ void os_on_mousewheel_move(fn_mousewheel_move* callback) {
   state.onWheelMove = callback;
 }
 
+void os_on_file_drop(fn_file_drop* callback) {
+  //
+}
+
 bool os_window_open(const os_window_config* config) {
   if (state.window) {
     return true;

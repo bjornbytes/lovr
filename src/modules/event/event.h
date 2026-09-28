@@ -32,6 +32,7 @@ typedef enum {
   EVENT_THREAD_ERROR,
 #endif
   EVENT_FILECHANGED,
+  EVENT_FILEDROPPED,
   EVENT_PERMISSION,
   EVENT_CUSTOM
 } EventType;
@@ -95,6 +96,10 @@ typedef struct {
 } FileEvent;
 
 typedef struct {
+  char* path;
+} DropEvent;
+
+typedef struct {
   uint32_t permission;
   bool granted;
 } PermissionEvent;
@@ -117,6 +122,7 @@ typedef union {
   MouseWheelEvent wheel;
   ThreadEvent thread;
   FileEvent file;
+  DropEvent drop;
   PermissionEvent permission;
   CustomEvent custom;
 } EventData;
