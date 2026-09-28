@@ -90,7 +90,7 @@ fs_error fs_fstat(fs_handle file, fs_info* info) {
   }
   info->size = size.QuadPart;
   info->lastModified = 0;
-  info->type = FILE_REGULAR;
+  info->type = FS_REGULAR;
   return FS_OK;
 }
 
