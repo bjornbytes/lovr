@@ -92,7 +92,7 @@ void* lovrDataDecompress(const void* data, size_t size, CompressionMethod method
     }
 
     uint32_t uncompressedSize;
-    memcpy(&uncompressedSize, data + size - 4, 4);
+    memcpy(&uncompressedSize, bytes + size - 4, 4);
     bufferSize = (size_t) uncompressedSize;
 
     lovrAssert(offset < size, "Invalid gzip data");
