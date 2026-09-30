@@ -1180,11 +1180,15 @@ static const luaL_Reg lovrHeadset[] = {
   { NULL, NULL }
 };
 
+extern const luaL_Reg lovrScanner[];
+extern const luaL_Reg lovrAnchor[];
 extern const luaL_Reg lovrLayer[];
 
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrHeadset);
+  luax_registertype(L, Scanner);
+  luax_registertype(L, Anchor);
   luax_registertype(L, Layer);
 
   HeadsetConfig config = {
