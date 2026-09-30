@@ -4,6 +4,7 @@
 
 #pragma once
 
+struct Scanner;
 struct Thread;
 union Variant;
 
@@ -20,6 +21,7 @@ typedef enum {
   EVENT_MOUNT,
   EVENT_RECENTER,
   EVENT_MODELSCHANGED,
+  EVENT_SHOULDSCAN,
   EVENT_RESIZE,
   EVENT_KEYPRESSED,
   EVENT_KEYRELEASED,
@@ -100,6 +102,10 @@ typedef struct {
 } PermissionEvent;
 
 typedef struct {
+  struct Scanner* scanner;
+} ScanEvent;
+
+typedef struct {
   char name[32];
   union Variant* data;
   uint32_t count;
@@ -118,6 +124,7 @@ typedef union {
   ThreadEvent thread;
   FileEvent file;
   PermissionEvent permission;
+  ScanEvent scan;
   CustomEvent custom;
 } EventData;
 

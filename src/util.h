@@ -158,6 +158,7 @@ typedef enum {
   T_Raytracer,
   T_Readback,
   T_Pass,
+  T_Scanner,
   T_Layer,
   T_Curve,
   T_Mat4,

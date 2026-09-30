@@ -1,5 +1,6 @@
 #include "api.h"
 #include "event/event.h"
+#include "headset/headset.h"
 #include "thread/thread.h"
 #include "util.h"
 #include <threads.h>
@@ -20,6 +21,7 @@ StringEntry lovrEventType[] = {
   [EVENT_MOUNT] = ENTRY("mount"),
   [EVENT_RECENTER] = ENTRY("recenter"),
   [EVENT_MODELSCHANGED] = ENTRY("modelschanged"),
+  [EVENT_SHOULDSCAN] = ENTRY("shouldscan"),
   [EVENT_RESIZE] = ENTRY("resize"),
   [EVENT_KEYPRESSED] = ENTRY("keypressed"),
   [EVENT_KEYRELEASED] = ENTRY("keyreleased"),
@@ -73,6 +75,12 @@ static int nextEvent(lua_State* L) {
 
     case EVENT_MODELSCHANGED:
       return 1;
+
+#ifndef LOVR_DISABLE_HEADSET
+    case EVENT_SHOULDSCAN:
+      luax_pushtype(L, Scanner, event.data.scan.scanner);
+      return 1;
+#endif
 
     case EVENT_RESIZE:
       lua_pushinteger(L, event.data.resize.width);
