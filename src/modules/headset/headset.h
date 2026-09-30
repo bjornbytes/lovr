@@ -274,6 +274,7 @@ void lovrScannerDestroy(void* ref);
 bool lovrScannerFinishCreate(Scanner* scanner, bool* finished);
 uintptr_t lovrScannerScan(Scanner* scanner);
 bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished);
+bool lovrScannerUpdate(Scanner* scanner);
 
 // Anchor
 

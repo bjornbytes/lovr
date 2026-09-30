@@ -159,6 +159,7 @@ typedef enum {
   T_Readback,
   T_Pass,
   T_Scanner,
+  T_Anchor,
   T_Layer,
   T_Curve,
   T_Mat4,
