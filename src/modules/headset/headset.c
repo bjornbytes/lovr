@@ -3310,7 +3310,7 @@ void lovrHeadsetSetButton(Device device, DeviceButton button, bool down) {
 Scanner* lovrScannerCreate(ScannerInfo* info) {
   lovrCheck(lovrHeadsetIsScannerSupported(info->type), "This scanner type is not supported");
 
-  XrSpatialCapabilityConfigurationBaseHeaderEXT base;
+  XrSpatialCapabilityConfigurationBaseHeaderEXT base = { 0 };
   XrSpatialCapabilityConfigurationArucoMarkerEXT arucoConfig = { .type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT };
   XrSpatialCapabilityConfigurationAprilTagEXT aprilConfig = { .type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_APRIL_TAG_EXT };
   XrSpatialCapabilityConfigurationBaseHeaderEXT* header = &base;
@@ -3391,6 +3391,7 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
         components[componentCount - 1] = components[i];
         components[i] = temp;
         componentCount--;
+        i--;
         break;
     }
   }
@@ -3425,6 +3426,7 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
           header->next = &staticMarkers;
         }
         break;
+      default: break;
     }
   }
 
@@ -3577,8 +3579,6 @@ bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
   }
 
   xrDestroySpatialSnapshotEXT(snapshot);
-
-  // TODO update? need data, at least for new entities
 
   return true;
 }
@@ -4674,7 +4674,8 @@ static bool pollFuture(XrFutureEXT future, bool* ready) {
     return false;
   }
 
-  return result.state == XR_FUTURE_STATE_READY_EXT;
+  *ready = result.state == XR_FUTURE_STATE_READY_EXT;
+  return true;
 }
 
 static void cancelFuture(XrFutureEXT future) {
