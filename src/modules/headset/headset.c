@@ -204,11 +204,13 @@ struct Scanner {
   XrSpatialContextEXT handle;
   XrSpatialComponentTypeEXT* components;
   uint32_t componentCount;
-  arr_t(XrSpatialEntityIdEXT) ids;
-  uint32_t entityCapacity;
+  map_t anchorLookup;
+  Anchor* anchors;
+  bool anchorsDirty;
   uint32_t entityCount;
-  Anchor** anchors;
+  uint32_t entityCapacity;
   XrSpatialEntityEXT* entities;
+  XrSpatialEntityIdEXT* entityIds;
   XrSpatialEntityTrackingStateEXT* entityStates;
   XrSpatialBounded2DDataEXT* bounds2D;
   XrBoxf* bounds3D;
@@ -225,7 +227,9 @@ struct Scanner {
 struct Anchor {
   atomic_uint ref;
   uint32_t index;
+  Anchor* next;
   Scanner* scanner;
+  XrSpatialEntityIdEXT id;
   XrSpatialEntityEXT handle;
 };
 
@@ -319,7 +323,6 @@ static struct {
   XrSpatialCapabilityEXT* spatialCapabilities;
   uint32_t spatialCapabilityCount;
   Scanner* scanners;
-  map_t anchorLookup;
   XrRenderModelIdEXT* modelKeys;
   mtx_t scannerLock;
   RenderModel* models;
@@ -3430,11 +3433,14 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
     }
   }
 
+  lovrFree(features);
+
   Scanner* scanner = lovrCalloc(sizeof(Scanner));
   scanner->ref = 1;
   scanner->handle = XR_NULL_HANDLE;
   scanner->components = components;
   scanner->componentCount = componentCount;
+  map_init(&scanner->anchorLookup, 0);
 
   XrSpatialContextCreateInfoEXT createInfo = {
     .type = XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT,
@@ -3449,13 +3455,12 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
   state.scanners = scanner;
   mtx_unlock(&state.scannerLock);
 
-  arr_init(&scanner->ids);
-  lovrFree(features);
   return scanner;
 }
 
 void lovrScannerDestroy(void* ref) {
   Scanner* scanner = ref;
+
   mtx_lock(&state.scannerLock);
   Scanner** list = &state.scanners;
   while (*list) {
@@ -3467,15 +3472,27 @@ void lovrScannerDestroy(void* ref) {
     }
   }
   mtx_unlock(&state.scannerLock);
-  arr_free(&scanner->ids);
-  lovrFree(&scanner->anchors);
-  lovrFree(&scanner->entities);
-  lovrFree(&scanner->entityStates);
-  lovrFree(&scanner->bounds2D);
-  lovrFree(&scanner->bounds3D);
-  lovrFree(&scanner->parents);
+
+  while (scanner->anchors) {
+    Anchor* anchor = scanner->anchors;
+    scanner->anchors = anchor->next;
+    lovrAnchorDestruct(anchor);
+    anchor->scanner = NULL;
+    anchor->next = NULL;
+    lovrRelease(anchor, lovrAnchorDestroy);
+  }
+
+  map_free(&scanner->anchorLookup);
+
   if (scanner->handle) xrDestroySpatialContextEXT(scanner->handle);
   cancelFuture(scanner->future);
+  lovrFree(scanner->components);
+  lovrFree(scanner->entities);
+  lovrFree(scanner->entityIds);
+  lovrFree(scanner->entityStates);
+  lovrFree(scanner->bounds2D);
+  lovrFree(scanner->bounds3D);
+  lovrFree(scanner->parents);
   lovrFree(scanner);
 }
 
@@ -3521,26 +3538,16 @@ bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
   XrSpatialSnapshotEXT snapshot = completion.snapshot;
   XrSpatialComponentDataQueryConditionEXT condition = { .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_CONDITION_EXT };
   XrSpatialComponentDataQueryResultEXT data = { .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_RESULT_EXT };
-  XR(xrQuerySpatialComponentDataEXT(snapshot, &condition, &data), "xrQuerySpatialComponentDataEXT");
+  XrResult result = xrQuerySpatialComponentDataEXT(snapshot, &condition, &data);
 
-  uint32_t count = data.entityIdCountOutput;
-  data.entityIdCapacityInput = count;
-  arr_reserve(&scanner->ids, count);
-  data.entityIds = scanner->ids.data;
+  if (XR_SUCCEEDED(result)) {
+    uint32_t count = data.entityIdCountOutput;
 
-  XR(xrQuerySpatialComponentDataEXT(snapshot, &condition, &data), "xrQuerySpatialComponentDataEXT");
+    if (scanner->entityCount + count > scanner->entityCapacity) {
+      uint32_t capacity = scanner->entityCapacity = MAX(scanner->entityCapacity * 2, scanner->entityCount + count);
 
-  for (uint32_t i = 0; i < count; i++) {
-    XrSpatialEntityIdEXT id = data.entityIds[i];
-    uint64_t hash = hash64(&id, sizeof(id));
-    uint64_t entry = map_get(&state.anchorLookup, hash);
-    if (entry != MAP_NIL) continue;
-
-    if (scanner->entityCount == scanner->entityCapacity) {
-      uint32_t capacity = scanner->entityCapacity = MAX(scanner->entityCapacity * 2, 1);
-
-      scanner->anchors = lovrRealloc(scanner->anchors, capacity * sizeof(*scanner->anchors));
       scanner->entities = lovrRealloc(scanner->entities, capacity * sizeof(*scanner->entities));
+      scanner->entityIds = lovrRealloc(scanner->entityIds, capacity * sizeof(*scanner->entityIds));
       scanner->entityStates = lovrRealloc(scanner->entityStates, capacity * sizeof(*scanner->entityStates));
 
       for (uint32_t i = 0; i < scanner->componentCount; i++) {
@@ -3560,30 +3567,79 @@ bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
       }
     }
 
-    Anchor* anchor = lovrCalloc(sizeof(Anchor));
-    anchor->ref = 1;
-    anchor->scanner = scanner;
+    data.entityIdCapacityInput = count;
+    data.entityIds = scanner->entityIds;
+    result = xrQuerySpatialComponentDataEXT(snapshot, &condition, &data);
+  }
 
-    XrSpatialEntityFromIdCreateInfoEXT createInfo = {
+  xrDestroySpatialSnapshotEXT(snapshot);
+  XR(result, "xrQuerySpatialComponentDataEXT");
+
+  for (uint32_t i = 0; i < data.entityIdCountOutput; i++) {
+    XrSpatialEntityIdEXT id = scanner->entityIds[i];
+    uint64_t hash = hash64(&id, sizeof(id));
+    uint64_t entry = map_get(&scanner->anchorLookup, hash);
+    if (entry != MAP_NIL) continue;
+
+    XrSpatialEntityFromIdCreateInfoEXT info = {
       .type = XR_TYPE_SPATIAL_ENTITY_FROM_ID_CREATE_INFO_EXT,
       .entityId = id
     };
 
-    // TODO error handling cleanup
-    XR(xrCreateSpatialEntityFromIdEXT(scanner->handle, &createInfo, &anchor->handle), "xrCreateSpatialEntityFromHandleEXT");
+    XrSpatialEntityEXT handle;
+    XR(xrCreateSpatialEntityFromIdEXT(scanner->handle, &info, &handle), "xrCreateSpatialEntityFromIdEXT");
 
-    anchor->index = scanner->entityCount++;
-    scanner->anchors[anchor->index] = anchor;
-    scanner->entities[anchor->index] = anchor->handle;
-    map_set(&state.anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
+    Anchor* anchor = lovrCalloc(sizeof(Anchor));
+    anchor->ref = 1;
+    anchor->index = ~0u;
+    anchor->id = id;
+    anchor->handle = handle;
+    anchor->scanner = scanner;
+    anchor->next = scanner->anchors;
+    scanner->anchors = anchor;
+
+    scanner->entities[scanner->entityCount++] = handle;
+    map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
   }
-
-  xrDestroySpatialSnapshotEXT(snapshot);
 
   return true;
 }
 
+Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor) {
+  anchor = anchor ? anchor->next : scanner->anchors;
+  while (anchor && lovrAnchorIsDestroyed(anchor)) anchor = anchor->next;
+  return anchor;
+}
+
 bool lovrScannerUpdate(Scanner* scanner) {
+  if (scanner->anchorsDirty) {
+    scanner->entityCount = 0;
+
+    Anchor** list = &scanner->anchors;
+    while (*list) {
+      Anchor* anchor = *list;
+      if (lovrAnchorIsDestroyed(anchor)) {
+        *list = anchor->next;
+        anchor->next = NULL;
+        anchor->scanner = NULL;
+        lovrRelease(anchor, lovrAnchorDestroy);
+      } else {
+        scanner->entities[scanner->entityCount++] = anchor->handle;
+        list = &anchor->next;
+      }
+    }
+
+    scanner->anchorsDirty = false;
+  }
+
+  for (Anchor* anchor = scanner->anchors; anchor; anchor = anchor->next) {
+    anchor->index = ~0u;
+  }
+
+  if (scanner->entityCount == 0) {
+    return true;
+  }
+
   XrSpatialSnapshotEXT snapshot;
 
   XrSpatialUpdateSnapshotCreateInfoEXT info = {
@@ -3600,6 +3656,8 @@ bool lovrScannerUpdate(Scanner* scanner) {
 
   XrSpatialComponentDataQueryResultEXT data = {
     .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_RESULT_EXT,
+    .entityIdCapacityInput = scanner->entityCount,
+    .entityIds = scanner->entityIds,
     .entityStateCapacityInput = scanner->entityCount,
     .entityStates = scanner->entityStates
   };
@@ -3635,10 +3693,18 @@ bool lovrScannerUpdate(Scanner* scanner) {
     }
   }
 
-  XR(xrQuerySpatialComponentDataEXT(snapshot, &condition, &data), "xrQuerySpatialComponentDataEXT");
-  if (data.entityStateCountOutput != scanner->entityCount) lovrUnreachable();
-
+  XrResult result = xrQuerySpatialComponentDataEXT(snapshot, &condition, &data);
   xrDestroySpatialSnapshotEXT(snapshot);
+  XR(result, "xrQuerySpatialComponentDataEXT");
+
+  for (uint32_t i = 0; i < data.entityIdCountOutput; i++) {
+    uint64_t hash = hash64(&scanner->entityIds[i], sizeof(XrSpatialEntityIdEXT));
+    uint64_t entry = map_get(&scanner->anchorLookup, hash);
+    if (entry == MAP_NIL) continue;
+    Anchor* anchor = (Anchor*) (uintptr_t) entry;
+    anchor->index = i;
+  }
+
   return true;
 }
 
@@ -3650,16 +3716,32 @@ Anchor* lovrAnchorCreate(float* position, float* orientation) {
 
 void lovrAnchorDestroy(void* ref) {
   Anchor* anchor = ref;
-  xrDestroySpatialEntityEXT(anchor->handle);
+  lovrAnchorDestruct(anchor);
   lovrFree(anchor);
 }
 
+void lovrAnchorDestruct(Anchor* anchor) {
+  if (!anchor->handle) return;
+  anchor->scanner->anchorsDirty = true;
+  map_set(&anchor->scanner->anchorLookup, hash64(&anchor->id, sizeof(anchor->id)), MAP_NIL);
+  xrDestroySpatialEntityEXT(anchor->handle);
+  anchor->handle = XR_NULL_HANDLE;
+  anchor->index = ~0u;
+}
+
+bool lovrAnchorIsDestroyed(Anchor* anchor) {
+  return !anchor->handle;
+}
+
 bool lovrAnchorIsTracked(Anchor* anchor) {
+  if (anchor->index == ~0u) return false;
   return anchor->scanner->entityStates[anchor->index] == XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT;
 }
 
 bool lovrAnchorGetDimensions(Anchor* anchor, float* width, float* height, float* depth) {
-  if (anchor->scanner->bounds3D) {
+  if (anchor->index == ~0u) {
+    return false;
+  } else if (anchor->scanner->bounds3D) {
     *width = anchor->scanner->bounds3D[anchor->index].extents.width;
     *height = anchor->scanner->bounds3D[anchor->index].extents.height;
     *depth = anchor->scanner->bounds3D[anchor->index].extents.depth;
@@ -3675,12 +3757,9 @@ bool lovrAnchorGetDimensions(Anchor* anchor, float* width, float* height, float*
 }
 
 Anchor* lovrAnchorGetParent(Anchor* anchor) {
-  if (!anchor->scanner->parents) {
-    return NULL;
-  }
-
+  if (anchor->index == ~0u || !anchor->scanner->parents) return NULL;
   uint64_t hash = hash64(&anchor->scanner->parents[anchor->index], sizeof(XrSpatialEntityIdEXT));
-  uint64_t entry = map_get(&state.anchorLookup, hash);
+  uint64_t entry = map_get(&anchor->scanner->anchorLookup, hash);
   return entry == MAP_NIL ? NULL : (Anchor*) (uintptr_t) entry;
 }
 
