@@ -79,6 +79,7 @@ static int nextEvent(lua_State* L) {
 #ifndef LOVR_DISABLE_HEADSET
     case EVENT_SHOULDSCAN:
       luax_pushtype(L, Scanner, event.data.scan.scanner);
+      lovrRelease(event.data.scan.scanner, lovrScannerDestroy);
       return 1;
 #endif
 
