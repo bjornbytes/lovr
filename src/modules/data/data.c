@@ -12,35 +12,27 @@ void* lovrDataCompress(const void* data, size_t size, CompressionMethod method, 
     return lovrMalloc(0);
   }
 
+  const uint8_t gzipHeader[10] = { 0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff };
   size_t bound = sdefl_bound(size) + (method == COMPRESSION_GZIP ? 18 : 0);
   uint8_t* output = lovrMalloc(bound);
-  void* dst = method == COMPRESSION_GZIP ? output + 10 : output;
+  void* dst = output + (method == COMPRESSION_GZIP ? sizeof(gzipHeader) : 0);
   int lvl = level == ~0u ? SDEFL_LVL_DEF : CLAMP((int) level, SDEFL_LVL_MIN, SDEFL_LVL_MAX);
-  int result = (method == COMPRESSION_ZLIB ? zsdeflate : sdeflate)(&sdefl, dst, data, (int) size, lvl);
+  int compressedSize = (method == COMPRESSION_ZLIB ? zsdeflate : sdeflate)(&sdefl, dst, data, (int) size, lvl);
 
-  if (result <= 0) {
+  if (compressedSize <= 0) {
     lovrFree(output);
     return NULL;
   }
 
   if (method == COMPRESSION_GZIP) {
-    output[0] = 0x1f;
-    output[1] = 0x8b;
-    output[2] = 8;
-    output[3] = 0;
-    output[4] = 0;
-    output[5] = 0;
-    output[6] = 0;
-    output[7] = 0;
-    output[8] = 0;
-    output[9] = 0xff;
+    size_t cursor = 0;
     uint32_t crc = lovrDataCRC32(data, size);
-    uint32_t size32 = (uint32_t) size;
-    memcpy(output + 10 + result, &crc, sizeof(uint32_t));
-    memcpy(output + 10 + result + 4, &size32, sizeof(uint32_t));
-    *outputSize = (size_t) result + 18;
+    memcpy(output + cursor, gzipHeader, sizeof(gzipHeader)), cursor += sizeof(gzipHeader) + compressedSize;
+    memcpy(output + cursor, &crc, sizeof(uint32_t)), cursor += 4;
+    memcpy(output + cursor, &(uint32_t) { size }, sizeof(uint32_t));
+    *outputSize = (size_t) compressedSize + 18;
   } else {
-    *outputSize = (size_t) result;
+    *outputSize = (size_t) compressedSize;
   }
 
   return output;
@@ -48,7 +40,8 @@ void* lovrDataCompress(const void* data, size_t size, CompressionMethod method, 
 
 void* lovrDataDecompress(const void* data, size_t size, CompressionMethod method, bool autodetect, size_t* outputSize) {
   const uint8_t* bytes = data;
-  bool gzip = bytes[0] == 0x1f && bytes[1] == 0x8b && bytes[2] == 8;
+
+  bool gzip = size > 18 && bytes[0] == 0x1f && bytes[1] == 0x8b && bytes[2] == 8;
 
   if (autodetect) {
     if (gzip) {
@@ -64,41 +57,54 @@ void* lovrDataDecompress(const void* data, size_t size, CompressionMethod method
 
   if (method == COMPRESSION_GZIP) {
     lovrCheck(gzip, "Invalid gzip data");
-
     uint8_t flags = bytes[3];
-    size_t offset = 10;
+
+    // Read uncompressed size from footer and use it as the initial buffer size
+    uint32_t uncompressedSize;
+    memcpy(&uncompressedSize, bytes + size - 4, 4);
+    bufferSize = (size_t) uncompressedSize;
+    size -= 8;
+
+    // Skip the beginning of the header
+    bytes += 10;
+    size -= 10;
 
     // Extra data
     if (flags & 0x4) {
+      lovrAssert(size > 2, "Invalid gzip data");
       uint16_t extraLength;
-      memcpy(&extraLength, bytes + offset, 2);
-      offset += 2 + extraLength;
-      lovrAssert(offset < size, "Invalid gzip data");
+      memcpy(&extraLength, bytes, 2);
+      lovrAssert(extraLength + 2 < size, "Invalid gzip data");
+      bytes += 2 + extraLength;
+      size -= 2 + extraLength;
     }
 
     // File name
     if (flags & 0x8) {
-      offset += strnlen(bytes + offset, size - offset) + 1;
+      lovrAssert(size > 0, "Invalid gzip data");
+      const uint8_t* end = memchr(bytes, '\0', size);
+      lovrAssert(end, "Invalid gzip data");
+      size_t length = end - bytes;
+      bytes += length + 1;
+      size -= length + 1;
     }
 
     // File comment
     if (flags & 0x10) {
-      offset += strnlen(bytes + offset, size - offset) + 1;
+      lovrAssert(size > 0, "Invalid gzip data");
+      const uint8_t* end = memchr(bytes, '\0', size);
+      lovrAssert(end, "Invalid gzip data");
+      size_t length = end - bytes;
+      bytes += length + 1;
+      size -= length + 1;
     }
 
     // CRC16
     if (flags & 0x2) {
-      offset += 2;
+      lovrAssert(size > 2, "Invalid gzip data");
+      bytes += 2;
+      size -= 2;
     }
-
-    uint32_t uncompressedSize;
-    memcpy(&uncompressedSize, bytes + size - 4, 4);
-    bufferSize = (size_t) uncompressedSize;
-
-    lovrAssert(offset < size, "Invalid gzip data");
-
-    data = (char*) data + offset;
-    size = size - offset;
 
     method = COMPRESSION_DEFLATE;
   } else {
@@ -115,7 +121,7 @@ void* lovrDataDecompress(const void* data, size_t size, CompressionMethod method
   void* output = lovrMalloc(bufferSize);
 
   while (inputCursor < size) {
-    uint8_t* in = (uint8_t*) data + inputCursor;
+    const uint8_t* in = bytes + inputCursor;
     uint8_t* out = (uint8_t*) output + outputCursor;
     size_t inSize = size - inputCursor;
     size_t outSize = bufferSize - outputCursor;
