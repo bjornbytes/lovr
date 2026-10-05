@@ -1,4 +1,5 @@
 #include "api.h"
+#include "data/data.h"
 #include "data/blob.h"
 #include "data/modelData.h"
 #include "data/rasterizer.h"
@@ -13,6 +14,13 @@ StringEntry lovrAnimationProperty[] = {
   [PROP_ROTATION] = ENTRY("rotation"),
   [PROP_SCALE] = ENTRY("scale"),
   [PROP_WEIGHTS] = ENTRY("weights"),
+  { 0 }
+};
+
+StringEntry lovrCompressionMethod[] = {
+  [COMPRESSION_DEFLATE] = ENTRY("deflate"),
+  [COMPRESSION_ZLIB] = ENTRY("zlib"),
+  [COMPRESSION_GZIP] = ENTRY("gzip"),
   { 0 }
 };
 
@@ -54,6 +62,58 @@ Image* luax_checkimage(lua_State* L, int index) {
   }
 
   return image;
+}
+
+static int l_lovrDataCompress(lua_State* L) {
+  size_t size;
+  Blob* blob = luax_totype(L, 1, Blob);
+  const void* data;
+  if (blob) {
+    data = blob->data;
+    size = blob->size;
+  } else {
+    data = luaL_checklstring(L, 1, &size);
+  }
+  CompressionMethod method = luax_checkenum(L, 2, CompressionMethod, "deflate");
+  uint32_t level = luax_optu32(L, 3, ~0u);
+  size_t outputSize;
+  void* output = lovrDataCompress(data, size, method, level, &outputSize);
+  luax_assert(L, output);
+  if (blob) {
+    Blob* outputBlob = lovrBlobCreate(output, outputSize, NULL);
+    luax_pushtype(L, Blob, outputBlob);
+    return 1;
+  } else {
+    lua_pushlstring(L, output, outputSize);
+    lovrFree(output);
+    return 1;
+  }
+}
+
+static int l_lovrDataDecompress(lua_State* L) {
+  size_t size;
+  Blob* blob = luax_totype(L, 1, Blob);
+  const void* data;
+  if (blob) {
+    data = blob->data;
+    size = blob->size;
+  } else {
+    data = luaL_checklstring(L, 1, &size);
+  }
+  bool autodetect = lua_isnoneornil(L, 2);
+  CompressionMethod method = luax_checkenum(L, 2, CompressionMethod, "deflate");
+  size_t outputSize;
+  void* output = lovrDataDecompress(data, size, method, autodetect, &outputSize);
+  luax_assert(L, output);
+  if (blob) {
+    Blob* outputBlob = lovrBlobCreate(output, outputSize, NULL);
+    luax_pushtype(L, Blob, outputBlob);
+    return 1;
+  } else {
+    lua_pushlstring(L, output, outputSize);
+    lovrFree(output);
+    return 1;
+  }
 }
 
 static int l_lovrDataNewAudioStream(lua_State* L) {
@@ -268,6 +328,8 @@ static int l_lovrDataNewSound(lua_State* L) {
 }
 
 static const luaL_Reg lovrData[] = {
+  { "compress", l_lovrDataCompress },
+  { "decompress", l_lovrDataDecompress },
   { "newAudioStream", l_lovrDataNewAudioStream },
   { "newBlob", l_lovrDataNewBlob },
   { "newBlobView", l_lovrDataNewBlobView },

@@ -1,4 +1,5 @@
 #include "data/image.h"
+#include "data/data.h"
 #include "data/blob.h"
 #include "util.h"
 #include "lib/stb/stb_image.h"
@@ -371,31 +372,6 @@ bool lovrImageCopy(Image* src, Image* dst, uint32_t srcOffset[2], uint32_t dstOf
   return true;
 }
 
-static uint32_t crc_lookup[256];
-static bool crc_ready = false;
-static void crc_init(void) {
-  if (!crc_ready) {
-    crc_ready = true;
-    for (uint32_t i = 0; i < 256; i++) {
-      uint32_t x = i;
-      for (uint32_t b = 0; b < 8; b++) {
-        if (x & 1) {
-          x = 0xedb88320L ^ (x >> 1);
-        } else {
-          x >>= 1;
-        }
-        crc_lookup[i] = x;
-      }
-    }
-  }
-}
-
-static uint32_t crc32(uint8_t* data, size_t length) {
-  uint32_t c = 0xffffffff;
-  for (size_t i = 0; i < length; i++) c = crc_lookup[(c ^ data[i]) & 0xff] ^ (c >> 8);
-  return c ^ 0xffffffff;
-}
-
 Blob* lovrImageEncode(Image* image) {
   uint8_t depth;
 
@@ -442,7 +418,6 @@ Blob* lovrImageEncode(Image* image) {
   size += 4 + strlen("IEND") + 4;
   uint8_t* data = lovrMalloc(size);
 
-  crc_init();
   uint32_t crc;
 
   // Signature
@@ -453,7 +428,7 @@ Blob* lovrImageEncode(Image* image) {
   memcpy(data, (uint8_t[4]) { 0, 0, 0, sizeof(header) }, 4);
   memcpy(data + 4, "IHDR", 4);
   memcpy(data + 8, header, sizeof(header));
-  crc = crc32(data + 4, 4 + sizeof(header));
+  crc = lovrDataCRC32(data + 4, 4 + sizeof(header));
   memcpy(data + 8 + sizeof(header), (uint8_t[4]) { crc >> 24, crc >> 16, crc >> 8, crc >> 0 }, 4);
   data += 8 + sizeof(header) + 4;
 
@@ -523,14 +498,14 @@ Blob* lovrImageEncode(Image* image) {
     memcpy(p, (uint8_t[4]) { s2 >> 8, s2 >> 0, s1 >> 8, s1 >> 0 }, 4);
   }
 
-  crc = crc32(data + 4, idatSize + 4);
+  crc = lovrDataCRC32(data + 4, idatSize + 4);
   memcpy(data + 8 + idatSize, (uint8_t[4]) { crc >> 24, crc >> 16, crc >> 8, crc }, 4);
   data += 8 + idatSize + 4;
 
   // IEND
   memcpy(data, (uint8_t[4]) { 0 }, 4);
   memcpy(data + 4, "IEND", 4);
-  crc = crc32(data + 4, 4);
+  crc = lovrDataCRC32(data + 4, 4);
   memcpy(data + 8, (uint8_t[4]) { crc >> 24, crc >> 16, crc >> 8, crc >> 0 }, 4);
   data += 8 + 4;
 

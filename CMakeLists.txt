@@ -396,6 +396,7 @@ endif()
 
 if(LOVR_ENABLE_DATA)
   target_sources(lovr PRIVATE
+    src/modules/data/data.c
     src/modules/data/blob.c
     src/modules/data/image.c
     src/modules/data/modelData.c
@@ -412,6 +413,7 @@ if(LOVR_ENABLE_DATA)
     src/api/l_data_rasterizer.c
     src/api/l_data_sound.c
     src/lib/minimp3/minimp3.c
+    src/lib/sdefl/sdefl.c
     src/lib/stb/stb_image.c
     src/lib/stb/stb_truetype.c
     src/lib/stb/stb_vorbis.c
