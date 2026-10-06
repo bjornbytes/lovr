@@ -159,7 +159,9 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrQuerySpatialComponentDataEXT)\
   X(xrCreateSpatialEntityFromIdEXT)\
   X(xrDestroySpatialEntityEXT)\
-  X(xrCreateSpatialUpdateSnapshotEXT)
+  X(xrCreateSpatialUpdateSnapshotEXT)\
+  X(xrGetSpatialBufferStringEXT)\
+  X(xrGetSpatialBufferUint8EXT)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -211,17 +213,14 @@ struct Scanner {
   uint32_t entityCapacity;
   XrSpatialEntityEXT* entities;
   XrSpatialEntityIdEXT* entityIds;
-  XrSpatialEntityTrackingStateEXT* entityStates[2];
-  XrSpatialBounded2DDataEXT* bounds2D[2];
-  XrBoxf* bounds3D[2];
-  XrSpatialEntityIdEXT* parents[2];
-  XrSpatialMeshDataEXT* meshes3D[2];
-  XrSpatialPlaneAlignmentEXT* planeAlignments[2];
-  XrSpatialMeshDataEXT* meshes2D[2];
-  XrSpatialPolygon2DDataEXT* polygons[2];
-  XrSpatialPlaneSemanticLabelEXT* planeLabels[2];
-  XrSpatialMarkerDataEXT* markers[2];
-  XrPosef* anchorPoses[2];
+  XrSpatialEntityTrackingStateEXT* entityStates;
+  XrSpatialBounded2DDataEXT* bounds;
+  XrSpatialEntityIdEXT* parents;
+  XrSpatialMeshDataEXT* meshes;
+  XrSpatialPolygon2DDataEXT* polygons;
+  XrSpatialPlaneSemanticLabelEXT* planeLabels;
+  XrSpatialMarkerDataEXT* markers;
+  XrPosef* anchorPoses;
 };
 
 struct Anchor {
@@ -230,6 +229,15 @@ struct Anchor {
   Scanner* scanner;
   XrSpatialEntityIdEXT id;
   XrSpatialEntityEXT handle;
+  XrSpatialEntityIdEXT parent;
+  XrSpatialEntityTrackingStateEXT status;
+  XrSpatialPlaneSemanticLabelEXT planeLabel;
+  XrSpatialBufferIdEXT meshBuffer;
+  float position[3];
+  float orientation[4];
+  float dimensions[3];
+  size_t labelLength;
+  char* label;
 };
 
 struct Layer {
@@ -3387,10 +3395,7 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
   for (uint32_t i = 0; i < componentCount; i++) {
     switch (components[i]) {
       case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_3D_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_PLANE_ALIGNMENT_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_POLYGON_2D_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
@@ -3489,12 +3494,14 @@ void lovrScannerDestroy(void* ref) {
   }
 
   for (uint32_t i = 0; i < scanner->entityCapacity; i++) {
+    if (!scanner->anchors[i]) continue;
     Anchor* anchor = scanner->anchors[i];
-    if (!anchor) continue;
     xrDestroySpatialEntityEXT(anchor->handle);
-    anchor->handle = XR_NULL_HANDLE;
+    anchor->handle = NULL;
     anchor->scanner = NULL;
-    lovrRelease(anchor, lovrAnchorDestroy);
+    anchor->parent = XR_NULL_SPATIAL_ENTITY_ID_EXT;
+    anchor->status = XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT;
+    lovrRelease(scanner->anchors[i], lovrAnchorDestroy);
   }
 
   map_free(&scanner->anchorLookup);
@@ -3506,12 +3513,14 @@ void lovrScannerDestroy(void* ref) {
   lovrFree(scanner->anchors);
   lovrFree(scanner->entities);
   lovrFree(scanner->entityIds);
-  for (uint32_t i = 0; i < 2; i++) {
-    lovrFree(scanner->entityStates[i]);
-    lovrFree(scanner->bounds2D[i]);
-    lovrFree(scanner->bounds3D[i]);
-    lovrFree(scanner->parents[i]);
-  }
+  lovrFree(scanner->entityStates);
+  lovrFree(scanner->bounds);
+  lovrFree(scanner->parents);
+  lovrFree(scanner->meshes);
+  lovrFree(scanner->polygons);
+  lovrFree(scanner->planeLabels);
+  lovrFree(scanner->markers);
+  lovrFree(scanner->anchorPoses);
   lovrFree(scanner);
 }
 
@@ -3596,31 +3605,23 @@ bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
 
       scanner->anchors = lovrRealloc(scanner->anchors, capacity * sizeof(Anchor*));
       scanner->entities = lovrRealloc(scanner->entities, capacity * sizeof(XrSpatialEntityEXT));
+      scanner->entityStates = lovrRealloc(scanner->entityStates, capacity * sizeof(XrSpatialEntityTrackingStateEXT));
+
+      for (uint32_t c = 0; c < scanner->componentCount; c++) {
+        switch (scanner->components[c]) {
+          case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT: scanner->bounds = lovrRealloc(scanner->bounds, capacity * sizeof(scanner->bounds[0])); break;
+          case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT: scanner->parents = lovrRealloc(scanner->parents, capacity * sizeof(scanner->parents[0])); break;
+          case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
+          case XR_SPATIAL_COMPONENT_TYPE_POLYGON_2D_EXT: scanner->polygons = lovrRealloc(scanner->polygons, capacity * sizeof(scanner->polygons[0])); break;
+          case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT: scanner->planeLabels = lovrRealloc(scanner->planeLabels, capacity * sizeof(scanner->planeLabels[0])); break;
+          case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT: scanner->markers = lovrRealloc(scanner->markers, capacity * sizeof(scanner->markers[0])); break;
+          case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT: scanner->anchorPoses = lovrRealloc(scanner->anchorPoses, capacity * sizeof(scanner->anchorPoses[0])); break;
+          default: break;
+        }
+      }
 
       for (uint32_t s = capacity >> 1; s < capacity; s++) {
         scanner->anchors[s] = NULL;
-      }
-
-      for (uint32_t j = 0; j < 2; j++) {
-        scanner->entityStates[j] = lovrRealloc(scanner->entityStates[j], capacity * sizeof(XrSpatialEntityTrackingStateEXT));
-
-        for (uint32_t c = 0; c < scanner->componentCount; c++) {
-          switch (scanner->components[c]) {
-            case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT: scanner->bounds2D[j] = lovrRealloc(scanner->bounds2D[j], capacity * sizeof(XrSpatialBounded2DDataEXT)); break;
-            case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_3D_EXT: scanner->bounds3D[j] = lovrRealloc(scanner->bounds3D[j], capacity * sizeof(XrBoxf)); break;
-            case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT: scanner->parents[j] = lovrRealloc(scanner->parents[j], capacity * sizeof(XrSpatialEntityIdEXT)); break;
-
-            // TODO
-            case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_EXT:
-            case XR_SPATIAL_COMPONENT_TYPE_PLANE_ALIGNMENT_EXT:
-            case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
-            case XR_SPATIAL_COMPONENT_TYPE_POLYGON_2D_EXT:
-            case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
-            case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT:
-            case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT:
-            default: break;
-          }
-        }
       }
     }
 
@@ -3632,12 +3633,7 @@ bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
     anchor->scanner = scanner;
     scanner->anchors[slot] = anchor;
     scanner->entities[scanner->entityCount++] = handle;
-    map_set(&scanner->anchorLookup, hash, slot);
-
-    scanner->entityStates[0][slot] = 0;
-    if (scanner->bounds2D[0]) memset(&scanner->bounds2D[0][slot], 0, sizeof(scanner->bounds2D[0][slot]));
-    if (scanner->bounds3D[0]) memset(&scanner->bounds3D[0][slot], 0, sizeof(scanner->bounds3D[0][slot]));
-    if (scanner->parents[0]) memset(&scanner->parents[0][slot], 0, sizeof(scanner->parents[0][slot]));
+    map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
   }
 
   return true;
@@ -3645,7 +3641,7 @@ bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
 
 Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor) {
   for (uint32_t slot = anchor ? anchor->slot + 1 : 0; slot < scanner->entityCapacity; slot++) {
-    if (scanner->anchors[slot]) {
+    if (scanner->anchors[slot] && !lovrAnchorIsLost(scanner->anchors[slot])) {
       return scanner->anchors[slot];
     }
   }
@@ -3681,61 +3677,197 @@ bool lovrScannerUpdate(Scanner* scanner) {
     .entityIdCapacityInput = scanner->entityCount,
     .entityIds = scanner->entityIds,
     .entityStateCapacityInput = scanner->entityCount,
-    .entityStates = scanner->entityStates[1]
+    .entityStates = scanner->entityStates
   };
 
-  XrSpatialComponentBounded2DListEXT bounds2D;
-  XrSpatialComponentBounded3DListEXT bounds3D;
+  XrSpatialComponentBounded2DListEXT bounds;
   XrSpatialComponentParentListEXT parents;
+  XrSpatialComponentMesh2DListEXT meshes;
+  XrSpatialComponentPolygon2DListEXT polygons;
+  XrSpatialComponentPlaneSemanticLabelListEXT planeLabels;
+  XrSpatialComponentMarkerListEXT markers;
+  XrSpatialComponentAnchorListEXT anchors;
 
   for (uint32_t i = 0; i < scanner->componentCount; i++) {
     switch (scanner->components[i]) {
       case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT:
-        bounds2D.type = XR_TYPE_SPATIAL_COMPONENT_BOUNDED_2D_LIST_EXT;
-        bounds2D.boundCount = scanner->entityCount;
-        bounds2D.bounds = scanner->bounds2D[1];
-        bounds2D.next = data.next;
-        data.next = &bounds2D;
-        break;
-      case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_3D_EXT:
-        bounds3D.type = XR_TYPE_SPATIAL_COMPONENT_BOUNDED_3D_LIST_EXT;
-        bounds3D.boundCount = scanner->entityCount;
-        bounds3D.bounds = scanner->bounds3D[1];
-        bounds3D.next = data.next;
-        data.next = &bounds3D;
+        bounds.type = XR_TYPE_SPATIAL_COMPONENT_BOUNDED_2D_LIST_EXT;
+        bounds.boundCount = scanner->entityCount;
+        bounds.bounds = scanner->bounds;
+        bounds.next = data.next;
+        data.next = &bounds;
         break;
       case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
         parents.type = XR_TYPE_SPATIAL_COMPONENT_PARENT_LIST_EXT;
         parents.parentCount = scanner->entityCount;
-        parents.parents = scanner->parents[1];
+        parents.parents = scanner->parents;
         parents.next = data.next;
         data.next = &parents;
         break;
-      // TODO more components
+      case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
+        meshes.type = XR_TYPE_SPATIAL_COMPONENT_MESH_2D_LIST_EXT;
+        meshes.meshCount = scanner->entityCount;
+        meshes.meshes = scanner->meshes;
+        meshes.next = data.next;
+        data.next = &meshes;
+        break;
+      case XR_SPATIAL_COMPONENT_TYPE_POLYGON_2D_EXT:
+        polygons.type = XR_TYPE_SPATIAL_COMPONENT_POLYGON_2D_LIST_EXT;
+        polygons.polygonCount = scanner->entityCount;
+        polygons.polygons = scanner->polygons;
+        polygons.next = data.next;
+        data.next = &polygons;
+        break;
+      case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
+        planeLabels.type = XR_TYPE_SPATIAL_COMPONENT_PLANE_SEMANTIC_LABEL_LIST_EXT;
+        planeLabels.semanticLabelCount = scanner->entityCount;
+        planeLabels.semanticLabels = scanner->planeLabels;
+        planeLabels.next = data.next;
+        data.next = &planeLabels;
+        break;
+      case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT:
+        markers.type = XR_TYPE_SPATIAL_COMPONENT_MARKER_LIST_EXT;
+        markers.markerCount = scanner->entityCount;
+        markers.markers = scanner->markers;
+        markers.next = data.next;
+        data.next = &markers;
+        break;
+      case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT:
+        anchors.type = XR_TYPE_SPATIAL_COMPONENT_ANCHOR_LIST_EXT;
+        anchors.locationCount = scanner->entityCount;
+        anchors.locations = scanner->anchorPoses;
+        anchors.next = data.next;
+        data.next = &anchors;
+        break;
       default: break;
     }
   }
 
-  XrResult result = xrQuerySpatialComponentDataEXT(snapshot, &condition, &data);
-  xrDestroySpatialSnapshotEXT(snapshot);
-  XR(result, "xrQuerySpatialComponentDataEXT");
+  XRG(xrQuerySpatialComponentDataEXT(snapshot, &condition, &data), "xrQuerySpatialComponentDataEXT", fail);
 
   for (uint32_t i = 0; i < data.entityIdCountOutput; i++) {
     uint64_t hash = hash64(&scanner->entityIds[i], sizeof(XrSpatialEntityIdEXT));
-    uint64_t slot = map_get(&scanner->anchorLookup, hash);
-    if (slot == MAP_NIL) continue;
+    uint64_t entry = map_get(&scanner->anchorLookup, hash);
+    Anchor* anchor = (Anchor*) (uintptr_t) entry;
+    if (entry == MAP_NIL) continue;
 
-    scanner->entityStates[0][slot] = data.entityStates[i];
+    anchor->status = data.entityStates[i];
+
+    // Remove STOPPED anchors
+    if (anchor->status == XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT) {
+      for (uint32_t j = 0; j < scanner->entityCount; j++) {
+        if (scanner->entities[j] == anchor->handle) {
+          scanner->entities[j] = scanner->entities[--scanner->entityCount];
+          xrDestroySpatialEntityEXT(anchor->handle);
+          anchor->handle = XR_NULL_HANDLE;
+          break;
+        }
+      }
+      map_set(&scanner->anchorLookup, hash64(&anchor->id, sizeof(anchor->id)), MAP_NIL);
+      scanner->anchors[anchor->slot] = NULL;
+      lovrRelease(anchor, lovrAnchorDestroy);
+      continue;
+    }
 
     // Data is only valid if the entity is tracked
-    if (data.entityStates[i] == XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT) {
-      if (scanner->bounds2D[0]) scanner->bounds2D[0][slot] = scanner->bounds2D[1][i];
-      if (scanner->bounds3D[0]) scanner->bounds3D[0][slot] = scanner->bounds3D[1][i];
-      if (scanner->parents[0]) scanner->parents[0][slot] = scanner->parents[1][i];
+    if (anchor->status != XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT) {
+      continue;
+    }
+
+    // It's unfortunate that we have to copy data to each anchor here,
+    // but OpenXR doesn't return entities in a consistent order...
+    for (uint32_t c = 0; c < scanner->componentCount; c++) {
+      switch (scanner->components[c]) {
+        case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT:
+          memcpy(anchor->position, &scanner->bounds[i].center.position.x, 3 * sizeof(float));
+          memcpy(anchor->orientation, &scanner->bounds[i].center.orientation.x, 4 * sizeof(float));
+          memcpy(anchor->dimensions, &scanner->bounds[i].extents, 2 * sizeof(float));
+          break;
+        case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
+          anchor->parent = scanner->parents[i];
+          break;
+        case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
+          // TODO
+          break;
+        case XR_SPATIAL_COMPONENT_TYPE_POLYGON_2D_EXT:
+          // TODO
+          break;
+        case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
+          anchor->planeLabel = scanner->planeLabels[i];
+          break;
+        case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT: {
+          XrSpatialMarkerDataEXT* marker = &scanner->markers[i];
+
+          if (anchor->label) {
+            break;
+          }
+
+          bool qr =
+            marker->capability == XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT ||
+            marker->capability == XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT;
+
+          if (!qr) {
+            anchor->label = lovrMalloc(16);
+            char* s = anchor->label;
+            uint32_t id = marker->markerId;
+            do { *s++ = '0' + id % 10; } while (id /= 10);
+            *s = '\0';
+            s = anchor->label;
+            anchor->labelLength = strlen(s);
+            char c;
+            for (uint32_t j = 0, k = anchor->labelLength - 1; j < k; j++, k--) {
+              c = s[j];
+              s[j] = s[k];
+              s[k] = c;
+            }
+            break;
+          }
+
+          XrSpatialBufferGetInfoEXT bufferInfo = {
+            .type = XR_TYPE_SPATIAL_BUFFER_GET_INFO_EXT,
+            .bufferId = marker->data.bufferId
+          };
+
+          uint32_t size;
+          XrResult result;
+          if (marker->data.bufferType == XR_SPATIAL_BUFFER_TYPE_STRING_EXT) {
+            XRG(xrGetSpatialBufferStringEXT(snapshot, &bufferInfo, 0, &size, NULL), "xrGetSpatialBufferStringEXT", fail);
+            if (size == 0) break;
+            anchor->label = lovrMalloc(size);
+            result = xrGetSpatialBufferStringEXT(snapshot, &bufferInfo, size, &size, anchor->label);
+            anchor->labelLength = size - 1;
+          } else if (marker->data.bufferType == XR_SPATIAL_BUFFER_TYPE_UINT8_EXT) {
+            XRG(xrGetSpatialBufferUint8EXT(snapshot, &bufferInfo, 0, &size, NULL), "xrGetSpatialBufferUint8EXT", fail);
+            anchor->label = lovrMalloc(size);
+            result = xrGetSpatialBufferUint8EXT(snapshot, &bufferInfo, size, &size, (uint8_t*) anchor->label);
+            anchor->labelLength = size;
+          } else {
+            break;
+          }
+
+          if (XR_FAILED(result)) {
+            xrthrow(result, "xrGetSpatialBuffer*EXT");
+            lovrFree(anchor->label);
+            anchor->label = NULL;
+            goto fail;
+          }
+
+          break;
+        }
+        case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT:
+          memcpy(anchor->position, &scanner->anchorPoses[i].position.x, 3 * sizeof(float));
+          memcpy(anchor->orientation, &scanner->anchorPoses[i].orientation.x, 4 * sizeof(float));
+          break;
+        default:break;
+      }
     }
   }
 
+  xrDestroySpatialSnapshotEXT(snapshot);
   return true;
+fail:
+  xrDestroySpatialSnapshotEXT(snapshot);
+  return false;
 }
 
 // Anchor
@@ -3746,62 +3878,56 @@ Anchor* lovrAnchorCreate(float* position, float* orientation) {
 
 void lovrAnchorDestroy(void* ref) {
   Anchor* anchor = ref;
-  lovrAnchorDestruct(anchor);
+  // Anchors are only destroyed if their Scanner is destroyed or they reach the STOPPED state, and
+  // both of those already clean up the Anchor appropriately.
+  lovrFree(anchor->label);
   lovrFree(anchor);
 }
 
-void lovrAnchorDestruct(Anchor* anchor) {
-  if (!anchor->handle) return;
-
-  Scanner* scanner = anchor->scanner;
-
-  // Remove from set of entity handles
-  for (uint32_t i = 0; i < scanner->entityCount; i++) {
-    if (scanner->entities[i] == anchor->handle) {
-      scanner->entities[i] = scanner->entities[--scanner->entityCount];
-      break;
-    }
-  }
-
-  map_set(&scanner->anchorLookup, hash64(&anchor->id, sizeof(anchor->id)), MAP_NIL);
-  xrDestroySpatialEntityEXT(anchor->handle);
-  anchor->handle = XR_NULL_HANDLE;
-  scanner->anchors[anchor->slot] = NULL;
-  lovrRelease(anchor, lovrAnchorDestroy);
-}
-
-bool lovrAnchorIsDestroyed(Anchor* anchor) {
-  return !anchor->handle;
+bool lovrAnchorIsLost(Anchor* anchor) {
+  return anchor->status == XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT;
 }
 
 bool lovrAnchorIsTracked(Anchor* anchor) {
-  if (lovrAnchorIsDestroyed(anchor)) return false;
-  return anchor->scanner->entityStates[0][anchor->slot] == XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT;
-}
-
-bool lovrAnchorGetDimensions(Anchor* anchor, float* width, float* height, float* depth) {
-  if (lovrAnchorIsDestroyed(anchor)) {
-    return false;
-  } else if (anchor->scanner->bounds3D[0]) {
-    *width = anchor->scanner->bounds3D[0][anchor->slot].extents.width;
-    *height = anchor->scanner->bounds3D[0][anchor->slot].extents.height;
-    *depth = anchor->scanner->bounds3D[0][anchor->slot].extents.depth;
-    return true;
-  } else if (anchor->scanner->bounds2D[0]) {
-    *width = anchor->scanner->bounds2D[0][anchor->slot].extents.width;
-    *height = anchor->scanner->bounds2D[0][anchor->slot].extents.height;
-    *depth = 0.f;
-    return true;
-  } else {
-    return false;
-  }
+  return anchor->status == XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT;
 }
 
 Anchor* lovrAnchorGetParent(Anchor* anchor) {
-  if (lovrAnchorIsDestroyed(anchor) || !anchor->scanner->parents[0]) return NULL;
-  uint64_t hash = hash64(&anchor->scanner->parents[0][anchor->slot], sizeof(XrSpatialEntityIdEXT));
-  uint64_t slot = map_get(&anchor->scanner->anchorLookup, hash);
-  return slot == MAP_NIL ? NULL : anchor->scanner->anchors[slot];
+  if (lovrAnchorIsLost(anchor) || !anchor->parent) return NULL;
+  uint64_t hash = hash64(&anchor->parent, sizeof(XrSpatialEntityIdEXT));
+  uint64_t entry = map_get(&anchor->scanner->anchorLookup, hash);
+  return entry == MAP_NIL ? NULL : (Anchor*) (uintptr_t) entry;
+}
+
+void lovrAnchorGetPosition(Anchor* anchor, float* position) {
+  vec3_init(position, anchor->position);
+}
+
+void lovrAnchorGetOrientation(Anchor* anchor, float* orientation) {
+  quat_init(orientation, anchor->orientation);
+}
+
+void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions) {
+  vec3_init(dimensions, anchor->dimensions);
+}
+
+const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length) {
+  if (!anchor->planeLabel) {
+    *length = anchor->labelLength;
+    return anchor->label;
+  }
+
+  const char* label;
+  switch (anchor->planeLabel) {
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_FLOOR_EXT: label = "floor"; break;
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_WALL_EXT: label = "wall"; break;
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_CEILING_EXT: label = "ceiling"; break;
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
+    default: return *length = 0, NULL;
+  }
+
+  *length = strlen(label);
+  return label;
 }
 
 // Layer

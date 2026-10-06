@@ -277,11 +277,13 @@ bool lovrScannerUpdate(Scanner* scanner);
 
 Anchor* lovrAnchorCreate(float* position, float* orientation);
 void lovrAnchorDestroy(void* ref);
-void lovrAnchorDestruct(Anchor* anchor);
-bool lovrAnchorIsDestroyed(Anchor* anchor);
+bool lovrAnchorIsLost(Anchor* anchor);
 bool lovrAnchorIsTracked(Anchor* anchor);
-bool lovrAnchorGetDimensions(Anchor* anchor, float* width, float* height, float* depth);
 Anchor* lovrAnchorGetParent(Anchor* anchor);
+void lovrAnchorGetPosition(Anchor* anchor, float* position);
+void lovrAnchorGetOrientation(Anchor* anchor, float* orientation);
+void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions);
+const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length);
 
 // Layer
 
