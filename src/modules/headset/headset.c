@@ -161,7 +161,9 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrDestroySpatialEntityEXT)\
   X(xrCreateSpatialUpdateSnapshotEXT)\
   X(xrGetSpatialBufferStringEXT)\
-  X(xrGetSpatialBufferUint8EXT)
+  X(xrGetSpatialBufferUint8EXT)\
+  X(xrGetSpatialBufferUint16EXT)\
+  X(xrGetSpatialBufferVector2fEXT)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -217,7 +219,6 @@ struct Scanner {
   XrSpatialBounded2DDataEXT* bounds;
   XrSpatialEntityIdEXT* parents;
   XrSpatialMeshDataEXT* meshes;
-  XrSpatialPolygon2DDataEXT* polygons;
   XrSpatialPlaneSemanticLabelEXT* planeLabels;
   XrSpatialMarkerDataEXT* markers;
   XrPosef* anchorPoses;
@@ -232,10 +233,14 @@ struct Anchor {
   XrSpatialEntityIdEXT parent;
   XrSpatialEntityTrackingStateEXT status;
   XrSpatialPlaneSemanticLabelEXT planeLabel;
-  XrSpatialBufferIdEXT meshBuffer;
+  XrSpatialBufferIdEXT vertexBuffer;
   float position[3];
   float orientation[4];
   float dimensions[3];
+  void* vertices;
+  void* indices;
+  uint32_t vertexCount;
+  uint32_t indexCount;
   size_t labelLength;
   char* label;
 };
@@ -3397,7 +3402,6 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
       case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_POLYGON_2D_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT:
@@ -3517,7 +3521,6 @@ void lovrScannerDestroy(void* ref) {
   lovrFree(scanner->bounds);
   lovrFree(scanner->parents);
   lovrFree(scanner->meshes);
-  lovrFree(scanner->polygons);
   lovrFree(scanner->planeLabels);
   lovrFree(scanner->markers);
   lovrFree(scanner->anchorPoses);
@@ -3612,7 +3615,6 @@ bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
           case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT: scanner->bounds = lovrRealloc(scanner->bounds, capacity * sizeof(scanner->bounds[0])); break;
           case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT: scanner->parents = lovrRealloc(scanner->parents, capacity * sizeof(scanner->parents[0])); break;
           case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
-          case XR_SPATIAL_COMPONENT_TYPE_POLYGON_2D_EXT: scanner->polygons = lovrRealloc(scanner->polygons, capacity * sizeof(scanner->polygons[0])); break;
           case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT: scanner->planeLabels = lovrRealloc(scanner->planeLabels, capacity * sizeof(scanner->planeLabels[0])); break;
           case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT: scanner->markers = lovrRealloc(scanner->markers, capacity * sizeof(scanner->markers[0])); break;
           case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT: scanner->anchorPoses = lovrRealloc(scanner->anchorPoses, capacity * sizeof(scanner->anchorPoses[0])); break;
@@ -3683,7 +3685,6 @@ bool lovrScannerUpdate(Scanner* scanner) {
   XrSpatialComponentBounded2DListEXT bounds;
   XrSpatialComponentParentListEXT parents;
   XrSpatialComponentMesh2DListEXT meshes;
-  XrSpatialComponentPolygon2DListEXT polygons;
   XrSpatialComponentPlaneSemanticLabelListEXT planeLabels;
   XrSpatialComponentMarkerListEXT markers;
   XrSpatialComponentAnchorListEXT anchors;
@@ -3710,13 +3711,6 @@ bool lovrScannerUpdate(Scanner* scanner) {
         meshes.meshes = scanner->meshes;
         meshes.next = data.next;
         data.next = &meshes;
-        break;
-      case XR_SPATIAL_COMPONENT_TYPE_POLYGON_2D_EXT:
-        polygons.type = XR_TYPE_SPATIAL_COMPONENT_POLYGON_2D_LIST_EXT;
-        polygons.polygonCount = scanner->entityCount;
-        polygons.polygons = scanner->polygons;
-        polygons.next = data.next;
-        data.next = &polygons;
         break;
       case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
         planeLabels.type = XR_TYPE_SPATIAL_COMPONENT_PLANE_SEMANTIC_LABEL_LIST_EXT;
@@ -3786,12 +3780,62 @@ bool lovrScannerUpdate(Scanner* scanner) {
         case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
           anchor->parent = scanner->parents[i];
           break;
-        case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
-          // TODO
+        case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: {
+          XrSpatialMeshDataEXT* mesh = &scanner->meshes[i];
+
+          // Assuming the mesh only changes if the vertex buffer changes
+          if (mesh->vertexBuffer.bufferId == anchor->vertexBuffer) {
+            break;
+          }
+
+          // Vertices
+
+          XrSpatialBufferGetInfoEXT bufferInfo = {
+            .type = XR_TYPE_SPATIAL_BUFFER_GET_INFO_EXT,
+            .bufferId = mesh->vertexBuffer.bufferId
+          };
+
+          uint32_t count;
+          XR(xrGetSpatialBufferVector2fEXT(snapshot, &bufferInfo, 0, &count, NULL), "xrGetSpatialBufferVector2fEXT");
+
+          if (count > anchor->vertexCount) {
+            anchor->vertexCount = count;
+            anchor->vertices = lovrRealloc(anchor->vertices, anchor->vertexCount * 3 * sizeof(float));
+          }
+
+          // Copy the vec2 data to the end of the array, so it can be expanded to vec3 in-place
+          XrVector2f* vertices = (XrVector2f*) ((char*) anchor->vertices + count * sizeof(float));
+          XR(xrGetSpatialBufferVector2fEXT(snapshot, &bufferInfo, anchor->vertexCount, &anchor->vertexCount, vertices), "xrGetSpatialBufferVector2fEXT");
+
+          float* v = anchor->vertices;
+          for (uint32_t i = 0; i < anchor->vertexCount; i++) {
+            v[0] = vertices[i].x;
+            v[1] = vertices[i].y;
+            v[2] = 0.f;
+            v += 3;
+          }
+
+          // Indices
+
+          bufferInfo.bufferId = mesh->indexBuffer.bufferId;
+          XR(xrGetSpatialBufferUint16EXT(snapshot, &bufferInfo, 0, &count, NULL), "xrGetSpatialBufferUint16EXT");
+
+          if (count > anchor->indexCount) {
+            anchor->indexCount = count;
+            anchor->indices = lovrRealloc(anchor->indices, anchor->indexCount * sizeof(uint32_t));
+          }
+
+          // Copy the u16 data to the end of the array, so it can be expanded to u32 in-place
+          uint16_t* u16 = (uint16_t*) ((char*) anchor->indices + count * sizeof(uint16_t));
+          XR(xrGetSpatialBufferUint16EXT(snapshot, &bufferInfo, anchor->indexCount, &anchor->indexCount, u16), "xrGetSpatialBufferUint16EXT");
+
+          uint32_t* u32 = anchor->indices;
+          for (uint32_t i = 0; i < anchor->indexCount; i++) {
+            u32[i] = u16[i];
+          }
+
           break;
-        case XR_SPATIAL_COMPONENT_TYPE_POLYGON_2D_EXT:
-          // TODO
-          break;
+        }
         case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
           anchor->planeLabel = scanner->planeLabels[i];
           break;
@@ -3799,7 +3843,7 @@ bool lovrScannerUpdate(Scanner* scanner) {
           XrSpatialMarkerDataEXT* marker = &scanner->markers[i];
 
           if (anchor->label) {
-            break;
+            break; // TODO dynamic labels?
           }
 
           bool qr =
@@ -3807,6 +3851,7 @@ bool lovrScannerUpdate(Scanner* scanner) {
             marker->capability == XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT;
 
           if (!qr) {
+            // This is just anchor->label = tostring(marker->markerId), too lazy to use snprintf
             anchor->label = lovrMalloc(16);
             char* s = anchor->label;
             uint32_t id = marker->markerId;
@@ -3909,6 +3954,16 @@ void lovrAnchorGetOrientation(Anchor* anchor, float* orientation) {
 
 void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions) {
   vec3_init(dimensions, anchor->dimensions);
+}
+
+float* lovrAnchorGetVertices(Anchor* anchor, uint32_t* count) {
+  *count = anchor->vertexCount;
+  return anchor->vertices;
+}
+
+uint32_t* lovrAnchorGetIndices(Anchor* anchor, uint32_t* count) {
+  *count = anchor->indexCount;
+  return anchor->indices;
 }
 
 const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length) {

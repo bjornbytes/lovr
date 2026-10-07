@@ -283,6 +283,8 @@ Anchor* lovrAnchorGetParent(Anchor* anchor);
 void lovrAnchorGetPosition(Anchor* anchor, float* position);
 void lovrAnchorGetOrientation(Anchor* anchor, float* orientation);
 void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions);
+float* lovrAnchorGetVertices(Anchor* anchor, uint32_t* count);
+uint32_t* lovrAnchorGetIndices(Anchor* anchor, uint32_t* count);
 const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length);
 
 // Layer
