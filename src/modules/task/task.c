@@ -78,6 +78,8 @@ Task* lovrTaskModuleGetNext(void) {
       if (!atomic_compare_exchange_strong(&task->error, &expected, error)) {
         lovrFree(error);
       }
+      *list = task->next;
+      return task;
     }
   }
 
