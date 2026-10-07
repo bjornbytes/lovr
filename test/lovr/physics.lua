@@ -10,6 +10,24 @@ group('physics', function()
       expect(taggedWorld:getTags()).to.equal({ 'a', 'b' })
     end)
 
+    test(':getStaticTags', function()
+      expect(world:getStaticTags()).to.equal({})
+
+      local taggedWorld = lovr.physics.newWorld({
+        tags = { 'dynamic', 'environment', 'sensor' },
+        -- Duplicate static tags should be ignored
+        staticTags = { 'sensor', 'sensor', 'environment' }
+      })
+
+      local staticTags = taggedWorld:getStaticTags()
+      -- Static tags should follow their order in tags
+      expect(staticTags).to.equal({ 'environment', 'sensor' })
+
+      -- Mutating the returned table should not affect the world
+      staticTags[1] = 'dynamic'
+      expect(taggedWorld:getStaticTags()).to.equal({ 'environment', 'sensor' })
+    end)
+
     test('distant colliders', function()
       local c1 = world:newBoxCollider(1e8, 0, 0)
       local c2 = world:newBoxCollider(1e8, 0, 0)

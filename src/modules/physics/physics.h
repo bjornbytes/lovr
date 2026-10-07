@@ -79,6 +79,7 @@ void lovrWorldDestroy(void* ref);
 void lovrWorldDestruct(World* world);
 bool lovrWorldIsDestroyed(World* world);
 char** lovrWorldGetTags(World* world, uint32_t* count);
+uint32_t lovrWorldGetStaticTags(World* world, const char** tags);
 uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length);
 uint32_t lovrWorldGetColliderCount(World* world);
 uint32_t lovrWorldGetJointCount(World* world);

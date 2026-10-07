@@ -286,6 +286,18 @@ static int l_lovrWorldGetTags(lua_State* L) {
   return 1;
 }
 
+static int l_lovrWorldGetStaticTags(lua_State* L) {
+  World* world = luax_checkworld(L, 1);
+  const char* tags[MAX_TAGS];
+  uint32_t count = lovrWorldGetStaticTags(world, tags);
+  lua_createtable(L, (int) count, 0);
+  for (uint32_t i = 0; i < count; i++) {
+    lua_pushstring(L, tags[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+  return 1;
+}
+
 static int l_lovrWorldGetColliderCount(lua_State* L) {
   World* world = luax_checkworld(L, 1);
   uint32_t count = lovrWorldGetColliderCount(world);
@@ -608,6 +620,7 @@ const luaL_Reg lovrWorld[] = {
   { "destroy", l_lovrWorldDestroy },
   { "isDestroyed", l_lovrWorldIsDestroyed },
   { "getTags", l_lovrWorldGetTags },
+  { "getStaticTags", l_lovrWorldGetStaticTags },
   { "getColliderCount", l_lovrWorldGetColliderCount },
   { "getJointCount", l_lovrWorldGetJointCount },
   { "getColliders", l_lovrWorldGetColliders },
