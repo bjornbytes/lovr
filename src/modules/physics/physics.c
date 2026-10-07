@@ -479,6 +479,7 @@ bool lovrWorldIsDestroyed(World* world) {
 }
 
 char** lovrWorldGetTags(World* world, uint32_t* count) {
+  *count = world->tagCount;
   return world->tags;
 }
 
