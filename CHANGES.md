@@ -25,6 +25,7 @@ dev
 - Fix `Blob:set*` methods to correctly return zero values.
 - Fix `lovr.graphics.newBuffer` not throwing errors properly.
 - Fix issue where exit status was always zero.
+- Fix `World:getTags`.
 
 v0.19.0 - 2026-06-07
 ---
