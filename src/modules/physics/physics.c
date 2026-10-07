@@ -483,6 +483,17 @@ char** lovrWorldGetTags(World* world, uint32_t* count) {
   return world->tags;
 }
 
+uint32_t lovrWorldGetStaticTags(World* world, const char** tags) {
+  uint32_t count = 0;
+  for (uint32_t i = 0; i < world->tagCount; i++) {
+    if (world->staticTagMask & (1 << i)) {
+      tags[count++] = world->tags[i];
+    }
+  }
+
+  return count;
+}
+
 uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length) {
   uint32_t accept = 0;
   uint32_t ignore = 0;
