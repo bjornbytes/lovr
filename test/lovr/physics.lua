@@ -3,6 +3,13 @@ group('physics', function()
   before(function() world = lovr.physics.newWorld() end)
 
   group('World', function()
+    test(':getTags', function()
+      expect(world:getTags()).to.equal({})
+
+      local taggedWorld = lovr.physics.newWorld({ tags = { 'a', 'b' } })
+      expect(taggedWorld:getTags()).to.equal({ 'a', 'b' })
+    end)
+
     test('distant colliders', function()
       local c1 = world:newBoxCollider(1e8, 0, 0)
       local c2 = world:newBoxCollider(1e8, 0, 0)
