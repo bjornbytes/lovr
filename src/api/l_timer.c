@@ -31,9 +31,10 @@ static int l_lovrTimerStep(lua_State* L) {
   return 1;
 }
 
-static bool luax_polltime(void** context) {
+static bool luax_polltime(void** context, bool* ready) {
   double timeout = ((union { double f64; void* p; }) { .p = *context }).f64;
-  return lovrTimerGetTime() >= timeout;
+  *ready = lovrTimerGetTime() >= timeout;
+  return true;
 }
 
 static bool luax_waittime(void** context) {

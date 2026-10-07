@@ -477,8 +477,9 @@ static int l_lovrGraphicsSetTimingEnabled(lua_State* L) {
   return 0;
 }
 
-static bool luax_pollreadback(void** context) {
-  return lovrReadbackPoll(*context);
+static bool luax_pollreadback(void** context, bool* ready) {
+  *ready = lovrReadbackPoll(*context);
+  return true;
 }
 
 static bool luax_waitreadback(void** context) {

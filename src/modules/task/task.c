@@ -62,13 +62,22 @@ Task* lovrTaskModuleGetNext(void) {
   Task** list = &state.polls;
   while (*list) {
     Task* task = *list;
-    if (task->fn(&task->context)) {
-      *list = task->next;
-      if (atomic_fetch_sub(&task->deps, 1) == 1) {
-        return task;
+    bool ready = false;
+    if (task->poll(&task->context, &ready)) {
+      if (ready) {
+        *list = task->next;
+        if (atomic_fetch_sub(&task->deps, 1) == 1) {
+          return task;
+        }
+      } else {
+        list = &task->next;
       }
     } else {
-      list = &task->next;
+      char* expected = NULL;
+      char* error = lovrStrdup(lovrGetError());
+      if (!atomic_compare_exchange_strong(&task->error, &expected, error)) {
+        lovrFree(error);
+      }
     }
   }
 
@@ -117,9 +126,9 @@ void lovrTaskDequeue(Task* task) {
   task->dequeued = true;
 }
 
-void lovrTaskWaitPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context) {
-  task->fn = poll;
-  task->block = block;
+void lovrTaskWaitPoll(Task* task, fn_poll* poll, fn_task* block, fn_continuation* continuation, void* context) {
+  task->fn = block;
+  task->poll = poll;
   task->context = context;
   task->continuation = continuation;
   atomic_store(&task->deps, 1);

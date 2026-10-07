@@ -610,8 +610,9 @@ static int l_lovrBufferNewReadback(lua_State* L) {
   return 1;
 }
 
-static bool luax_pollreadback(void** context) {
-  return lovrReadbackPoll(*context);
+static bool luax_pollreadback(void** context, bool* ready) {
+  *ready = lovrReadbackPoll(*context);
+  return true;
 }
 
 static bool luax_waitreadback(void** context) {

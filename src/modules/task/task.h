@@ -5,6 +5,7 @@
 
 struct lua_State;
 typedef bool fn_task(void** context);
+typedef bool fn_poll(void** context, bool* ready);
 typedef int fn_continuation(struct lua_State* L, bool success, void* context);
 
 typedef struct Task Task;
@@ -35,7 +36,7 @@ struct Task {
   struct Task* next;
   struct lua_State* T;
   fn_task* fn;
-  fn_task* block;
+  fn_poll* poll;
   fn_continuation* continuation;
   void* context;
   Waiter* waiters;
@@ -47,6 +48,6 @@ void lovrTaskDestroy(Task* task);
 bool lovrTaskIsReady(Task* task);
 void lovrTaskEnqueue(Task* task);
 void lovrTaskDequeue(Task* task);
-void lovrTaskWaitPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context);
+void lovrTaskWaitPoll(Task* task, fn_poll* poll, fn_task* block, fn_continuation* continuation, void* context);
 void lovrTaskFinish(Task* task);
 bool lovrTaskAddDependency(Task* task, Task* dependency);

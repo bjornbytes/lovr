@@ -2,7 +2,6 @@
 #include "task/task.h"
 #include "core/job.h"
 #include "util.h"
-#include <stdlib.h>
 #include <string.h>
 
 static void* TASK_OK;
@@ -24,7 +23,7 @@ static void luax_unpintask(lua_State* L, Task* task) {
   lua_pop(L, 1);
 }
 
-int luax_yieldpoll(lua_State* L, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context) {
+int luax_yieldpoll(lua_State* L, fn_poll* poll, fn_task* block, fn_continuation* continuation, void* context) {
   Task* task = luax_getthreaddata(L);
 
   if (!task) {
@@ -324,7 +323,7 @@ static int luax_waittask(lua_State* L, lua_State* T) {
       job_spin();
     }
   } else if (task->waiting == WAIT_POLL) {
-    if (!task->block(&task->context)) {
+    if (!task->fn(&task->context)) {
       task->error = lovrStrdup(lovrGetError());
     }
   } else {
