@@ -55,8 +55,10 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
 
 #define XR(f, s) do { XrResult r = f; if (XR_FAILED(r)) { xrthrow(r, s); return 0; } } while(0)
 #define XRG(f, s, j) do { XrResult r = f; if (XR_FAILED(r)) { xrthrow(r, s); goto j; } } while(0)
-#define SESSION_RUNNING(s) (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED)
+#define SESSION_RUNNING(s) (state.extensions.spatialContainer ? s == XR_SESSION_STATE_IDLE : (s >= XR_SESSION_STATE_READY && s <= XR_SESSION_STATE_FOCUSED))
 #define MAX_IMAGES 4
+#define MAX_VIEWS 4
+#define MAX_WINDOWS 32
 #define MAX_HAND_JOINTS 27
 
 #define XR_FOREACH(X)\
@@ -144,7 +146,17 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrDestroyPassthroughLayerFB)\
   X(xrGetPassthroughPreferencesMETA)\
   X(xrGetRecommendedLayerResolutionMETA)\
-  X(xrEnumerateColorSpacesSONY)
+  X(xrEnumerateColorSpacesSONY)\
+  X(xrCreateSpatialContainerEXT)\
+  X(xrDestroySpatialContainerEXT)\
+  X(xrCreateSpatialContainerSpaceEXT)\
+  X(xrGetSpatialContainerStateEXT)\
+  X(xrRequestSpatialContainerVisibleEXT)\
+  X(xrRequestSpatialContainerBoundsModeEXT)\
+  X(xrGetSpatialContainerBoundsEXT)\
+  X(xrBeginSpatialContainerRenderingEXT)\
+  X(xrEndSpatialContainerRenderingEXT)\
+  X(xrLocateSpatialContainerViewsEXT)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -198,6 +210,35 @@ struct Layer {
   XrCompositionLayerSettingsFB settings;
 };
 
+struct Window {
+  uint32_t ref;
+  uint32_t index;
+  XrSpatialContainerEXT handle;
+  XrSpace space;
+  XrViewStateFlags viewState;
+  XrView* views;
+  bool shouldRender;
+  bool hdr;
+  uint32_t renderWidth;
+  uint32_t renderHeight;
+  Swapchain swapchains[3];
+  Pass* pass;
+  XrCompositionLayerProjection layer;
+  XrCompositionLayerProjectionView layerViews[4];
+  XrCompositionLayerDepthInfoKHR depthInfo[4];
+  union {
+    XrCompositionLayerBaseHeader header;
+    XrCompositionLayerCubeKHR cube;
+    XrCompositionLayerEquirectKHR equirect;
+    XrCompositionLayerEquirect2KHR equirect2;
+  } background;
+  XrCompositionLayerBaseHeader const* layerHeaders[MAX_LAYERS + 3];
+  union { XrCompositionLayerQuad quad; XrCompositionLayerCylinderKHR cylinder; } stereoLayers[MAX_LAYERS];
+  Layer* layers[MAX_LAYERS];
+  uint32_t layerCount;
+  bool showMainLayer;
+};
+
 typedef struct {
   XrRenderModelEXT handle;
   XrRenderModelPropertiesEXT properties;
@@ -215,6 +256,64 @@ typedef struct {
   Pass* pass;
 } Simulator;
 
+typedef struct {
+  bool battery;
+  bool bodyTracking;
+  bool cosmosController;
+  bool debug;
+  bool depth;
+  bool dynamicResolution;
+  bool focus3Controller;
+  bool foveatedInset;
+  bool foveation;
+  bool foveationConfig;
+  bool foveationVulkan;
+  bool frameController;
+  bool gaze;
+  bool genericController;
+  bool handInteraction;
+  bool handTracking;
+  bool handTrackingDataSource;
+  bool handTrackingElbow;
+  bool handTrackingMesh;
+  bool handTrackingMotionRange;
+  bool hdr;
+  bool headless;
+  bool interactionRenderModel;
+  bool keyboardTracking;
+  bool layerAutoFilter;
+  bool layerColor;
+  bool layerCube;
+  bool layerCurve;
+  bool layerDepthTest;
+  bool layerEquirect;
+  bool layerEquirect2;
+  bool layerSettings;
+  bool localFloor;
+  bool microgestures;
+  bool ml2Controller;
+  bool mxInk;
+  bool overlay;
+  bool palmPose;
+  bool passthroughPreferences;
+  bool picoController;
+  bool picoUltraController;
+  bool presence;
+  bool questPassthrough;
+  bool renderModel;
+  bool resize;
+  bool reverbController;
+  bool spatialContainer;
+  bool spatialContainerRendering;
+  bool swapchainUpdate;
+  bool refreshRate;
+  bool threadHint;
+  bool touchPro;
+  bool uuid;
+  bool visibilityMask;
+  bool viveTrackers;
+} xr_extensions;
+
 static atomic_uint ref;
 
 static struct {
@@ -231,28 +330,12 @@ static struct {
   XrSpace referenceSpace;
   float* refreshRates;
   uint32_t refreshRateCount;
-  bool hdr;
   XrEnvironmentBlendMode* blendModes;
   XrEnvironmentBlendMode blendMode;
   uint32_t blendModeCount;
   XrSpace spaces[MAX_DEVICES];
   XrSpace handSpaces[2][MAX_HAND_POSES];
   TextureFormat depthFormat;
-  Pass* pass;
-  Swapchain swapchains[3];
-  XrCompositionLayerProjection layer;
-  XrCompositionLayerProjectionView layerViews[4];
-  XrCompositionLayerDepthInfoKHR depthInfo[4];
-  XrCompositionLayerPassthroughFB passthroughLayer;
-  union {
-    XrCompositionLayerBaseHeader header;
-    XrCompositionLayerCubeKHR cube;
-    XrCompositionLayerEquirectKHR equirect;
-    XrCompositionLayerEquirect2KHR equirect2;
-  } background;
-  Layer* layers[MAX_LAYERS];
-  uint32_t layerCount;
-  bool showMainLayer;
   Mesh* mask;
   XrFrameState frameState;
   XrTime lastDisplayTime;
@@ -263,6 +346,8 @@ static struct {
   float clipFar;
   bool waited;
   bool began;
+  bool mounted;
+  bool mainSessionVisible;
   XrActionSet actionSet;
   XrAction actions[MAX_ACTIONS];
   XrPath actionFilters[MAX_DEVICES];
@@ -276,65 +361,18 @@ static struct {
   bool foveationDynamic;
   XrPassthroughFB passthrough;
   XrPassthroughLayerFB passthroughLayerHandle;
+  XrCompositionLayerPassthroughFB passthroughLayer;
   bool passthroughActive;
-  bool mounted;
-  bool mainSessionVisible;
   XrDebugUtilsMessengerEXT messenger;
-  struct {
-    bool battery;
-    bool bodyTracking;
-    bool cosmosController;
-    bool debug;
-    bool depth;
-    bool dynamicResolution;
-    bool focus3Controller;
-    bool foveatedInset;
-    bool foveation;
-    bool foveationConfig;
-    bool foveationVulkan;
-    bool frameController;
-    bool gaze;
-    bool genericController;
-    bool handInteraction;
-    bool handTracking;
-    bool handTrackingDataSource;
-    bool handTrackingElbow;
-    bool handTrackingMesh;
-    bool handTrackingMotionRange;
-    bool hdr;
-    bool headless;
-    bool interactionRenderModel;
-    bool keyboardTracking;
-    bool layerAutoFilter;
-    bool layerColor;
-    bool layerCube;
-    bool layerCurve;
-    bool layerDepthTest;
-    bool layerEquirect;
-    bool layerEquirect2;
-    bool layerSettings;
-    bool localFloor;
-    bool microgestures;
-    bool ml2Controller;
-    bool mxInk;
-    bool overlay;
-    bool palmPose;
-    bool passthroughPreferences;
-    bool picoController;
-    bool picoUltraController;
-    bool presence;
-    bool questPassthrough;
-    bool renderModel;
-    bool resize;
-    bool reverbController;
-    bool swapchainUpdate;
-    bool refreshRate;
-    bool threadHint;
-    bool touchPro;
-    bool uuid;
-    bool visibilityMask;
-    bool viveTrackers;
-  } extensions;
+  Window windows[MAX_WINDOWS];
+  Window* window;
+  uint32_t windowMask;
+  uint32_t openWindowMask;
+  uint32_t visibleWindowMask;
+  XrSpatialContainerLayerEXT windowLayers[MAX_WINDOWS];
+  XrSpatialContainerCompositionLayerViewConfigurationEXT windowLayerViewConfigurations[MAX_WINDOWS]; // ...
+  XrView views[MAX_WINDOWS * MAX_VIEWS];
+  xr_extensions extensions;
 } state;
 
 // Helpers
@@ -350,14 +388,13 @@ static XrBool32 onMessage(XrDebugUtilsMessageSeverityFlagsEXT severity, XrDebugU
 static bool hasExtension(XrExtensionProperties* extensions, uint32_t count, const char* extension);
 static XrTime getCurrentXrTime(void);
 static bool updateViewSize(void);
-static XrViewStateFlags locateViews(XrView views[4], uint32_t* count);
-static bool createSwapchains(void);
 static bool createReferenceSpace(XrTime time);
 static XrAction getPoseActionForDevice(Device device);
 static XrHandTrackerEXT getHandTracker(Device device);
 static XrBodyTrackerBD getBodyTracker(void);
 static bool loadControllerModels(void);
 static bool loadVisibilityMask(void);
+static Window* findWindow(XrSpatialContainerEXT handle);
 
 // Entry
 
@@ -485,6 +522,8 @@ bool lovrHeadsetConnect(void) {
     { "XR_EXT_local_floor", &state.extensions.localFloor, true },
     { "XR_EXT_palm_pose", &state.extensions.palmPose, true },
     { "XR_EXT_render_model", &state.extensions.renderModel, true },
+    { "XR_EXT_spatial_container", &state.extensions.spatialContainer, config->window },
+    { "XR_EXT_spatial_container_self_rendering", &state.extensions.spatialContainerRendering, config->window },
     { "XR_EXT_user_presence", &state.extensions.presence, true },
     { "XR_EXT_uuid", &state.extensions.uuid, true },
     { "XR_EXT_view_configuration_views_change", &state.extensions.resize, true },
@@ -537,6 +576,12 @@ bool lovrHeadsetConnect(void) {
       enabledExtensionNames[enabledExtensionCount++] = extension;
     }
     extension += strlen(extension) + 1;
+  }
+
+  // Spatial containers don't work well with headless / dynamic resolution
+  if (state.extensions.spatialContainer) {
+    state.extensions.headless = false;
+    state.extensions.dynamicResolution = false;
   }
 
   lovrFree(extensionProperties);
@@ -617,6 +662,7 @@ bool lovrHeadsetConnect(void) {
   XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = { .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB };
   XrSystemUserPresencePropertiesEXT presenceProperties = { .type = XR_TYPE_SYSTEM_USER_PRESENCE_PROPERTIES_EXT };
   XrSystemPassthroughProperties2FB passthroughProperties = { .type = XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB };
+  XrSystemSpatialContainerPropertiesEXT spatialContainerProperties = { .type = XR_TYPE_SYSTEM_SPATIAL_CONTAINER_PROPERTIES_EXT };
 
   if (state.extensions.gaze) {
     eyeGazeProperties.next = state.systemProperties.next;
@@ -648,6 +694,11 @@ bool lovrHeadsetConnect(void) {
     state.systemProperties.next = &passthroughProperties;
   }
 
+  if (state.extensions.spatialContainer) {
+    spatialContainerProperties.next = state.systemProperties.next;
+    state.systemProperties.next = &spatialContainerProperties;
+  }
+
   XRG(xrGetSystemProperties(state.instance, state.system, &state.systemProperties), "xrGetSystemProperties", fail);
   state.extensions.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
   state.extensions.handTracking = handTrackingProperties.supportsHandTracking;
@@ -655,6 +706,7 @@ bool lovrHeadsetConnect(void) {
   state.extensions.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
   state.extensions.presence = presenceProperties.supportsUserPresence;
   state.extensions.questPassthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
+  state.extensions.spatialContainer = spatialContainerProperties.supportsBounded && state.extensions.spatialContainerRendering;
 
   // View Configuration
 
@@ -986,6 +1038,7 @@ void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
   features->proximity = state.extensions.presence;
   features->refreshRate = state.extensions.refreshRate;
   features->viveTrackers = state.extensions.viveTrackers;
+  features->window = state.extensions.spatialContainer;
 }
 
 bool lovrHeadsetIsSeated(void) {
@@ -1040,7 +1093,7 @@ bool lovrHeadsetStart(void) {
     }
 #endif
 
-    lovrAssert(hasGraphics || state.extensions.headless, "Graphics module is not available, and headless headset is not supported");
+    lovrAssert(hasGraphics || state.extensions.headless, "Graphics module is not available, and headless mode is not supported");
 
 #ifdef XR_EXTX_overlay
     XrSessionCreateInfoOverlayEXTX overlayInfo = {
@@ -1053,6 +1106,15 @@ bool lovrHeadsetStart(void) {
       info.next = &overlayInfo;
     }
 #endif
+
+    XrSessionCreateInfoSpatialContainersEXT spatialContainerInfo = {
+      .type = XR_TYPE_SESSION_CREATE_INFO_SPATIAL_CONTAINERS_EXT
+    };
+
+    if (state.extensions.spatialContainer) {
+      spatialContainerInfo.next = info.next;
+      info.next = &spatialContainerInfo;
+    }
 
     XrSessionActionSetsAttachInfo attachInfo = {
       .type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO,
@@ -1120,18 +1182,12 @@ bool lovrHeadsetStart(void) {
     state.handSpaces[SIDE_RIGHT][HAND_PALM] = state.spaces[DEVICE_HAND_RIGHT_PALM];
   }
 
-  // Swapchain
+  // Swapchain formats
   if (hasGraphics) {
     state.depthFormat = state.config.stencil ? FORMAT_D32FS8 : FORMAT_D32F;
 
     if (!lovrGraphicsGetFormatSupport(state.depthFormat, TEXTURE_FEATURE_RENDER)) {
       state.depthFormat = state.config.stencil ? FORMAT_D24S8 : FORMAT_D24;
-    }
-
-    state.pass = lovrPassCreate("Headset");
-
-    if (!state.pass) {
-      goto stop;
     }
 
 #ifdef LOVR_VK
@@ -1154,6 +1210,7 @@ bool lovrHeadsetStart(void) {
 
     bool supportsColor = false;
     bool supportsDepth = false;
+    bool supportsHDR = false;
 
     for (uint32_t i = 0; i < formatCount && (!supportsColor || !supportsDepth); i++) {
       if (formats[i] == nativeColorFormat) {
@@ -1162,8 +1219,6 @@ bool lovrHeadsetStart(void) {
         supportsDepth = true;
       }
     }
-
-    state.hdr = false;
 
     if (state.extensions.hdr) {
       XrColorSpacesEnumerateInfoSONY colorSpaceInfo = {
@@ -1177,20 +1232,23 @@ bool lovrHeadsetStart(void) {
       if (XR_SUCCEEDED(xrEnumerateColorSpacesSONY(state.session, &colorSpaceInfo, COUNTOF(colorSpaces), &colorSpaceCount, colorSpaces))) {
         for (uint32_t i = 0; i < colorSpaceCount; i++) {
           if (colorSpaces[i] == XR_COLOR_SPACE_BT2020_PQ_SONY) {
-            state.hdr = true;
+            supportsHDR = true;
             break;
           }
         }
       }
     }
 
+    if (!supportsHDR) {
+      state.extensions.hdr = false;
+    }
+
+    lovrAssertGoto(stop, supportsColor, "This VR runtime does not support sRGB rgba8 textures");
+
     GraphicsFeatures features;
     lovrGraphicsGetFeatures(&features);
-    lovrAssertGoto(stop, supportsColor, "This VR runtime does not support sRGB rgba8 textures");
-    if (!supportsDepth || !features.depthResolve) state.extensions.depth = false;
-
-    if (!createSwapchains()) {
-      goto stop;
+    if (!supportsDepth || !features.depthResolve) {
+      state.extensions.depth = false;
     }
   }
 
@@ -1256,9 +1314,22 @@ bool lovrHeadsetStart(void) {
     }
   }
 
-  state.showMainLayer = true;
-  return true;
+  state.window = lovrWindowCreate(&(WindowInfo) {
+    .size = { 0.f, 0.f, 0.f },
+    .fullscreen = true,
+    .hdr = state.extensions.hdr
+  });
 
+  if (state.extensions.spatialContainer) {
+    for (uint32_t i = 0; i < MAX_WINDOWS; i++) {
+      state.windowLayerViewConfigurations[i] = (XrSpatialContainerCompositionLayerViewConfigurationEXT) {
+        .type = XR_TYPE_SPATIAL_CONTAINER_COMPOSITION_LAYER_VIEW_CONFIGURATION_EXT,
+        .viewConfigurationType = state.viewConfiguration
+      };
+    }
+  }
+
+  return true;
 stop:
   lovrHeadsetStop();
   return false;
@@ -1286,16 +1357,11 @@ void lovrHeadsetStop(void) {
   state.refreshRateCount = 0;
   state.refreshRates = NULL;
 
-  for (uint32_t i = 0; i < state.layerCount; i++) {
-    lovrRelease(state.layers[i], lovrLayerDestroy);
-    state.layers[i] = NULL;
+  lovrBiterate(state.openWindowMask, index) {
+    lovrWindowClose(&state.windows[index]);
   }
-  state.layerCount = 0;
-
-  lovrSwapchainDestroy(&state.swapchains[0]);
-  lovrSwapchainDestroy(&state.swapchains[1]);
-  lovrRelease(state.pass, lovrPassDestroy);
-  state.pass = NULL;
+  lovrRelease(state.window, lovrWindowDestroy);
+  state.window = NULL;
 
   lovrRelease(state.mask, lovrMeshDestroy);
   state.mask = NULL;
@@ -1344,11 +1410,11 @@ bool lovrHeadsetIsActive(void) {
 
 bool lovrHeadsetIsVisible(bool* main) {
   *main = state.mainSessionVisible;
-  return state.sessionState >= XR_SESSION_STATE_VISIBLE;
+  return state.window && lovrWindowIsVisible(state.window);
 }
 
 bool lovrHeadsetIsFocused(void) {
-  return state.sessionState == XR_SESSION_STATE_FOCUSED;
+  return state.window && lovrWindowIsFocused(state.window);
 }
 
 bool lovrHeadsetIsMounted(void) {
@@ -1394,6 +1460,11 @@ bool lovrHeadsetPollEvents(void) {
         bool isVisible = event->state >= XR_SESSION_STATE_VISIBLE;
         if (wasVisible != isVisible) {
           lovrEventPush((Event) { .type = EVENT_VISIBLE, .data.visible.visible = isVisible });
+          if (isVisible) {
+            state.visibleWindowMask |= (1 << state.window->index);
+          } else {
+            state.visibleWindowMask &= ~(1 << state.window->index);
+          }
         }
 
         bool wasFocused = state.sessionState == XR_SESSION_STATE_FOCUSED;
@@ -1443,18 +1514,82 @@ bool lovrHeadsetPollEvents(void) {
         XrEventDataViewConfigurationViewsChangedEXT* event = (XrEventDataViewConfigurationViewsChangedEXT*) &e;
         if (event->systemId == state.system && event->viewConfigurationType == state.viewConfiguration) {
           updateViewSize();
-          if (!createSwapchains()) {
-            return false;
-          }
+
+          // lovrWindowGetTexture will lazily reinitialize the swapchains
+          lovrSwapchainDestroy(&state.window->swapchains[SWAPCHAIN_COLOR]);
+          lovrSwapchainDestroy(&state.window->swapchains[SWAPCHAIN_DEPTH]);
         }
+      }
+      case XR_TYPE_EVENT_DATA_SPATIAL_CONTAINER_VISIBLE_CHANGED_EXT: {
+        XrEventDataSpatialContainerVisibleChangedEXT* event = (XrEventDataSpatialContainerVisibleChangedEXT*) &e;
+        Window* window = findWindow(event->spatialContainer);
+        if (!window) break;
+
+        lovrEventPush((Event) {
+          .type = EVENT_VISIBLE,
+          .data.visible.visible = event->visible,
+          .data.visible.window = window
+        });
+
+        if (event->visible) {
+          XrSpatialContainerBeginInfoEXT beginfo = {
+            .type = XR_TYPE_SPATIAL_CONTAINER_BEGIN_INFO_EXT,
+            .spatialContainer = event->spatialContainer,
+            .primaryViewConfigurationType = state.viewConfiguration
+          };
+          XR(xrBeginSpatialContainerRenderingEXT(state.session, &beginfo), "xrBeginSpatialContainerRenderingEXT");
+          state.visibleWindowMask |= (1 << window->index);
+        } else {
+          XrSpatialContainerEndInfoEXT endInfo = {
+            .type = XR_TYPE_SPATIAL_CONTAINER_END_INFO_EXT,
+            .spatialContainer = event->spatialContainer
+          };
+          XR(xrEndSpatialContainerRenderingEXT(state.session, &endInfo), "xrEndSpatialContainerRenderingEXT");
+          state.visibleWindowMask &= ~(1 << window->index);
+        }
+        break;
+      }
+      case XR_TYPE_EVENT_DATA_SPATIAL_CONTAINER_INTERACTABLE_CHANGED_EXT: {
+        XrEventDataSpatialContainerInteractableChangedEXT* event = (XrEventDataSpatialContainerInteractableChangedEXT*) &e;
+        Window* window = findWindow(event->spatialContainer);
+        if (!window) break;
+        lovrEventPush((Event) {
+          .type = EVENT_FOCUS,
+          .data.focus.focused = event->interactable,
+          .data.focus.window = window
+        });
+        break;
+      }
+      case XR_TYPE_EVENT_DATA_SPATIAL_CONTAINER_BOUNDS_CHANGED_EXT: {
+        XrEventDataSpatialContainerBoundsChangedEXT* event = (XrEventDataSpatialContainerBoundsChangedEXT*) &e;
+        Window* window = findWindow(event->spatialContainer);
+        if (!window) break;
+        lovrEventPush((Event) {
+          .type = EVENT_RESIZE,
+          .data.resize.width = event->bounds.width,
+          .data.resize.height = event->bounds.height,
+          .data.resize.depth = event->bounds.depth,
+          .data.resize.window = window
+        });
+        break;
+      }
+      case XR_TYPE_EVENT_DATA_SPATIAL_CONTAINER_CLOSED_EXT: {
+        XrEventDataSpatialContainerClosedEXT* event = (XrEventDataSpatialContainerClosedEXT*) &e;
+        Window* window = findWindow(event->spatialContainer);
+        if (!window) break;
+        lovrWindowClose(window);
+        if (state.openWindowMask == 0) {
+          lovrEventPush((Event) { .type = EVENT_QUIT, .data.quit.exitCode = 0 });
+        }
+        break;
       }
       default: break;
     }
     e.type = XR_TYPE_EVENT_DATA_BUFFER;
   }
 
-  if (SESSION_RUNNING(state.sessionState) && visibilityMaskDirty && !loadVisibilityMask()) {
-    lovrLog(LOG_WARN, "XR", "Failed to load headset mask: %s", lovrGetError());
+  if (SESSION_RUNNING(state.sessionState) && visibilityMaskDirty) {
+    loadVisibilityMask();
   }
 
   return true;
@@ -1495,7 +1630,7 @@ bool lovrHeadsetUpdate(void) {
     if (state.extensions.dynamicResolution) {
       XrRecommendedLayerResolutionGetInfoMETA info = {
         .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_GET_INFO_META,
-        .layer = (XrCompositionLayerBaseHeader*) &state.layer,
+        .layer = (XrCompositionLayerBaseHeader*) &state.window->layer,
         .predictedDisplayTime = state.frameState.predictedDisplayTime
       };
 
@@ -1513,16 +1648,81 @@ bool lovrHeadsetUpdate(void) {
       }
 
       for (uint32_t i = 0; i < state.viewCount; i++) {
-        state.layerViews[i].subImage.imageRect.extent.width = state.width;
-        state.layerViews[i].subImage.imageRect.extent.height = state.height;
-        state.depthInfo[i].subImage.imageRect = state.layerViews[i].subImage.imageRect;
+        state.window->layerViews[i].subImage.imageRect.extent.width = state.width;
+        state.window->layerViews[i].subImage.imageRect.extent.height = state.height;
+        state.window->depthInfo[i].subImage.imageRect = state.window->layerViews[i].subImage.imageRect;
       }
     }
   }
 
   // Throttle when session is idle (but not too much, a desktop window might be rendering stuff)
-  if (state.sessionState == XR_SESSION_STATE_IDLE) {
+  if (state.sessionState == XR_SESSION_STATE_IDLE && !state.extensions.spatialContainer) {
     os_sleep(.001);
+  }
+
+  // Locate views
+  if (state.extensions.spatialContainer) {
+    uint32_t windowMask = state.openWindowMask;
+    uint32_t windowCount = 0;
+
+    XrSpatialContainerViewLocateInfoEXT viewLocateInfo[MAX_WINDOWS];
+    XrSpatialContainerViewStateEXT viewState[MAX_WINDOWS];
+
+    lovrBiterate(windowMask, index) {
+      viewLocateInfo[windowCount] = (XrSpatialContainerViewLocateInfoEXT) {
+        .type = XR_TYPE_SPATIAL_CONTAINER_VIEW_LOCATE_INFO_EXT,
+        .viewConfigurationType = state.viewConfiguration,
+        .space = state.referenceSpace,
+        .spatialContainer = state.windows[index].handle
+      };
+
+      viewState[windowCount].type = XR_TYPE_SPATIAL_CONTAINER_VIEW_STATE_EXT;
+      viewState[windowCount].next = NULL;
+      windowCount++;
+    }
+
+    XrSpatialContainerViewsLocateInfoEXT viewsLocateInfo = {
+      .type = XR_TYPE_SPATIAL_CONTAINER_VIEWS_LOCATE_INFO_EXT,
+      .displayTime = state.frameState.predictedDisplayTime,
+      .viewLocateInfoCount = windowCount,
+      .viewLocateInfos = viewLocateInfo
+    };
+
+    XR(xrLocateSpatialContainerViewsEXT(state.session, &viewsLocateInfo, windowCount, viewState, state.viewCount * windowCount, state.views), "xrLocateSpatialContainerViewsEXT");
+
+    uint32_t cursor = 0;
+    lovrBiterate(windowMask, index) {
+      state.windows[index].viewState = viewState[cursor].viewStateFlags;
+      state.windows[index].shouldRender = viewState[cursor].shouldSubmitLayers;
+      state.windows[index].renderWidth = viewState[cursor].recommendedImageExtent.width;
+      state.windows[index].renderHeight = viewState[cursor].recommendedImageExtent.height;
+      state.windows[index].views = state.views + cursor * state.viewCount;
+      cursor++;
+    }
+  } else {
+    XrViewLocateInfo viewLocateInfo = {
+      .type = XR_TYPE_VIEW_LOCATE_INFO,
+      .viewConfigurationType = state.viewConfiguration,
+      .displayTime = state.frameState.predictedDisplayTime,
+      .space = state.referenceSpace
+    };
+
+    for (uint32_t i = 0; i < state.viewCount; i++) {
+      state.views[i].type = XR_TYPE_VIEW;
+      state.views[i].next = NULL;
+    }
+
+    uint32_t viewCount = state.viewCount;
+    XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
+    if (XR_SUCCEEDED(xrLocateViews(state.session, &viewLocateInfo, &viewState, state.viewCount, &viewCount, state.views))) {
+      state.window->viewState = viewState.viewStateFlags;
+      state.window->shouldRender = state.frameState.shouldRender;
+      state.window->renderWidth = state.width;
+      state.window->renderHeight = state.height;
+      state.window->views = state.views;
+    } else {
+      state.window->viewState = 0;
+    }
   }
 
   return true;
@@ -1563,7 +1763,7 @@ void lovrHeadsetGetFoveation(FoveationLevel* level, bool* dynamic) {
 }
 
 bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic) {
-  if (!state.session || !state.extensions.foveation) {
+  if (!state.session || !state.extensions.foveation || !state.window) {
     return level == FOVEATION_NONE;
   }
 
@@ -1604,7 +1804,7 @@ bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic) {
     .profile = profile
   };
 
-  if (XR_FAILED(xrUpdateSwapchainFB(state.swapchains[SWAPCHAIN_COLOR].handle, (XrSwapchainStateBaseHeaderFB*) &foveationState))) {
+  if (XR_FAILED(xrUpdateSwapchainFB(state.window->swapchains[SWAPCHAIN_COLOR].handle, (XrSwapchainStateBaseHeaderFB*) &foveationState))) {
     return false;
   }
 
@@ -1617,7 +1817,7 @@ bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic) {
 }
 
 bool lovrHeadsetIsHDR(void) {
-  return state.hdr;
+  return state.extensions.hdr;
 }
 
 static XrEnvironmentBlendMode convertPassthroughMode(PassthroughMode mode) {
@@ -1765,29 +1965,9 @@ bool lovrHeadsetGetViewPose(uint32_t view, float* position, float* orientation) 
     vec3_init(position, state.simulator.poses[DEVICE_HEAD]);
     quat_init(orientation, state.simulator.poses[DEVICE_HEAD] + 3);
     return view == 0;
-  }
-
-  uint32_t count;
-  XrView views[4];
-  XrViewStateFlags flags = locateViews(views, &count);
-
-  if (view >= count || !flags) {
-    return false;
-  }
-
-  if (flags & XR_VIEW_STATE_POSITION_VALID_BIT) {
-    memcpy(position, &views[view].pose.position.x, 3 * sizeof(float));
   } else {
-    memset(position, 0, 3 * sizeof(float));
+    return state.window && lovrWindowGetViewPose(state.window, view, position, orientation);
   }
-
-  if (flags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
-    memcpy(orientation, &views[view].pose.orientation.x, 4 * sizeof(float));
-  } else {
-    quat_identity(orientation);
-  }
-
-  return true;
 }
 
 bool lovrHeadsetGetViewAngles(uint32_t view, float* left, float* right, float* up, float* down) {
@@ -1801,21 +1981,9 @@ bool lovrHeadsetGetViewAngles(uint32_t view, float* left, float* right, float* u
     *up = fov;
     *down = fov;
     return view == 0;
+  } else {
+    return state.window && lovrWindowGetViewAngles(state.window, view, left, right, up, down);
   }
-
-  uint32_t count;
-  XrView views[4];
-  XrViewStateFlags flags = locateViews(views, &count);
-
-  if (view >= count || !flags) {
-    return false;
-  }
-
-  *left = -views[view].fov.angleLeft;
-  *right = views[view].fov.angleRight;
-  *up = views[view].fov.angleUp;
-  *down = -views[view].fov.angleDown;
-  return true;
 }
 
 void lovrHeadsetGetClipDistance(float* clipNear, float* clipFar) {
@@ -2774,86 +2942,8 @@ bool lovrHeadsetAnimate(Model* model) {
   return false;
 }
 
-Texture* lovrHeadsetSetBackground(uint32_t width, uint32_t height, uint32_t layers) {
-  Swapchain* swapchain = &state.swapchains[SWAPCHAIN_BACKGROUND];
-
-  if (width == 0 && height == 0) {
-    lovrSwapchainDestroy(swapchain);
-    memset(swapchain, 0, sizeof(Swapchain));
-    return NULL;
-  }
-
-  lovrCheck(state.extensions.layerCube || layers != 6, "This headset does not support cubemap backgrounds");
-  lovrCheck(state.extensions.layerEquirect || state.extensions.layerEquirect2 || layers != 1, "This headset does not support equirectangular backgrounds");
-
-  if (!lovrSwapchainInit(swapchain, width, height, STATIC | (layers == 6 ? CUBE : 0))) {
-    return NULL;
-  }
-
-  if (!lovrSwapchainAcquire(swapchain)) {
-    lovrSwapchainDestroy(swapchain);
-    memset(swapchain, 0, sizeof(Swapchain));
-    return NULL;
-  }
-
-  if (layers == 6) {
-    state.background.cube = (XrCompositionLayerCubeKHR) {
-      .type = XR_TYPE_COMPOSITION_LAYER_CUBE_KHR,
-      .eyeVisibility = XR_EYE_VISIBILITY_BOTH,
-      .swapchain = swapchain->handle,
-      .orientation.w = 1.f
-    };
-  } else if (state.extensions.layerEquirect2) {
-    state.background.equirect2 = (XrCompositionLayerEquirect2KHR) {
-      .type = XR_TYPE_COMPOSITION_LAYER_EQUIRECT2_KHR,
-      .eyeVisibility = XR_EYE_VISIBILITY_BOTH,
-      .subImage = { swapchain->handle, { { 0, 0 }, { width, height } }, 0 },
-      .pose.orientation.w = 1.f,
-      .centralHorizontalAngle = 2.f * (float) M_PI,
-      .upperVerticalAngle = (float) M_PI * .5f,
-      .lowerVerticalAngle = (float) -M_PI * .5f
-    };
-  } else {
-    state.background.equirect = (XrCompositionLayerEquirectKHR) {
-      .type = XR_TYPE_COMPOSITION_LAYER_EQUIRECT_KHR,
-      .eyeVisibility = XR_EYE_VISIBILITY_BOTH,
-      .subImage = { swapchain->handle, { { 0, 0 }, { width, height } }, 0 },
-      .pose.orientation.w = 1.f,
-      .scale = { 1.f, 1.f }
-    };
-  }
-
-  return state.swapchains[SWAPCHAIN_BACKGROUND].textures[0];
-}
-
-Layer** lovrHeadsetGetLayers(uint32_t* count, bool* main) {
-  *count = state.layerCount;
-  *main = state.showMainLayer;
-  return state.layers;
-}
-
-bool lovrHeadsetSetLayers(Layer** layers, uint32_t count, bool main) {
-  uint32_t total = 0;
-
-  for (uint32_t i = 0; i < count; i++) {
-    total += layers[i]->info.stereo ? 2 : 1;
-  }
-
-  lovrCheck(total <= MAX_LAYERS, "Too many layers");
-
-  for (uint32_t i = 0; i < state.layerCount; i++) {
-    lovrRelease(state.layers[i], lovrLayerDestroy);
-  }
-
-  state.layerCount = count;
-  for (uint32_t i = 0; i < count; i++) {
-    lovrRetain(layers[i]);
-    state.layers[i] = layers[i];
-  }
-
-  state.showMainLayer = main;
-
-  return true;
+Window* lovrHeadsetGetWindow(void) {
+  return state.window;
 }
 
 bool lovrHeadsetGetTexture(Texture** texture) {
@@ -2891,47 +2981,12 @@ bool lovrHeadsetGetTexture(Texture** texture) {
 
     *texture = state.simulator.texture;
     return true;
-  }
-
-  if (!SESSION_RUNNING(state.sessionState)) {
+  } else if (state.window) {
+    return lovrWindowGetTexture(state.window, texture);
+  } else {
     *texture = NULL;
     return true;
   }
-
-  if (!state.began) {
-    XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-    XR(xrBeginFrame(state.session, &beginfo), "xrBeginFrame");
-    state.began = true;
-  }
-
-  if (!state.frameState.shouldRender) {
-    *texture = NULL;
-    return true;
-  }
-
-  *texture = lovrSwapchainAcquire(&state.swapchains[SWAPCHAIN_COLOR]);
-  return *texture != NULL;
-}
-
-bool lovrHeadsetGetDepthTexture(Texture** texture) {
-  if (!SESSION_RUNNING(state.sessionState) || !state.extensions.depth) {
-    *texture = NULL;
-    return true;
-  }
-
-  if (!state.began) {
-    XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
-    XR(xrBeginFrame(state.session, &beginfo), "xrBeginFrame");
-    state.began = true;
-  }
-
-  if (!state.frameState.shouldRender) {
-    *texture = NULL;
-    return true;
-  }
-
-  *texture = lovrSwapchainAcquire(&state.swapchains[SWAPCHAIN_DEPTH]);
-  return *texture != NULL;
 }
 
 bool lovrHeadsetGetPass(Pass** pass) {
@@ -2986,89 +3041,12 @@ bool lovrHeadsetGetPass(Pass** pass) {
 
     *pass = state.simulator.pass;
     return true;
-  }
-
-  if (state.began) {
-    *pass = state.frameState.shouldRender ? state.pass : NULL;
-    return true;
-  }
-
-  Canvas canvas = {
-    .depthFormat = state.depthFormat,
-    .samples = state.config.antialias ? 4 : 1
-  };
-
-  if (!lovrHeadsetGetTexture(&canvas.color[0].texture) || !lovrHeadsetGetDepthTexture(&canvas.depth.texture)) {
-    return false;
-  }
-
-  if (!canvas.color[0].texture) {
+  } else if (state.window) {
+    return lovrWindowGetPass(state.window, pass);
+  } else {
     *pass = NULL;
     return true;
   }
-
-  canvas.foveation = state.foveationLevel ? state.swapchains[SWAPCHAIN_COLOR].foveationTextures[state.swapchains[SWAPCHAIN_COLOR].textureIndex] : NULL;
-
-  if (!lovrPassSetCanvas(state.pass, &canvas)) {
-    return false;
-  }
-
-  float background[4][4];
-  LoadAction loads[4] = { LOAD_CLEAR };
-  lovrGraphicsGetBackgroundColor(background[0]);
-  lovrPassSetClear(state.pass, loads, background, LOAD_CLEAR, 0.f);
-
-  if (state.extensions.dynamicResolution) {
-    lovrPassSetViewport(state.pass, (float[6]) { 0.f, 0.f, (float) state.width, (float) state.height, 0.f, 1.f });
-    lovrPassSetScissor(state.pass, (uint32_t[4]) { 0, 0, state.width, state.height });
-  }
-
-  uint32_t count;
-  XrView views[4];
-  XrViewStateFlags flags = locateViews(views, &count);
-
-  for (uint32_t i = 0; i < count; i++) {
-    state.layerViews[i].pose = views[i].pose;
-    state.layerViews[i].fov = views[i].fov;
-
-    float viewMatrix[16];
-    float projection[16];
-
-    if (flags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
-      mat4_fromQuat(viewMatrix, &views[i].pose.orientation.x);
-    } else {
-      mat4_identity(viewMatrix);
-    }
-
-    if (flags & XR_VIEW_STATE_POSITION_VALID_BIT) {
-      memcpy(viewMatrix + 12, &views[i].pose.position.x, 3 * sizeof(float));
-    }
-
-    mat4_invert(viewMatrix);
-    lovrPassSetViewMatrix(state.pass, i, viewMatrix);
-
-    if (flags != 0) {
-      XrFovf* fov = &views[i].fov;
-      mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
-      lovrPassSetProjection(state.pass, i, projection);
-    }
-  }
-
-  if (state.extensions.visibilityMask && state.mask) {
-    Shader* shader = lovrGraphicsGetDefaultShader(SHADER_MASK);
-    lovrPassPush(state.pass, STACK_STATE);
-    lovrPassSetShader(state.pass, shader);
-    lovrPassSetColor(state.pass, (float[4]) { 0.f, 0.f, 0.f, 1.f });
-    if (!shader || !lovrPassDrawMesh(state.pass, state.mask, NULL, 1)) {
-      lovrLog(LOG_WARN, "XR", "Failed to draw headset mask: %s", lovrGetError());
-      lovrRelease(state.mask, lovrMeshDestroy);
-      state.mask = NULL;
-    }
-    lovrPassPop(state.pass, STACK_STATE);
-  }
-
-  *pass = state.pass;
-  return true;
 }
 
 bool lovrHeadsetSubmit(void) {
@@ -3083,98 +3061,119 @@ bool lovrHeadsetSubmit(void) {
     state.began = true;
   }
 
-  XrCompositionLayerBaseHeader const* layers[MAX_LAYERS + 3];
-
-  union {
-    XrCompositionLayerQuad quad;
-    XrCompositionLayerCylinderKHR cylinder;
-  } stereoLayers[MAX_LAYERS];
-
   XrCompositionLayerDepthTestFB depthTestInfo = {
     .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_TEST_FB,
     .depthMask = XR_TRUE,
     .compareOp = XR_COMPARE_OP_LESS_OR_EQUAL_FB
   };
 
-  XrFrameEndInfo info = {
-    .type = XR_TYPE_FRAME_END_INFO,
-    .displayTime = state.frameState.predictedDisplayTime,
-    .environmentBlendMode = state.blendMode,
-    .layers = layers
-  };
+  XrFrameEndInfo info = { .type = XR_TYPE_FRAME_END_INFO };
+  XrSpatialContainerLayerFrameEndInfoEXT spatialContainerInfo = { .type = XR_TYPE_SPATIAL_CONTAINER_LAYER_FRAME_END_INFO_EXT };
 
-  if (state.frameState.shouldRender) {
-    lovrSwapchainRelease(&state.swapchains[SWAPCHAIN_COLOR]);
-    lovrSwapchainRelease(&state.swapchains[SWAPCHAIN_DEPTH]);
+  uint32_t windowCount = 0;
 
-    // Passthrough layer
-    if (state.passthroughActive) {
-      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.passthroughLayer;
-    }
+  lovrBiterate(state.visibleWindowMask, index) {
+    Window* window = &state.windows[index];
+    const XrCompositionLayerBaseHeader** layers = window->layerHeaders;
+    uint32_t layerCount = 0;
 
-    // Background layer
-    if (state.swapchains[SWAPCHAIN_BACKGROUND].handle) {
-      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.background.header;
-      state.background.header.space = state.referenceSpace;
-      lovrSwapchainRelease(&state.swapchains[SWAPCHAIN_BACKGROUND]);
-    }
+    if (window->shouldRender) {
+      lovrSwapchainRelease(&window->swapchains[SWAPCHAIN_COLOR]);
+      lovrSwapchainRelease(&window->swapchains[SWAPCHAIN_DEPTH]);
+      lovrSwapchainRelease(&window->swapchains[SWAPCHAIN_BACKGROUND]);
 
-    // Main layer
-    if (state.showMainLayer) {
-      state.layer.next = NULL;
-
-      if (state.extensions.layerDepthTest && state.extensions.depth && state.layerCount > 0) {
-        depthTestInfo.next = state.layer.next;
-        state.layer.next = &depthTestInfo;
+      // Passthrough layer
+      if (state.passthroughActive) {
+        layers[layerCount++] = (const XrCompositionLayerBaseHeader*) &state.passthroughLayer;
       }
 
-      if (state.extensions.depth) {
-        for (uint32_t i = 0; i < state.viewCount; i++) {
-          if (state.clipFar == 0.f) {
-            state.depthInfo[i].nearZ = +INFINITY;
-            state.depthInfo[i].farZ = state.clipNear;
+      // Background layer
+      if (window->swapchains[SWAPCHAIN_BACKGROUND].handle) {
+        layers[layerCount++] = (const XrCompositionLayerBaseHeader*) &window->background.header;
+        window->background.header.space = state.referenceSpace;
+      }
+
+      // Main layer
+      if (window->showMainLayer && window->swapchains[SWAPCHAIN_COLOR].handle) {
+        window->layer.next = NULL;
+
+        if (state.extensions.layerDepthTest && state.extensions.depth && window->layerCount > 0) {
+          depthTestInfo.next = window->layer.next;
+          window->layer.next = &depthTestInfo;
+        }
+
+        if (state.extensions.depth) {
+          for (uint32_t i = 0; i < state.viewCount; i++) {
+            if (state.clipFar == 0.f) {
+              window->depthInfo[i].nearZ = +INFINITY;
+              window->depthInfo[i].farZ = state.clipNear;
+            } else {
+              window->depthInfo[i].nearZ = state.clipNear;
+              window->depthInfo[i].farZ = state.clipFar;
+            }
+          }
+        }
+
+        if (state.extensions.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE || window->layerCount > 0) {
+          window->layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+        } else {
+          window->layer.layerFlags = 0;
+        }
+
+        window->layer.space = state.referenceSpace;
+        window->layer.viewCount = state.viewCount;
+
+        layers[layerCount++] = (const XrCompositionLayerBaseHeader*) &window->layer;
+      }
+
+      // Quad layers
+      for (uint32_t i = 0; i < window->layerCount; i++) {
+        Layer* layer = window->layers[i];
+
+        layers[layerCount++] = (const XrCompositionLayerBaseHeader*) &layer->header;
+        layer->header.space = layer->origin >= MAX_DEVICES ? state.referenceSpace : state.spaces[layer->origin];
+        lovrSwapchainRelease(&layer->swapchain);
+
+        // Stereo layers require 2 composition layers (gr?).  We make a temporary copy of the layer's
+        // data and change it to show up in the right eye with the second texture array layer.
+        if (layer->info.stereo) {
+          layers[layerCount++] = (const XrCompositionLayerBaseHeader*) &window->stereoLayers[i];
+
+          if (layer->curve == 0.f) {
+            window->stereoLayers[i].quad = layer->quad;
+            window->stereoLayers[i].quad.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+            window->stereoLayers[i].quad.subImage.imageArrayIndex = 1;
           } else {
-            state.depthInfo[i].nearZ = state.clipNear;
-            state.depthInfo[i].farZ = state.clipFar;
+            window->stereoLayers[i].cylinder = layer->cylinder;
+            window->stereoLayers[i].cylinder.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
+            window->stereoLayers[i].cylinder.subImage.imageArrayIndex = 1;
           }
         }
       }
-
-      if (state.extensions.overlay || state.passthroughActive || state.blendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE || state.layerCount > 0) {
-        state.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-      } else {
-        state.layer.layerFlags = 0;
-      }
-
-      state.layer.space = state.referenceSpace;
-
-      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &state.layer;
     }
 
-    // Quad layers
-    for (uint32_t i = 0; i < state.layerCount; i++) {
-      Layer* layer = state.layers[i];
-
-      layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &layer->header;
-      layer->header.space = layer->origin >= MAX_DEVICES ? state.referenceSpace : state.spaces[layer->origin];
-      lovrSwapchainRelease(&layer->swapchain);
-
-      // Stereo layers require 2 composition layers (gr?).  We make a temporary copy of the layer's
-      // data and change it to show up in the right eye with the second texture array layer.
-      if (layer->info.stereo) {
-        layers[info.layerCount++] = (const XrCompositionLayerBaseHeader*) &stereoLayers[i];
-
-        if (layer->curve == 0.f) {
-          stereoLayers[i].quad = layer->quad;
-          stereoLayers[i].quad.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
-          stereoLayers[i].quad.subImage.imageArrayIndex = 1;
-        } else {
-          stereoLayers[i].cylinder = layer->cylinder;
-          stereoLayers[i].cylinder.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
-          stereoLayers[i].cylinder.subImage.imageArrayIndex = 1;
-        }
-      }
+    if (state.extensions.spatialContainer) {
+      state.windowLayers[windowCount++] = (XrSpatialContainerLayerEXT) {
+        .type = XR_TYPE_SPATIAL_CONTAINER_LAYER_EXT,
+        .spatialContainer = window->handle,
+        .retainPreviousSubmission = !window->shouldRender,
+        .layerCount = layerCount,
+        .layers = window->layerHeaders
+      };
+    } else {
+      info.layerCount = layerCount;
+      info.layers = window->layerHeaders;
     }
+  }
+
+  if (state.extensions.spatialContainer) {
+    spatialContainerInfo.containerLayers = state.windowLayers;
+    spatialContainerInfo.containerLayerCount = windowCount;
+    spatialContainerInfo.next = info.next;
+    info.next = &spatialContainerInfo;
+  } else if (state.frameState.shouldRender) {
+    info.displayTime = state.frameState.predictedDisplayTime;
+    info.environmentBlendMode = state.blendMode;
   }
 
   XR(xrEndFrame(state.session, &info), "xrEndFrame");
@@ -3436,6 +3435,496 @@ Pass* lovrLayerGetPass(Layer* layer) {
   return layer->pass;
 }
 
+// Window
+
+Window* lovrWindowCreate(const WindowInfo* info) {
+  lovrCheck(state.extensions.spatialContainer ? state.windowMask != ~0u : state.windowMask == 0, "Too many windows");
+  lovrCheck(info->size[0] >= 0.f && info->size[1] >= 0.f && info->size[2] >= 0.f, "Window size can not be negative");
+
+  uint32_t index = lovrTrailingZeros(~state.windowMask);
+
+  Window* window = &state.windows[index];
+  window->ref = 1;
+  window->index = index;
+  window->hdr = info->hdr;
+  window->showMainLayer = true;
+
+  state.windowMask |= (1 << index);
+  state.openWindowMask |= (1 << index);
+  lovrRetain(window); // Windows are retained until closed
+
+  if (state.extensions.spatialContainer) {
+    XrSpatialContainerCreateInfoEXT containerInfo = {
+      .type = XR_TYPE_SPATIAL_CONTAINER_CREATE_INFO_EXT,
+      .graphicsPresentation = XR_SPATIAL_CONTAINER_GRAPHICS_PRESENTATION_SELF_RENDERING_EXT,
+      .suggestedBounds = { info->size[0], info->size[1], info->size[2] }
+    };
+
+    XR(xrCreateSpatialContainerEXT(state.session, &containerInfo, &window->handle), "xrCreateSpatialContainerEXT");
+
+    XrSpatialContainerSpaceCreateInfoEXT spaceInfo = {
+      .type = XR_TYPE_SPATIAL_CONTAINER_SPACE_CREATE_INFO_EXT,
+      .spatialContainer = window->handle
+    };
+
+    XR(xrCreateSpatialContainerSpaceEXT(state.session, &spaceInfo, &window->space), "xrCreateSpatialContainerSpaceEXT");
+
+    if (info->fullscreen) {
+      lovrWindowSetFullscreen(window, true);
+    }
+
+    lovrWindowSetVisible(window, true);
+  }
+
+  return window;
+}
+
+void lovrWindowDestroy(void* ref) {
+  Window* window = ref;
+
+  for (uint32_t i = 0; i < window->layerCount; i++) {
+    lovrRelease(window->layers[i], lovrLayerDestroy);
+    window->layers[i] = NULL;
+  }
+  window->layerCount = 0;
+
+  for (uint32_t i = 0; i < COUNTOF(window->swapchains); i++) {
+    lovrSwapchainDestroy(&window->swapchains[i]);
+  }
+
+  lovrRelease(window->pass, lovrPassDestroy);
+
+  if (state.extensions.spatialContainer) {
+    if (window->handle) xrDestroySpatialContainerEXT(window->handle);
+    xrDestroySpace(window->space);
+  }
+
+  state.visibleWindowMask &= ~(1 << window->index);
+  state.openWindowMask &= ~(1 << window->index);
+  state.windowMask &= ~(1 << window->index);
+  memset(window, 0, sizeof(Window));
+}
+
+bool lovrWindowIsOpen(Window* window) {
+  if (!state.extensions.spatialContainer) {
+    return true;
+  } else {
+    return window->handle;
+  }
+}
+
+void lovrWindowClose(Window* window) {
+  if (window->handle) {
+    xrDestroySpatialContainerEXT(window->handle);
+    window->handle = XR_NULL_HANDLE;
+    state.openWindowMask &= ~(1 << window->index);
+    lovrRelease(window, lovrWindowDestroy);
+  }
+}
+
+static bool lovrWindowGetState(Window* window, XrSpatialContainerStateEXT* windowState) {
+  if (!lovrWindowIsOpen(window)) return false;
+  *windowState = (XrSpatialContainerStateEXT) { .type = XR_TYPE_SPATIAL_CONTAINER_STATE_EXT };
+  XrSpatialContainerStateGetInfoEXT info = { .type = XR_TYPE_SPATIAL_CONTAINER_STATE_GET_INFO_EXT };
+  XrResult result = xrGetSpatialContainerStateEXT(window->handle, &info, windowState);
+  return XR_SUCCEEDED(result);
+}
+
+bool lovrWindowIsVisible(Window* window) {
+  if (!state.extensions.spatialContainer) {
+    return state.sessionState >= XR_SESSION_STATE_VISIBLE;
+  } else {
+    XrSpatialContainerStateEXT windowState;
+    if (!lovrWindowGetState(window, &windowState)) return false;
+    return windowState.visible;
+  }
+}
+
+bool lovrWindowSetVisible(Window* window, bool visible) {
+  if (!state.extensions.spatialContainer) return true;
+
+  lovrCheck(lovrWindowIsOpen(window), "Window is not open");
+
+  XrSpatialContainerVisibleRequestInfoEXT info = {
+    .type = XR_TYPE_SPATIAL_CONTAINER_VISIBLE_REQUEST_INFO_EXT,
+    .visible = visible
+  };
+
+  XR(xrRequestSpatialContainerVisibleEXT(window->handle, &info), "xrRequestSpatialContainerVisibleEXT");
+  return true;
+}
+
+bool lovrWindowIsFocused(Window* window) {
+  if (!state.extensions.spatialContainer) {
+    return state.sessionState == XR_SESSION_STATE_FOCUSED;
+  } else {
+    XrSpatialContainerStateEXT windowState;
+    if (!lovrWindowGetState(window, &windowState)) return false;
+    return windowState.interactable;
+  }
+}
+
+bool lovrWindowIsFullscreen(Window* window) {
+  if (!state.extensions.spatialContainer) {
+    return true;
+  } else {
+    XrSpatialContainerStateEXT windowState;
+    if (!lovrWindowGetState(window, &windowState)) return false;
+    return windowState.boundsMode == XR_SPATIAL_CONTAINER_BOUNDS_MODE_IMMERSIVE_EXT;
+  }
+}
+
+bool lovrWindowSetFullscreen(Window* window, bool fullscreen) {
+  if (!state.extensions.spatialContainer) {
+    return fullscreen == true;
+  } else {
+    lovrCheck(lovrWindowIsOpen(window), "Window is not open");
+
+    XrSpatialContainerBoundsModeRequestInfoEXT info = {
+      .type = XR_TYPE_SPATIAL_CONTAINER_BOUNDS_MODE_REQUEST_INFO_EXT,
+      .boundsMode = fullscreen ? XR_SPATIAL_CONTAINER_BOUNDS_MODE_IMMERSIVE_EXT : XR_SPATIAL_CONTAINER_BOUNDS_MODE_BOUNDED_EXT
+    };
+
+    XR(xrRequestSpatialContainerBoundsModeEXT(window->handle, &info), "xrRequestSpatialContainerBoundsModeEXT");
+    return true;
+  }
+}
+
+bool lovrWindowGetBounds(Window* window, float* size) {
+  if (!state.extensions.spatialContainer) {
+    vec3_set(size, 0.f, 0.f, 0.f);
+  } else {
+    lovrCheck(lovrWindowIsOpen(window), "Window is not open");
+    XrSpatialContainerBoundsGetInfoEXT info = { .type = XR_TYPE_SPATIAL_CONTAINER_BOUNDS_GET_INFO_EXT };
+    XrSpatialContainerBoundsEXT bounds = { .type = XR_TYPE_SPATIAL_CONTAINER_BOUNDS_EXT };
+    XR(xrGetSpatialContainerBoundsEXT(window->handle, &info, &bounds), "xrGetSpatialContainerBoundsEXT");
+    memcpy(size, &bounds.bounds, 3 * sizeof(float));
+  }
+  return true;
+}
+
+bool lovrWindowGetPose(Window* window, float* position, float* orientation) {
+  if (!lovrWindowIsOpen(window) || state.frameState.predictedDisplayTime <= 0 || !state.extensions.spatialContainer) {
+    return false;
+  }
+
+  XrSpaceLocation location = { .type = XR_TYPE_SPACE_LOCATION };
+  xrLocateSpace(window->space, state.referenceSpace, state.frameState.predictedDisplayTime, &location);
+  memcpy(orientation, &location.pose.orientation, 4 * sizeof(float));
+  memcpy(position, &location.pose.position, 3 * sizeof(float));
+  return location.locationFlags & (XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
+}
+
+bool lovrWindowGetViewPose(Window* window, uint32_t view, float* position, float* orientation) {
+  if (view >= state.viewCount || !window->viewState) {
+    return false;
+  }
+
+  if (window->viewState & XR_VIEW_STATE_POSITION_VALID_BIT) {
+    memcpy(position, &window->views[view].pose.position.x, 3 * sizeof(float));
+  } else {
+    memset(position, 0, 3 * sizeof(float));
+  }
+
+  if (window->viewState & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+    memcpy(orientation, &window->views[view].pose.orientation.x, 4 * sizeof(float));
+  } else {
+    quat_identity(orientation);
+  }
+
+  return true;
+}
+
+bool lovrWindowGetViewAngles(Window* window, uint32_t view, float* left, float* right, float* up, float* down) {
+  if (view >= state.viewCount || !window->viewState) {
+    return false;
+  }
+
+  *left = -window->views[view].fov.angleLeft;
+  *right = window->views[view].fov.angleRight;
+  *up = window->views[view].fov.angleUp;
+  *down = -window->views[view].fov.angleDown;
+  return true;
+}
+
+bool lovrWindowGetTexture(Window* window, Texture** texture) {
+  if (!SESSION_RUNNING(state.sessionState)) {
+    *texture = NULL;
+    return true;
+  }
+
+  if (!window->shouldRender) {
+    *texture = NULL;
+    return true;
+  }
+
+  if (!window->swapchains[SWAPCHAIN_COLOR].handle) {
+    uint32_t width = state.width;
+    uint32_t height = state.height;
+
+    // If dynamic resolution is active, ask it for the recommended maximum swapchain size.
+    // It's usually bigger than the recommended size in the view configuration.
+    if (state.extensions.dynamicResolution) {
+      XrRecommendedLayerResolutionGetInfoMETA info = {
+        .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_GET_INFO_META,
+        .layer = (XrCompositionLayerBaseHeader*) &(XrCompositionLayerProjection) {
+          .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
+          .viewCount = state.viewCount,
+          .views = (XrCompositionLayerProjectionView[4]) {
+            [0].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+            [1].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+            [2].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+            [3].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW
+          }
+        },
+        .predictedDisplayTime = state.frameState.predictedDisplayTime
+      };
+
+      XrRecommendedLayerResolutionMETA resolution = { .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_META };
+
+      if (XR_SUCCEEDED(xrGetRecommendedLayerResolutionMETA(state.session, &info, &resolution)) && resolution.isValid) {
+        width = MAX(width, resolution.recommendedImageDimensions.width);
+        height = MAX(height, resolution.recommendedImageDimensions.height);
+      } else {
+        state.extensions.dynamicResolution = false;
+      }
+    }
+
+    uint32_t flags = VIEW | FOVEATED | (window->hdr ? HDR : 0);
+    if (!lovrSwapchainInit(&window->swapchains[SWAPCHAIN_COLOR], width, height, flags)) {
+      return false;
+    }
+
+    if (state.extensions.depth) {
+      if (!lovrSwapchainInit(&window->swapchains[SWAPCHAIN_DEPTH], width, height, VIEW | DEPTH)) {
+        return false;
+      }
+    }
+
+    // Pre-init composition layer
+    window->layer = (XrCompositionLayerProjection) {
+      .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
+      .viewCount = state.viewCount,
+      .views = window->layerViews
+    };
+
+    // Pre-init composition layer views
+    for (uint32_t i = 0; i < state.viewCount; i++) {
+      window->layerViews[i] = (XrCompositionLayerProjectionView) {
+        .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+        .subImage = { window->swapchains[SWAPCHAIN_COLOR].handle, { { 0, 0 }, { width, height } }, i }
+      };
+    }
+
+    if (state.extensions.depth) {
+      for (uint32_t i = 0; i < state.viewCount; i++) {
+        window->layerViews[i].next = &window->depthInfo[i];
+        window->depthInfo[i] = (XrCompositionLayerDepthInfoKHR) {
+          .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR,
+          .subImage.swapchain = window->swapchains[SWAPCHAIN_DEPTH].handle,
+          .subImage.imageRect = window->layerViews[i].subImage.imageRect,
+          .subImage.imageArrayIndex = i,
+          .minDepth = 0.f,
+          .maxDepth = 1.f
+        };
+      }
+    }
+
+    window->pass = lovrPassCreate("Window");
+
+    if (!window->pass) {
+      return false;
+    }
+  }
+
+  if (!state.began) {
+    XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
+    XR(xrBeginFrame(state.session, &beginfo), "xrBeginFrame");
+    state.began = true;
+  }
+
+  *texture = lovrSwapchainAcquire(&window->swapchains[SWAPCHAIN_COLOR]);
+  return *texture != NULL;
+}
+
+static bool lovrWindowGetDepthTexture(Window* window, Texture** texture) {
+  if (!SESSION_RUNNING(state.sessionState) || !state.extensions.depth) {
+    *texture = NULL;
+    return true;
+  }
+
+  if (!state.began) {
+    XrFrameBeginInfo beginfo = { .type = XR_TYPE_FRAME_BEGIN_INFO };
+    XR(xrBeginFrame(state.session, &beginfo), "xrBeginFrame");
+    state.began = true;
+  }
+
+  if (!window->shouldRender) {
+    *texture = NULL;
+    return true;
+  }
+
+  *texture = lovrSwapchainAcquire(&window->swapchains[SWAPCHAIN_DEPTH]);
+  return *texture != NULL;
+}
+
+bool lovrWindowGetPass(Window* window, Pass** pass) {
+  Canvas canvas = {
+    .depthFormat = state.depthFormat,
+    .samples = state.config.antialias ? 4 : 1
+  };
+
+  if (!lovrWindowGetTexture(window, &canvas.color[0].texture) || !lovrWindowGetDepthTexture(window, &canvas.depth.texture)) {
+    return false;
+  }
+
+  if (!canvas.color[0].texture) {
+    *pass = NULL;
+    return true;
+  }
+
+  canvas.foveation = state.foveationLevel ? window->swapchains[SWAPCHAIN_COLOR].foveationTextures[window->swapchains[SWAPCHAIN_COLOR].textureIndex] : NULL;
+
+  if (!lovrPassSetCanvas(window->pass, &canvas)) {
+    return false;
+  }
+
+  float background[4][4];
+  LoadAction loads[4] = { LOAD_CLEAR };
+  lovrGraphicsGetBackgroundColor(background[0]);
+  lovrPassSetClear(window->pass, loads, background, LOAD_CLEAR, 0.f);
+
+  if (state.extensions.dynamicResolution) {
+    lovrPassSetViewport(window->pass, (float[6]) { 0.f, 0.f, (float) state.width, (float) state.height, 0.f, 1.f });
+    lovrPassSetScissor(window->pass, (uint32_t[4]) { 0, 0, state.width, state.height });
+  }
+
+  for (uint32_t i = 0; i < state.viewCount; i++) {
+    window->layerViews[i].pose = window->views[i].pose;
+    window->layerViews[i].fov = window->views[i].fov;
+
+    float viewMatrix[16];
+    float projection[16];
+
+    if (window->viewState & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+      mat4_fromQuat(viewMatrix, &window->views[i].pose.orientation.x);
+    } else {
+      mat4_identity(viewMatrix);
+    }
+
+    if (window->viewState & XR_VIEW_STATE_POSITION_VALID_BIT) {
+      memcpy(viewMatrix + 12, &window->views[i].pose.position.x, 3 * sizeof(float));
+    }
+
+    mat4_invert(viewMatrix);
+    lovrPassSetViewMatrix(window->pass, i, viewMatrix);
+
+    if (window->viewState != 0) {
+      XrFovf* fov = &window->views[i].fov;
+      mat4_fov(projection, -fov->angleLeft, fov->angleRight, fov->angleUp, -fov->angleDown, state.clipNear, state.clipFar);
+      lovrPassSetProjection(window->pass, i, projection);
+    }
+  }
+
+  if (state.extensions.visibilityMask && state.mask) {
+    Shader* shader = lovrGraphicsGetDefaultShader(SHADER_MASK);
+    lovrPassPush(window->pass, STACK_STATE);
+    lovrPassSetShader(window->pass, shader);
+    lovrPassSetColor(window->pass, (float[4]) { 0.f, 0.f, 0.f, 1.f });
+    if (!shader || !lovrPassDrawMesh(window->pass, state.mask, NULL, 1)) {
+      lovrLog(LOG_WARN, "XR", "Failed to draw headset mask: %s", lovrGetError());
+      lovrRelease(state.mask, lovrMeshDestroy);
+      state.mask = NULL;
+    }
+    lovrPassPop(window->pass, STACK_STATE);
+  }
+
+  *pass = window->pass;
+  return true;
+}
+
+Texture* lovrWindowSetBackground(Window* window, uint32_t width, uint32_t height, uint32_t layers) {
+  Swapchain* swapchain = &window->swapchains[SWAPCHAIN_BACKGROUND];
+
+  if (width == 0 && height == 0) {
+    lovrSwapchainDestroy(swapchain);
+    memset(swapchain, 0, sizeof(Swapchain));
+    return NULL;
+  }
+
+  lovrCheck(state.extensions.layerCube || layers != 6, "This headset does not support cubemap backgrounds");
+  lovrCheck(state.extensions.layerEquirect || state.extensions.layerEquirect2 || layers != 1, "This headset does not support equirectangular backgrounds");
+
+  if (!lovrSwapchainInit(swapchain, width, height, STATIC | (layers == 6 ? CUBE : 0))) {
+    return NULL;
+  }
+
+  if (!lovrSwapchainAcquire(swapchain)) {
+    lovrSwapchainDestroy(swapchain);
+    memset(swapchain, 0, sizeof(Swapchain));
+    return NULL;
+  }
+
+  if (layers == 6) {
+    window->background.cube = (XrCompositionLayerCubeKHR) {
+      .type = XR_TYPE_COMPOSITION_LAYER_CUBE_KHR,
+      .eyeVisibility = XR_EYE_VISIBILITY_BOTH,
+      .swapchain = swapchain->handle,
+      .orientation.w = 1.f
+    };
+  } else if (state.extensions.layerEquirect2) {
+    window->background.equirect2 = (XrCompositionLayerEquirect2KHR) {
+      .type = XR_TYPE_COMPOSITION_LAYER_EQUIRECT2_KHR,
+      .eyeVisibility = XR_EYE_VISIBILITY_BOTH,
+      .subImage = { swapchain->handle, { { 0, 0 }, { width, height } }, 0 },
+      .pose.orientation.w = 1.f,
+      .centralHorizontalAngle = 2.f * (float) M_PI,
+      .upperVerticalAngle = (float) M_PI * .5f,
+      .lowerVerticalAngle = (float) -M_PI * .5f
+    };
+  } else {
+    window->background.equirect = (XrCompositionLayerEquirectKHR) {
+      .type = XR_TYPE_COMPOSITION_LAYER_EQUIRECT_KHR,
+      .eyeVisibility = XR_EYE_VISIBILITY_BOTH,
+      .subImage = { swapchain->handle, { { 0, 0 }, { width, height } }, 0 },
+      .pose.orientation.w = 1.f,
+      .scale = { 1.f, 1.f }
+    };
+  }
+
+  return window->swapchains[SWAPCHAIN_BACKGROUND].textures[0];
+}
+
+Layer** lovrWindowGetLayers(Window* window, uint32_t* count, bool* main) {
+  *count = window->layerCount;
+  *main = window->showMainLayer;
+  return window->layers;
+}
+
+bool lovrWindowSetLayers(Window* window, Layer** layers, uint32_t count, bool main) {
+  uint32_t total = 0;
+
+  for (uint32_t i = 0; i < count; i++) {
+    total += layers[i]->info.stereo ? 2 : 1;
+  }
+
+  lovrCheck(total <= MAX_LAYERS, "Too many layers");
+
+  for (uint32_t i = 0; i < window->layerCount; i++) {
+    lovrRelease(window->layers[i], lovrLayerDestroy);
+  }
+
+  window->layerCount = count;
+  for (uint32_t i = 0; i < count; i++) {
+    lovrRetain(layers[i]);
+    window->layers[i] = layers[i];
+  }
+
+  window->showMainLayer = main;
+
+  return true;
+}
+
 // Private
 
 void lovrHeadsetGetVulkanPhysicalDevice(void* instance, uintptr_t physicalDevice) {
@@ -3507,7 +3996,7 @@ static bool lovrSwapchainInit(Swapchain* swapchain, uint32_t width, uint32_t hei
   bool cube = flags & CUBE;
   bool immutable = flags & STATIC;
   bool foveated = flags & FOVEATED && state.extensions.foveation;
-  bool hdr = flags & HDR && state.hdr;
+  bool hdr = flags & HDR && state.extensions.hdr;
 
   XrSwapchainCreateInfo info = {
     .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
@@ -3751,108 +4240,6 @@ static bool updateViewSize(void) {
   } else {
     state.width = MIN(recommendedWidth * state.config.supersample, maxWidth);
     state.height = MIN(recommendedHeight * state.config.supersample, maxHeight);
-  }
-
-  return true;
-}
-
-static XrViewStateFlags locateViews(XrView views[4], uint32_t* count) {
-  if (state.frameState.predictedDisplayTime <= 0) {
-    return 0;
-  }
-
-  XrViewLocateInfo viewLocateInfo = {
-    .type = XR_TYPE_VIEW_LOCATE_INFO,
-    .viewConfigurationType = state.viewConfiguration,
-    .displayTime = state.frameState.predictedDisplayTime,
-    .space = state.referenceSpace
-  };
-
-  for (uint32_t i = 0; i < 4; i++) {
-    views[i].type = XR_TYPE_VIEW;
-    views[i].next = NULL;
-  }
-
-  XrViewState viewState = { .type = XR_TYPE_VIEW_STATE };
-  if (XR_FAILED(xrLocateViews(state.session, &viewLocateInfo, &viewState, state.viewCount, count, views))) {
-    return 0;
-  }
-
-  return viewState.viewStateFlags;
-}
-
-static bool createSwapchains(void) {
-  uint32_t width = state.width;
-  uint32_t height = state.height;
-
-  // If dynamic resolution is active, ask it for the recommended maximum swapchain size.
-  // It's usually bigger than the recommended size in the view configuration.
-  if (state.extensions.dynamicResolution) {
-    XrRecommendedLayerResolutionGetInfoMETA info = {
-      .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_GET_INFO_META,
-      .layer = (XrCompositionLayerBaseHeader*) &(XrCompositionLayerProjection) {
-        .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
-        .viewCount = state.viewCount,
-        .views = (XrCompositionLayerProjectionView[4]) {
-          [0].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-          [1].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-          [2].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-          [3].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW
-        }
-      },
-      .predictedDisplayTime = state.frameState.predictedDisplayTime
-    };
-
-    XrRecommendedLayerResolutionMETA resolution = { .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_META };
-
-    if (XR_SUCCEEDED(xrGetRecommendedLayerResolutionMETA(state.session, &info, &resolution)) && resolution.isValid) {
-      width = MAX(width, resolution.recommendedImageDimensions.width);
-      height = MAX(height, resolution.recommendedImageDimensions.height);
-    } else {
-      state.extensions.dynamicResolution = false;
-    }
-  }
-
-  lovrSwapchainDestroy(&state.swapchains[SWAPCHAIN_COLOR]);
-  lovrSwapchainDestroy(&state.swapchains[SWAPCHAIN_DEPTH]);
-
-  if (!lovrSwapchainInit(&state.swapchains[SWAPCHAIN_COLOR], width, height, VIEW | FOVEATED | HDR)) {
-    return false;
-  }
-
-  if (state.extensions.depth && !lovrSwapchainInit(&state.swapchains[SWAPCHAIN_DEPTH], width, height, VIEW | DEPTH)) {
-    return false;
-  }
-
-  // Pre-initialize layer structs
-
-  state.layer = (XrCompositionLayerProjection) {
-    .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
-    .viewCount = state.viewCount,
-    .views = state.layerViews
-  };
-
-  for (uint32_t i = 0; i < state.viewCount; i++) {
-    state.layerViews[i] = (XrCompositionLayerProjectionView) {
-      .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
-      .subImage.swapchain = state.swapchains[SWAPCHAIN_COLOR].handle,
-      .subImage.imageRect = { { 0, 0 }, { width, height } },
-      .subImage.imageArrayIndex = i
-    };
-  }
-
-  if (state.extensions.depth) {
-    for (uint32_t i = 0; i < state.viewCount; i++) {
-      state.layerViews[i].next = &state.depthInfo[i];
-      state.depthInfo[i] = (XrCompositionLayerDepthInfoKHR) {
-        .type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR,
-        .subImage.swapchain = state.swapchains[SWAPCHAIN_DEPTH].handle,
-        .subImage.imageRect = { { 0, 0 }, { width, height } },
-        .subImage.imageArrayIndex = i,
-        .minDepth = 0.f,
-        .maxDepth = 1.f
-      };
-    }
   }
 
   return true;
@@ -4169,6 +4556,15 @@ static bool loadVisibilityMask(void) {
   lovrMeshSetDrawRange(state.mask, 0, indexCount);
 
   return true;
+}
+
+Window* findWindow(XrSpatialContainerEXT handle) {
+  lovrBiterate(state.openWindowMask, index) {
+    if (state.windows[index].handle == handle) {
+      return &state.windows[index];
+    }
+  }
+  return NULL;
 }
 
 #ifdef _WIN32

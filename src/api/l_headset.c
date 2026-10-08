@@ -160,6 +160,7 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.proximity), lua_setfield(L, -2, "proximity");
   lua_pushboolean(L, features.refreshRate), lua_setfield(L, -2, "refreshRate");
   lua_pushboolean(L, features.viveTrackers), lua_setfield(L, -2, "viveTrackers");
+  lua_pushboolean(L, features.window), lua_setfield(L, -2, "window");
   return 1;
 }
 
@@ -787,7 +788,7 @@ static int l_lovrHeadsetAnimate(lua_State* L) {
   return 1;
 }
 
-static void luax_checkimages(lua_State* L, int index, Image** images, uint32_t capacity, uint32_t* count, uint32_t* layers) {
+void luax_checkimages(lua_State* L, int index, Image** images, uint32_t capacity, uint32_t* count, uint32_t* layers) {
   if (lua_istable(L, index)) {
     uint32_t length = luax_len(L, 1);
     luax_check(L, length <= capacity, "Too many images!");
@@ -812,97 +813,26 @@ static void luax_checkimages(lua_State* L, int index, Image** images, uint32_t c
   }
 }
 
+extern int l_lovrWindowSetBackground(lua_State* L);
+extern int l_lovrWindowGetLayers(lua_State* L);
+extern int l_lovrWindowSetLayers(lua_State* L);
+
 static int l_lovrHeadsetSetBackground(lua_State* L) {
-  uint32_t width = 0;
-  uint32_t height = 0;
-  uint32_t layers = 0;
-  Image* images[6];
-  uint32_t imageCount = 0;
-  Texture* texture = NULL;
-
-  if (lua_isnoneornil(L, 1)) {
-    lovrHeadsetSetBackground(0, 0, 0);
-    return 0;
-  } else if ((texture = luax_totype(L, 1, Texture)) != NULL) {
-    const TextureInfo* info = lovrTextureGetInfo(texture);
-    width = info->width;
-    height = info->height;
-    layers = info->layers;
-  } else {
-    luax_checkimages(L, 1, images, COUNTOF(images), &imageCount, &layers);
-    luax_check(L, imageCount > 1, "Must have at least 1 image");
-    width = lovrImageGetWidth(images[0], 0);
-    height = lovrImageGetHeight(images[0], 0);
-  }
-
-  luax_check(L, layers == 1 || layers == 6, "Currently, background must have 1 or 6 layers");
-
-  Texture* background = lovrHeadsetSetBackground(width, height, layers);
-
-  if (!background) {
-    for (uint32_t i = 0; i < imageCount; i++) {
-      lovrRelease(images[i], lovrImageDestroy);
-    }
-    luax_assert(L, false);
-  }
-
-  if (texture) {
-    uint32_t srcOffset[4] = { 0 };
-    uint32_t dstOffset[4] = { 0 };
-    uint32_t extent[3] = { width, height, layers };
-    luax_assert(L, lovrTextureCopy(texture, background, srcOffset, dstOffset, extent));
-  } else if (imageCount > 0) {
-    for (uint32_t i = 0; i < imageCount; i++) {
-      uint32_t texOffset[4] = { 0, 0, i, 0 };
-      uint32_t imgOffset[4] = { 0, 0, 0, 0 };
-      uint32_t extent[3] = { width, height, lovrImageGetLayerCount(images[i]) };
-      luax_assert(L, lovrTextureSetPixels(background, images[i], texOffset, imgOffset, extent));
-      lovrRelease(images[i], lovrImageDestroy);
-    }
-  }
-
-  return 0;
+  luax_pushtype(L, Window, lovrHeadsetGetWindow());
+  lua_insert(L, 1);
+  return l_lovrWindowSetBackground(L);
 }
 
 static int l_lovrHeadsetGetLayers(lua_State* L) {
-  bool main;
-  uint32_t count;
-  Layer** layers = lovrHeadsetGetLayers(&count, &main);
-  lua_createtable(L, (int) count, 0);
-  for (uint32_t i = 0; i < count; i++) {
-    luax_pushtype(L, Layer, layers[i]);
-    lua_rawseti(L, -2, (int) i + 1);
-  }
-  lua_pushboolean(L, main);
-  lua_setfield(L, -2, "main");
-  return 1;
+  luax_pushtype(L, Window, lovrHeadsetGetWindow());
+  lua_insert(L, 1);
+  return l_lovrWindowGetLayers(L);
 }
 
 static int l_lovrHeadsetSetLayers(lua_State* L) {
-  Layer* layers[MAX_LAYERS];
-  uint32_t count = 0;
-  bool main = true;
-  if (lua_type(L, 1) == LUA_TTABLE) {
-    count = luax_len(L, 1);
-    luax_check(L, count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
-    for (uint32_t i = 0; i < count; i++) {
-      lua_rawgeti(L, 1, (int) i + 1);
-      layers[i] = luax_checktype(L, -1, Layer);
-      lua_pop(L, 1);
-    }
-    lua_getfield(L, 1, "main");
-    if (!lua_isnil(L, -1)) main = lua_toboolean(L, -1);
-    lua_pop(L, 1);
-  } else {
-    count = lua_gettop(L);
-    luax_check(L, count <= MAX_LAYERS, "Too many layers (max is %d)", MAX_LAYERS);
-    for (uint32_t i = 0; i < count; i++) {
-      layers[i] = luax_checktype(L, (int) i + 1, Layer);
-    }
-  }
-  bool success = lovrHeadsetSetLayers(layers, count, main);
-  luax_assert(L, success);
-  return 0;
+  luax_pushtype(L, Window, lovrHeadsetGetWindow());
+  lua_insert(L, 1);
+  return l_lovrWindowSetLayers(L);
 }
 
 static int l_lovrHeadsetGetTexture(lua_State* L) {
@@ -1052,6 +982,21 @@ static int l_lovrHeadsetNewLayer(lua_State* L) {
   return 1;
 }
 
+static int l_lovrHeadsetNewWindow(lua_State* L) {
+  WindowInfo info = { 0 };
+  luax_readvec3(L, 1, info.size, NULL);
+  Window* window = lovrWindowCreate(&info);
+  luax_pushtype(L, Window, window);
+  lovrRelease(window, lovrWindowDestroy);
+  return 1;
+}
+
+static int l_lovrHeadsetGetWindow(lua_State* L) {
+  Window* window = lovrHeadsetGetWindow();
+  luax_pushtype(L, Window, window);
+  return 1;
+}
+
 static int l_lovrHeadsetGetHands(lua_State* L) {
   if (lua_istable(L, 1)) {
     lua_settop(L, 1);
@@ -1154,6 +1099,8 @@ static const luaL_Reg lovrHeadset[] = {
   { "setPose", l_lovrHeadsetSetPose },
   { "setButton", l_lovrHeadsetSetButton },
   { "newLayer", l_lovrHeadsetNewLayer },
+  { "newWindow", l_lovrHeadsetNewWindow },
+  { "getWindow", l_lovrHeadsetGetWindow },
   { "getHands", l_lovrHeadsetGetHands },
 
   // Deprecated
@@ -1164,11 +1111,13 @@ static const luaL_Reg lovrHeadset[] = {
 };
 
 extern const luaL_Reg lovrLayer[];
+extern const luaL_Reg lovrWindow[];
 
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrHeadset);
   luax_registertype(L, Layer);
+  luax_registertype(L, Window);
 
   HeadsetConfig config = {
     .supersample = 1.f,
@@ -1181,6 +1130,7 @@ int luaopen_lovr_headset(lua_State* L) {
     .submitDepth = true,
     .overlay = false,
     .overlayOrder = 0,
+    .window = true,
     .controllerSkeleton = SKELETON_CONTROLLER
   };
 
@@ -1231,6 +1181,10 @@ int luaopen_lovr_headset(lua_State* L) {
       lua_getfield(L, -1, "overlay");
       config.overlay = lua_toboolean(L, -1);
       config.overlayOrder = lua_type(L, -1) == LUA_TNUMBER ? luax_optu32(L, -1, 0) : 0;
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "window");
+      config.window = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "controllerskeleton");

@@ -12,14 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#ifdef _MSC_VER
-#include <intrin.h>
-#define CTZL _tzcnt_u64
-#else
-#define CTZL __builtin_ctzl
-#endif
 
-#define FOREACH_SOURCE(mask, s) for (uint64_t m = mask; s = m ? state.activeSources[CTZL(m)] : NULL, m; m ^= (m & -m))
+#define FOREACH_SOURCE(mask, s) for (uint64_t m = mask; s = m ? state.activeSources[lovrTrailingZeros64(m)] : NULL, m; m ^= (m & -m))
 #define AMBISONIC_ORDER(channels) ((channels / 6) + 1)
 #define OUTPUT_FORMAT SAMPLE_F32
 #define MAX_OCCLUSION_SAMPLES 64
@@ -676,7 +670,7 @@ bool lovrSourcePlay(Source* source) {
   if (source->slot == ~0u) {
     uint64_t mask = state.activeSourceMask | state.pendingSourceMask;
     if (mask == ~0ull) return false;
-    uint32_t slot = mask ? CTZL(~mask) : 0;
+    uint32_t slot = mask ? lovrTrailingZeros64(~mask) : 0;
     state.pendingSourceMask |= (1ull << slot);
     state.activeSources[slot] = source;
     source->slot = slot;

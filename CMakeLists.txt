@@ -530,6 +530,7 @@ if(LOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
     src/api/l_headset.c
     src/api/l_headset_layer.c
+    src/api/l_headset_window.c
   )
 
   if(NOT EMSCRIPTEN)
