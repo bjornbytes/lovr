@@ -19,7 +19,9 @@ typedef struct {
 #define ENTRY(s) { sizeof(s) - 1, s }
 
 extern StringEntry lovrAnimationProperty[];
+extern StringEntry lovrAprilDictionary[];
 extern StringEntry lovrArcMode[];
+extern StringEntry lovrArucoDictionary[];
 extern StringEntry lovrAudioMaterial[];
 extern StringEntry lovrAudioShareMode[];
 extern StringEntry lovrAudioType[];
