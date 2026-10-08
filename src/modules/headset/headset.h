@@ -50,7 +50,7 @@ typedef struct {
   bool handModel;
   bool handTracking;
   bool handTrackingElbow;
-  bool haptics;
+  bool hapticStream;
   bool keyboardTracking;
   bool layerColor;
   bool layerCurve;
@@ -166,14 +166,16 @@ typedef enum {
 
 typedef struct {
   double time;
-  float value;
+  float value[2];
 } VibrationData;
 
 typedef struct {
   uint32_t amplitudeCount;
   uint32_t frequencyCount;
+  uint32_t spikeCount;
   VibrationData amplitude[100];
   VibrationData frequency[100];
+  VibrationData spikes[100];
 } Vibration;
 
 bool lovrHeadsetInit(HeadsetConfig* config);
@@ -216,8 +218,9 @@ bool lovrHeadsetIsTouched(Device device, DeviceButton button, bool* touched);
 bool lovrHeadsetGetAxis(Device device, DeviceAxis axis, float* value);
 bool lovrHeadsetGetSkeleton(Device device, float* poses, SkeletonSource* source);
 bool lovrHeadsetGetBattery(Device device, float* level, bool* charging);
-bool lovrHeadsetVibrateSimple(Device device, DeviceButton button, float strength, float duration, float frequency);
-bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration* vibration);
+bool lovrHeadsetVibrateSimple(Device device, DeviceButton button, float amplitude, float duration, float frequency);
+bool lovrHeadsetVibrateStream(Device device, DeviceButton button, Vibration* vibration);
+bool lovrHeadsetSetVibration(Device device, DeviceButton button, float amplitude, float frequency);
 void lovrHeadsetStopVibration(Device device, DeviceButton button);
 uint64_t* lovrHeadsetGetModelKeys(uint32_t* count);
 struct ModelData* lovrHeadsetNewModelData(uint64_t key);

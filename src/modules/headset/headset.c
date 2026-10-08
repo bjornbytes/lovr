@@ -1004,7 +1004,7 @@ void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
   features->handModel = state.extensions.handTrackingMesh;
   features->handTracking = state.extensions.handTracking;
   features->handTrackingElbow = state.extensions.handTrackingElbow;
-  features->haptics = state.extensions.hapticParametric;
+  features->hapticStream = state.extensions.hapticParametric;
   features->keyboardTracking = state.extensions.keyboardTracking;
   features->layerColor = state.extensions.layerColor;
   features->layerCurve = state.extensions.layerCurve;
@@ -2342,84 +2342,6 @@ bool lovrHeadsetVibrateSimple(Device device, DeviceButton button, float amplitud
     .subactionPath = state.actionFilters[device]
   };
 
-  if (duration < 0.f) {
-    if (!state.extensions.hapticParametric) {
-      return false;
-    }
-
-    HapticStream* stream;
-
-    if (state.hapticStreamMap[device][button] == 0xff) {
-      if (state.hapticStreamCount >= MAX_HAPTIC_STREAMS) {
-        return false;
-      }
-
-      stream = &state.hapticStreams[state.hapticStreamCount];
-
-      stream->properties.type = XR_TYPE_HAPTIC_PARAMETRIC_PROPERTIES_EXT;
-      if (XR_FAILED(xrHapticParametricGetPropertiesEXT(state.session, &actionInfo, &stream->properties))) {
-        return false;
-      }
-
-      if (stream->properties.idealFrameSubmissionRate == 0) {
-        stream->properties.idealFrameSubmissionRate = (XrDuration) (.05 * 1e9);
-      }
-
-      if (stream->properties.minimumFirstFrameDuration == 0) {
-        stream->properties.minimumFirstFrameDuration = stream->properties.idealFrameSubmissionRate;
-      }
-
-      if (stream->properties.minFrequencyHz == XR_FREQUENCY_UNSPECIFIED) {
-        stream->properties.minFrequencyHz = XR_HAPTIC_PARAMETRIC_FREQUENCY_MIN_HZ_EXT;
-      }
-
-      if (stream->properties.maxFrequencyHz == XR_FREQUENCY_UNSPECIFIED) {
-        stream->properties.maxFrequencyHz = XR_HAPTIC_PARAMETRIC_FREQUENCY_MAX_HZ_EXT;
-      }
-
-      stream->actionInfo = actionInfo;
-      stream->mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT;
-      stream->count = 0;
-
-      state.hapticStreamMap[device][button] = state.hapticStreamCount++;
-    } else {
-      stream = &state.hapticStreams[state.hapticStreamMap[device][button]];
-    }
-
-    if (stream->mode == XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT) {
-      stream->mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_FIRST_FRAME_EXT;
-      stream->startTime = state.frameState.predictedDisplayTime;
-      stream->lastFlushTime = state.frameState.predictedDisplayTime;
-      stream->count = 0;
-    }
-
-    XrDuration time = state.frameState.predictedDisplayTime - stream->startTime;
-
-    // If the buffer is full, or multiple points are added in a single frame, overwrite the last point
-    stream->count = MIN(stream->count, COUNTOF(stream->amplitude) - 1);
-    if (stream->count > 0 && stream->amplitude[stream->count - 1].time == time) stream->count--;
-
-    if (frequency > 1.f) {
-      frequency = (frequency - stream->properties.minFrequencyHz) / (stream->properties.maxFrequencyHz - stream->properties.minFrequencyHz);
-    }
-
-    stream->amplitude[stream->count].time = time;
-    stream->amplitude[stream->count].value = amplitude;
-    stream->frequency[stream->count].time = time;
-    stream->frequency[stream->count].value = frequency;
-    stream->count++;
-
-    if (stream->count >= COUNTOF(stream->amplitude)) {
-      flushHapticStream(stream);
-    }
-
-    return true;
-  }
-
-  if (state.hapticStreamMap[device][button] != 0xff) {
-    state.hapticStreams[state.hapticStreamMap[device][button]].mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT;
-  }
-
   XrHapticVibration vibration = {
     .type = XR_TYPE_HAPTIC_VIBRATION,
     .duration = (XrDuration) (duration * 1e9f + .5f),
@@ -2427,12 +2349,25 @@ bool lovrHeadsetVibrateSimple(Device device, DeviceButton button, float amplitud
     .amplitude = amplitude
   };
 
+  // Reset any continuous haptics that are playing
+  if (state.hapticStreamMap[device][button] != 0xff) {
+    state.hapticStreams[state.hapticStreamMap[device][button]].mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT;
+  }
+
   return XR_SUCCEEDED(xrApplyHapticFeedback(state.session, &actionInfo, (XrHapticBaseHeader*) &vibration));
 }
 
-bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration* data) {
+bool lovrHeadsetVibrateStream(Device device, DeviceButton button, Vibration* data) {
   if (!state.extensions.hapticParametric) {
-    return false; // TODO emulate
+    float amplitude = 0.f;
+    float duration = 0.f;
+
+    for (uint32_t i = 0; i < data->amplitudeCount; i++) {
+      amplitude = MAX(amplitude, data->amplitude[i].value[0]);
+      duration = MAX(duration, (float) data->amplitude[i].time);
+    }
+
+    return lovrHeadsetVibrateSimple(device, button, amplitude, duration, 0.f);
   }
 
   uint8_t action = getVibrateAction(device, button);
@@ -2449,13 +2384,15 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
 
   XrHapticParametricPointEXT amplitude[COUNTOF(data->amplitude) + 1];
   XrHapticParametricPointEXT frequency[COUNTOF(data->frequency) + 1];
+  XrHapticParametricTransientEXT spikes[COUNTOF(data->spikes)];
   uint32_t amplitudeCount = data->amplitudeCount;
   uint32_t frequencyCount = data->frequencyCount;
+  uint32_t spikeCount = data->spikeCount;
 
+  // Amplitude
   for (uint32_t i = 0; i < amplitudeCount; i++) {
     XrDuration time = (XrDuration) (data->amplitude[i].time * 1e9 + .5);
 
-    // Timestamps must be sorted.  Not using qsort because it isn't stable
     uint32_t index = i;
     while (index > 0 && amplitude[index - 1].time > time) {
       amplitude[index] = amplitude[index - 1];
@@ -2463,31 +2400,13 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
     }
 
     amplitude[index].time = time;
-    amplitude[index].value = CLAMP(data->amplitude[i].value, 0.f, 1.f);
+    amplitude[index].value = CLAMP(data->amplitude[i].value[0], 0.f, 1.f);
   }
 
-  float minFrequency = INFINITY;
-  float maxFrequency = 0.f;
-
-  for (uint32_t i = 0; i < frequencyCount; i++) {
-    minFrequency = MIN(minFrequency, data->frequency[i].value);
-    maxFrequency = MAX(maxFrequency, data->frequency[i].value);
-  }
-
-  // If any frequencies were > 1, set minFrequency/maxFrequency and map frequency data to 0-1
-  // Otherwise, treat them as already normalized, and let the runtime map them to absolute Hz
-  if (maxFrequency > 1.f) {
-    minFrequency = CLAMP(minFrequency, XR_HAPTIC_PARAMETRIC_FREQUENCY_MIN_HZ_EXT, XR_HAPTIC_PARAMETRIC_FREQUENCY_MAX_HZ_EXT);
-    maxFrequency = CLAMP(maxFrequency, XR_HAPTIC_PARAMETRIC_FREQUENCY_MIN_HZ_EXT, XR_HAPTIC_PARAMETRIC_FREQUENCY_MAX_HZ_EXT);
-  } else {
-    minFrequency = 0.f;
-    maxFrequency = 0.f;
-  }
-
+  // Frequency
   for (uint32_t i = 0; i < frequencyCount; i++) {
     XrDuration time = (XrDuration) (data->frequency[i].time * 1e9 + .5);
 
-    // Timestamps must be sorted.  Not using qsort because it isn't stable
     uint32_t index = i;
     while (index > 0 && frequency[index - 1].time > time) {
       frequency[index] = frequency[index - 1];
@@ -2495,14 +2414,22 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
     }
 
     frequency[index].time = time;
+    frequency[index].value = CLAMP(data->frequency[i].value[0], 0.f, 1.f);
+  }
 
-    if (minFrequency >= maxFrequency) {
-      frequency[index].value = 1.f;
-    } else if (maxFrequency > 0.f) {
-      frequency[index].value = CLAMP((data->frequency[i].value - minFrequency) / (maxFrequency - minFrequency), 0.f, 1.f);
-    } else {
-      frequency[index].value = MAX(data->frequency[i].value, 0.f);
+  // Spikes
+  for (uint32_t i = 0; i < spikeCount; i++) {
+    XrDuration time = (XrDuration) (data->spikes[i].time * 1e9 + .5);
+
+    uint32_t index = i;
+    while (index > 0 && spikes[index - 1].time > time) {
+      spikes[index] = spikes[index - 1];
+      index--;
     }
+
+    spikes[index].time = time;
+    spikes[index].amplitude = CLAMP(data->spikes[i].value[0], 0.f, 1.f);
+    spikes[index].frequency = CLAMP(data->spikes[i].value[1], 0.f, 1.f);
   }
 
   // There needs to be at least 2 amplitude points
@@ -2528,11 +2455,17 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
     frequencyCount++;
   }
 
-  // The time of the last frequency point can't be after the last amplitude point
+  // Extend the time of the last amplitude point to the time of the last frequency point, if needed
   if (frequencyCount > 0 && frequency[frequencyCount - 1].time > amplitude[amplitudeCount - 1].time) {
     amplitude[amplitudeCount - 1].time = frequency[frequencyCount - 1].time;
   }
 
+  // Extend the time of the last amplitude point to the time of the last spike, if needed
+  if (spikeCount > 0 && spikes[spikeCount - 1].time > amplitude[amplitudeCount - 1].time) {
+    amplitude[amplitudeCount - 1].time = spikes[spikeCount - 1].time;
+  }
+
+  // Reset any continuous haptics that are playing
   if (state.hapticStreamMap[device][button] != 0xff) {
     state.hapticStreams[state.hapticStreamMap[device][button]].mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT;
   }
@@ -2541,13 +2474,83 @@ bool lovrHeadsetVibrateParametric(Device device, DeviceButton button, Vibration*
     .type = XR_TYPE_HAPTIC_PARAMETRIC_VIBRATION_EXT,
     .amplitudePointCount = amplitudeCount,
     .frequencyPointCount = frequencyCount,
+    .transientCount = spikeCount,
     .amplitudePoints = amplitude,
     .frequencyPoints = frequency,
-    .minFrequencyHz = minFrequency,
-    .maxFrequencyHz = maxFrequency
+    .transients = spikes
   };
 
   return XR_SUCCEEDED(xrApplyHapticFeedback(state.session, &info, (XrHapticBaseHeader*) &vibration));
+}
+
+bool lovrHeadsetSetVibration(Device device, DeviceButton button, float amplitude, float frequency) {
+  uint8_t action = getVibrateAction(device, button);
+
+  if (!state.session || !action || !state.extensions.hapticParametric) {
+    return false;
+  }
+
+  XrHapticActionInfo actionInfo = {
+    .type = XR_TYPE_HAPTIC_ACTION_INFO,
+    .action = state.actions[action],
+    .subactionPath = state.actionFilters[device]
+  };
+
+  HapticStream* stream;
+
+  if (state.hapticStreamMap[device][button] == 0xff) {
+    if (state.hapticStreamCount >= MAX_HAPTIC_STREAMS) {
+      return false;
+    }
+
+    stream = &state.hapticStreams[state.hapticStreamCount];
+
+    stream->properties.type = XR_TYPE_HAPTIC_PARAMETRIC_PROPERTIES_EXT;
+    if (XR_FAILED(xrHapticParametricGetPropertiesEXT(state.session, &actionInfo, &stream->properties))) {
+      return false;
+    }
+
+    if (stream->properties.idealFrameSubmissionRate == 0) {
+      stream->properties.idealFrameSubmissionRate = (XrDuration) (.05 * 1e9);
+    }
+
+    if (stream->properties.minimumFirstFrameDuration == 0) {
+      stream->properties.minimumFirstFrameDuration = stream->properties.idealFrameSubmissionRate;
+    }
+
+    stream->actionInfo = actionInfo;
+    stream->mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT;
+    stream->count = 0;
+
+    state.hapticStreamMap[device][button] = state.hapticStreamCount++;
+  } else {
+    stream = &state.hapticStreams[state.hapticStreamMap[device][button]];
+  }
+
+  if (stream->mode == XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_NONE_EXT) {
+    stream->mode = XR_HAPTIC_PARAMETRIC_STREAM_FRAME_TYPE_FIRST_FRAME_EXT;
+    stream->startTime = state.frameState.predictedDisplayTime;
+    stream->lastFlushTime = state.frameState.predictedDisplayTime;
+    stream->count = 0;
+  }
+
+  XrDuration time = state.frameState.predictedDisplayTime - stream->startTime;
+
+  // If the buffer is full, or multiple points are added in a single frame, overwrite the last point
+  stream->count = MIN(stream->count, COUNTOF(stream->amplitude) - 1);
+  if (stream->count > 0 && stream->amplitude[stream->count - 1].time == time) stream->count--;
+
+  stream->amplitude[stream->count].time = time;
+  stream->amplitude[stream->count].value = CLAMP(amplitude, 0.f, 1.f);
+  stream->frequency[stream->count].time = time;
+  stream->frequency[stream->count].value = CLAMP(frequency, 0.f, 1.f);
+  stream->count++;
+
+  if (stream->count >= COUNTOF(stream->amplitude)) {
+    flushHapticStream(stream);
+  }
+
+  return true;
 }
 
 void lovrHeadsetStopVibration(Device device, DeviceButton button) {
@@ -4283,8 +4286,6 @@ static bool flushHapticStream(HapticStream* stream) {
     .frequencyPointCount = stream->count,
     .amplitudePoints = stream->amplitude,
     .frequencyPoints = stream->frequency,
-    .minFrequencyHz = stream->properties.minFrequencyHz,
-    .maxFrequencyHz = stream->properties.maxFrequencyHz,
     .streamFrameType = stream->mode
   };
 
