@@ -227,6 +227,7 @@ struct Scanner {
 struct Anchor {
   atomic_uint ref;
   uint32_t slot;
+  ScannerType type;
   Scanner* scanner;
   XrSpatialEntityIdEXT id;
   XrSpatialEntityEXT handle;
@@ -3355,7 +3356,7 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
     case SCANNER_ARUCO:
       header = (XrSpatialCapabilityConfigurationBaseHeaderEXT*) &arucoConfig;
       header->capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT;
-      switch (info->arucoType) {
+      switch (info->arucoDictionary) {
         case ARUCO_4x4_50: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_4X4_50_EXT; break;
         case ARUCO_4x4_100: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_4X4_100_EXT; break;
         case ARUCO_4x4_250: arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_4X4_250_EXT; break;
@@ -3378,7 +3379,7 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
     case SCANNER_APRIL:
       header = (XrSpatialCapabilityConfigurationBaseHeaderEXT*) &aprilConfig;
       header->capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT;
-      switch (info->aprilType) {
+      switch (info->aprilDictionary) {
         case APRIL_16H5: aprilConfig.aprilDict = XR_SPATIAL_MARKER_APRIL_TAG_DICT_16H5_EXT; break;
         case APRIL_25H9: aprilConfig.aprilDict = XR_SPATIAL_MARKER_APRIL_TAG_DICT_25H9_EXT; break;
         case APRIL_36H10: aprilConfig.aprilDict = XR_SPATIAL_MARKER_APRIL_TAG_DICT_36H10_EXT; break;
@@ -3527,13 +3528,13 @@ void lovrScannerDestroy(void* ref) {
   lovrFree(scanner);
 }
 
-bool lovrScannerFinishCreate(Scanner* scanner, bool* created) {
-  if (scanner->handle) return *created = true, true;
-  if (!scanner->future) return *created = false, true;
+bool lovrScannerCreateFinished(Scanner* scanner, bool* finished) {
+  if (scanner->handle) return *finished = true, true;
+  if (!scanner->future) return *finished = false, true;
 
   bool ready = false;
   if (!pollFuture(scanner->future, &ready)) return false;
-  if (!ready) return *created = false, true;
+  if (!ready) return *finished = false, true;
 
   XrCreateSpatialContextCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_CONTEXT_COMPLETION_EXT };
   XR(xrCreateSpatialContextCompleteEXT(state.session, scanner->future, &completion), "xrCreateSpatialContextCompleteEXT");
@@ -3543,6 +3544,10 @@ bool lovrScannerFinishCreate(Scanner* scanner, bool* created) {
   return true;
 }
 
+ScannerType lovrScannerGetType(Scanner* scanner) {
+  return scanner->type;
+}
+
 uintptr_t lovrScannerScan(Scanner* scanner) {
   XrFutureEXT future;
   XrSpatialDiscoverySnapshotCreateInfoEXT createInfo = { .type = XR_TYPE_SPATIAL_DISCOVERY_SNAPSHOT_CREATE_INFO_EXT };
@@ -3550,7 +3555,7 @@ uintptr_t lovrScannerScan(Scanner* scanner) {
   return (uintptr_t) future;
 }
 
-bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
+bool lovrScannerScanFinished(Scanner* scanner, uintptr_t id, bool* finished) {
   XrFutureEXT future = (XrFutureEXT) id;
   if (!pollFuture(future, finished)) return false;
   if (!*finished) return true;
@@ -3629,6 +3634,7 @@ bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
 
     Anchor* anchor = lovrCalloc(sizeof(Anchor));
     anchor->ref = 1;
+    anchor->type = scanner->type;
     anchor->slot = slot;
     anchor->id = id;
     anchor->handle = handle;
@@ -3643,7 +3649,7 @@ bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished) {
 
 Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor) {
   for (uint32_t slot = anchor ? anchor->slot + 1 : 0; slot < scanner->entityCapacity; slot++) {
-    if (scanner->anchors[slot] && !lovrAnchorIsLost(scanner->anchors[slot])) {
+    if (scanner->anchors[slot] && lovrAnchorIsActive(scanner->anchors[slot])) {
       return scanner->anchors[slot];
     }
   }
@@ -3929,16 +3935,20 @@ void lovrAnchorDestroy(void* ref) {
   lovrFree(anchor);
 }
 
-bool lovrAnchorIsLost(Anchor* anchor) {
-  return anchor->status == XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT;
+bool lovrAnchorIsActive(Anchor* anchor) {
+  return anchor->status != XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT;
 }
 
 bool lovrAnchorIsTracked(Anchor* anchor) {
   return anchor->status == XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT;
 }
 
+ScannerType lovrAnchorGetType(Anchor* anchor) {
+  return anchor->type;
+}
+
 Anchor* lovrAnchorGetParent(Anchor* anchor) {
-  if (lovrAnchorIsLost(anchor) || !anchor->parent) return NULL;
+  if (!lovrAnchorIsActive(anchor) || !anchor->parent) return NULL;
   uint64_t hash = hash64(&anchor->parent, sizeof(XrSpatialEntityIdEXT));
   uint64_t entry = map_get(&anchor->scanner->anchorLookup, hash);
   return entry == MAP_NIL ? NULL : (Anchor*) (uintptr_t) entry;

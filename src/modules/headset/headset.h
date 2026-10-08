@@ -248,28 +248,29 @@ typedef enum {
   ARUCO_7x7_100,
   ARUCO_7x7_250,
   ARUCO_7x7_1000
-} ArucoType;
+} ArucoDictionary;
 
 typedef enum {
   APRIL_16H5,
   APRIL_25H9,
   APRIL_36H10,
   APRIL_36H11
-} AprilType;
+} AprilDictionary;
 
 typedef struct {
   ScannerType type;
-  ArucoType arucoType;
-  AprilType aprilType;
+  ArucoDictionary arucoDictionary;
+  AprilDictionary aprilDictionary;
   bool staticMarkers;
   float markerSize;
 } ScannerInfo;
 
 Scanner* lovrScannerCreate(ScannerInfo* info);
+bool lovrScannerCreateFinished(Scanner* scanner, bool* finished);
 void lovrScannerDestroy(void* ref);
-bool lovrScannerFinishCreate(Scanner* scanner, bool* finished);
+ScannerType lovrScannerGetType(Scanner* scanner);
 uintptr_t lovrScannerScan(Scanner* scanner);
-bool lovrScannerFinishScan(Scanner* scanner, uintptr_t id, bool* finished);
+bool lovrScannerScanFinished(Scanner* scanner, uintptr_t id, bool* finished);
 Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor);
 bool lovrScannerUpdate(Scanner* scanner);
 
@@ -277,8 +278,9 @@ bool lovrScannerUpdate(Scanner* scanner);
 
 Anchor* lovrAnchorCreate(float* position, float* orientation);
 void lovrAnchorDestroy(void* ref);
-bool lovrAnchorIsLost(Anchor* anchor);
+bool lovrAnchorIsActive(Anchor* anchor);
 bool lovrAnchorIsTracked(Anchor* anchor);
+ScannerType lovrAnchorGetType(Anchor* anchor);
 Anchor* lovrAnchorGetParent(Anchor* anchor);
 void lovrAnchorGetPosition(Anchor* anchor, float* position);
 void lovrAnchorGetOrientation(Anchor* anchor, float* orientation);

@@ -5,6 +5,7 @@
 #include "graphics/graphics.h"
 #include "timer/timer.h"
 #include "core/maf.h"
+#include "core/os.h"
 #include "util.h"
 #include <stdlib.h>
 
@@ -108,6 +109,34 @@ StringEntry lovrDeviceAxis[] = {
   [AXIS_TOUCHPAD] = ENTRY("touchpad"),
   [AXIS_GRIP] = ENTRY("grip"),
   [AXIS_NIB] = ENTRY("nib"),
+  { 0 }
+};
+
+StringEntry lovrArucoDictionary[] = {
+  [ARUCO_4x4_50] = ENTRY("4x4_50"),
+  [ARUCO_4x4_100] = ENTRY("4x4_100"),
+  [ARUCO_4x4_250] = ENTRY("4x4_250"),
+  [ARUCO_4x4_1000] = ENTRY("4x4_1000"),
+  [ARUCO_5x5_50] = ENTRY("5x5_50"),
+  [ARUCO_5x5_100] = ENTRY("5x5_100"),
+  [ARUCO_5x5_250] = ENTRY("5x5_250"),
+  [ARUCO_5x5_1000] = ENTRY("5x5_1000"),
+  [ARUCO_6x6_50] = ENTRY("6x6_50"),
+  [ARUCO_6x6_100] = ENTRY("6x6_100"),
+  [ARUCO_6x6_250] = ENTRY("6x6_250"),
+  [ARUCO_6x6_1000] = ENTRY("6x6_1000"),
+  [ARUCO_7x7_50] = ENTRY("7x7_50"),
+  [ARUCO_7x7_100] = ENTRY("7x7_100"),
+  [ARUCO_7x7_250] = ENTRY("7x7_250"),
+  [ARUCO_7x7_1000] = ENTRY("7x7_1000"),
+  { 0 }
+};
+
+StringEntry lovrAprilDictionary[] = {
+  [APRIL_16H5] = ENTRY("16h5"),
+  [APRIL_25H9] = ENTRY("25h9"),
+  [APRIL_36H10] = ENTRY("36h10"),
+  [APRIL_36H11] = ENTRY("36h11"),
   { 0 }
 };
 
@@ -978,6 +1007,69 @@ static int l_lovrHeadsetSetButton(lua_State* L) {
   return 0;
 }
 
+static bool luax_pollscanner(void** scanner, bool* ready) {
+  return lovrScannerCreateFinished(*scanner, ready);
+}
+
+static bool luax_waitscanner(void** scanner) {
+  for (;;) {
+    bool ready = false;
+    if (!lovrScannerCreateFinished(*scanner, &ready)) {
+      return false;
+    }
+
+    if (ready) {
+      return true;
+    } else {
+      os_sleep(.05); // :( can't wait on futures, and they may not complete in finite time
+    }
+  }
+}
+
+static int luax_pushscanner(lua_State* L, bool success, void* scanner) {
+  if (success) {
+    luax_pushtype(L, Scanner, scanner);
+    lovrRelease(scanner, lovrScannerDestroy);
+    return 1;
+  } else {
+    lovrRelease(scanner, lovrScannerDestroy);
+    return 0;
+  }
+}
+
+static int l_lovrHeadsetNewScanner(lua_State* L) {
+  ScannerInfo info = { 0 };
+
+  info.type = luax_checkenum(L, 1, ScannerType, NULL);
+
+  if (info.type == SCANNER_APRIL || info.type == SCANNER_ARUCO) {
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_getfield(L, 2, "dictionary");
+    luax_check(L, !lua_isnil(L, -1), "Marker dictionary is required");
+    if (info.type == SCANNER_APRIL) {
+      info.aprilDictionary = luax_checkenum(L, -1, AprilDictionary, NULL);
+    } else {
+      info.arucoDictionary = luax_checkenum(L, -1, ArucoDictionary, NULL);
+    }
+    lua_pop(L, 1);
+  }
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "static");
+    info.staticMarkers = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "size");
+    info.markerSize = luax_optfloat(L, -1, 0.f);
+    lua_pop(L, 1);
+  }
+
+  Scanner* scanner = lovrScannerCreate(&info);
+  luax_assert(L, scanner);
+
+  return luax_yieldpoll(L, luax_pollscanner, luax_waitscanner, luax_pushscanner, scanner);
+}
+
 static int l_lovrHeadsetNewLayer(lua_State* L) {
   LayerInfo info = { .filter = true };
 
@@ -1170,6 +1262,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "setOrientation", l_lovrHeadsetSetOrientation },
   { "setPose", l_lovrHeadsetSetPose },
   { "setButton", l_lovrHeadsetSetButton },
+  { "newScanner", l_lovrHeadsetNewScanner },
   { "newLayer", l_lovrHeadsetNewLayer },
   { "getHands", l_lovrHeadsetGetHands },
 
@@ -1179,6 +1272,9 @@ static const luaL_Reg lovrHeadset[] = {
 
   { NULL, NULL }
 };
+
+extern int l_lovrScannerAnchors(lua_State* L);
+extern int luax_anchoriterator(lua_State* L);
 
 extern const luaL_Reg lovrScanner[];
 extern const luaL_Reg lovrAnchor[];
@@ -1282,6 +1378,12 @@ int luaopen_lovr_headset(lua_State* L) {
     }
     lua_pop(L, 1);
   }
+  lua_pop(L, 1);
+
+  luaL_getmetatable(L, "Scanner");
+  lua_pushcfunction(L, luax_anchoriterator);
+  lua_pushcclosure(L, l_lovrScannerAnchors, 1);
+  lua_setfield(L, -2, "anchors");
   lua_pop(L, 1);
 
   luax_assert(L, lovrHeadsetInit(&config));
