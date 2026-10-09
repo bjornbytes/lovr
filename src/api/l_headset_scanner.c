@@ -8,9 +8,35 @@ static int l_lovrScannerGetType(lua_State* L) {
   return 1;
 }
 
+typedef struct {
+  Scanner* scanner;
+  uintptr_t id;
+} ScanContext;
+
+static bool luax_pollscan(void** context, bool* ready) {
+  ScanContext* ctx = *context;
+  return lovrScannerScanFinished(ctx->scanner, ctx->id, ready);
+}
+
+static int luax_finishscan(lua_State* L, bool success, void* context) {
+  ScanContext* ctx = context;
+  lovrRelease(ctx->scanner, lovrScannerDestroy);
+  lovrFree(context);
+  return 0;
+}
+
 static int l_lovrScannerScan(lua_State* L) {
   Scanner* scanner = luax_checktype(L, 1, Scanner);
-  return 0;
+  if (luax_getthreaddata(L)) {
+    ScanContext* context = lovrMalloc(sizeof(ScanContext));
+    context->scanner = scanner;
+    context->id = lovrScannerScan(scanner);
+    lovrRetain(scanner);
+    return luax_yieldpoll(L, luax_pollscan, NULL, NULL, context);
+  } else {
+    // TODO non-blocking background scan
+    return 0;
+  }
 }
 
 static int l_lovrScannerUpdate(lua_State* L) {
