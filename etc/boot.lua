@@ -324,6 +324,10 @@ function lovr.simulate(dt)
   lovr.headset.setPose('hand/left/point', handPosition, handOrientation)
 end
 
+function lovr.scan(scanner)
+  scanner:scan()
+end
+
 function lovr.threaderror(thread, err)
   error('Thread error\n\n' .. err, 0)
 end

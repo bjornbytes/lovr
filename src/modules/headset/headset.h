@@ -166,7 +166,7 @@ typedef enum {
 } SkeletonSource;
 
 typedef enum {
-  SCANNER_SURFACE,
+  SCANNER_PLANE,
   SCANNER_QR,
   SCANNER_MICRO_QR,
   SCANNER_ARUCO,
@@ -280,14 +280,13 @@ Anchor* lovrAnchorCreate(float* position, float* orientation);
 void lovrAnchorDestroy(void* ref);
 bool lovrAnchorIsActive(Anchor* anchor);
 bool lovrAnchorIsTracked(Anchor* anchor);
-ScannerType lovrAnchorGetType(Anchor* anchor);
 Anchor* lovrAnchorGetParent(Anchor* anchor);
+const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length);
 void lovrAnchorGetPosition(Anchor* anchor, float* position);
 void lovrAnchorGetOrientation(Anchor* anchor, float* orientation);
 void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions);
 float* lovrAnchorGetVertices(Anchor* anchor, uint32_t* count);
 uint32_t* lovrAnchorGetIndices(Anchor* anchor, uint32_t* count);
-const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length);
 
 // Layer
 

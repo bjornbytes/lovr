@@ -141,7 +141,7 @@ StringEntry lovrAprilDictionary[] = {
 };
 
 StringEntry lovrScannerType[] = {
-  [SCANNER_SURFACE] = ENTRY("surface"),
+  [SCANNER_PLANE] = ENTRY("plane"),
   [SCANNER_QR] = ENTRY("qr"),
   [SCANNER_MICRO_QR] = ENTRY("microqr"),
   [SCANNER_ARUCO] = ENTRY("aruco"),

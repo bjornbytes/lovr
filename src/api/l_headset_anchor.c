@@ -17,13 +17,6 @@ static int l_lovrAnchorIsTracked(lua_State* L) {
   return 1;
 }
 
-static int l_lovrAnchorGetType(lua_State* L) {
-  Anchor* anchor = luax_checktype(L, 1, Anchor);
-  ScannerType type = lovrAnchorGetType(anchor);
-  luax_pushenum(L, ScannerType, type);
-  return 1;
-}
-
 static int l_lovrAnchorGetParent(lua_State* L) {
   Anchor* anchor = luax_checktype(L, 1, Anchor);
   Anchor* parent = lovrAnchorGetParent(anchor);
@@ -111,11 +104,40 @@ static int l_lovrAnchorGetLabel(lua_State* L) {
   return 1;
 }
 
+static int l_lovrAnchorGetTriangles(lua_State* L) {
+  Anchor* anchor = luax_checktype(L, 1, Anchor);
+
+  uint32_t vertexCount;
+  const float* vertices = lovrAnchorGetVertices(anchor, &vertexCount);
+
+  uint32_t indexCount;
+  const uint32_t* indices = lovrAnchorGetIndices(anchor, &indexCount);
+
+  if (!vertices || !indices) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  lua_createtable(L, (int) vertexCount, 0);
+  for (uint32_t i = 0; i < 3 * vertexCount; i++) {
+    lua_pushnumber(L, vertices[i]);
+    lua_rawseti(L, -2, (int) i + 1);
+  }
+
+  lua_createtable(L, (int) indexCount, 0);
+  for (uint32_t i = 0; i < indexCount; i++) {
+    lua_pushinteger(L, indices[i] + 1);
+    lua_rawseti(L, -2, (int) i + 1);
+  }
+
+  return 2;
+}
+
 const luaL_Reg lovrAnchor[] = {
   { "isActive", l_lovrAnchorIsActive },
   { "isTracked", l_lovrAnchorIsTracked },
-  { "getType", l_lovrAnchorGetType },
   { "getParent", l_lovrAnchorGetParent },
+  { "getLabel", l_lovrAnchorGetLabel },
   { "getPosition", l_lovrAnchorGetPosition },
   { "getOrientation", l_lovrAnchorGetOrientation },
   { "getPose", l_lovrAnchorGetPose },
@@ -123,6 +145,6 @@ const luaL_Reg lovrAnchor[] = {
   { "getHeight", l_lovrAnchorGetHeight },
   { "getDepth", l_lovrAnchorGetDepth },
   { "getDimensions", l_lovrAnchorGetDimensions },
-  { "getLabel", l_lovrAnchorGetLabel },
+  { "getTriangles", l_lovrAnchorGetTriangles },
   { NULL, NULL }
 };

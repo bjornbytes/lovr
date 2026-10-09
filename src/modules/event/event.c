@@ -30,7 +30,7 @@ void lovrEventDestroy(void) {
     Event* event = &state.events.data[i];
     switch (event->type) {
 #ifndef LOVR_DISABLE_HEADSET
-      case EVENT_SHOULDSCAN: lovrRelease(event->data.scan.scanner, lovrScannerDestroy); break;
+      case EVENT_SCAN: lovrRelease(event->data.scan.scanner, lovrScannerDestroy); break;
 #endif
 #ifndef LOVR_DISABLE_THREAD
       case EVENT_THREAD_ERROR: lovrRelease(event->data.thread.thread, lovrThreadDestroy); break;
@@ -53,7 +53,7 @@ void lovrEventDestroy(void) {
 
 void lovrEventPush(Event event) {
 #ifndef LOVR_DISABLE_HEADSET
-  if (event.type == EVENT_SHOULDSCAN) {
+  if (event.type == EVENT_SCAN) {
     lovrRetain(event.data.scan.scanner);
   }
 #endif

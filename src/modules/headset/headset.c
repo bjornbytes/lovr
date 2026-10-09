@@ -227,7 +227,6 @@ struct Scanner {
 struct Anchor {
   atomic_uint ref;
   uint32_t slot;
-  ScannerType type;
   Scanner* scanner;
   XrSpatialEntityIdEXT id;
   XrSpatialEntityEXT handle;
@@ -235,15 +234,15 @@ struct Anchor {
   XrSpatialEntityTrackingStateEXT status;
   XrSpatialPlaneSemanticLabelEXT planeLabel;
   XrSpatialBufferIdEXT vertexBuffer;
+  size_t labelLength;
+  char* label;
   float position[3];
   float orientation[4];
   float dimensions[3];
-  void* vertices;
-  void* indices;
   uint32_t vertexCount;
   uint32_t indexCount;
-  size_t labelLength;
-  char* label;
+  void* vertices;
+  void* indices;
 };
 
 struct Layer {
@@ -1079,7 +1078,7 @@ void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
 
 bool lovrHeadsetIsScannerSupported(ScannerType type) {
   XrSpatialCapabilityEXT lookup[] = {
-    [SCANNER_SURFACE] = XR_SPATIAL_CAPABILITY_PLANE_TRACKING_EXT,
+    [SCANNER_PLANE] = XR_SPATIAL_CAPABILITY_PLANE_TRACKING_EXT,
     [SCANNER_QR] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT,
     [SCANNER_MICRO_QR] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT,
     [SCANNER_ARUCO] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT,
@@ -1577,7 +1576,7 @@ bool lovrHeadsetPollEvents(void) {
         mtx_lock(&state.scannerLock);
         for (Scanner* scanner = state.scanners; scanner; scanner = scanner->next) {
           if (scanner->handle == event->spatialContext) {
-            lovrEventPush((Event) { .type = EVENT_SHOULDSCAN, .data.scan.scanner = scanner });
+            lovrEventPush((Event) { .type = EVENT_SCAN, .data.scan.scanner = scanner });
             mtx_unlock(&state.scannerLock);
             break;
           }
@@ -3341,7 +3340,7 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
   XrSpatialCapabilityConfigurationBaseHeaderEXT* header = &base;
 
   switch (info->type) {
-    case SCANNER_SURFACE:
+    case SCANNER_PLANE:
       base.type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_PLANE_TRACKING_EXT;
       base.capability = XR_SPATIAL_CAPABILITY_PLANE_TRACKING_EXT;
       break;
@@ -3634,7 +3633,6 @@ bool lovrScannerScanFinished(Scanner* scanner, uintptr_t id, bool* finished) {
 
     Anchor* anchor = lovrCalloc(sizeof(Anchor));
     anchor->ref = 1;
-    anchor->type = scanner->type;
     anchor->slot = slot;
     anchor->id = id;
     anchor->handle = handle;
@@ -3943,15 +3941,30 @@ bool lovrAnchorIsTracked(Anchor* anchor) {
   return anchor->status == XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT;
 }
 
-ScannerType lovrAnchorGetType(Anchor* anchor) {
-  return anchor->type;
-}
-
 Anchor* lovrAnchorGetParent(Anchor* anchor) {
   if (!lovrAnchorIsActive(anchor) || !anchor->parent) return NULL;
   uint64_t hash = hash64(&anchor->parent, sizeof(XrSpatialEntityIdEXT));
   uint64_t entry = map_get(&anchor->scanner->anchorLookup, hash);
   return entry == MAP_NIL ? NULL : (Anchor*) (uintptr_t) entry;
+}
+
+const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length) {
+  if (!anchor->planeLabel) {
+    *length = anchor->labelLength;
+    return anchor->label;
+  }
+
+  const char* label;
+  switch (anchor->planeLabel) {
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_FLOOR_EXT: label = "floor"; break;
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_WALL_EXT: label = "wall"; break;
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_CEILING_EXT: label = "ceiling"; break;
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
+    default: return *length = 0, NULL;
+  }
+
+  *length = strlen(label);
+  return label;
 }
 
 void lovrAnchorGetPosition(Anchor* anchor, float* position) {
@@ -3974,25 +3987,6 @@ float* lovrAnchorGetVertices(Anchor* anchor, uint32_t* count) {
 uint32_t* lovrAnchorGetIndices(Anchor* anchor, uint32_t* count) {
   *count = anchor->indexCount;
   return anchor->indices;
-}
-
-const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length) {
-  if (!anchor->planeLabel) {
-    *length = anchor->labelLength;
-    return anchor->label;
-  }
-
-  const char* label;
-  switch (anchor->planeLabel) {
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_FLOOR_EXT: label = "floor"; break;
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_WALL_EXT: label = "wall"; break;
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_CEILING_EXT: label = "ceiling"; break;
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
-    default: return *length = 0, NULL;
-  }
-
-  *length = strlen(label);
-  return label;
 }
 
 // Layer

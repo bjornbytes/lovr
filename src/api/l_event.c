@@ -21,7 +21,7 @@ StringEntry lovrEventType[] = {
   [EVENT_MOUNT] = ENTRY("mount"),
   [EVENT_RECENTER] = ENTRY("recenter"),
   [EVENT_MODELSCHANGED] = ENTRY("modelschanged"),
-  [EVENT_SHOULDSCAN] = ENTRY("shouldscan"),
+  [EVENT_SCAN] = ENTRY("scan"),
   [EVENT_RESIZE] = ENTRY("resize"),
   [EVENT_KEYPRESSED] = ENTRY("keypressed"),
   [EVENT_KEYRELEASED] = ENTRY("keyreleased"),
@@ -77,7 +77,7 @@ static int nextEvent(lua_State* L) {
       return 1;
 
 #ifndef LOVR_DISABLE_HEADSET
-    case EVENT_SHOULDSCAN:
+    case EVENT_SCAN:
       luax_pushtype(L, Scanner, event.data.scan.scanner);
       lovrRelease(event.data.scan.scanner, lovrScannerDestroy);
       return 1;
