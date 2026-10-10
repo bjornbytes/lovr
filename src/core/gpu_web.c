@@ -1259,18 +1259,18 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
       "\n"
       "@group(0) @binding(0) var texture2d: texture_2d<f32>;\n"
       "@group(0) @binding(1) var texture3d: texture_3d<f32>;\n"
-      "@group(0) @binding(2) var sampler: sampler;\n"
+      "@group(0) @binding(2) var texture_sampler: sampler;\n"
       "\n"
       "@fragment\n"
       "fn fragment2d(input: VertexOutput) -> @location(0) vec4f {\n"
       "  let uv = u.srcOffset + u.srcExtent * input.uv;\n"
-      "  return textureSample(texture2d, sampler, uv);\n"
+      "  return textureSample(texture2d, texture_sampler, uv);\n"
       "}\n"
       "\n"
       "@fragment\n"
       "fn fragment3d(input: VertexOutput) -> @location(0) vec4f {\n"
       "  let uv = u.srcOffset + u.srcExtent * input.uv;\n"
-      "  return textureSample(texture3d, sampler, vec3f(uv, u.srcW));\n"
+      "  return textureSample(texture3d, texture_sampler, vec3f(uv, u.srcW));\n"
       "}\n";
 
     state.blit.shader = wgpu_device_create_shader_module(state.device, &(WGpuShaderModuleDescriptor) {
@@ -1296,7 +1296,7 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
     };
 
     state.blit.bindGroupLayout[type] = wgpu_device_create_bind_group_layout(state.device, entries, COUNTOF(entries));
-    state.blit.pipelineLayout[type] = wgpu_device_create_pipeline_layout(state.device, &state.blit.bindGroupLayout[type], 1, 0);
+    state.blit.pipelineLayout[type] = wgpu_device_create_pipeline_layout(state.device, &state.blit.bindGroupLayout[type], 1, 24);
   }
 
   if (!state.blit.sampler[filter]) {
@@ -1306,7 +1306,8 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
       .mipmapFilter = WGPU_MIPMAP_FILTER_MODE_NEAREST,
       .addressModeU = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
       .addressModeV = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
-      .addressModeW = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE
+      .addressModeW = WGPU_ADDRESS_MODE_CLAMP_TO_EDGE,
+      .maxAnisotropy = 1.f
     });
   }
 
