@@ -1252,7 +1252,7 @@ void gpu_blit(gpu_stream* stream, gpu_texture* src, gpu_texture* dst, uint32_t s
       "  let x = -1f + f32((VertexIndex & 1u) << 2u);\n"
       "  let y = -1f + f32((VertexIndex & 2u) << 1u);\n"
       "  var output: VertexOutput;\n"
-      "  output.position = vec4f(x, y, 1f, 1f);\n"
+      "  output.position = vec4f(x, -y, 1f, 1f);\n"
       "  output.uv = vec2f(x, y) * .5 + .5;\n"
       "  return output;\n"
       "}\n"
