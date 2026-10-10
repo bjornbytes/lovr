@@ -164,7 +164,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrGetSpatialBufferStringEXT)\
   X(xrGetSpatialBufferUint8EXT)\
   X(xrGetSpatialBufferUint16EXT)\
-  X(xrGetSpatialBufferVector2fEXT)
+  X(xrGetSpatialBufferVector2fEXT)\
+  X(xrCreateSpatialAnchorEXT)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -335,6 +336,7 @@ static struct {
   XrBodyTrackerBD bodyTracker;
   XrSpatialCapabilityEXT* spatialCapabilities;
   uint32_t spatialCapabilityCount;
+  Scanner* customScanner;
   Scanner* scanners;
   XrRenderModelIdEXT* modelKeys;
   mtx_t scannerLock;
@@ -1098,7 +1100,8 @@ bool lovrHeadsetIsScannerSupported(ScannerType type) {
     [SCANNER_QR] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT,
     [SCANNER_MICRO_QR] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT,
     [SCANNER_ARUCO] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT,
-    [SCANNER_APRIL] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT
+    [SCANNER_APRIL] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT,
+    [SCANNER_CUSTOM] = XR_SPATIAL_CAPABILITY_ANCHOR_EXT
   };
 
   if (!state.extensions.spatialEntity || !state.spatialCapabilities) return false;
@@ -1672,6 +1675,29 @@ bool lovrHeadsetUpdate(void) {
         state.layerViews[i].subImage.imageRect.extent.width = state.width;
         state.layerViews[i].subImage.imageRect.extent.height = state.height;
         state.depthInfo[i].subImage.imageRect = state.layerViews[i].subImage.imageRect;
+      }
+    }
+
+    if (state.customScanner && !state.customScanner->handle) {
+      bool finished;
+      Scanner* scanner = state.customScanner;
+      if (lovrScannerCreateFinished(scanner, &finished) && finished) {
+        XrSpatialAnchorCreateInfoEXT anchorInfo = {
+          .type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,
+          .baseSpace = state.referenceSpace,
+          .time = state.frameState.predictedDisplayTime
+        };
+
+        // If any anchors were created before the scanner was ready, create actual entities for them
+        for (uint32_t i = 0; i < scanner->entityCount; i++) {
+          Anchor* anchor = scanner->anchors[i];
+          vec3_init(&anchorInfo.pose.position.x, anchor->position);
+          quat_init(&anchorInfo.pose.orientation.x, anchor->orientation);
+          XR(xrCreateSpatialAnchorEXT(scanner->handle, &anchorInfo, &anchor->id, &anchor->handle), "xrCreateSpatialAnchorEXT");
+          uint64_t hash = hash64(&anchor->id, sizeof(anchor->id));
+          map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
+          scanner->entities[i] = anchor->handle;
+        }
       }
     }
   }
@@ -3447,6 +3473,10 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
         default: break;
       }
       break;
+    case SCANNER_CUSTOM:
+      base.type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT;
+      base.capability = XR_SPATIAL_CAPABILITY_ANCHOR_EXT;
+      break;
     default: lovrUnreachable();
   }
 
@@ -3615,6 +3645,61 @@ uintptr_t lovrScannerScan(Scanner* scanner) {
   return (uintptr_t) future;
 }
 
+static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEntityIdEXT id, XrSpatialEntityEXT handle) {
+  if (slot >= scanner->entityCapacity) {
+    uint32_t capacity = scanner->entityCapacity;
+
+    while (capacity < slot) {
+      capacity = MAX(capacity * 2, 1);
+    }
+
+    scanner->anchors = lovrRealloc(scanner->anchors, capacity * sizeof(Anchor*));
+    scanner->entities = lovrRealloc(scanner->entities, capacity * sizeof(XrSpatialEntityEXT));
+    scanner->entityStates = lovrRealloc(scanner->entityStates, capacity * sizeof(XrSpatialEntityTrackingStateEXT));
+
+    for (uint32_t c = 0; c < scanner->componentCount; c++) {
+      switch (scanner->components[c]) {
+        case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT: scanner->bounds = lovrRealloc(scanner->bounds, capacity * sizeof(scanner->bounds[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT: scanner->parents = lovrRealloc(scanner->parents, capacity * sizeof(scanner->parents[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT: scanner->planeLabels = lovrRealloc(scanner->planeLabels, capacity * sizeof(scanner->planeLabels[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT: scanner->markers = lovrRealloc(scanner->markers, capacity * sizeof(scanner->markers[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT: scanner->anchorPoses = lovrRealloc(scanner->anchorPoses, capacity * sizeof(scanner->anchorPoses[0])); break;
+        default: break;
+      }
+    }
+
+    for (uint32_t s = scanner->entityCapacity; s < capacity; s++) {
+      scanner->anchors[s] = NULL;
+    }
+
+    scanner->entityCapacity = capacity;
+  }
+
+  if (scanner->anchors[slot]) {
+    lovrUnreachable();
+  }
+
+  Anchor* anchor = lovrCalloc(sizeof(Anchor));
+  anchor->ref = 1;
+  anchor->slot = slot;
+  anchor->id = id;
+  anchor->handle = handle;
+  anchor->scanner = scanner;
+  scanner->anchors[slot] = anchor;
+
+  // Custom anchors can be added without ids/handles if they are created before the scanner is ready
+  if (id && handle) {
+    uint64_t hash = hash64(&id, sizeof(id));
+    scanner->entities[scanner->entityCount++] = handle;
+    map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
+  } else {
+    scanner->entityCount++;
+  }
+
+  return anchor;
+}
+
 bool lovrScannerScanFinished(Scanner* scanner, uintptr_t id, bool* finished) {
   XrFutureEXT future = (XrFutureEXT) id;
   if (!pollFuture(future, finished)) return false;
@@ -3651,56 +3736,22 @@ bool lovrScannerScanFinished(Scanner* scanner, uintptr_t id, bool* finished) {
   XR(result, "xrQuerySpatialComponentDataEXT");
 
   uint32_t slot = 0;
-
   for (uint32_t i = 0; i < data.entityIdCountOutput; i++) {
     XrSpatialEntityIdEXT id = scanner->entityIds[i];
     uint64_t hash = hash64(&id, sizeof(id));
     uint64_t entry = map_get(&scanner->anchorLookup, hash);
     if (entry != MAP_NIL) continue;
 
-    XrSpatialEntityEXT handle;
-    XrSpatialEntityFromIdCreateInfoEXT info = { .type = XR_TYPE_SPATIAL_ENTITY_FROM_ID_CREATE_INFO_EXT, .entityId = id };
-    XR(xrCreateSpatialEntityFromIdEXT(scanner->handle, &info, &handle), "xrCreateSpatialEntityFromIdEXT");
-
     // Find an unused anchor slot to reuse, if possible
     while (slot < scanner->entityCapacity && scanner->anchors[slot]) {
       slot++;
     }
 
-    // Resize all the arrays, if needed
-    if (slot >= scanner->entityCapacity) {
-      uint32_t capacity = scanner->entityCapacity = MAX(scanner->entityCapacity * 2, 1);
+    XrSpatialEntityEXT handle;
+    XrSpatialEntityFromIdCreateInfoEXT info = { .type = XR_TYPE_SPATIAL_ENTITY_FROM_ID_CREATE_INFO_EXT, .entityId = id };
+    XR(xrCreateSpatialEntityFromIdEXT(scanner->handle, &info, &handle), "xrCreateSpatialEntityFromIdEXT");
 
-      scanner->anchors = lovrRealloc(scanner->anchors, capacity * sizeof(Anchor*));
-      scanner->entities = lovrRealloc(scanner->entities, capacity * sizeof(XrSpatialEntityEXT));
-      scanner->entityStates = lovrRealloc(scanner->entityStates, capacity * sizeof(XrSpatialEntityTrackingStateEXT));
-
-      for (uint32_t c = 0; c < scanner->componentCount; c++) {
-        switch (scanner->components[c]) {
-          case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT: scanner->bounds = lovrRealloc(scanner->bounds, capacity * sizeof(scanner->bounds[0])); break;
-          case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT: scanner->parents = lovrRealloc(scanner->parents, capacity * sizeof(scanner->parents[0])); break;
-          case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
-          case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT: scanner->planeLabels = lovrRealloc(scanner->planeLabels, capacity * sizeof(scanner->planeLabels[0])); break;
-          case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT: scanner->markers = lovrRealloc(scanner->markers, capacity * sizeof(scanner->markers[0])); break;
-          case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT: scanner->anchorPoses = lovrRealloc(scanner->anchorPoses, capacity * sizeof(scanner->anchorPoses[0])); break;
-          default: break;
-        }
-      }
-
-      for (uint32_t s = capacity >> 1; s < capacity; s++) {
-        scanner->anchors[s] = NULL;
-      }
-    }
-
-    Anchor* anchor = lovrCalloc(sizeof(Anchor));
-    anchor->ref = 1;
-    anchor->slot = slot;
-    anchor->id = id;
-    anchor->handle = handle;
-    anchor->scanner = scanner;
-    scanner->anchors[slot] = anchor;
-    scanner->entities[scanner->entityCount++] = handle;
-    map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
+    lovrScannerAddAnchor(scanner, slot, id, handle);
   }
 
   return true;
@@ -3983,7 +4034,42 @@ fail:
 // Anchor
 
 Anchor* lovrAnchorCreate(float* position, float* orientation) {
-  return NULL; // TODO
+  lovrCheck(lovrHeadsetIsScannerSupported(SCANNER_CUSTOM), "This headset doesn't support custom anchors");
+
+  if (!state.customScanner) {
+    ScannerInfo info = { .type = SCANNER_CUSTOM };
+    state.customScanner = lovrScannerCreate(&info);
+    if (!state.customScanner) return false;
+  }
+
+  Scanner* scanner = state.customScanner;
+  Anchor* anchor;
+
+  if (scanner->handle) {
+    XrSpatialAnchorCreateInfoEXT info = {
+      .type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,
+      .baseSpace = state.referenceSpace,
+      .time = state.frameState.predictedDisplayTime,
+      .pose.position = { position[0], position[1], position[2] },
+      .pose.orientation = { orientation[0], orientation[1], orientation[2], orientation[3] }
+    };
+
+    XrSpatialEntityIdEXT id;
+    XrSpatialEntityEXT handle;
+    XR(xrCreateSpatialAnchorEXT(scanner->handle, &info, &id, &handle), "xrCreateSpatialAnchorEXT");
+    anchor = lovrScannerAddAnchor(scanner, scanner->entityCount, id, handle);
+  } else {
+    // If the Scanner isn't ready yet, create a placeholder anchor and store the pose there.  Once
+    // the scanner is ready, it creates real anchors for all the placeholders.
+    anchor = lovrScannerAddAnchor(scanner, scanner->entityCount, XR_NULL_SPATIAL_ENTITY_ID_EXT, XR_NULL_HANDLE);
+    vec3_init(anchor->position, position);
+    quat_init(anchor->orientation, orientation);
+
+    // The Anchor shouldn't be inactive when it's first created, it should just be untracked
+    anchor->status = XR_SPATIAL_ENTITY_TRACKING_STATE_PAUSED_EXT;
+  }
+
+  return anchor;
 }
 
 void lovrAnchorDestroy(void* ref) {
