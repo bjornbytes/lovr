@@ -5573,7 +5573,11 @@ Model* lovrModelCreate(const ModelInfo* info) {
       .format = (DataField[]) {
         { .length = meta->vertexCount, .stride = sizeof(ModelVertex), .fieldCount = 5 },
         { .name = "VertexPosition", .type = TYPE_F32x3, .offset = offsetof(ModelVertex, position) },
+#ifdef LOVR_WEBGPU
+        { .name = "VertexNormal", .type = TYPE_F32x3, .offset = offsetof(ModelVertex, normal) },
+#else
         { .name = "VertexNormal", .type = TYPE_SN10x3, .offset = offsetof(ModelVertex, normal) },
+#endif
         { .name = "VertexUV", .type = TYPE_F32x2, .offset = offsetof(ModelVertex, uv) },
         { .name = "VertexUV2", .type = TYPE_UN16x2, .offset = offsetof(ModelVertex, uv2) },
         { .name = "VertexColor", .type = TYPE_UN8x4, .offset = offsetof(ModelVertex, color) },
