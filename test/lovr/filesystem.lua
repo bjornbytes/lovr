@@ -14,7 +14,9 @@ group('filesystem', function()
 
     local file, err = lovr.filesystem.newFile('test.txt', 'w')
     assert(file and not err)
+    assert(file:getSize() == 0)
     assert(file:write('hi'))
+    assert(file:getSize() == 2)
     file:release()
     assert(lovr.filesystem.read('test.txt') == 'hi')
 

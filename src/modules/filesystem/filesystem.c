@@ -1157,7 +1157,17 @@ OpenMode lovrFileGetMode(File* file) {
 }
 
 bool lovrFileGetSize(File* file, uint64_t* size) {
-  return file->archive->fsize(file->archive, &file->handle, size);
+  if (file->archive) {
+    return file->archive->fsize(file->archive, &file->handle, size);
+  }
+
+  fs_info info;
+  if (checkfs(fs_fstat(file->handle.file, &info))) {
+    *size = info.size;
+    return true;
+  }
+
+  return false;
 }
 
 bool lovrFileRead(File* file, void* data, size_t size, size_t* count) {
