@@ -1070,6 +1070,17 @@ static int l_lovrHeadsetNewScanner(lua_State* L) {
   return luax_yieldpoll(L, luax_pollscanner, luax_waitscanner, luax_pushscanner, scanner);
 }
 
+static int l_lovrHeadsetNewAnchor(lua_State* L) {
+  float position[3], orientation[4];
+  int index = luax_readvec3(L, 1, position, NULL);
+  index = luax_readquat(L, index, orientation, NULL);
+  Anchor* anchor = lovrAnchorCreate(position, orientation);
+  luax_assert(L, anchor);
+  luax_pushtype(L, Anchor, anchor);
+  lovrRelease(anchor, lovrAnchorDestroy);
+  return 1;
+}
+
 static int l_lovrHeadsetNewLayer(lua_State* L) {
   LayerInfo info = { .filter = true };
 

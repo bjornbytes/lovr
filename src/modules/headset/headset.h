@@ -170,7 +170,8 @@ typedef enum {
   SCANNER_QR,
   SCANNER_MICRO_QR,
   SCANNER_ARUCO,
-  SCANNER_APRIL
+  SCANNER_APRIL,
+  SCANNER_CUSTOM
 } ScannerType;
 
 bool lovrHeadsetInit(HeadsetConfig* config);
