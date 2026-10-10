@@ -227,7 +227,15 @@ var headset = {
     return false;
   },
 
-  lovrHeadsetVibrate(device, strength, duration, frequency) {
+  lovrHeadsetVibrateSimple(device, button, amplitude, duration, frequency) {
+    return false;
+  },
+
+  lovrHeadsetVibrateStream(device, button, vibration) {
+    return false;
+  },
+
+  lovrHeadsetSetVibration(device, button, amplitude, frequency) {
     return false;
   },
 

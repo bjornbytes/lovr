@@ -150,6 +150,7 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
   lua_pushboolean(L, features.handTracking), lua_setfield(L, -2, "handTracking");
   lua_pushboolean(L, features.handTrackingElbow), lua_setfield(L, -2, "handTrackingElbow");
+  lua_pushboolean(L, features.hapticStream), lua_setfield(L, -2, "hapticStream");
   lua_pushboolean(L, features.keyboardTracking), lua_setfield(L, -2, "keyboardTracking");
   lua_pushboolean(L, features.layerColor), lua_setfield(L, -2, "layerColor");
   lua_pushboolean(L, features.layerCurve), lua_setfield(L, -2, "layerCurve");
@@ -712,19 +713,71 @@ static int l_lovrHeadsetGetBattery(lua_State* L) {
   }
 }
 
+static void luax_tovibrationdata(lua_State* L, int index, VibrationData* data, bool spike, uint32_t* count, uint32_t max) {
+  if (!lua_istable(L, index)) return;
+  int length = luax_len(L, index);
+
+  if (spike) {
+    for (int i = 0; i < length && *count < max; i += 3, ++*count) {
+      lua_rawgeti(L, index, i + 1);
+      lua_rawgeti(L, index, i + 2);
+      lua_rawgeti(L, index, i + 3);
+      data[*count].time = lua_tonumber(L, -3);
+      data[*count].value[0] = luax_tofloat(L, -2);
+      data[*count].value[1] = luax_tofloat(L, -1);
+      lua_pop(L, 3);
+    }
+  } else {
+    for (int i = 0; i < length && *count < max; i += 2, ++*count) {
+      lua_rawgeti(L, index, i + 1);
+      lua_rawgeti(L, index, i + 2);
+      data[*count].time = lua_tonumber(L, -2);
+      data[*count].value[0] = luax_tofloat(L, -1);
+      lua_pop(L, 2);
+    }
+  }
+}
+
 static int l_lovrHeadsetVibrate(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  float strength = luax_optfloat(L, 2, 1.f);
-  float duration = luax_optfloat(L, 3, .5f);
-  float frequency = luax_optfloat(L, 4, 0.f);
-  bool success = lovrHeadsetVibrate(device, strength, duration, frequency);
+  int index = 2;
+  DeviceButton button = lua_type(L, 2) == LUA_TSTRING ? luax_checkenum(L, index++, DeviceButton, NULL) : MAX_BUTTONS;
+  if (lua_istable(L, index)) {
+    Vibration vibration = { 0 };
+    luax_tovibrationdata(L, index + 0, vibration.amplitude, false, &vibration.amplitudeCount, COUNTOF(vibration.amplitude));
+    luax_tovibrationdata(L, index + 1, vibration.frequency, false, &vibration.frequencyCount, COUNTOF(vibration.frequency));
+    luax_tovibrationdata(L, index + 2, vibration.spikes, true, &vibration.spikeCount, COUNTOF(vibration.spikes));
+    bool success = lovrHeadsetVibrateStream(device, button, &vibration);
+    lua_pushboolean(L, success);
+  } else {
+    float amplitude = luax_optfloat(L, index++, 1.f);
+    float duration = luax_optfloat(L, index++, .5f);
+    float frequency = luax_optfloat(L, index++, 0.f);
+    bool success = lovrHeadsetVibrateSimple(device, button, amplitude, duration, frequency);
+    lua_pushboolean(L, success);
+  }
+  return 1;
+}
+
+static int l_lovrHeadsetSetVibration(lua_State* L) {
+  Device device = luax_optdevice(L, 1);
+  int index = 2;
+  DeviceButton button = lua_type(L, 2) == LUA_TSTRING ? luax_checkenum(L, index++, DeviceButton, NULL) : MAX_BUTTONS;
+  if (lua_isnoneornil(L, index)) {
+    lovrHeadsetStopVibration(device, button);
+    return 0;
+  }
+  float amplitude = luax_checkfloat(L, index++);
+  float frequency = luax_optfloat(L, index++, .5f);
+  bool success = lovrHeadsetSetVibration(device, button, amplitude, frequency);
   lua_pushboolean(L, success);
   return 1;
 }
 
 static int l_lovrHeadsetStopVibration(lua_State* L) {
   Device device = luax_optdevice(L, 1);
-  lovrHeadsetStopVibration(device);
+  DeviceButton button = lua_type(L, 2) == LUA_TSTRING ? luax_checkenum(L, 2, DeviceButton, NULL) : MAX_BUTTONS;
+  lovrHeadsetStopVibration(device, button);
   return 0;
 }
 
@@ -1139,6 +1192,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getSkeleton", l_lovrHeadsetGetSkeleton },
   { "getBattery", l_lovrHeadsetGetBattery },
   { "vibrate", l_lovrHeadsetVibrate },
+  { "setVibration", l_lovrHeadsetSetVibration },
   { "stopVibration", l_lovrHeadsetStopVibration },
   { "getModelKeys", l_lovrHeadsetGetModelKeys },
   { "newModel", l_lovrHeadsetNewModel },
