@@ -6190,7 +6190,7 @@ static bool lovrModelAnimateVertices(Model* model) {
 
       if (skin != prevSkin) {
         uint32_t align = state.limits.uniformBufferAlign;
-        BufferView view = getBuffer(GPU_BUFFER_STREAM, skin->jointCount * 16 * sizeof(float), align);
+        BufferView view = getBuffer(GPU_BUFFER_STREAM, 256 * 16 * sizeof(float), align);
         if (!view.buffer) return mtx_unlock(&state.lock), false;
         bindings[3].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
 
