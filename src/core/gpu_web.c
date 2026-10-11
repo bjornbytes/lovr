@@ -461,13 +461,6 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
     [GPU_SLOT_TREE] = WGPU_BIND_GROUP_LAYOUT_TYPE_INVALID // Not supported
   };
 
-  static const WGPU_BUFFER_BINDING_TYPE bufferTypes[] = {
-    [GPU_SLOT_UNIFORM_BUFFER] = WGPU_BUFFER_BINDING_TYPE_UNIFORM,
-    [GPU_SLOT_STORAGE_BUFFER] = WGPU_BUFFER_BINDING_TYPE_STORAGE,
-    [GPU_SLOT_UNIFORM_BUFFER_DYNAMIC] = WGPU_BUFFER_BINDING_TYPE_UNIFORM,
-    [GPU_SLOT_STORAGE_BUFFER_DYNAMIC] = WGPU_BUFFER_BINDING_TYPE_STORAGE
-  };
-
   static const WGPU_STORAGE_TEXTURE_ACCESS storageAccesses[] = {
     [GPU_READ_ONLY] = WGPU_STORAGE_TEXTURE_ACCESS_READ_ONLY,
     [GPU_WRITE_ONLY] = WGPU_STORAGE_TEXTURE_ACCESS_WRITE_ONLY,
@@ -494,12 +487,19 @@ bool gpu_layout_init(gpu_layout* layout, gpu_layout_info* info) {
 
     switch (info->slots[i].type) {
       case GPU_SLOT_UNIFORM_BUFFER_DYNAMIC:
-      case GPU_SLOT_STORAGE_BUFFER_DYNAMIC:
         entries[i].layout.buffer.hasDynamicOffset = true;
         /* fallthrough */
       case GPU_SLOT_UNIFORM_BUFFER:
+        entries[i].layout.buffer.type = WGPU_BUFFER_BINDING_TYPE_UNIFORM;
+        break;
+
+      case GPU_SLOT_STORAGE_BUFFER_DYNAMIC:
+        entries[i].layout.buffer.hasDynamicOffset = true;
+        /* fallthrough */
       case GPU_SLOT_STORAGE_BUFFER:
-        entries[i].layout.buffer.type = bufferTypes[slot->type];
+        entries[i].layout.buffer.type = info->slots[i].storageAccess == GPU_READ_ONLY ?
+          WGPU_BUFFER_BINDING_TYPE_READ_ONLY_STORAGE :
+          WGPU_BUFFER_BINDING_TYPE_STORAGE;
         break;
 
       case GPU_SLOT_TEXTURE_WITH_SAMPLER:
