@@ -9022,6 +9022,11 @@ bool lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
     return false;
   }
 
+  if (glyphCount == 0) {
+    stackPop(&thread.stack, stack);
+    return true;
+  }
+
   mat4_scale(transform, scale, scale, scale);
   float offset = -ascent + valign / 2.f * (leading * lineCount);
   mat4_translate(transform, 0.f, flip ? -offset : offset, 0.f);
