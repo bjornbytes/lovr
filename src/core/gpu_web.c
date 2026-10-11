@@ -1472,10 +1472,41 @@ bool gpu_init(gpu_config* config) {
     return setError("No WebGPU adapter available");
   }
 
-  state.device = wgpu_adapter_request_device_sync_simple(state.adapter);
+  WGPU_FEATURES_BITFIELD supports = wgpu_adapter_get_features(state.adapter);
+
+  state.device = wgpu_adapter_request_device_sync(state.adapter, &(WGpuDeviceDescriptor) {
+    .requiredFeatures =
+      WGPU_FEATURE_CORE_FEATURES_AND_LIMITS |
+      ((supports & WGPU_FEATURE_DEPTH_CLIP_CONTROL) ? WGPU_FEATURE_DEPTH_CLIP_CONTROL : 0) |
+      ((supports & WGPU_FEATURE_DEPTH32FLOAT_STENCIL8) ? WGPU_FEATURE_DEPTH32FLOAT_STENCIL8 : 0) |
+      ((supports & WGPU_FEATURE_TEXTURE_COMPRESSION_BC) ? WGPU_FEATURE_TEXTURE_COMPRESSION_BC : 0) |
+      ((supports & WGPU_FEATURE_TEXTURE_COMPRESSION_ASTC) ? WGPU_FEATURE_TEXTURE_COMPRESSION_ASTC : 0) |
+      ((supports & WGPU_FEATURE_TIMESTAMP_QUERY) ? WGPU_FEATURE_TIMESTAMP_QUERY : 0) |
+      ((supports & WGPU_FEATURE_INDIRECT_FIRST_INSTANCE) ? WGPU_FEATURE_INDIRECT_FIRST_INSTANCE : 0) |
+      ((supports & WGPU_FEATURE_SHADER_F16) ? WGPU_FEATURE_SHADER_F16 : 0) |
+      ((supports & WGPU_FEATURE_RG11B10UFLOAT_RENDERABLE) ? WGPU_FEATURE_RG11B10UFLOAT_RENDERABLE : 0) |
+      ((supports & WGPU_FEATURE_BGRA8UNORM_STORAGE) ? WGPU_FEATURE_BGRA8UNORM_STORAGE : 0) |
+      ((supports & WGPU_FEATURE_FLOAT32_FILTERABLE) ? WGPU_FEATURE_FLOAT32_FILTERABLE : 0) |
+      ((supports & WGPU_FEATURE_FLOAT32_BLENDABLE) ? WGPU_FEATURE_FLOAT32_BLENDABLE : 0) |
+      ((supports & WGPU_FEATURE_CLIP_DISTANCES) ? WGPU_FEATURE_CLIP_DISTANCES : 0) |
+      ((supports & WGPU_FEATURE_SUBGROUPS) ? WGPU_FEATURE_SUBGROUPS : 0) |
+      ((supports & WGPU_FEATURE_TEXTURE_FORMATS_TIER1) ? WGPU_FEATURE_TEXTURE_FORMATS_TIER1 : 0) |
+      ((supports & WGPU_FEATURE_TEXTURE_FORMATS_TIER2) ? WGPU_FEATURE_TEXTURE_FORMATS_TIER2 : 0)
+  });
+
   state.queue = wgpu_device_get_queue(state.device);
 
   if (config->device) {
+    WGpuAdapterInfo info;
+    wgpu_adapter_get_info(state.adapter, &info);
+    config->device->discrete = false;
+    config->device->deviceId = 0;
+    config->device->vendorId = 0;
+    strncpy(config->device->deviceName, info.description, sizeof(config->device->deviceName));
+    config->device->deviceName[sizeof(config->device->deviceName) - 1] = '\0';
+    config->device->renderer = "WebGPU";
+    config->device->subgroupSize = info.subgroupMaxSize;
+    config->device->timestampOffset = 0;
     config->device->timestampScale = 1e-9;
   }
 
