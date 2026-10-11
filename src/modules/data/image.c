@@ -1173,48 +1173,52 @@ static bool loadKTX2(Blob* blob, Image** result) {
     uint32_t kvdByteLength;
     uint64_t sgdByteOffset;
     uint64_t sgdByteLength;
-    struct {
-      uint64_t byteOffset;
-      uint64_t byteLength;
-      uint64_t uncompressedLength;
-    } levels[1];
   } KTX2Header;
+
+  typedef struct {
+    uint64_t byteOffset;
+    uint64_t byteLength;
+    uint64_t uncompressedLength;
+  } KTX2Level;
 
   char* data = blob->data;
   size_t length = blob->size;
-  KTX2Header* header = (KTX2Header*) data;
 
   uint8_t magic[] = { 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A };
 
-  if (length < sizeof(KTX2Header) || memcmp(header->magic, magic, sizeof(magic))) {
+  if (length < sizeof(KTX2Header) || memcmp(data, magic, sizeof(magic))) {
     return true;
   }
 
-  lovrCheck(header->pixelWidth > 0, "KTX image dimensions must be positive");
-  lovrCheck(header->pixelHeight > 0, "Unable to load 1D KTX images");
-  lovrCheck(header->pixelDepth == 0, "Unable to load 3D KTX images");
-  lovrCheck(header->faceCount == 1 || header->faceCount == 6, "Invalid KTX file (faceCount must be 1 or 6)");
-  lovrCheck(header->layerCount == 0 || header->faceCount == 1, "Unable to load cubemap array KTX images");
-  lovrCheck(!header->compression, "Supercompressed KTX files are not currently supported");
+  KTX2Header header;
+  memcpy(&header, data, sizeof(header));
 
-  uint32_t layers = MAX(header->layerCount, 1);
-  uint32_t levels = MAX(header->levelCount, 1);
+  uint32_t layers = MAX(header.layerCount, 1);
+  uint32_t levels = MAX(header.levelCount, 1);
+
+  lovrCheck(header.pixelWidth > 0, "KTX image dimensions must be positive");
+  lovrCheck(header.pixelHeight > 0, "Unable to load 1D KTX images");
+  lovrCheck(header.pixelDepth == 0, "Unable to load 3D KTX images");
+  lovrCheck(header.faceCount == 1 || header.faceCount == 6, "Invalid KTX file (faceCount must be 1 or 6)");
+  lovrCheck(header.layerCount == 0 || header.faceCount == 1, "Unable to load cubemap array KTX images");
+  lovrCheck(!header.compression, "Supercompressed KTX files are not currently supported");
+  lovrCheck(length >= sizeof(KTX2Header) + levels * sizeof(KTX2Level), "KTX file overflow");
 
   Image* image = lovrCalloc(offsetof(Image, mipmaps) + levels * sizeof(Mipmap));
   image->ref = 1;
-  image->width = header->pixelWidth;
-  image->height = header->pixelHeight;
+  image->width = header.pixelWidth;
+  image->height = header.pixelHeight;
   image->layers = layers;
   image->levels = levels;
   image->blob = blob;
 
-  if (header->faceCount == 6) {
+  if (header.faceCount == 6) {
     image->flags |= IMAGE_CUBEMAP;
     image->layers = 6;
   }
 
   // Format
-  switch (header->vkFormat) {
+  switch (header.vkFormat) {
     case 9:   image->format = FORMAT_R8; break;
     case 16:  image->format = FORMAT_RG8; break;
     case 37:  image->format = FORMAT_RGBA8; break;
@@ -1271,21 +1275,21 @@ static bool loadKTX2(Blob* blob, Image** result) {
   uint32_t width = image->width;
   uint32_t height = image->height;
   for (uint32_t i = 0; i < image->levels; i++) {
-    uint64_t offset = header->levels[i].byteOffset;
-    uint64_t size = header->levels[i].byteLength;
-    size_t stride = size / image->layers;
+    KTX2Level level;
+    memcpy(&level, data + sizeof(KTX2Header) + i * sizeof(KTX2Level), sizeof(KTX2Level));
 
-    if (offset + size > blob->size) {
+    if (level.byteOffset + level.byteLength > blob->size) {
       lovrFree(image);
       return lovrSetError("KTX file overflow");
     }
 
-    if (measure(width, height, image->format) != size) {
+    if (measure(width, height, image->format) != level.byteLength) {
       lovrFree(image);
       return lovrSetError("KTX size mismatch");
     }
 
-    image->mipmaps[i] = (Mipmap) { data + offset, stride, stride };
+    size_t stride = level.byteLength / image->layers;
+    image->mipmaps[i] = (Mipmap) { data + level.byteOffset, stride, stride };
     width = MAX(width >> 1, 1);
     height = MAX(height >> 1, 1);
   }
