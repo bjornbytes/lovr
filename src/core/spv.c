@@ -225,8 +225,8 @@ static spv_result spv_parse_decoration(spv_context* spv, const uint32_t* op, spv
   switch (decoration) {
     case 1: spv->cache[id].flag.number = op[3]; break; // SpecID
     case 6: spv->cache[id].type.arrayStride = op[3]; break; // ArrayStride (overrides name)
-    case 24: spv->nonwritable[id / 64] |= (1 << (id % 64)); break; // NonWritable
-    case 25: spv->nonreadable[id / 64] |= (1 << (id % 64)); break; // NonReadable
+    case 24: spv->nonwritable[id / 64] |= (1ull << (id % 64)); break; // NonWritable
+    case 25: spv->nonreadable[id / 64] |= (1ull << (id % 64)); break; // NonReadable
     case 30: spv->cache[id].attribute.location = op[3]; break; // Location
     case 33:
     case 34:
@@ -448,9 +448,9 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
     }
 
     if (resource->type == SPV_STORAGE_BUFFER) {
-      if (spv->nonwritable[variableId / 64] & (1 << (variableId % 64))) {
+      if (spv->nonwritable[variableId / 64] & (1ull << (variableId % 64))) {
         resource->storageAccess = SPV_ACCESS_READ_ONLY;
-      } else if (spv->nonreadable[variableId / 64] & (1 << (variableId % 64))) {
+      } else if (spv->nonreadable[variableId / 64] & (1ull << (variableId % 64))) {
         resource->storageAccess = SPV_ACCESS_WRITE_ONLY;
       } else {
         resource->storageAccess = SPV_ACCESS_READ_WRITE;
@@ -559,9 +559,9 @@ static spv_result spv_parse_variable(spv_context* spv, const uint32_t* op, spv_i
   }
 
   if (resource->type == SPV_STORAGE_TEXTURE) {
-    if (spv->nonwritable[variableId / 64] & (1 << (variableId % 64))) {
+    if (spv->nonwritable[variableId / 64] & (1ull << (variableId % 64))) {
       resource->storageAccess = SPV_ACCESS_READ_ONLY;
-    } else if (spv->nonreadable[variableId / 64] & (1 << (variableId % 64))) {
+    } else if (spv->nonreadable[variableId / 64] & (1ull << (variableId % 64))) {
       resource->storageAccess = SPV_ACCESS_WRITE_ONLY;
     } else {
       resource->storageAccess = SPV_ACCESS_READ_WRITE;
