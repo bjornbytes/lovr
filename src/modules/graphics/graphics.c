@@ -4448,8 +4448,14 @@ bool lovrMaterialSetTexture(Material* material, MaterialTexture type, Texture* t
   gpu_bundle_info bundleInfo = { .layout = state.materialLayout->gpu };
 
   if (material->bundleTick == state.tick) {
+#ifdef LOVR_WEBGPU
+    // WebGPU can only write whole bindgroups
+    bundleInfo.bindings = material->bindings;
+    bundleInfo.count = COUNTOF(material->bindings);
+#else
     bundleInfo.bindings = &material->bindings[type + 1];
     bundleInfo.count = 1;
+#endif
   } else {
     lovrMaterialRecycle(material);
 
