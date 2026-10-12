@@ -31,6 +31,8 @@ void lovrEventDestroy(void) {
     switch (event->type) {
 #ifndef LOVR_DISABLE_HEADSET
       case EVENT_SCAN: lovrRelease(event->data.scan.scanner, lovrScannerDestroy); break;
+      case EVENT_ANCHORFOUND: lovrRelease(event->data.anchor.anchor, lovrAnchorDestroy); break;
+      case EVENT_ANCHORLOST: lovrRelease(event->data.anchor.anchor, lovrAnchorDestroy); break;
 #endif
 #ifndef LOVR_DISABLE_THREAD
       case EVENT_THREAD_ERROR: lovrRelease(event->data.thread.thread, lovrThreadDestroy); break;
@@ -59,6 +61,10 @@ void lovrEventPush(Event event) {
 #ifndef LOVR_DISABLE_HEADSET
   if (event.type == EVENT_SCAN) {
     lovrRetain(event.data.scan.scanner);
+  }
+
+  if (event.type == EVENT_ANCHORFOUND || event.type == EVENT_ANCHORLOST) {
+    lovrRetain(event.data.anchor.anchor);
   }
 #endif
 
