@@ -9,7 +9,7 @@ layout(push_constant) uniform PushConstants {
 
 // input is u64, output is u32
 layout(set = 0, binding = 0) buffer readonly restrict Src { uint src[]; };
-layout(set = 0, binding = 1) buffer writeonly restrict Dst { uint dst[]; };
+layout(set = 0, binding = 1) buffer restrict Dst { uint dst[]; };
 
 void main() {
   uint index = gl_GlobalInvocationID.x;
