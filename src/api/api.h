@@ -18,6 +18,7 @@ typedef struct {
 
 #define ENTRY(s) { sizeof(s) - 1, s }
 
+extern StringEntry lovrAnchorType[];
 extern StringEntry lovrAnimationProperty[];
 extern StringEntry lovrAprilDictionary[];
 extern StringEntry lovrArcMode[];
@@ -190,6 +191,13 @@ int luax_gettablestride(lua_State* L, int type);
 uint32_t luax_checkcomparemode(lua_State* L, int index);
 struct Material* luax_optmaterial(lua_State* L, int index);
 struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
+#endif
+
+#ifndef LOVR_DISABLE_HEADSET
+struct Anchor;
+void luax_pushanchor(lua_State* L, struct Anchor* anchor);
+struct Anchor* luax_toanchor(lua_State* L, int index);
+struct Anchor* luax_checkanchor(lua_State* L, int index);
 #endif
 
 #ifndef LOVR_DISABLE_MATH

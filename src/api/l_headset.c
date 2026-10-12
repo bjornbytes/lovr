@@ -149,6 +149,13 @@ StringEntry lovrScannerType[] = {
   { 0 }
 };
 
+StringEntry lovrAnchorType[] = {
+  [ANCHOR_PLANE] = ENTRY("plane"),
+  [ANCHOR_MARKER] = ENTRY("marker"),
+  [ANCHOR_CUSTOM] = ENTRY("custom"),
+  { 0 }
+};
+
 static Device luax_optdevice(lua_State* L, int index) {
   const char* str = luaL_optstring(L, 1, "head");
   if (!strcmp(str, "left")) {
@@ -1078,9 +1085,9 @@ static int l_lovrHeadsetNewAnchor(lua_State* L) {
   float position[3], orientation[4];
   int index = luax_readvec3(L, 1, position, NULL);
   index = luax_readquat(L, index, orientation, NULL);
-  Anchor* anchor = lovrAnchorCreate(position, orientation);
+  CustomAnchor* anchor = lovrCustomAnchorCreate(position, orientation);
   luax_assert(L, anchor);
-  luax_pushtype(L, Anchor, anchor);
+  luax_pushtype(L, CustomAnchor, anchor);
   lovrRelease(anchor, lovrAnchorDestroy);
   return 1;
 }
@@ -1292,14 +1299,18 @@ extern int l_lovrScannerAnchors(lua_State* L);
 extern int luax_anchoriterator(lua_State* L);
 
 extern const luaL_Reg lovrScanner[];
-extern const luaL_Reg lovrAnchor[];
+extern const luaL_Reg lovrPlaneAnchor[];
+extern const luaL_Reg lovrMarkerAnchor[];
+extern const luaL_Reg lovrCustomAnchor[];
 extern const luaL_Reg lovrLayer[];
 
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrHeadset);
   luax_registertype(L, Scanner);
-  luax_registertype(L, Anchor);
+  luax_registertype(L, PlaneAnchor);
+  luax_registertype(L, MarkerAnchor);
+  luax_registertype(L, CustomAnchor);
   luax_registertype(L, Layer);
 
   HeadsetConfig config = {

@@ -229,6 +229,7 @@ struct Scanner {
 struct Anchor {
   atomic_uint ref;
   uint32_t slot;
+  AnchorType type;
   Scanner* scanner;
   XrSpatialEntityIdEXT id;
   XrSpatialEntityEXT handle;
@@ -3688,6 +3689,16 @@ static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEn
   anchor->scanner = scanner;
   scanner->anchors[slot] = anchor;
 
+  switch (scanner->type) {
+    case SCANNER_PLANE: anchor->type = ANCHOR_PLANE; break;
+    case SCANNER_QR: anchor->type = ANCHOR_MARKER; break;
+    case SCANNER_MICRO_QR: anchor->type = ANCHOR_MARKER; break;
+    case SCANNER_ARUCO: anchor->type = ANCHOR_MARKER; break;
+    case SCANNER_APRIL: anchor->type = ANCHOR_MARKER; break;
+    case SCANNER_CUSTOM: anchor->type = ANCHOR_CUSTOM; break;
+    default: lovrUnreachable();
+  }
+
   // Custom anchors can be added without ids/handles if they are created before the scanner is ready
   if (id && handle) {
     uint64_t hash = hash64(&id, sizeof(id));
@@ -4039,7 +4050,77 @@ fail:
 
 // Anchor
 
-Anchor* lovrAnchorCreate(float* position, float* orientation) {
+void lovrAnchorDestroy(void* ref) {
+  Anchor* anchor = ref;
+  // Anchors are only destroyed if their Scanner is destroyed or they reach the STOPPED state, and
+  // both of those already clean up the Anchor appropriately.
+  lovrFree(anchor->vertices);
+  lovrFree(anchor->indices);
+  lovrFree(anchor->label);
+  lovrFree(anchor);
+}
+
+bool lovrAnchorIsActive(Anchor* anchor) {
+  return anchor->status != XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT;
+}
+
+bool lovrAnchorIsTracked(Anchor* anchor) {
+  return anchor->status == XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT;
+}
+
+AnchorType lovrAnchorGetType(Anchor* anchor) {
+  return anchor->type;
+}
+
+Anchor* lovrAnchorGetParent(Anchor* anchor) {
+  if (!lovrAnchorIsActive(anchor) || !anchor->parent) return NULL;
+  uint64_t hash = hash64(&anchor->parent, sizeof(XrSpatialEntityIdEXT));
+  uint64_t entry = map_get(&anchor->scanner->anchorLookup, hash);
+  return entry == MAP_NIL ? NULL : (Anchor*) (uintptr_t) entry;
+}
+
+void lovrAnchorGetPosition(Anchor* anchor, float* position) {
+  vec3_init(position, anchor->position);
+}
+
+void lovrAnchorGetOrientation(Anchor* anchor, float* orientation) {
+  quat_init(orientation, anchor->orientation);
+}
+
+void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions) {
+  vec3_init(dimensions, anchor->dimensions);
+}
+
+const char* lovrPlaneAnchorGetLabel(PlaneAnchor* anchor, size_t* length) {
+  const char* label;
+  switch (anchor->planeLabel) {
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_FLOOR_EXT: label = "floor"; break;
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_WALL_EXT: label = "wall"; break;
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_CEILING_EXT: label = "ceiling"; break;
+    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
+    default: return *length = 0, NULL;
+  }
+
+  *length = strlen(label);
+  return label;
+}
+
+float* lovrPlaneAnchorGetVertices(PlaneAnchor* anchor, uint32_t* count) {
+  *count = anchor->vertexCount;
+  return anchor->vertices;
+}
+
+uint32_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count) {
+  *count = anchor->indexCount;
+  return anchor->indices;
+}
+
+const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length) {
+  *length = anchor->labelLength;
+  return anchor->label;
+}
+
+CustomAnchor* lovrCustomAnchorCreate(float* position, float* orientation) {
   lovrCheck(lovrHeadsetIsScannerSupported(SCANNER_CUSTOM), "This headset doesn't support custom anchors");
 
   if (!state.customScanner) {
@@ -4076,70 +4157,6 @@ Anchor* lovrAnchorCreate(float* position, float* orientation) {
   }
 
   return anchor;
-}
-
-void lovrAnchorDestroy(void* ref) {
-  Anchor* anchor = ref;
-  // Anchors are only destroyed if their Scanner is destroyed or they reach the STOPPED state, and
-  // both of those already clean up the Anchor appropriately.
-  lovrFree(anchor->label);
-  lovrFree(anchor);
-}
-
-bool lovrAnchorIsActive(Anchor* anchor) {
-  return anchor->status != XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT;
-}
-
-bool lovrAnchorIsTracked(Anchor* anchor) {
-  return anchor->status == XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT;
-}
-
-Anchor* lovrAnchorGetParent(Anchor* anchor) {
-  if (!lovrAnchorIsActive(anchor) || !anchor->parent) return NULL;
-  uint64_t hash = hash64(&anchor->parent, sizeof(XrSpatialEntityIdEXT));
-  uint64_t entry = map_get(&anchor->scanner->anchorLookup, hash);
-  return entry == MAP_NIL ? NULL : (Anchor*) (uintptr_t) entry;
-}
-
-const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length) {
-  if (!anchor->planeLabel) {
-    *length = anchor->labelLength;
-    return anchor->label;
-  }
-
-  const char* label;
-  switch (anchor->planeLabel) {
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_FLOOR_EXT: label = "floor"; break;
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_WALL_EXT: label = "wall"; break;
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_CEILING_EXT: label = "ceiling"; break;
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
-    default: return *length = 0, NULL;
-  }
-
-  *length = strlen(label);
-  return label;
-}
-
-void lovrAnchorGetPosition(Anchor* anchor, float* position) {
-  vec3_init(position, anchor->position);
-}
-
-void lovrAnchorGetOrientation(Anchor* anchor, float* orientation) {
-  quat_init(orientation, anchor->orientation);
-}
-
-void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions) {
-  vec3_init(dimensions, anchor->dimensions);
-}
-
-float* lovrAnchorGetVertices(Anchor* anchor, uint32_t* count) {
-  *count = anchor->vertexCount;
-  return anchor->vertices;
-}
-
-uint32_t* lovrAnchorGetIndices(Anchor* anchor, uint32_t* count) {
-  *count = anchor->indexCount;
-  return anchor->indices;
 }
 
 // Layer

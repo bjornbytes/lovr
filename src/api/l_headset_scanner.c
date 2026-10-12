@@ -58,7 +58,7 @@ static int l_lovrScannerGetAnchors(lua_State* L) {
   int i = 1;
   Anchor* anchor = NULL;
   while ((anchor = lovrScannerGetAnchors(scanner, anchor)) != NULL) {
-    luax_pushtype(L, Anchor, anchor);
+    luax_pushanchor(L, anchor);
     lua_rawseti(L, 2, i++);
   }
 
@@ -73,9 +73,9 @@ static int l_lovrScannerGetAnchors(lua_State* L) {
 
 int luax_anchoriterator(lua_State* L) {
   Scanner* scanner = luax_checktype(L, 1, Scanner);
-  Anchor* anchor = luax_totype(L, 2, Anchor);
+  Anchor* anchor = luax_toanchor(L, 2);
   Anchor* next = lovrScannerGetAnchors(scanner, anchor);
-  luax_pushtype(L, Anchor, next);
+  luax_pushanchor(L, next);
   return 1;
 }
 

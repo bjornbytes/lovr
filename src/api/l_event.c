@@ -86,7 +86,7 @@ static int nextEvent(lua_State* L) {
 
     case EVENT_ANCHORFOUND:
     case EVENT_ANCHORLOST:
-      luax_pushtype(L, Anchor, event.data.anchor.anchor);
+      luax_pushanchor(L, event.data.anchor.anchor);
       lovrRelease(event.data.anchor.anchor, lovrAnchorDestroy);
       return 1;
 #endif

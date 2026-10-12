@@ -533,7 +533,7 @@ if(LOVR_ENABLE_HEADSET)
   target_sources(lovr PRIVATE
     src/api/l_headset.c
     src/api/l_headset_scanner.c
-    src/api/l_headset_anchor.c
+    src/api/l_headset_anchors.c
     src/api/l_headset_layer.c
   )
 
