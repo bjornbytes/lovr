@@ -3654,7 +3654,7 @@ Shader* lovrShaderCreate(const ShaderInfo* info) {
       // glslang outputs gl_DefaultUniformBlock, there's also the Constants macro which defines a DefaultUniformBlock UBO
       if (!strcmp(resource->name, "gl_DefaultUniformBlock") || !strcmp(resource->name, "DefaultUniformBlock")) {
         spv_field* block = resource->bufferFields;
-        shader->uniformSize = block->elementSize;
+        shader->uniformSize = ALIGN(block->elementSize, 16);
         shader->uniformCount = block->fieldCount;
         shader->uniforms = shader->fields + ((s == 1 ? spv[0].fieldCount : 0) + (block->fields - spv[s].fields));
         *set = uniformSet;
