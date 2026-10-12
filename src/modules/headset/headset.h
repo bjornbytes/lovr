@@ -17,6 +17,10 @@ typedef struct Scanner Scanner;
 typedef struct Anchor Anchor;
 typedef struct Layer Layer;
 
+typedef Anchor PlaneAnchor;
+typedef Anchor MarkerAnchor;
+typedef Anchor CustomAnchor;
+
 typedef enum {
   SKELETON_NONE,
   SKELETON_CONTROLLER,
@@ -277,17 +281,32 @@ bool lovrScannerUpdate(Scanner* scanner);
 
 // Anchor
 
-Anchor* lovrAnchorCreate(float* position, float* orientation);
+typedef enum {
+  ANCHOR_PLANE,
+  ANCHOR_MARKER,
+  ANCHOR_CUSTOM
+} AnchorType;
+
 void lovrAnchorDestroy(void* ref);
 bool lovrAnchorIsActive(Anchor* anchor);
 bool lovrAnchorIsTracked(Anchor* anchor);
+AnchorType lovrAnchorGetType(Anchor* anchor);
 Anchor* lovrAnchorGetParent(Anchor* anchor);
-const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length);
 void lovrAnchorGetPosition(Anchor* anchor, float* position);
 void lovrAnchorGetOrientation(Anchor* anchor, float* orientation);
 void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions);
-float* lovrAnchorGetVertices(Anchor* anchor, uint32_t* count);
-uint32_t* lovrAnchorGetIndices(Anchor* anchor, uint32_t* count);
+
+const char* lovrPlaneAnchorGetLabel(PlaneAnchor* anchor, size_t* length);
+float* lovrPlaneAnchorGetVertices(PlaneAnchor* anchor, uint32_t* count);
+uint32_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count);
+
+const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length);
+
+CustomAnchor* lovrCustomAnchorCreate(float* position, float* orientation);
+
+#define lovrPlaneAnchorDestroy lovrAnchorDestroy
+#define lovrMarkerAnchorDestroy lovrAnchorDestroy
+#define lovrCustomAnchorDestroy lovrAnchorDestroy
 
 // Layer
 
