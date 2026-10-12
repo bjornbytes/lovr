@@ -349,7 +349,7 @@ void os_window_get_size(uint32_t* width, uint32_t* height) {
 }
 
 float os_window_get_pixel_density(void) {
-  return 1.f; // TODO
+  return (float) emscripten_get_device_pixel_ratio();
 }
 
 void os_on_quit(fn_quit* callback) {
