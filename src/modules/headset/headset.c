@@ -3636,6 +3636,10 @@ static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEn
     scanner->entityCount++;
   }
 
+  if (scanner->type != SCANNER_CUSTOM) {
+    lovrEventPush((Event) { .type = EVENT_ANCHORFOUND, .data.anchor.anchor = anchor });
+  }
+
   return anchor;
 }
 
@@ -3800,10 +3804,10 @@ bool lovrScannerUpdate(Scanner* scanner) {
     Anchor* anchor = (Anchor*) (uintptr_t) entry;
     if (entry == MAP_NIL) continue;
 
-    anchor->status = data.entityStates[i];
-
     // Remove STOPPED anchors
-    if (anchor->status == XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT) {
+    if (data.entityStates[i] == XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT && anchor->status != data.entityStates[i]) {
+      lovrEventPush((Event) { .type = EVENT_ANCHORLOST, .data.anchor.anchor = anchor });
+
       for (uint32_t j = 0; j < scanner->entityCount; j++) {
         if (scanner->entities[j] == anchor->handle) {
           scanner->entities[j] = scanner->entities[--scanner->entityCount];
@@ -3817,6 +3821,8 @@ bool lovrScannerUpdate(Scanner* scanner) {
       lovrRelease(anchor, lovrAnchorDestroy);
       continue;
     }
+
+    anchor->status = data.entityStates[i];
 
     // Data is only valid if the entity is tracked
     if (anchor->status != XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT) {

@@ -22,6 +22,8 @@ StringEntry lovrEventType[] = {
   [EVENT_RECENTER] = ENTRY("recenter"),
   [EVENT_MODELSCHANGED] = ENTRY("modelschanged"),
   [EVENT_SCAN] = ENTRY("scan"),
+  [EVENT_ANCHORFOUND] = ENTRY("anchorfound"),
+  [EVENT_ANCHORLOST] = ENTRY("anchorlost"),
   [EVENT_RESIZE] = ENTRY("resize"),
   [EVENT_KEYPRESSED] = ENTRY("keypressed"),
   [EVENT_KEYRELEASED] = ENTRY("keyreleased"),
@@ -80,6 +82,12 @@ static int nextEvent(lua_State* L) {
     case EVENT_SCAN:
       luax_pushtype(L, Scanner, event.data.scan.scanner);
       lovrRelease(event.data.scan.scanner, lovrScannerDestroy);
+      return 1;
+
+    case EVENT_ANCHORFOUND:
+    case EVENT_ANCHORLOST:
+      luax_pushtype(L, Anchor, event.data.anchor.anchor);
+      lovrRelease(event.data.anchor.anchor, lovrAnchorDestroy);
       return 1;
 #endif
 
