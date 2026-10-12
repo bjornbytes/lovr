@@ -1491,7 +1491,9 @@ bool gpu_init(gpu_config* config) {
       ((supports & WGPU_FEATURE_CLIP_DISTANCES) ? WGPU_FEATURE_CLIP_DISTANCES : 0) |
       ((supports & WGPU_FEATURE_SUBGROUPS) ? WGPU_FEATURE_SUBGROUPS : 0) |
       ((supports & WGPU_FEATURE_TEXTURE_FORMATS_TIER1) ? WGPU_FEATURE_TEXTURE_FORMATS_TIER1 : 0) |
-      ((supports & WGPU_FEATURE_TEXTURE_FORMATS_TIER2) ? WGPU_FEATURE_TEXTURE_FORMATS_TIER2 : 0)
+      ((supports & WGPU_FEATURE_TEXTURE_FORMATS_TIER2) ? WGPU_FEATURE_TEXTURE_FORMATS_TIER2 : 0),
+    // 16 vertex attributes, 1 for point size, and 2 for clip distances, when supported
+    .requiredLimits.maxInterStageShaderVariables = 16 + 1 + (supports & WGPU_FEATURE_CLIP_DISTANCES ? 2 : 0)
   });
 
   state.queue = wgpu_device_get_queue(state.device);
