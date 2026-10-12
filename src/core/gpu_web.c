@@ -43,6 +43,7 @@ struct gpu_bundle {
 
 struct gpu_pipeline {
   WGpuObjectBase handle;
+  uint8_t stencilReference;
 };
 
 struct gpu_tally {
@@ -861,6 +862,7 @@ bool gpu_pipeline_init_graphics(gpu_pipeline* pipeline, gpu_pipeline_info* info,
   }
 
   pipeline->handle = wgpu_device_create_render_pipeline(state.device, &pipelineInfo);
+  pipeline->stencilReference = info->stencil.value;
 
   free(constants);
 
@@ -1042,6 +1044,10 @@ void gpu_push_constants(gpu_stream* stream, gpu_shader* shader, void* data, uint
 
 void gpu_bind_pipeline(gpu_stream* stream, gpu_pipeline* pipeline, gpu_pipeline_type type) {
   wgpu_encoder_set_pipeline(stream->pass, pipeline->handle);
+
+  if (type == GPU_PIPELINE_GRAPHICS) {
+    wgpu_render_pass_encoder_set_stencil_reference(stream->pass, pipeline->stencilReference);
+  }
 }
 
 void gpu_bind_bundles(gpu_stream* stream, gpu_shader* shader, gpu_bundle** bundles, uint32_t first, uint32_t count, uint32_t* dynamicOffsets, uint32_t dynamicOffsetCount) {
