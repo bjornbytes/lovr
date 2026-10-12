@@ -7188,7 +7188,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
     if (tempDepthTexture) {
       target->depth.texture = tempDepthTexture;
       target->depth.resolve = canvas->depth.texture ? canvas->depth.texture->renderView : NULL;
-      target->depth.save = GPU_SAVE_OP_DISCARD;
+      target->depth.save = target->depth.stencilSave = GPU_SAVE_OP_DISCARD;
       pass->tempDepth = true;
     } else {
       target->depth.texture = canvas->depth.texture->renderView;
