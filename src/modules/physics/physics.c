@@ -413,7 +413,7 @@ World* lovrWorldCreate(WorldInfo* info) {
 #ifdef LOVR_DISABLE_THREAD
     .maxConcurrency = 1,
 #else
-    .maxConcurrency = lovrThreadGetWorkerCount(),
+    .maxConcurrency = 1 + lovrThreadGetWorkerCount(),
 #endif
     .maxBarriers = 1
   });
