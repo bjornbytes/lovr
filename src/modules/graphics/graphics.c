@@ -6857,8 +6857,9 @@ void lovrPassDestroy(void* ref) {
   lovrPassSetCanvas(pass, NULL);
   lovrRelease(pass->tally.buffer, lovrBufferDestroy);
   if (pass->tally.gpu) {
-    gpu_tally_destroy(pass->tally.gpu);
     lovrRelease(pass->tally.tempBuffer, lovrBufferDestroy);
+    gpu_tally_destroy(pass->tally.gpu);
+    lovrFree(pass->tally.gpu);
   }
   destroyBuffers(&pass->buffers);
   lovrFree(pass->allocator.memory);
