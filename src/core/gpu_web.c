@@ -1713,11 +1713,13 @@ static void onReadback(WGpuBuffer buffer, void* userdata, WGPU_MAP_MODE_FLAGS mo
 
   uint32_t srcCursor = 0;
   uint32_t dstCursor = 0;
-  for (uint32_t i = 0; i < readback->rowCount; i++) {
-    void* dst = (char*) readback->target->data + readback->offset + dstCursor;
-    wgpu_buffer_read_mapped_range(readback->buffer, 0, srcCursor, dst, readback->rowSize);
-    srcCursor += readback->rowStride;
-    dstCursor += readback->rowSize;
+  if (wgpu_buffer_get_mapped_range(readback->buffer, 0, WGPU_MAX_SIZE) >= 0) {
+    for (uint32_t i = 0; i < readback->rowCount; i++) {
+      void* dst = (char*) readback->target->data + readback->offset + dstCursor;
+      wgpu_buffer_read_mapped_range(readback->buffer, 0, srcCursor, dst, readback->rowSize);
+      srcCursor += readback->rowStride;
+      dstCursor += readback->rowSize;
+    }
   }
 
   wgpu_buffer_unmap(readback->buffer);
