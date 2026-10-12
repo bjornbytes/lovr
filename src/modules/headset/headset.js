@@ -24,6 +24,7 @@ var headset = {
 
     state.texture = 0;
     state.pass = 0;
+    state.stencil = HEAPU8[config + 8];
 
     return true;
   },
@@ -355,13 +356,19 @@ var headset = {
       if (!state.pass) {
         return false;
       }
+
+      var TEXTURE_FEATURE_RENDER = 0x1;
+      state.depthFormat = state.stencil ? 21 : 19; // state.stencil ? FORMAT_D32FS8 : FORMAT_D32F
+      if (!Module['_lovrGraphicsGetFormatSupport'](state.depthFormat, TEXTURE_FEATURE_RENDER)) {
+        state.depthFormat = state.stencil ? 20 : 18; // state.stencil ? FORMAT_D24S8 : FORMAT_D24
+      }
     }
 
     const stack = stackSave();
     const canvas = stackAlloc(96);
     HEAPU32.fill(0, canvas >> 2, (canvas + 96) >> 2);
     HEAPU32[(canvas >> 2) + 0] = state.texture; // canvas.color[0].texture = state.texture
-    HEAPU32[(canvas >> 2) + 11] = 19; // canvas.depthFormat = FORMAT_D32F
+    HEAPU32[(canvas >> 2) + 11] = state.depthFormat; // canvas.depthFormat = state.depthFormat
     HEAPU32[(canvas >> 2) + 12] = 4; // canvas.samples = 4
 
     if (!Module['_lovrPassSetCanvas'](state.pass, canvas)) {
