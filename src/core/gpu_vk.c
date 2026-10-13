@@ -3557,6 +3557,11 @@ bool gpu_init(gpu_config* config) {
     uint32_t allocatorCount = GPU_MEMORY_TEXTURE_COLOR;
 
     for (uint32_t i = GPU_MEMORY_TEXTURE_COLOR; i < COUNTOF(imageFlags); i++) {
+      if (i == GPU_MEMORY_TEXTURE_HOST_COLOR && !state.extensions.hostImageCopy) {
+        state.allocatorLookup[i] = 0xff;
+        continue;
+      }
+
       VkFormatProperties formatProperties;
       vkGetPhysicalDeviceFormatProperties(state.adapter, imageFlags[i].format, &formatProperties);
       if (formatProperties.optimalTilingFeatures == 0) {
@@ -3587,6 +3592,19 @@ bool gpu_init(gpu_config* config) {
           memoryFlags = memoryTypes[j].propertyFlags;
           memoryType = j;
           break;
+        }
+      }
+
+      // Disable host image copy if it can't use the same heap as regular color textures.  This is
+      // a heuristic to work around an issue where some drivers will tell you to allocate host image
+      // copy textures from the special 256MB heap, which will quickly OOM.
+      if (i == GPU_MEMORY_TEXTURE_HOST_COLOR) {
+        uint32_t hostImageCopyHeap = memoryTypes[memoryType].heapIndex;
+        uint32_t colorHeap = state.allocators[state.allocatorLookup[GPU_MEMORY_TEXTURE_COLOR]].heapIndex;
+        if (hostImageCopyHeap != colorHeap) {
+          state.extensions.hostImageCopy = false;
+          state.allocatorLookup[i] = 0xff;
+          continue;
         }
       }
 
