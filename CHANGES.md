@@ -78,6 +78,7 @@ dev
 - Fix `lovr.graphics.newBuffer` not throwing errors properly.
 - Fix issue where exit status was always zero.
 - Fix `World:getTags`.
+- Fix memory leak when creating an invalid `MeshShape`/`ConvexShape`/`TerrainShape`.
 
 ### Deprecate
 

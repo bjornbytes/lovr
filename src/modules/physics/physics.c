@@ -2317,13 +2317,13 @@ bool lovrCylinderShapeSetLength(CylinderShape* shape, float length) {
 }
 
 ConvexShape* lovrConvexShapeCreate(float points[], uint32_t count, float* scale) {
+  JPH_ConvexHullShapeSettings* settings = JPH_ConvexHullShapeSettings_Create((const JPH_Vec3*) points, count, .05f);
+  JPH_Shape* hull = (JPH_Shape*) JPH_ConvexHullShapeSettings_CreateShape(settings);
+  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
+  lovrCheck(hull, "Invalid convex hull!");
   ConvexShape* shape = lovrCalloc(sizeof(ConvexShape));
   shape->ref = 1;
   shape->type = SHAPE_CONVEX;
-  JPH_ConvexHullShapeSettings* settings = JPH_ConvexHullShapeSettings_Create((const JPH_Vec3*) points, count, .05f);
-  JPH_Shape* hull = (JPH_Shape*) JPH_ConvexHullShapeSettings_CreateShape(settings);
-  lovrCheck(hull, "Invalid convex hull!");
-  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
   shape->handle = (JPH_Shape*) JPH_ScaledShape_Create(hull, vec3_toJolt(scale));
   JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
   quat_identity(shape->rotation);
@@ -2386,9 +2386,7 @@ bool lovrConvexShapeSetScale(ConvexShape* convex, float* scale){
 }
 
 MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t indexCount, uint32_t* indices, float* scale) {
-  MeshShape* shape = lovrCalloc(sizeof(MeshShape));
-  shape->ref = 1;
-  shape->type = SHAPE_MESH;
+  lovrCheck(vertexCount > 0 && indexCount > 0, "MeshShape requires a non-empty model");
 
   uint32_t triangleCount = indexCount / 3;
   JPH_IndexedTriangle* triangles = lovrMalloc(triangleCount * sizeof(JPH_IndexedTriangle));
@@ -2400,14 +2398,16 @@ MeshShape* lovrMeshShapeCreate(uint32_t vertexCount, float* vertices, uint32_t i
     triangles[i].userData = i;
   }
 
-  lovrCheck(vertexCount > 0 && indexCount > 0, "MeshShape requires a non-empty model");
-
   JPH_MeshShapeSettings* settings = JPH_MeshShapeSettings_Create2((const JPH_Vec3*) vertices, vertexCount, triangles, triangleCount);
   JPH_MeshShapeSettings_SetPerTriangleUserData(settings, true);
   JPH_Shape* mesh = (JPH_Shape*) JPH_MeshShapeSettings_CreateShape(settings);
-  lovrCheck(mesh, "Invalid mesh data!");
   JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
   lovrFree(triangles);
+  lovrCheck(mesh, "Invalid mesh data!");
+
+  MeshShape* shape = lovrCalloc(sizeof(MeshShape));
+  shape->ref = 1;
+  shape->type = SHAPE_MESH;
 
   // We wrap MeshShapes in ScaledShapes so that clones can have unique userdata
   shape->handle = (JPH_Shape*) JPH_ScaledShape_Create(mesh, vec3_toJolt(scale));
@@ -2442,28 +2442,20 @@ bool lovrMeshShapeSetScale(MeshShape* shape, float* scale){
 }
 
 TerrainShape* lovrTerrainShapeCreate(float* vertices, uint32_t n, float scaleXZ, float scaleY) {
+  const JPH_Vec3 offset = { -.5f * scaleXZ, 0.f, -.5f * scaleXZ };
+  const JPH_Vec3 scale = { scaleXZ / (n - 1), scaleY, scaleXZ / (n - 1) };
+
+  JPH_HeightFieldShapeSettings* settings = JPH_HeightFieldShapeSettings_Create(vertices, &offset, &scale, n, NULL);
+  JPH_Shape* handle = (JPH_Shape*) JPH_HeightFieldShapeSettings_CreateShape(settings);
+  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) settings);
+  lovrCheck(handle, "Invalid terrain data!");
+
   TerrainShape* shape = lovrCalloc(sizeof(TerrainShape));
   shape->ref = 1;
   shape->type = SHAPE_TERRAIN;
+  shape->handle = handle;
+  JPH_Shape_SetUserData(handle, (uint64_t) (uintptr_t) shape);
   quat_identity(shape->rotation);
-
-  const JPH_Vec3 offset = {
-    .x = -.5f * scaleXZ,
-    .y = 0.f,
-    .z = -.5f * scaleXZ
-  };
-
-  const JPH_Vec3 scale = {
-    .x = scaleXZ / (n - 1),
-    .y = scaleY,
-    .z = scaleXZ / (n - 1)
-  };
-
-  JPH_HeightFieldShapeSettings* shape_settings = JPH_HeightFieldShapeSettings_Create(vertices, &offset, &scale, n, NULL);
-  shape->handle = (JPH_Shape*) JPH_HeightFieldShapeSettings_CreateShape(shape_settings);
-  lovrCheck(shape->handle, "Invalid terrain data!");
-  JPH_Shape_SetUserData(shape->handle, (uint64_t) (uintptr_t) shape);
-  JPH_ShapeSettings_Destroy((JPH_ShapeSettings*) shape_settings);
   return shape;
 }
 
