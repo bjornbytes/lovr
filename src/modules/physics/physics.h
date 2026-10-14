@@ -80,6 +80,7 @@ void lovrWorldDestruct(World* world);
 bool lovrWorldIsDestroyed(World* world);
 char** lovrWorldGetTags(World* world, uint32_t* count);
 uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length);
+bool lovrWorldIsTagStatic(World* world, const char* tag, bool* isStatic);
 uint32_t lovrWorldGetColliderCount(World* world);
 uint32_t lovrWorldGetJointCount(World* world);
 Collider* lovrWorldGetColliders(World* world, Collider* collider);
