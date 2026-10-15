@@ -28,6 +28,7 @@ dev
 - Add `ModelData:getTriangles`.
 - Add `timeBeforeSleep` and `sleepVelocityThreshold` settings to `lovr.physics.newWorld`.
 - Add `lovr.data.compress/decompress`.
+- Add `t.headset.dynamicresolution`.
 
 ### Change
 
@@ -50,6 +51,7 @@ dev
 - Change `lovr.graphics.newMaterial` to also take a `Texture` or an `Image`.
 - Change `uvShift` and `uvScale` material properties to be named `quad`.
 - Change `ModelData` node accessors to return transforms in global space by default.
+- Change `t.headset.mask` to be `false` by default.
 
 ### Fix
 
