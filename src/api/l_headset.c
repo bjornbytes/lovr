@@ -1019,13 +1019,13 @@ static int l_lovrHeadsetSetButton(lua_State* L) {
 }
 
 static bool luax_pollscanner(void** scanner, bool* ready) {
-  return lovrScannerCreateFinished(*scanner, ready);
+  return lovrScannerPollCreate(*scanner, ready);
 }
 
 static bool luax_waitscanner(void** scanner) {
   for (;;) {
     bool ready = false;
-    if (!lovrScannerCreateFinished(*scanner, &ready)) {
+    if (!lovrScannerPollCreate(*scanner, &ready)) {
       return false;
     }
 
@@ -1038,14 +1038,9 @@ static bool luax_waitscanner(void** scanner) {
 }
 
 static int luax_pushscanner(lua_State* L, bool success, void* scanner) {
-  if (success) {
-    luax_pushtype(L, Scanner, scanner);
-    lovrRelease(scanner, lovrScannerDestroy);
-    return 1;
-  } else {
-    lovrRelease(scanner, lovrScannerDestroy);
-    return 0;
-  }
+  if (success) luax_pushtype(L, Scanner, scanner);
+  lovrRelease(scanner, lovrScannerDestroy);
+  return success;
 }
 
 static int l_lovrHeadsetNewScanner(lua_State* L) {

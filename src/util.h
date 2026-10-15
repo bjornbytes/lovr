@@ -97,6 +97,7 @@ void lovrLog(int level, const char* tag, const char* format, ...);
 #define arr_pop(a) (a)->data[--(a)->length]
 #define arr_append(a, p, n) arr_reserve(a, (a)->length + n), memcpy((a)->data + (a)->length, p, n * sizeof(*(a)->data)), (a)->length += n
 #define arr_splice(a, i, n) memmove((a)->data + (i), (a)->data + ((i) + n), ((a)->length - (i) - (n)) * sizeof(*(a)->data)), (a)->length -= n
+#define arr_swapsplice(a, i) (a)->data[i] = arr_pop(a)
 #define arr_clear(a) (a)->length = 0
 
 static inline void _arr_reserve(void** data, size_t n, size_t* capacity, size_t stride) {

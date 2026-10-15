@@ -275,11 +275,11 @@ typedef struct {
 } ScannerInfo;
 
 Scanner* lovrScannerCreate(ScannerInfo* info);
-bool lovrScannerCreateFinished(Scanner* scanner, bool* finished);
+bool lovrScannerPollCreate(Scanner* scanner, bool* ready);
 void lovrScannerDestroy(void* ref);
 ScannerType lovrScannerGetType(Scanner* scanner);
-uintptr_t lovrScannerScan(Scanner* scanner);
-bool lovrScannerScanFinished(Scanner* scanner, uintptr_t id, bool* finished);
+bool lovrScannerScan(Scanner* scanner, uintptr_t* id, bool background);
+bool lovrScannerPollScan(Scanner* scanner, uintptr_t id, bool* ready);
 Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor);
 bool lovrScannerUpdate(Scanner* scanner);
 

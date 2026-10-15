@@ -202,12 +202,18 @@ typedef struct {
   bool acquired;
 } Swapchain;
 
+typedef struct Future {
+  XrFutureEXT handle;
+  bool (*callback)(XrFutureEXT future, void* context);
+  void* context;
+} Future;
+
 struct Scanner {
   atomic_uint ref;
   ScannerType type;
   Scanner* next;
-  XrFutureEXT future;
   XrSpatialContextEXT handle;
+  XrFutureEXT future;
   XrSpatialComponentTypeEXT* components;
   uint32_t componentCount;
   map_t anchorLookup;
@@ -340,7 +346,6 @@ static struct {
   Scanner* customScanner;
   Scanner* scanners;
   XrRenderModelIdEXT* modelKeys;
-  mtx_t scannerLock;
   RenderModel* models;
   uint32_t modelCount;
   mtx_t modelLock;
@@ -353,6 +358,7 @@ static struct {
   bool passthroughActive;
   bool mounted;
   bool mainSessionVisible;
+  arr_t(Future) futures;
   XrDebugUtilsMessengerEXT messenger;
   struct {
     bool anchors;
@@ -425,6 +431,10 @@ static void lovrSwapchainDestroy(Swapchain* swapchain);
 static Texture* lovrSwapchainAcquire(Swapchain* swapchain);
 static bool lovrSwapchainRelease(Swapchain* swapchain);
 
+static void addFuture(XrFutureEXT handle, bool (*callback)(XrFutureEXT future, void* context), void* context);
+static bool pollFuture(XrFutureEXT handle, bool* ready);
+static void cancelFuture(XrFutureEXT handle);
+
 static void disconnect(void);
 static void xrthrow(XrResult result, const char* symbol);
 static XrBool32 onMessage(XrDebugUtilsMessageSeverityFlagsEXT severity, XrDebugUtilsMessageTypeFlagsEXT type, const XrDebugUtilsMessengerCallbackDataEXT* data, void* userdata);
@@ -439,8 +449,6 @@ static XrHandTrackerEXT getHandTracker(Device device);
 static XrBodyTrackerBD getBodyTracker(void);
 static bool loadControllerModels(void);
 static bool loadVisibilityMask(void);
-static bool pollFuture(XrFutureEXT future, bool* ready);
-static void cancelFuture(XrFutureEXT future);
 
 // Entry
 
@@ -466,7 +474,6 @@ bool lovrHeadsetInit(HeadsetConfig* config) {
   }
 
   lovrHeadsetSetClipDistance(.01f, 0.f);
-
   lovrModuleReady(&ref);
   return true;
 }
@@ -1051,6 +1058,7 @@ bool lovrHeadsetConnect(void) {
   }
 
   state.frameState.type = XR_TYPE_FRAME_STATE;
+  arr_init(&state.futures);
   return true;
 fail:
   disconnect();
@@ -1388,10 +1396,6 @@ bool lovrHeadsetStart(void) {
     }
   }
 
-  if (state.extensions.spatialEntity) {
-    mtx_init(&state.scannerLock, mtx_plain);
-  }
-
   state.showMainLayer = true;
   return true;
 
@@ -1437,13 +1441,22 @@ void lovrHeadsetStop(void) {
   state.mask = NULL;
 
   if (state.extensions.spatialEntity) {
-    mtx_lock(&state.scannerLock);
-    for (Scanner* scanner = state.scanners, *next; scanner; scanner = next) {
-      next = scanner->next;
-      lovrRelease(scanner, lovrScannerDestroy);
+    while (state.scanners) {
+      Scanner* scanner = state.scanners;
+      state.scanners = scanner->next;
+
+      for (uint32_t i = 0; i < scanner->entityCapacity; i++) {
+        if (scanner->anchors[i]) {
+          scanner->anchors[i]->status = XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT;
+        }
+      }
+
+      if (scanner->handle) xrDestroySpatialContextEXT(scanner->handle);
+      scanner->handle = XR_NULL_HANDLE;
     }
-    mtx_unlock(&state.scannerLock);
-    mtx_destroy(&state.scannerLock);
+
+    lovrRelease(state.customScanner, lovrScannerDestroy);
+    state.customScanner = NULL;
   }
 
   if (state.extensions.renderModel) {
@@ -1597,15 +1610,12 @@ bool lovrHeadsetPollEvents(void) {
       }
       case XR_TYPE_EVENT_DATA_SPATIAL_DISCOVERY_RECOMMENDED_EXT: {
         XrEventDataSpatialDiscoveryRecommendedEXT* event = (XrEventDataSpatialDiscoveryRecommendedEXT*) &e;
-        mtx_lock(&state.scannerLock);
         for (Scanner* scanner = state.scanners; scanner; scanner = scanner->next) {
           if (scanner->handle == event->spatialContext) {
             lovrEventPush((Event) { .type = EVENT_SCAN, .data.scan.scanner = scanner });
-            mtx_unlock(&state.scannerLock);
             break;
           }
         }
-        mtx_unlock(&state.scannerLock);
         break;
       }
       default: break;
@@ -1679,25 +1689,19 @@ bool lovrHeadsetUpdate(void) {
       }
     }
 
-    if (state.customScanner && !state.customScanner->handle) {
-      bool finished;
-      Scanner* scanner = state.customScanner;
-      if (lovrScannerCreateFinished(scanner, &finished) && finished) {
-        XrSpatialAnchorCreateInfoEXT anchorInfo = {
-          .type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,
-          .baseSpace = state.referenceSpace,
-          .time = state.frameState.predictedDisplayTime
-        };
+    for (size_t i = 0; i < state.futures.length; i++) {
+      Future* future = &state.futures.data[i];
 
-        // If any anchors were created before the scanner was ready, create actual entities for them
-        for (uint32_t i = 0; i < scanner->entityCount; i++) {
-          Anchor* anchor = scanner->anchors[i];
-          vec3_init(&anchorInfo.pose.position.x, anchor->position);
-          quat_init(&anchorInfo.pose.orientation.x, anchor->orientation);
-          XR(xrCreateSpatialAnchorEXT(scanner->handle, &anchorInfo, &anchor->id, &anchor->handle), "xrCreateSpatialAnchorEXT");
-          uint64_t hash = hash64(&anchor->id, sizeof(anchor->id));
-          map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
-          scanner->entities[i] = anchor->handle;
+      bool ready = false;
+      if (!pollFuture(future->handle, &ready)) {
+        arr_swapsplice(&state.futures, i--);
+        continue;
+      }
+
+      if (ready) {
+        arr_swapsplice(&state.futures, i--);
+        if (!future->callback(future->handle, future->context)) {
+          return false;
         }
       }
     }
@@ -3419,7 +3423,39 @@ void lovrHeadsetSetButton(Device device, DeviceButton button, bool down) {
 
 // Scanner
 
+static bool lovrScannerCreateComplete(XrFutureEXT future, void* context) {
+  Scanner* scanner = context;
+  scanner->future = XR_NULL_FUTURE_EXT;
+
+  XrCreateSpatialContextCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_CONTEXT_COMPLETION_EXT };
+  XR(xrCreateSpatialContextCompleteEXT(state.session, future, &completion), "xrCreateSpatialContextCompleteEXT");
+  XR(completion.futureResult, "xrCreateSpatialContextAsyncEXT future");
+  scanner->handle = completion.spatialContext;
+
+  // If any custom anchors were created before the custom scanner was ready, finish creating them
+  if (scanner == state.customScanner) {
+    XrSpatialAnchorCreateInfoEXT anchorInfo = {
+      .type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,
+      .baseSpace = state.referenceSpace,
+      .time = state.frameState.predictedDisplayTime
+    };
+
+    for (uint32_t i = 0; i < scanner->entityCount; i++) {
+      Anchor* anchor = scanner->anchors[i];
+      vec3_init(&anchorInfo.pose.position.x, anchor->position);
+      quat_init(&anchorInfo.pose.orientation.x, anchor->orientation);
+      XR(xrCreateSpatialAnchorEXT(scanner->handle, &anchorInfo, &anchor->id, &anchor->handle), "xrCreateSpatialAnchorEXT");
+      uint64_t hash = hash64(&anchor->id, sizeof(anchor->id));
+      map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
+      scanner->entities[i] = anchor->handle;
+    }
+  }
+
+  return true;
+}
+
 Scanner* lovrScannerCreate(ScannerInfo* info) {
+  lovrAssert(state.session, "A headset session must be active to create a Scanner");
   lovrCheck(lovrHeadsetIsScannerSupported(info->type), "This scanner type is not supported");
 
   XrSpatialCapabilityConfigurationBaseHeaderEXT base = { 0 };
@@ -3563,30 +3599,32 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
   scanner->components = components;
   scanner->componentCount = componentCount;
   map_init(&scanner->anchorLookup, 0);
-
-  mtx_lock(&state.scannerLock);
   scanner->next = state.scanners;
   state.scanners = scanner;
-  mtx_unlock(&state.scannerLock);
 
   return scanner;
+}
+
+bool lovrScannerPollCreate(Scanner* scanner, bool* ready) {
+  if (!pollFuture(scanner->future, ready)) {
+    return false;
+  }
+
+  if (*ready && !lovrScannerCreateComplete(scanner->future, scanner)) {
+    return false;
+  }
+
+  return true;
 }
 
 void lovrScannerDestroy(void* ref) {
   Scanner* scanner = ref;
 
-  if (state.session) {
-    mtx_lock(&state.scannerLock);
-    Scanner** list = &state.scanners;
-    while (*list) {
-      if (*list == scanner) {
-        *list = scanner->next;
-        break;
-      } else {
-        list = &(*list)->next;
-      }
+  for (Scanner** list = &state.scanners; *list; list = &(*list)->next) {
+    if (*list == scanner) {
+      *list = scanner->next;
+      break;
     }
-    mtx_unlock(&state.scannerLock);
   }
 
   for (uint32_t i = 0; i < scanner->entityCapacity; i++) {
@@ -3598,12 +3636,13 @@ void lovrScannerDestroy(void* ref) {
     anchor->parent = XR_NULL_SPATIAL_ENTITY_ID_EXT;
     anchor->status = XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT;
     lovrRelease(scanner->anchors[i], lovrAnchorDestroy);
+    scanner->anchors[i] = NULL;
   }
 
   map_free(&scanner->anchorLookup);
 
   if (scanner->handle) xrDestroySpatialContextEXT(scanner->handle);
-  cancelFuture(scanner->future);
+  if (scanner->future) cancelFuture(scanner->future);
 
   lovrFree(scanner->components);
   lovrFree(scanner->anchors);
@@ -3619,38 +3658,15 @@ void lovrScannerDestroy(void* ref) {
   lovrFree(scanner);
 }
 
-bool lovrScannerCreateFinished(Scanner* scanner, bool* finished) {
-  if (scanner->handle) return *finished = true, true;
-  if (!scanner->future) return *finished = false, true;
-
-  bool ready = false;
-  if (!pollFuture(scanner->future, &ready)) return false;
-  if (!ready) return *finished = false, true;
-
-  XrCreateSpatialContextCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_CONTEXT_COMPLETION_EXT };
-  XR(xrCreateSpatialContextCompleteEXT(state.session, scanner->future, &completion), "xrCreateSpatialContextCompleteEXT");
-  XR(completion.futureResult, "xrCreateSpatialContextAsyncEXT future");
-  scanner->handle = completion.spatialContext;
-  scanner->future = XR_NULL_HANDLE;
-  return true;
-}
-
 ScannerType lovrScannerGetType(Scanner* scanner) {
   return scanner->type;
-}
-
-uintptr_t lovrScannerScan(Scanner* scanner) {
-  XrFutureEXT future;
-  XrSpatialDiscoverySnapshotCreateInfoEXT createInfo = { .type = XR_TYPE_SPATIAL_DISCOVERY_SNAPSHOT_CREATE_INFO_EXT };
-  XR(xrCreateSpatialDiscoverySnapshotAsyncEXT(scanner->handle, &createInfo, &future), "xrCreateSpatialDiscoverySnapshotAsyncEXT");
-  return (uintptr_t) future;
 }
 
 static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEntityIdEXT id, XrSpatialEntityEXT handle) {
   if (slot >= scanner->entityCapacity) {
     uint32_t capacity = scanner->entityCapacity;
 
-    while (capacity < slot) {
+    while (capacity <= slot) {
       capacity = MAX(capacity * 2, 1);
     }
 
@@ -3715,10 +3731,8 @@ static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEn
   return anchor;
 }
 
-bool lovrScannerScanFinished(Scanner* scanner, uintptr_t id, bool* finished) {
-  XrFutureEXT future = (XrFutureEXT) id;
-  if (!pollFuture(future, finished)) return false;
-  if (!*finished) return true;
+static bool lovrScannerScanComplete(XrFutureEXT future, void* context) {
+  Scanner* scanner = context;
 
   XrCreateSpatialDiscoverySnapshotCompletionInfoEXT completionInfo = {
     .type = XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_INFO_EXT,
@@ -3772,17 +3786,47 @@ bool lovrScannerScanFinished(Scanner* scanner, uintptr_t id, bool* finished) {
   return true;
 }
 
+bool lovrScannerScan(Scanner* scanner, uintptr_t* id, bool background) {
+  lovrCheck(scanner->handle, "Scanner has been destroyed");
+
+  XrFutureEXT future;
+  XrSpatialDiscoverySnapshotCreateInfoEXT createInfo = { .type = XR_TYPE_SPATIAL_DISCOVERY_SNAPSHOT_CREATE_INFO_EXT };
+  XR(xrCreateSpatialDiscoverySnapshotAsyncEXT(scanner->handle, &createInfo, &future), "xrCreateSpatialDiscoverySnapshotAsyncEXT");
+
+  if (background) {
+    addFuture(future, lovrScannerScanComplete, scanner);
+    return true;
+  } else {
+    *id = (uintptr_t) future;
+    return true;
+  }
+}
+
+bool lovrScannerPollScan(Scanner* scanner, uintptr_t future, bool* ready) {
+  if (!pollFuture((XrFutureEXT) future, ready)) {
+    return false;
+  }
+
+  if (*ready && !lovrScannerScanComplete((XrFutureEXT) future, scanner)) {
+    return false;
+  }
+
+  return true;
+}
+
 Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor) {
-  for (uint32_t slot = anchor ? anchor->slot + 1 : 0; slot < scanner->entityCapacity; slot++) {
-    if (scanner->anchors[slot] && lovrAnchorIsActive(scanner->anchors[slot])) {
-      return scanner->anchors[slot];
+  if (scanner->handle) {
+    for (uint32_t slot = anchor ? anchor->slot + 1 : 0; slot < scanner->entityCapacity; slot++) {
+      if (scanner->anchors[slot] && lovrAnchorIsActive(scanner->anchors[slot])) {
+        return scanner->anchors[slot];
+      }
     }
   }
   return NULL;
 }
 
 bool lovrScannerUpdate(Scanner* scanner) {
-  if (scanner->entityCount == 0) {
+  if (!scanner->handle || scanner->entityCount == 0) {
     return true;
   }
 
@@ -4121,12 +4165,13 @@ const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length) {
 }
 
 CustomAnchor* lovrCustomAnchorCreate(float* position, float* orientation) {
+  lovrAssert(state.session, "A headset session must be active to create an Anchor");
   lovrCheck(lovrHeadsetIsScannerSupported(SCANNER_CUSTOM), "This headset doesn't support custom anchors");
 
   if (!state.customScanner) {
     ScannerInfo info = { .type = SCANNER_CUSTOM };
     state.customScanner = lovrScannerCreate(&info);
-    if (!state.customScanner) return false;
+    if (!state.customScanner) return NULL;
   }
 
   Scanner* scanner = state.customScanner;
@@ -4646,8 +4691,28 @@ static bool lovrSwapchainRelease(Swapchain* swapchain) {
   return true;
 }
 
+static void addFuture(XrFutureEXT future, bool (*callback)(XrFutureEXT future, void* context), void* context) {
+  arr_push(&state.futures, ((Future) { future, callback, context }));
+}
+
+static bool pollFuture(XrFutureEXT future, bool* ready) {
+  XrFuturePollInfoEXT info = { .type = XR_TYPE_FUTURE_POLL_INFO_EXT, .future = future };
+  XrFuturePollResultEXT result = { .type = XR_TYPE_FUTURE_POLL_RESULT_EXT };
+  XR(xrPollFutureEXT(state.instance, &info, &result), "xrPollFutureEXT");
+  *ready = result.state == XR_FUTURE_STATE_READY_EXT;
+  return true;
+}
+
+static void cancelFuture(XrFutureEXT future) {
+  xrCancelFutureEXT(state.instance, &(XrFutureCancelInfoEXT) {
+    .type = XR_TYPE_FUTURE_CANCEL_INFO_EXT,
+    .future = future
+  });
+}
+
 static void disconnect(void) {
   lovrHeadsetStop();
+  arr_free(&state.futures);
   lovrFree(state.spatialCapabilities);
   if (state.actionSet) xrDestroyActionSet(state.actionSet);
   if (state.messenger) xrDestroyDebugUtilsMessengerEXT(state.messenger);
@@ -5153,31 +5218,6 @@ static bool loadVisibilityMask(void) {
   lovrMeshSetDrawRange(state.mask, 0, indexCount);
 
   return true;
-}
-
-static bool pollFuture(XrFutureEXT future, bool* ready) {
-  XrFuturePollInfoEXT info = {
-    .type = XR_TYPE_FUTURE_POLL_INFO_EXT,
-    .future = future
-  };
-
-  XrFuturePollResultEXT result = { .type = XR_TYPE_FUTURE_POLL_RESULT_EXT };
-
-  if (XR_FAILED(xrPollFutureEXT(state.instance, &info, &result))) {
-    return false;
-  }
-
-  *ready = result.state == XR_FUTURE_STATE_READY_EXT;
-  return true;
-}
-
-static void cancelFuture(XrFutureEXT future) {
-  if (future) {
-    xrCancelFutureEXT(state.instance, &(XrFutureCancelInfoEXT) {
-      .type = XR_TYPE_FUTURE_CANCEL_INFO_EXT,
-      .future = future
-    });
-  }
 }
 
 #ifdef _WIN32

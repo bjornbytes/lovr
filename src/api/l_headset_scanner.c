@@ -15,7 +15,7 @@ typedef struct {
 
 static bool luax_pollscan(void** context, bool* ready) {
   ScanContext* ctx = *context;
-  return lovrScannerScanFinished(ctx->scanner, ctx->id, ready);
+  return lovrScannerPollScan(ctx->scanner, ctx->id, ready);
 }
 
 static int luax_finishscan(lua_State* L, bool success, void* context) {
@@ -30,11 +30,11 @@ static int l_lovrScannerScan(lua_State* L) {
   if (luax_getthreaddata(L)) {
     ScanContext* context = lovrMalloc(sizeof(ScanContext));
     context->scanner = scanner;
-    context->id = lovrScannerScan(scanner);
+    luax_assert(L, lovrScannerScan(scanner, &context->id, false));
     lovrRetain(scanner);
     return luax_yieldpoll(L, luax_pollscan, NULL, NULL, context);
   } else {
-    // TODO non-blocking background scan
+    luax_assert(L, lovrScannerScan(scanner, NULL, true));
     return 0;
   }
 }
