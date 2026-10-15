@@ -81,6 +81,8 @@ dev
 - Fix issue where exit status was always zero.
 - Fix `World:getTags`.
 - Fix memory leak when creating an invalid `MeshShape`/`ConvexShape`/`TerrainShape`.
+- Fix high CPU usage when using `Channel:push/pop` with a timeout.
+- Fix `CapsuleShape:setRadius`.
 
 ### Deprecate
 
