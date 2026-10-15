@@ -2273,7 +2273,7 @@ float lovrCapsuleShapeGetRadius(CapsuleShape* shape) {
 bool lovrCapsuleShapeSetRadius(CapsuleShape* shape, float radius) {
   lovrCheck(radius > 0.f, "CapsuleShape radius must be positive");
   float length = lovrCapsuleShapeGetLength(shape);
-  return lovrShapeReplace(shape, makeCapsule(length / 2.f, radius));
+  return lovrShapeReplace(shape, makeCapsule(radius, length / 2.f));
 }
 
 float lovrCapsuleShapeGetLength(CapsuleShape* shape) {
