@@ -263,6 +263,10 @@ bool lovrChannelPush(Channel* channel, Variant* variant, double timeout, uint64_
       fraction = modf(timeout, &whole);
       until.tv_sec = start.tv_sec + whole;
       until.tv_nsec = start.tv_nsec + fraction * 1e9;
+      if (until.tv_nsec >= 1000000000) {
+        until.tv_sec++;
+        until.tv_nsec -= 1000000000;
+      }
       cnd_timedwait(&channel->cond, &channel->lock, &until);
       timespec_get(&stop, TIME_UTC);
       timeout -= (stop.tv_sec - start.tv_sec) + (stop.tv_nsec - start.tv_nsec) / 1e9;
@@ -304,6 +308,10 @@ bool lovrChannelPop(Channel* channel, Variant* variant, double timeout) {
       fraction = modf(timeout, &whole);
       until.tv_sec = start.tv_sec + whole;
       until.tv_nsec = start.tv_nsec + fraction * 1e9;
+      if (until.tv_nsec >= 1000000000) {
+        until.tv_sec++;
+        until.tv_nsec -= 1000000000;
+      }
       cnd_timedwait(&channel->cond, &channel->lock, &until);
       timespec_get(&stop, TIME_UTC);
       timeout -= (stop.tv_sec - start.tv_sec) + (stop.tv_nsec - start.tv_nsec) / (double) 1e9;
