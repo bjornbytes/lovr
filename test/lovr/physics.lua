@@ -1,13 +1,23 @@
 group('physics', function()
   local world
-  before(function() world = lovr.physics.newWorld() end)
+  before(function() world = lovr.physics.newWorld({ tags = { 'a', 'b', 'c' } }) end)
 
   group('World', function()
     test(':getTags', function()
-      expect(world:getTags()).to.equal({})
+      expect(world:getTags()).to.equal({ 'a', 'b', 'c' })
+    end)
 
-      local taggedWorld = lovr.physics.newWorld({ tags = { 'a', 'b' } })
-      expect(taggedWorld:getTags()).to.equal({ 'a', 'b' })
+    test(':isCollisionEnabledBetween', function()
+      world:enableCollisionBetween('b', 'c')
+      world:enableCollisionBetween('a', 'a')
+      world:disableCollisionBetween('a', 'a')
+      expect(world:isCollisionEnabledBetween('a', 'a')).to.be(false)
+      expect(world:isCollisionEnabledBetween('b', 'c')).to.be(true)
+      expect(world:isCollisionEnabledBetween('c', 'b')).to.be(true)
+      expect(world:isCollisionEnabledBetween('b', 'b')).to.be(true)
+      expect(world:isCollisionEnabledBetween(nil, nil)).to.be(true)
+      expect(world:isCollisionEnabledBetween('a', nil)).to.be(true)
+      expect(world:isCollisionEnabledBetween(nil, 'a')).to.be(true)
     end)
 
     test('distant colliders', function()
