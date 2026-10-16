@@ -40,6 +40,7 @@ struct World {
   uint32_t staticTagMask;
   uint32_t tagLookup[MAX_TAGS];
   char* tags[MAX_TAGS];
+  JPH_TempAllocator* allocator;
   JPH_JobSystem* jobSystem;
   mtx_t lock;
 };
@@ -406,6 +407,8 @@ World* lovrWorldCreate(WorldInfo* info) {
 
   world->system = JPH_PhysicsSystem_Create(&config);
 
+  world->allocator = JPH_TempAllocator_Create(8 * 1024 * 1024);
+
   world->jobSystem = JPH_JobSystemCallback_Create(&(JPH_JobSystemConfig) {
     .context = world,
     .queueJob = queueJob,
@@ -470,6 +473,7 @@ void lovrWorldDestruct(World* world) {
   }
   mtx_destroy(&world->lock);
 
+  JPH_TempAllocator_Destroy(world->allocator);
   JPH_PhysicsSystem_Destroy(world->system);
   world->system = NULL;
 }
@@ -549,7 +553,7 @@ void lovrWorldUpdate(World* world, float dt) {
     quat_fromJolt(collider->lastOrientation, &orientation);
   }
 
-  JPH_PhysicsSystem_Update(world->system, dt, 1, world->jobSystem);
+  JPH_PhysicsSystem_Update2(world->system, dt, 1, world->allocator, world->jobSystem);
 
   world->inverseDelta = 1.f / dt;
   world->interpolation = 0.f;
