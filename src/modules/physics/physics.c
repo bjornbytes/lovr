@@ -514,6 +514,13 @@ uint32_t lovrWorldGetTagMask(World* world, const char* string, size_t length) {
   return (accept ? accept : ~ignore) | 0x80000000;
 }
 
+bool lovrWorldIsTagStatic(World* world, const char* tag, bool* isStatic) {
+  uint8_t index = findTag(world, tag, strlen(tag));
+  lovrCheck(index != 0xff, "Unknown tag '%s'", tag);
+  *isStatic = world->staticTagMask & (1 << index);
+  return true;
+}
+
 uint32_t lovrWorldGetColliderCount(World* world) {
   return JPH_PhysicsSystem_GetNumBodies(world->system);
 }
