@@ -771,7 +771,7 @@ bool lovrWorldEnableCollisionBetween(World* world, const char* tag1, const char*
 }
 
 bool lovrWorldIsCollisionEnabledBetween(World* world, const char* tag1, const char* tag2, bool* enabled) {
-  if (!tag1 || !tag2) return true;
+  if (!tag1 || !tag2) return *enabled = true, true;
   uint8_t i = findTag(world, tag1, strlen(tag1));
   uint8_t j = findTag(world, tag2, strlen(tag2));
   lovrCheck(i != 0xff, "Unknown tag '%s'", tag1);

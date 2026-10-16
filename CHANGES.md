@@ -83,6 +83,7 @@ dev
 - Fix memory leak when creating an invalid `MeshShape`/`ConvexShape`/`TerrainShape`.
 - Fix high CPU usage when using `Channel:push/pop` with a timeout.
 - Fix `CapsuleShape:setRadius`.
+- Fix `World:isCollisionEnabledBetween` when given `nil` tags.
 
 ### Deprecate
 
