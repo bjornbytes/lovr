@@ -4053,6 +4053,8 @@ static bool loadControllerModels(void) {
       state.modelKeys[state.modelCount] = keys[i];
       state.modelCount++;
 
+      model->properties = (XrRenderModelPropertiesEXT) { .type = XR_TYPE_RENDER_MODEL_PROPERTIES_EXT };
+
       const char* gltfExtensions[] = {
         "KHR_texture_transform"
       };
