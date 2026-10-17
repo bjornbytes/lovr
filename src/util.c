@@ -139,6 +139,46 @@ void lovrLog(int level, const char* tag, const char* format, ...) {
   va_end(args);
 }
 
+// Future
+
+Future* lovrFutureInit(Future* future, FutureCallbacks* callbacks) {
+  atomic_store(&future->ref, 1);
+  future->status = FUTURE_PENDING;
+  future->cb = callbacks;
+  future->error = NULL;
+  return future;
+}
+
+void lovrFutureDestroy(Future* future) {
+  if (future->cb->destroy) future->cb->destroy(future);
+  lovrFree(future->error);
+}
+
+bool lovrFuturePoll(Future* future) {
+  if (future->status != FUTURE_PENDING) return true;
+
+  bool ready;
+  if (future->cb->poll(future, &ready)) {
+    if (ready) future->status = FUTURE_COMPLETE;
+    return ready;
+  } else {
+    future->error = lovrStrdup(lovrGetError());
+    future->status = FUTURE_FAILED;
+    return true;
+  }
+}
+
+bool lovrFutureWait(Future* future) {
+  if (future->cb->wait(future)) {
+    future->status = FUTURE_COMPLETE;
+    return true;
+  } else {
+    future->error = lovrStrdup(lovrGetError());
+    future->status = FUTURE_FAILED;
+    return false;
+  }
+}
+
 // Hashing
 
 #include "lib/rapidhash/rapidhash.h"

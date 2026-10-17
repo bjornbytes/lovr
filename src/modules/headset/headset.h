@@ -8,6 +8,7 @@
 #define BODY_JOINT_COUNT 24
 #define MAX_LAYERS 10
 
+struct Future;
 struct Model;
 struct ModelData;
 struct Texture;
@@ -17,9 +18,9 @@ typedef struct Scanner Scanner;
 typedef struct Anchor Anchor;
 typedef struct Layer Layer;
 
+typedef Anchor PointAnchor;
 typedef Anchor PlaneAnchor;
 typedef Anchor MarkerAnchor;
-typedef Anchor CustomAnchor;
 
 typedef enum {
   SKELETON_NONE,
@@ -46,6 +47,8 @@ typedef struct {
 } HeadsetConfig;
 
 typedef struct {
+  bool anchor;
+  bool anchorPersistence;
   bool battery;
   bool bodyTracking;
   bool cubeBackground;
@@ -173,12 +176,12 @@ typedef enum {
 } SkeletonSource;
 
 typedef enum {
+  SCANNER_POINT,
   SCANNER_PLANE,
   SCANNER_QR,
   SCANNER_MICRO_QR,
   SCANNER_ARUCO,
-  SCANNER_APRIL,
-  SCANNER_CUSTOM
+  SCANNER_APRIL
 } ScannerType;
 
 bool lovrHeadsetInit(HeadsetConfig* config);
@@ -270,25 +273,25 @@ typedef struct {
   ScannerType type;
   ArucoDictionary arucoDictionary;
   AprilDictionary aprilDictionary;
-  bool staticMarkers;
   float markerSize;
+  bool staticMarkers;
+  bool storage;
 } ScannerInfo;
 
-Scanner* lovrScannerCreate(ScannerInfo* info);
-bool lovrScannerPollCreate(Scanner* scanner, bool* ready);
+struct Future* lovrScannerCreate(ScannerInfo* info);
+Scanner* lovrScannerCreateComplete(struct Future* future);
 void lovrScannerDestroy(void* ref);
 ScannerType lovrScannerGetType(Scanner* scanner);
-bool lovrScannerScan(Scanner* scanner, uintptr_t* id, bool background);
-bool lovrScannerPollScan(Scanner* scanner, uintptr_t id, bool* ready);
+struct Future* lovrScannerScan(Scanner* scanner, bool background);
 Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor);
 bool lovrScannerUpdate(Scanner* scanner);
 
 // Anchor
 
 typedef enum {
+  ANCHOR_POINT,
   ANCHOR_PLANE,
-  ANCHOR_MARKER,
-  ANCHOR_CUSTOM
+  ANCHOR_MARKER
 } AnchorType;
 
 void lovrAnchorDestroy(void* ref);
@@ -300,17 +303,20 @@ void lovrAnchorGetPosition(Anchor* anchor, float* position);
 void lovrAnchorGetOrientation(Anchor* anchor, float* orientation);
 void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions);
 
+PointAnchor* lovrPointAnchorCreate(Scanner* scanner, float* position, float* orientation);
+struct Future* lovrPointAnchorSave(PointAnchor* anchor);
+struct Future* lovrPointAnchorDelete(PointAnchor* anchor);
+const uint8_t* lovrPointAnchorGetID(PointAnchor* anchor, size_t* length);
+
 const char* lovrPlaneAnchorGetLabel(PlaneAnchor* anchor, size_t* length);
 float* lovrPlaneAnchorGetVertices(PlaneAnchor* anchor, uint32_t* count);
 uint32_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count);
 
 const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length);
 
-CustomAnchor* lovrCustomAnchorCreate(float* position, float* orientation);
-
+#define lovrPointAnchorDestroy lovrAnchorDestroy
 #define lovrPlaneAnchorDestroy lovrAnchorDestroy
 #define lovrMarkerAnchorDestroy lovrAnchorDestroy
-#define lovrCustomAnchorDestroy lovrAnchorDestroy
 
 // Layer
 

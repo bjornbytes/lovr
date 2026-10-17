@@ -5,7 +5,6 @@
 #include "graphics/graphics.h"
 #include "timer/timer.h"
 #include "core/maf.h"
-#include "core/os.h"
 #include "util.h"
 #include <stdlib.h>
 
@@ -141,18 +140,12 @@ StringEntry lovrAprilDictionary[] = {
 };
 
 StringEntry lovrScannerType[] = {
+  [SCANNER_POINT] = ENTRY("point"),
   [SCANNER_PLANE] = ENTRY("plane"),
   [SCANNER_QR] = ENTRY("qr"),
   [SCANNER_MICRO_QR] = ENTRY("microqr"),
   [SCANNER_ARUCO] = ENTRY("aruco"),
   [SCANNER_APRIL] = ENTRY("april"),
-  { 0 }
-};
-
-StringEntry lovrAnchorType[] = {
-  [ANCHOR_PLANE] = ENTRY("plane"),
-  [ANCHOR_MARKER] = ENTRY("marker"),
-  [ANCHOR_CUSTOM] = ENTRY("custom"),
   { 0 }
 };
 
@@ -184,6 +177,8 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   HeadsetFeatures features = { 0 };
   lovrHeadsetGetFeatures(&features);
   lua_newtable(L);
+  lua_pushboolean(L, features.anchor), lua_setfield(L, -2, "anchor");
+  lua_pushboolean(L, features.anchorPersistence), lua_setfield(L, -2, "anchorPersistence");
   lua_pushboolean(L, features.battery), lua_setfield(L, -2, "battery");
   lua_pushboolean(L, features.bodyTracking), lua_setfield(L, -2, "bodyTracking");
   lua_pushboolean(L, features.controllerModel), lua_setfield(L, -2, "controllerModel");
@@ -1018,29 +1013,12 @@ static int l_lovrHeadsetSetButton(lua_State* L) {
   return 0;
 }
 
-static bool luax_pollscanner(void** scanner, bool* ready) {
-  return lovrScannerPollCreate(*scanner, ready);
-}
-
-static bool luax_waitscanner(void** scanner) {
-  for (;;) {
-    bool ready = false;
-    if (!lovrScannerPollCreate(*scanner, &ready)) {
-      return false;
-    }
-
-    if (ready) {
-      return true;
-    } else {
-      os_sleep(.05); // :( can't wait on futures, and they may not complete in finite time
-    }
-  }
-}
-
-static int luax_pushscanner(lua_State* L, bool success, void* scanner) {
-  if (success) luax_pushtype(L, Scanner, scanner);
+static int luax_pushscanner(lua_State* L, bool success, void* future) {
+  if (!success) return 0;
+  Scanner* scanner = lovrScannerCreateComplete(future);
+  luax_pushtype(L, Scanner, scanner);
   lovrRelease(scanner, lovrScannerDestroy);
-  return success;
+  return true;
 }
 
 static int l_lovrHeadsetNewScanner(lua_State* L) {
@@ -1061,30 +1039,23 @@ static int l_lovrHeadsetNewScanner(lua_State* L) {
   }
 
   if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "size");
+    info.markerSize = luax_optfloat(L, -1, 0.f);
+    lua_pop(L, 1);
+
     lua_getfield(L, 2, "static");
     info.staticMarkers = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
-    lua_getfield(L, 2, "size");
-    info.markerSize = luax_optfloat(L, -1, 0.f);
+    lua_getfield(L, 2, "storage");
+    info.storage = lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
 
-  Scanner* scanner = lovrScannerCreate(&info);
-  luax_assert(L, scanner);
+  Future* future = lovrScannerCreate(&info);
+  luax_assert(L, future);
 
-  return luax_yieldpoll(L, luax_pollscanner, luax_waitscanner, luax_pushscanner, scanner);
-}
-
-static int l_lovrHeadsetNewAnchor(lua_State* L) {
-  float position[3], orientation[4];
-  int index = luax_readvec3(L, 1, position, NULL);
-  index = luax_readquat(L, index, orientation, NULL);
-  CustomAnchor* anchor = lovrCustomAnchorCreate(position, orientation);
-  luax_assert(L, anchor);
-  luax_pushtype(L, CustomAnchor, anchor);
-  lovrRelease(anchor, lovrAnchorDestroy);
-  return 1;
+  return luax_yieldfuture(L, future, luax_pushscanner);
 }
 
 static int l_lovrHeadsetNewLayer(lua_State* L) {
@@ -1294,18 +1265,18 @@ extern int l_lovrScannerAnchors(lua_State* L);
 extern int luax_anchoriterator(lua_State* L);
 
 extern const luaL_Reg lovrScanner[];
+extern const luaL_Reg lovrPointAnchor[];
 extern const luaL_Reg lovrPlaneAnchor[];
 extern const luaL_Reg lovrMarkerAnchor[];
-extern const luaL_Reg lovrCustomAnchor[];
 extern const luaL_Reg lovrLayer[];
 
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrHeadset);
   luax_registertype(L, Scanner);
+  luax_registertype(L, PointAnchor);
   luax_registertype(L, PlaneAnchor);
   luax_registertype(L, MarkerAnchor);
-  luax_registertype(L, CustomAnchor);
   luax_registertype(L, Layer);
 
   HeadsetConfig config = {

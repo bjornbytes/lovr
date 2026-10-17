@@ -8,33 +8,23 @@ static int l_lovrScannerGetType(lua_State* L) {
   return 1;
 }
 
-typedef struct {
-  Scanner* scanner;
-  uintptr_t id;
-} ScanContext;
-
-static bool luax_pollscan(void** context, bool* ready) {
-  ScanContext* ctx = *context;
-  return lovrScannerPollScan(ctx->scanner, ctx->id, ready);
-}
-
-static int luax_finishscan(lua_State* L, bool success, void* context) {
-  ScanContext* ctx = context;
-  lovrRelease(ctx->scanner, lovrScannerDestroy);
-  lovrFree(context);
-  return 0;
+static bool luax_pollfuture(void** context, bool* ready) {
+  Future* future = *context;
+  if (!lovrFuturePoll(future)) {
+    *ready = false;
+    return true;
+  }
+  *ready = true;
+  return future->status == FUTURE_COMPLETE;
 }
 
 static int l_lovrScannerScan(lua_State* L) {
   Scanner* scanner = luax_checktype(L, 1, Scanner);
   if (luax_getthreaddata(L)) {
-    ScanContext* context = lovrMalloc(sizeof(ScanContext));
-    context->scanner = scanner;
-    luax_assert(L, lovrScannerScan(scanner, &context->id, false));
-    lovrRetain(scanner);
-    return luax_yieldpoll(L, luax_pollscan, NULL, NULL, context);
+    Future* future = lovrScannerScan(scanner, false);
+    return luax_yieldpoll(L, luax_pollfuture, NULL, NULL, future);
   } else {
-    luax_assert(L, lovrScannerScan(scanner, NULL, true));
+    lovrScannerScan(scanner, true);
     return 0;
   }
 }
@@ -87,10 +77,24 @@ int l_lovrScannerAnchors(lua_State* L) {
   return 3;
 }
 
+static int l_lovrScannerNewAnchor(lua_State* L) {
+  Scanner* scanner = luax_checktype(L, 1, Scanner);
+  float position[3], orientation[4];
+  int index = 2;
+  index = luax_readvec3(L, index, position, NULL);
+  index = luax_readquat(L, index, orientation, NULL);
+  PointAnchor* anchor = lovrPointAnchorCreate(scanner, position, orientation);
+  luax_assert(L, anchor);
+  luax_pushtype(L, PointAnchor, anchor);
+  lovrRelease(anchor, lovrAnchorDestroy);
+  return 1;
+}
+
 const luaL_Reg lovrScanner[] = {
   { "getType", l_lovrScannerGetType },
   { "scan", l_lovrScannerScan },
   { "update", l_lovrScannerUpdate },
   { "getAnchors", l_lovrScannerGetAnchors },
+  { "newAnchor", l_lovrScannerNewAnchor },
   { NULL, NULL }
 };

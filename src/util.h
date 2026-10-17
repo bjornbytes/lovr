@@ -69,6 +69,28 @@ enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
 void lovrSetLogCallback(fn_log* callback, void* userdata);
 void lovrLog(int level, const char* tag, const char* format, ...);
 
+// Future
+typedef struct Future Future;
+typedef enum { FUTURE_PENDING, FUTURE_COMPLETE, FUTURE_FAILED } FutureStatus;
+
+typedef struct {
+  bool (*poll)(struct Future* future, bool* ready);
+  bool (*wait)(struct Future* future);
+  void (*destroy)(struct Future* future);
+} FutureCallbacks;
+
+struct Future {
+  atomic_uint ref;
+  FutureStatus status;
+  FutureCallbacks* cb;
+  char* error;
+};
+
+Future* lovrFutureInit(Future* future, FutureCallbacks* callbacks);
+void lovrFutureDestroy(Future* future);
+bool lovrFuturePoll(Future* future);
+bool lovrFutureWait(Future* future);
+
 // Profiling
 #ifdef LOVR_PROFILE
 #include <TracyC.h>
@@ -160,9 +182,9 @@ typedef enum {
   T_Readback,
   T_Pass,
   T_Scanner,
+  T_PointAnchor,
   T_PlaneAnchor,
   T_MarkerAnchor,
-  T_CustomAnchor,
   T_Layer,
   T_Curve,
   T_Mat4,

@@ -18,7 +18,6 @@ typedef struct {
 
 #define ENTRY(s) { sizeof(s) - 1, s }
 
-extern StringEntry lovrAnchorType[];
 extern StringEntry lovrAnimationProperty[];
 extern StringEntry lovrAprilDictionary[];
 extern StringEntry lovrArcMode[];
@@ -222,6 +221,8 @@ struct Shape* luax_newterrainshape(lua_State* L, int index);
 
 #ifndef LOVR_DISABLE_TASK
 #include "task/task.h"
+struct Future;
 int luax_yieldpoll(lua_State* L, fn_poll* poll, fn_task* block, fn_continuation* continuation, void* context);
 int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context, uint32_t count);
+int luax_yieldfuture(lua_State* L, struct Future* future, fn_continuation* continuation);
 #endif

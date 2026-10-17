@@ -165,7 +165,15 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrGetSpatialBufferUint8EXT)\
   X(xrGetSpatialBufferUint16EXT)\
   X(xrGetSpatialBufferVector2fEXT)\
-  X(xrCreateSpatialAnchorEXT)
+  X(xrCreateSpatialAnchorEXT)\
+  X(xrEnumerateSpatialPersistenceScopesEXT)\
+  X(xrCreateSpatialPersistenceContextAsyncEXT)\
+  X(xrCreateSpatialPersistenceContextCompleteEXT)\
+  X(xrDestroySpatialPersistenceContextEXT)\
+  X(xrPersistSpatialEntityAsyncEXT)\
+  X(xrPersistSpatialEntityCompleteEXT)\
+  X(xrUnpersistSpatialEntityAsyncEXT)\
+  X(xrUnpersistSpatialEntityCompleteEXT)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -202,18 +210,20 @@ typedef struct {
   bool acquired;
 } Swapchain;
 
-typedef struct Future {
+typedef struct {
+  Future inner;
   XrFutureEXT handle;
-  bool (*callback)(XrFutureEXT future, void* context);
+  bool (*callback)(XrFutureEXT future, void* context, bool* chained);
   void* context;
-} Future;
+} HeadsetFuture;
 
 struct Scanner {
   atomic_uint ref;
-  ScannerType type;
   Scanner* next;
+  ScannerInfo info;
+  HeadsetFuture future;
   XrSpatialContextEXT handle;
-  XrFutureEXT future;
+  XrSpatialPersistenceContextEXT storage;
   XrSpatialComponentTypeEXT* components;
   uint32_t componentCount;
   map_t anchorLookup;
@@ -238,6 +248,8 @@ struct Anchor {
   AnchorType type;
   Scanner* scanner;
   XrSpatialEntityIdEXT id;
+  XrUuidEXT uuid;
+  bool saved;
   XrSpatialEntityEXT handle;
   XrSpatialEntityIdEXT parent;
   XrSpatialEntityTrackingStateEXT status;
@@ -302,6 +314,7 @@ static struct {
   XrSession session;
   XrSessionState sessionState;
   XrSpace referenceSpace;
+  arr_t(HeadsetFuture) futures;
   float* refreshRates;
   uint32_t refreshRateCount;
   bool hdr;
@@ -343,7 +356,6 @@ static struct {
   XrBodyTrackerBD bodyTracker;
   XrSpatialCapabilityEXT* spatialCapabilities;
   uint32_t spatialCapabilityCount;
-  Scanner* customScanner;
   Scanner* scanners;
   XrRenderModelIdEXT* modelKeys;
   RenderModel* models;
@@ -358,10 +370,11 @@ static struct {
   bool passthroughActive;
   bool mounted;
   bool mainSessionVisible;
-  arr_t(Future) futures;
   XrDebugUtilsMessengerEXT messenger;
   struct {
     bool anchors;
+    bool anchorLoading;
+    bool anchorSaving;
     bool battery;
     bool bodyTracking;
     bool cosmosController;
@@ -431,10 +444,6 @@ static void lovrSwapchainDestroy(Swapchain* swapchain);
 static Texture* lovrSwapchainAcquire(Swapchain* swapchain);
 static bool lovrSwapchainRelease(Swapchain* swapchain);
 
-static void addFuture(XrFutureEXT handle, bool (*callback)(XrFutureEXT future, void* context), void* context);
-static bool pollFuture(XrFutureEXT handle, bool* ready);
-static void cancelFuture(XrFutureEXT handle);
-
 static void disconnect(void);
 static void xrthrow(XrResult result, const char* symbol);
 static XrBool32 onMessage(XrDebugUtilsMessageSeverityFlagsEXT severity, XrDebugUtilsMessageTypeFlagsEXT type, const XrDebugUtilsMessengerCallbackDataEXT* data, void* userdata);
@@ -449,6 +458,7 @@ static XrHandTrackerEXT getHandTracker(Device device);
 static XrBodyTrackerBD getBodyTracker(void);
 static bool loadControllerModels(void);
 static bool loadVisibilityMask(void);
+static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void* context);
 
 // Entry
 
@@ -579,6 +589,8 @@ bool lovrHeadsetConnect(void) {
     { "XR_EXT_spatial_anchor", &state.extensions.anchors, true },
     { "XR_EXT_spatial_entity", &state.extensions.spatialEntity, true },
     { "XR_EXT_spatial_marker_tracking", &state.extensions.markerTracking, true },
+    { "XR_EXT_spatial_persistence", &state.extensions.anchorLoading, true },
+    { "XR_EXT_spatial_persistence_operations", &state.extensions.anchorSaving, true },
     { "XR_EXT_spatial_plane_tracking", &state.extensions.planeTracking, true },
     { "XR_EXT_user_presence", &state.extensions.presence, true },
     { "XR_EXT_uuid", &state.extensions.uuid, true },
@@ -794,12 +806,29 @@ bool lovrHeadsetConnect(void) {
   XRG(xrEnumerateEnvironmentBlendModes(state.instance, state.system, state.viewConfiguration, state.blendModeCount, &state.blendModeCount, state.blendModes), "xrEnumerateEnvironmentBlendModes", fail);
   state.blendMode = state.blendModes[0];
 
-  // Scanner types
+  // Scanner types, persistence scopes
 
   if (state.extensions.spatialEntity) {
     XRG(xrEnumerateSpatialCapabilitiesEXT(state.instance, state.system, 0, &state.spatialCapabilityCount, NULL), "xrEnumerateSpatialCapabilitiesEXT", fail);
     state.spatialCapabilities = lovrMalloc(state.spatialCapabilityCount * sizeof(XrSpatialCapabilityEXT));
     XRG(xrEnumerateSpatialCapabilitiesEXT(state.instance, state.system, state.spatialCapabilityCount, &state.spatialCapabilityCount, state.spatialCapabilities), "xrEnumerateSpatialCapabilitiesEXT", fail);
+
+    if (state.extensions.anchorSaving) {
+      uint32_t scopeCount;
+      XRG(xrEnumerateSpatialPersistenceScopesEXT(state.instance, state.system, 0, &scopeCount, NULL), "xrEnumerateSpatialPersistenceScopesEXT", fail);
+      XrSpatialPersistenceScopeEXT* scopes = lovrMalloc(scopeCount * sizeof(XrSpatialPersistenceScopeEXT));
+      XRG(xrEnumerateSpatialPersistenceScopesEXT(state.instance, state.system, scopeCount, &scopeCount, scopes), "xrEnumerateSpatialPersistenceScopesEXT", fail);
+
+      state.extensions.anchorSaving = false;
+      for (uint32_t i = 0; i < scopeCount; i++) {
+        if (scopes[i] == XR_SPATIAL_PERSISTENCE_SCOPE_LOCAL_ANCHORS_EXT) {
+          state.extensions.anchorSaving = true;
+          break;
+        }
+      }
+
+      lovrFree(scopes);
+    }
   }
 
   // Actions
@@ -1058,7 +1087,6 @@ bool lovrHeadsetConnect(void) {
   }
 
   state.frameState.type = XR_TYPE_FRAME_STATE;
-  arr_init(&state.futures);
   return true;
 fail:
   disconnect();
@@ -1078,6 +1106,8 @@ const char* lovrHeadsetGetDriver(void) {
 }
 
 void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
+  features->anchor = state.extensions.spatialEntity;
+  features->anchorPersistence = state.extensions.anchorSaving;
   features->battery = state.extensions.battery;
   features->bodyTracking = state.extensions.bodyTracking;
   features->controllerModel = state.extensions.renderModel;
@@ -1105,12 +1135,12 @@ void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
 
 bool lovrHeadsetIsScannerSupported(ScannerType type) {
   XrSpatialCapabilityEXT lookup[] = {
+    [SCANNER_POINT] = XR_SPATIAL_CAPABILITY_ANCHOR_EXT,
     [SCANNER_PLANE] = XR_SPATIAL_CAPABILITY_PLANE_TRACKING_EXT,
     [SCANNER_QR] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT,
     [SCANNER_MICRO_QR] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT,
     [SCANNER_ARUCO] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT,
-    [SCANNER_APRIL] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT,
-    [SCANNER_CUSTOM] = XR_SPATIAL_CAPABILITY_ANCHOR_EXT
+    [SCANNER_APRIL] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT
   };
 
   if (!state.extensions.spatialEntity || !state.spatialCapabilities) return false;
@@ -1396,6 +1426,8 @@ bool lovrHeadsetStart(void) {
     }
   }
 
+  arr_init(&state.futures);
+
   state.showMainLayer = true;
   return true;
 
@@ -1421,6 +1453,11 @@ void lovrHeadsetStop(void) {
   state.frameState.shouldRender = XR_FALSE;
   state.lastDisplayTime = 0;
   state.epoch = 0;
+
+  for (size_t i = 0; i < state.futures.length; i++) {
+    lovrFutureDestroy(&state.futures.data[i].inner);
+  }
+  arr_free(&state.futures);
 
   lovrFree(state.refreshRates);
   state.refreshRateCount = 0;
@@ -1454,9 +1491,6 @@ void lovrHeadsetStop(void) {
       if (scanner->handle) xrDestroySpatialContextEXT(scanner->handle);
       scanner->handle = XR_NULL_HANDLE;
     }
-
-    lovrRelease(state.customScanner, lovrScannerDestroy);
-    state.customScanner = NULL;
   }
 
   if (state.extensions.renderModel) {
@@ -1690,19 +1724,12 @@ bool lovrHeadsetUpdate(void) {
     }
 
     for (size_t i = 0; i < state.futures.length; i++) {
-      Future* future = &state.futures.data[i];
-
-      bool ready = false;
-      if (!pollFuture(future->handle, &ready)) {
+      HeadsetFuture* future = &state.futures.data[i];
+      if (lovrFuturePoll(&future->inner)) {
+        bool success = future->inner.status == FUTURE_COMPLETE;
+        lovrFutureDestroy(&future->inner);
         arr_swapsplice(&state.futures, i--);
-        continue;
-      }
-
-      if (ready) {
-        arr_swapsplice(&state.futures, i--);
-        if (!future->callback(future->handle, future->context)) {
-          return false;
-        }
+        if (!success) return false;
       }
     }
   }
@@ -3423,40 +3450,181 @@ void lovrHeadsetSetButton(Device device, DeviceButton button, bool down) {
 
 // Scanner
 
-static bool lovrScannerCreateComplete(XrFutureEXT future, void* context) {
-  Scanner* scanner = context;
-  scanner->future = XR_NULL_FUTURE_EXT;
+static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEntityIdEXT id, XrSpatialEntityEXT handle) {
+  if (slot >= scanner->entityCapacity) {
+    uint32_t capacity = scanner->entityCapacity;
 
+    while (capacity <= slot) {
+      capacity = MAX(capacity * 2, 1);
+    }
+
+    scanner->anchors = lovrRealloc(scanner->anchors, capacity * sizeof(Anchor*));
+    scanner->entities = lovrRealloc(scanner->entities, capacity * sizeof(XrSpatialEntityEXT));
+    scanner->entityStates = lovrRealloc(scanner->entityStates, capacity * sizeof(XrSpatialEntityTrackingStateEXT));
+
+    for (uint32_t c = 0; c < scanner->componentCount; c++) {
+      switch (scanner->components[c]) {
+        case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT: scanner->bounds = lovrRealloc(scanner->bounds, capacity * sizeof(scanner->bounds[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT: scanner->parents = lovrRealloc(scanner->parents, capacity * sizeof(scanner->parents[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT: scanner->planeLabels = lovrRealloc(scanner->planeLabels, capacity * sizeof(scanner->planeLabels[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT: scanner->markers = lovrRealloc(scanner->markers, capacity * sizeof(scanner->markers[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT: scanner->anchorPoses = lovrRealloc(scanner->anchorPoses, capacity * sizeof(scanner->anchorPoses[0])); break;
+        default: break;
+      }
+    }
+
+    for (uint32_t s = scanner->entityCapacity; s < capacity; s++) {
+      scanner->anchors[s] = NULL;
+    }
+
+    scanner->entityCapacity = capacity;
+  }
+
+  if (scanner->anchors[slot]) {
+    lovrUnreachable();
+  }
+
+  Anchor* anchor = lovrCalloc(sizeof(Anchor));
+  anchor->ref = 1;
+  anchor->slot = slot;
+  anchor->id = id;
+  anchor->handle = handle;
+  anchor->scanner = scanner;
+  scanner->anchors[slot] = anchor;
+
+  switch (scanner->info.type) {
+    case SCANNER_POINT: anchor->type = ANCHOR_POINT; break;
+    case SCANNER_PLANE: anchor->type = ANCHOR_PLANE; break;
+    case SCANNER_QR: anchor->type = ANCHOR_MARKER; break;
+    case SCANNER_MICRO_QR: anchor->type = ANCHOR_MARKER; break;
+    case SCANNER_ARUCO: anchor->type = ANCHOR_MARKER; break;
+    case SCANNER_APRIL: anchor->type = ANCHOR_MARKER; break;
+    default: lovrUnreachable();
+  }
+
+  uint64_t hash = hash64(&id, sizeof(id));
+  scanner->entities[scanner->entityCount++] = handle;
+  map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
+
+  if (scanner->info.type != SCANNER_POINT) {
+    lovrEventPush((Event) { .type = EVENT_ANCHORFOUND, .data.anchor.anchor = anchor });
+  }
+
+  return anchor;
+}
+
+static bool onDiscoverySnapshotCreated(XrFutureEXT future, void* context, bool* chained) {
+  Scanner* scanner = context;
+
+  // When a Scanner is created with { load = true }, it does an initial discovery scan that loads
+  // existing anchors from storage.  These scans need to query the PERSISTENCE component to get ids.
+  bool load = future == scanner->future.handle;
+
+  XrCreateSpatialDiscoverySnapshotCompletionInfoEXT completionInfo = {
+    .type = XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_INFO_EXT,
+    .baseSpace = state.referenceSpace,
+    .time = state.frameState.predictedDisplayTime,
+    .future = future
+  };
+
+  XrCreateSpatialDiscoverySnapshotCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_EXT };
+  XR(xrCreateSpatialDiscoverySnapshotCompleteEXT(scanner->handle, &completionInfo, &completion), "xrCreateSpatialDiscoverySnapshotCompleteEXT");
+  XR(completion.futureResult, "xrCreateSpatialDiscoverySnapshotAsyncEXT future");
+
+  XrSpatialSnapshotEXT snapshot = completion.snapshot;
+  XrSpatialComponentDataQueryConditionEXT condition = { .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_CONDITION_EXT };
+  XrSpatialComponentPersistenceListEXT persistenceList = { .type = XR_TYPE_SPATIAL_COMPONENT_PERSISTENCE_LIST_EXT };
+  XrSpatialPersistenceDataEXT* persistenceData = NULL;
+  XrSpatialComponentDataQueryResultEXT data = {
+    .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_RESULT_EXT,
+    .entityIdCapacityInput = scanner->idCapacity,
+    .entityIds = scanner->entityIds
+  };
+
+  XrResult result = xrQuerySpatialComponentDataEXT(snapshot, &condition, &data);
+
+  if (data.entityIdCountOutput > scanner->idCapacity) {
+    scanner->idCapacity = data.entityIdCapacityInput = data.entityIdCountOutput;
+    scanner->entityIds = data.entityIds = lovrRealloc(scanner->entityIds, scanner->idCapacity * sizeof(XrSpatialEntityIdEXT));
+
+    XrSpatialComponentTypeEXT persistence = XR_SPATIAL_COMPONENT_TYPE_PERSISTENCE_EXT;
+
+    if (load) {
+      condition.componentTypeCount = 1;
+      condition.componentTypes = &persistence;
+      persistenceData = lovrMalloc(data.entityIdCountOutput * sizeof(XrSpatialPersistenceDataEXT));
+      persistenceList.persistDataCount = data.entityIdCountOutput;
+      persistenceList.persistData = persistenceData;
+      persistenceList.next = data.next;
+      data.next = &persistenceList;
+    }
+
+    result = xrQuerySpatialComponentDataEXT(snapshot, &condition, &data);
+  }
+
+  xrDestroySpatialSnapshotEXT(snapshot);
+  XR(result, "xrQuerySpatialComponentDataEXT");
+
+  uint32_t slot = 0;
+  for (uint32_t i = 0; i < data.entityIdCountOutput; i++) {
+    XrSpatialEntityIdEXT id = scanner->entityIds[i];
+    uint64_t hash = hash64(&id, sizeof(id));
+    uint64_t entry = map_get(&scanner->anchorLookup, hash);
+    if (entry != MAP_NIL) continue;
+
+    // Find an unused anchor slot to reuse, if possible
+    while (slot < scanner->entityCapacity && scanner->anchors[slot]) {
+      slot++;
+    }
+
+    XrSpatialEntityEXT handle;
+    XrSpatialEntityFromIdCreateInfoEXT info = { .type = XR_TYPE_SPATIAL_ENTITY_FROM_ID_CREATE_INFO_EXT, .entityId = id };
+    XR(xrCreateSpatialEntityFromIdEXT(scanner->handle, &info, &handle), "xrCreateSpatialEntityFromIdEXT");
+
+    Anchor* anchor = lovrScannerAddAnchor(scanner, slot, id, handle);
+
+    if (load) {
+      anchor->uuid = persistenceData[i].persistUuid;
+      anchor->saved = true;
+    }
+  }
+
+  lovrFree(persistenceData);
+
+  return true;
+}
+
+static bool onSpatialContextCreated(XrFutureEXT future, void* context, bool* chained) {
+  Scanner* scanner = context;
   XrCreateSpatialContextCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_CONTEXT_COMPLETION_EXT };
   XR(xrCreateSpatialContextCompleteEXT(state.session, future, &completion), "xrCreateSpatialContextCompleteEXT");
   XR(completion.futureResult, "xrCreateSpatialContextAsyncEXT future");
   scanner->handle = completion.spatialContext;
 
-  // If any custom anchors were created before the custom scanner was ready, finish creating them
-  if (scanner == state.customScanner) {
-    XrSpatialAnchorCreateInfoEXT anchorInfo = {
-      .type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,
-      .baseSpace = state.referenceSpace,
-      .time = state.frameState.predictedDisplayTime
-    };
-
-    for (uint32_t i = 0; i < scanner->entityCount; i++) {
-      Anchor* anchor = scanner->anchors[i];
-      vec3_init(&anchorInfo.pose.position.x, anchor->position);
-      quat_init(&anchorInfo.pose.orientation.x, anchor->orientation);
-      XR(xrCreateSpatialAnchorEXT(scanner->handle, &anchorInfo, &anchor->id, &anchor->handle), "xrCreateSpatialAnchorEXT");
-      uint64_t hash = hash64(&anchor->id, sizeof(anchor->id));
-      map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
-      scanner->entities[i] = anchor->handle;
-    }
+  // If the scanner has storage enabled, do an initial discovery scan to load anchors from storage
+  if (scanner->info.storage && scanner->storage) {
+    XrSpatialDiscoverySnapshotCreateInfoEXT info = { .type = XR_TYPE_SPATIAL_DISCOVERY_SNAPSHOT_CREATE_INFO_EXT };
+    XR(xrCreateSpatialDiscoverySnapshotAsyncEXT(scanner->handle, &info, &future), "xrCreateSpatialDiscoverySnapshotAsyncEXT");
+    initFuture(&scanner->future, future, onDiscoverySnapshotCreated, scanner);
+    *chained = true;
   }
 
   return true;
 }
 
-Scanner* lovrScannerCreate(ScannerInfo* info) {
-  lovrAssert(state.session, "A headset session must be active to create a Scanner");
-  lovrCheck(lovrHeadsetIsScannerSupported(info->type), "This scanner type is not supported");
+// Creates the spatial context once the persistence context is ready.  If the scanner didn't need a
+// persistence context, then future/chained will be NULL.
+static bool onPersistenceContextCreated(XrFutureEXT future, void* context, bool* chained) {
+  Scanner* scanner = context;
+  ScannerInfo* info = &scanner->info;
+
+  if (future) {
+    XrCreateSpatialPersistenceContextCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_PERSISTENCE_CONTEXT_COMPLETION_EXT };
+    XR(xrCreateSpatialPersistenceContextCompleteEXT(state.session, future, &completion), "xrCreateSpatialPersistenceContextCompleteEXT");
+    XR(completion.futureResult, "xrCreateSpatialPersistenceContextAsyncEXT future");
+    scanner->storage = completion.persistenceContext;
+  }
 
   XrSpatialCapabilityConfigurationBaseHeaderEXT base = { 0 };
   XrSpatialCapabilityConfigurationArucoMarkerEXT arucoConfig = { .type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT };
@@ -3510,42 +3678,12 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
         default: break;
       }
       break;
-    case SCANNER_CUSTOM:
+    case SCANNER_POINT:
       base.type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT;
       base.capability = XR_SPATIAL_CAPABILITY_ANCHOR_EXT;
       break;
     default: lovrUnreachable();
   }
-
-  // Components
-  XrSpatialCapabilityComponentTypesEXT componentInfo = { .type = XR_TYPE_SPATIAL_CAPABILITY_COMPONENT_TYPES_EXT };
-  XR(xrEnumerateSpatialCapabilityComponentTypesEXT(state.instance, state.system, header->capability, &componentInfo), "xrEnumerateSpatialCapabilityComponentTypesEXT");
-  uint32_t componentCount = componentInfo.componentTypeCapacityInput = componentInfo.componentTypeCountOutput;
-  XrSpatialComponentTypeEXT* components = componentInfo.componentTypes = lovrMalloc(componentCount * sizeof(XrSpatialComponentTypeEXT));
-  XR(xrEnumerateSpatialCapabilityComponentTypesEXT(state.instance, state.system, header->capability, &componentInfo), "xrEnumerateSpatialCapabilityComponentTypesEXT");
-
-  // Make a list of components we care about
-  for (uint32_t i = 0; i < componentCount; i++) {
-    switch (components[i]) {
-      case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT:
-        break;
-      default:;
-        XrSpatialComponentTypeEXT temp = components[componentCount - 1];
-        components[componentCount - 1] = components[i];
-        components[i] = temp;
-        componentCount--;
-        i--;
-        break;
-    }
-  }
-
-  header->enabledComponents = components;
-  header->enabledComponentCount = componentCount;
 
   // Features
   uint32_t featureCount;
@@ -3580,41 +3718,99 @@ Scanner* lovrScannerCreate(ScannerInfo* info) {
 
   lovrFree(features);
 
-  // Create the context asynchronously
+  // Components
+  XrSpatialCapabilityComponentTypesEXT componentInfo = { .type = XR_TYPE_SPATIAL_CAPABILITY_COMPONENT_TYPES_EXT };
+  XR(xrEnumerateSpatialCapabilityComponentTypesEXT(state.instance, state.system, header->capability, &componentInfo), "xrEnumerateSpatialCapabilityComponentTypesEXT");
+  uint32_t componentCount = componentInfo.componentTypeCapacityInput = componentInfo.componentTypeCountOutput;
+  XrSpatialComponentTypeEXT* components = componentInfo.componentTypes = lovrMalloc((componentCount + 1) * sizeof(XrSpatialComponentTypeEXT));
+  XR(xrEnumerateSpatialCapabilityComponentTypesEXT(state.instance, state.system, header->capability, &componentInfo), "xrEnumerateSpatialCapabilityComponentTypesEXT");
+
+  // Make a list of components we care about
+  for (uint32_t i = 0; i < componentCount; i++) {
+    switch (components[i]) {
+      case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT:
+      case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
+      case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
+      case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
+      case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT:
+      case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT:
+        break;
+      default:;
+        XrSpatialComponentTypeEXT temp = components[componentCount - 1];
+        components[componentCount - 1] = components[i];
+        components[i] = temp;
+        componentCount--;
+        i--;
+        break;
+    }
+  }
+
+  header->enabledComponentCount = componentCount;
+  header->enabledComponents = components;
+  scanner->componentCount = componentCount;
+  scanner->components = components;
+
+  // Spatial Context
   XrSpatialContextCreateInfoEXT createInfo = {
     .type = XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT,
     .capabilityConfigCount = 1,
     .capabilityConfigs = (const XrSpatialCapabilityConfigurationBaseHeaderEXT*[1]) { header }
   };
 
-  XrFutureEXT future;
-  XR(xrCreateSpatialContextAsyncEXT(state.session, &createInfo, &future), "xrCreateSpatialContextAsyncEXT");
+  // Persistence Context
+  XrSpatialContextPersistenceConfigEXT persistenceConfig = {
+    .type = XR_TYPE_SPATIAL_CONTEXT_PERSISTENCE_CONFIG_EXT,
+    .persistenceContextCount = 1,
+    .persistenceContexts = &scanner->storage
+  };
 
-  // Scanner
+  if (scanner->storage) {
+    // Enable the PERSISTENCE component on the scanner, but keep the scanner's component count the
+    // same, since PERSISTENCE is only needed for the initial scan that loads anchors from storage,
+    // not for other scans/updates.
+    components[header->enabledComponentCount++] = XR_SPATIAL_COMPONENT_TYPE_PERSISTENCE_EXT;
+    persistenceConfig.next = createInfo.next;
+    createInfo.next = &persistenceConfig;
+  }
+
+  XR(xrCreateSpatialContextAsyncEXT(state.session, &createInfo, &future), "xrCreateSpatialContextAsyncEXT");
+  initFuture(&scanner->future, future, onSpatialContextCreated, scanner);
+  if (chained) *chained = true;
+  return true;
+}
+
+Future* lovrScannerCreate(ScannerInfo* info) {
+  lovrAssert(state.session, "A headset session must be active to create a Scanner");
+  lovrCheck(lovrHeadsetIsScannerSupported(info->type), "This scanner type is not supported");
+
   Scanner* scanner = lovrCalloc(sizeof(Scanner));
   scanner->ref = 1;
-  scanner->type = info->type;
-  scanner->handle = XR_NULL_HANDLE;
-  scanner->future = future;
-  scanner->components = components;
-  scanner->componentCount = componentCount;
+  scanner->info = *info;
   map_init(&scanner->anchorLookup, 0);
   scanner->next = state.scanners;
   state.scanners = scanner;
 
-  return scanner;
+  if (info->type == SCANNER_POINT && info->storage && state.extensions.anchorLoading) {
+    XrSpatialPersistenceContextCreateInfoEXT contextInfo = {
+      .type = XR_TYPE_SPATIAL_PERSISTENCE_CONTEXT_CREATE_INFO_EXT,
+      .scope = XR_SPATIAL_PERSISTENCE_SCOPE_LOCAL_ANCHORS_EXT
+    };
+
+    XrFutureEXT future;
+    XRG(xrCreateSpatialPersistenceContextAsyncEXT(state.session, &contextInfo, &future), "xrCreateSpatialPersistenceContextAsyncEXT", fail);
+    initFuture(&scanner->future, future, onPersistenceContextCreated, scanner);
+  } else if (!onPersistenceContextCreated(XR_NULL_FUTURE_EXT, scanner, NULL)) {
+    goto fail;
+  }
+
+  return &scanner->future.inner;
+fail:
+  lovrFree(scanner);
+  return NULL;
 }
 
-bool lovrScannerPollCreate(Scanner* scanner, bool* ready) {
-  if (!pollFuture(scanner->future, ready)) {
-    return false;
-  }
-
-  if (*ready && !lovrScannerCreateComplete(scanner->future, scanner)) {
-    return false;
-  }
-
-  return true;
+Scanner* lovrScannerCreateComplete(Future* future) {
+  return ((HeadsetFuture*) future)->context;
 }
 
 void lovrScannerDestroy(void* ref) {
@@ -3642,7 +3838,7 @@ void lovrScannerDestroy(void* ref) {
   map_free(&scanner->anchorLookup);
 
   if (scanner->handle) xrDestroySpatialContextEXT(scanner->handle);
-  if (scanner->future) cancelFuture(scanner->future);
+  if (scanner->storage) xrDestroySpatialPersistenceContextEXT(scanner->storage);
 
   lovrFree(scanner->components);
   lovrFree(scanner->anchors);
@@ -3659,159 +3855,27 @@ void lovrScannerDestroy(void* ref) {
 }
 
 ScannerType lovrScannerGetType(Scanner* scanner) {
-  return scanner->type;
+  return scanner->info.type;
 }
 
-static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEntityIdEXT id, XrSpatialEntityEXT handle) {
-  if (slot >= scanner->entityCapacity) {
-    uint32_t capacity = scanner->entityCapacity;
-
-    while (capacity <= slot) {
-      capacity = MAX(capacity * 2, 1);
-    }
-
-    scanner->anchors = lovrRealloc(scanner->anchors, capacity * sizeof(Anchor*));
-    scanner->entities = lovrRealloc(scanner->entities, capacity * sizeof(XrSpatialEntityEXT));
-    scanner->entityStates = lovrRealloc(scanner->entityStates, capacity * sizeof(XrSpatialEntityTrackingStateEXT));
-
-    for (uint32_t c = 0; c < scanner->componentCount; c++) {
-      switch (scanner->components[c]) {
-        case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT: scanner->bounds = lovrRealloc(scanner->bounds, capacity * sizeof(scanner->bounds[0])); break;
-        case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT: scanner->parents = lovrRealloc(scanner->parents, capacity * sizeof(scanner->parents[0])); break;
-        case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
-        case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT: scanner->planeLabels = lovrRealloc(scanner->planeLabels, capacity * sizeof(scanner->planeLabels[0])); break;
-        case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT: scanner->markers = lovrRealloc(scanner->markers, capacity * sizeof(scanner->markers[0])); break;
-        case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT: scanner->anchorPoses = lovrRealloc(scanner->anchorPoses, capacity * sizeof(scanner->anchorPoses[0])); break;
-        default: break;
-      }
-    }
-
-    for (uint32_t s = scanner->entityCapacity; s < capacity; s++) {
-      scanner->anchors[s] = NULL;
-    }
-
-    scanner->entityCapacity = capacity;
-  }
-
-  if (scanner->anchors[slot]) {
-    lovrUnreachable();
-  }
-
-  Anchor* anchor = lovrCalloc(sizeof(Anchor));
-  anchor->ref = 1;
-  anchor->slot = slot;
-  anchor->id = id;
-  anchor->handle = handle;
-  anchor->scanner = scanner;
-  scanner->anchors[slot] = anchor;
-
-  switch (scanner->type) {
-    case SCANNER_PLANE: anchor->type = ANCHOR_PLANE; break;
-    case SCANNER_QR: anchor->type = ANCHOR_MARKER; break;
-    case SCANNER_MICRO_QR: anchor->type = ANCHOR_MARKER; break;
-    case SCANNER_ARUCO: anchor->type = ANCHOR_MARKER; break;
-    case SCANNER_APRIL: anchor->type = ANCHOR_MARKER; break;
-    case SCANNER_CUSTOM: anchor->type = ANCHOR_CUSTOM; break;
-    default: lovrUnreachable();
-  }
-
-  // Custom anchors can be added without ids/handles if they are created before the scanner is ready
-  if (id && handle) {
-    uint64_t hash = hash64(&id, sizeof(id));
-    scanner->entities[scanner->entityCount++] = handle;
-    map_set(&scanner->anchorLookup, hash, (uint64_t) (uintptr_t) anchor);
-  } else {
-    scanner->entityCount++;
-  }
-
-  if (scanner->type != SCANNER_CUSTOM) {
-    lovrEventPush((Event) { .type = EVENT_ANCHORFOUND, .data.anchor.anchor = anchor });
-  }
-
-  return anchor;
-}
-
-static bool lovrScannerScanComplete(XrFutureEXT future, void* context) {
-  Scanner* scanner = context;
-
-  XrCreateSpatialDiscoverySnapshotCompletionInfoEXT completionInfo = {
-    .type = XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_INFO_EXT,
-    .baseSpace = state.referenceSpace,
-    .time = state.frameState.predictedDisplayTime,
-    .future = future
-  };
-
-  XrCreateSpatialDiscoverySnapshotCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_EXT };
-  XR(xrCreateSpatialDiscoverySnapshotCompleteEXT(scanner->handle, &completionInfo, &completion), "xrCreateSpatialDiscoverySnapshotCompleteEXT");
-  XR(completion.futureResult, "xrCreateSpatialDiscoverySnapshotAsyncEXT future");
-
-  XrSpatialSnapshotEXT snapshot = completion.snapshot;
-  XrSpatialComponentDataQueryConditionEXT condition = { .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_CONDITION_EXT };
-  XrSpatialComponentDataQueryResultEXT data = {
-    .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_RESULT_EXT,
-    .entityIdCapacityInput = scanner->idCapacity,
-    .entityIds = scanner->entityIds
-  };
-
-  XrResult result = xrQuerySpatialComponentDataEXT(snapshot, &condition, &data);
-
-  if (data.entityIdCountOutput > scanner->idCapacity) {
-    scanner->idCapacity = data.entityIdCapacityInput = data.entityIdCountOutput;
-    scanner->entityIds = data.entityIds = lovrRealloc(scanner->entityIds, scanner->idCapacity * sizeof(XrSpatialEntityIdEXT));
-    result = xrQuerySpatialComponentDataEXT(snapshot, &condition, &data);
-  }
-
-  xrDestroySpatialSnapshotEXT(snapshot);
-  XR(result, "xrQuerySpatialComponentDataEXT");
-
-  uint32_t slot = 0;
-  for (uint32_t i = 0; i < data.entityIdCountOutput; i++) {
-    XrSpatialEntityIdEXT id = scanner->entityIds[i];
-    uint64_t hash = hash64(&id, sizeof(id));
-    uint64_t entry = map_get(&scanner->anchorLookup, hash);
-    if (entry != MAP_NIL) continue;
-
-    // Find an unused anchor slot to reuse, if possible
-    while (slot < scanner->entityCapacity && scanner->anchors[slot]) {
-      slot++;
-    }
-
-    XrSpatialEntityEXT handle;
-    XrSpatialEntityFromIdCreateInfoEXT info = { .type = XR_TYPE_SPATIAL_ENTITY_FROM_ID_CREATE_INFO_EXT, .entityId = id };
-    XR(xrCreateSpatialEntityFromIdEXT(scanner->handle, &info, &handle), "xrCreateSpatialEntityFromIdEXT");
-
-    lovrScannerAddAnchor(scanner, slot, id, handle);
-  }
-
-  return true;
-}
-
-bool lovrScannerScan(Scanner* scanner, uintptr_t* id, bool background) {
+Future* lovrScannerScan(Scanner* scanner, bool background) {
   lovrCheck(scanner->handle, "Scanner has been destroyed");
 
-  XrFutureEXT future;
+  XrFutureEXT handle;
   XrSpatialDiscoverySnapshotCreateInfoEXT createInfo = { .type = XR_TYPE_SPATIAL_DISCOVERY_SNAPSHOT_CREATE_INFO_EXT };
-  XR(xrCreateSpatialDiscoverySnapshotAsyncEXT(scanner->handle, &createInfo, &future), "xrCreateSpatialDiscoverySnapshotAsyncEXT");
+  XR(xrCreateSpatialDiscoverySnapshotAsyncEXT(scanner->handle, &createInfo, &handle), "xrCreateSpatialDiscoverySnapshotAsyncEXT");
+
+  HeadsetFuture* future;
 
   if (background) {
-    addFuture(future, lovrScannerScanComplete, scanner);
-    return true;
+    arr_expand(&state.futures, 1);
+    future = &state.futures.data[state.futures.length++];
   } else {
-    *id = (uintptr_t) future;
-    return true;
-  }
-}
-
-bool lovrScannerPollScan(Scanner* scanner, uintptr_t future, bool* ready) {
-  if (!pollFuture((XrFutureEXT) future, ready)) {
-    return false;
+    future = lovrCalloc(sizeof(HeadsetFuture)); // TODO who frees this?
   }
 
-  if (*ready && !lovrScannerScanComplete((XrFutureEXT) future, scanner)) {
-    return false;
-  }
-
-  return true;
+  initFuture(future, handle, onDiscoverySnapshotCreated, scanner);
+  return &future->inner;
 }
 
 Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor) {
@@ -4011,6 +4075,8 @@ bool lovrScannerUpdate(Scanner* scanner) {
             u32[i] = u16[i];
           }
 
+          anchor->vertexBuffer = mesh->vertexBuffer.bufferId;
+
           break;
         }
         case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
@@ -4164,44 +4230,97 @@ const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length) {
   return anchor->label;
 }
 
-CustomAnchor* lovrCustomAnchorCreate(float* position, float* orientation) {
+PointAnchor* lovrPointAnchorCreate(Scanner* scanner, float* position, float* orientation) {
   lovrAssert(state.session, "A headset session must be active to create an Anchor");
-  lovrCheck(lovrHeadsetIsScannerSupported(SCANNER_CUSTOM), "This headset doesn't support custom anchors");
+  lovrCheck(scanner->info.type == SCANNER_POINT, "Invalid scanner type (only point scanners can create anchors)");
 
-  if (!state.customScanner) {
-    ScannerInfo info = { .type = SCANNER_CUSTOM };
-    state.customScanner = lovrScannerCreate(&info);
-    if (!state.customScanner) return NULL;
-  }
+  XrSpatialAnchorCreateInfoEXT info = {
+    .type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,
+    .baseSpace = state.referenceSpace,
+    .time = state.frameState.predictedDisplayTime,
+    .pose.position = { position[0], position[1], position[2] },
+    .pose.orientation = { orientation[0], orientation[1], orientation[2], orientation[3] }
+  };
 
-  Scanner* scanner = state.customScanner;
-  Anchor* anchor;
-
-  if (scanner->handle) {
-    XrSpatialAnchorCreateInfoEXT info = {
-      .type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,
-      .baseSpace = state.referenceSpace,
-      .time = state.frameState.predictedDisplayTime,
-      .pose.position = { position[0], position[1], position[2] },
-      .pose.orientation = { orientation[0], orientation[1], orientation[2], orientation[3] }
-    };
-
-    XrSpatialEntityIdEXT id;
-    XrSpatialEntityEXT handle;
-    XR(xrCreateSpatialAnchorEXT(scanner->handle, &info, &id, &handle), "xrCreateSpatialAnchorEXT");
-    anchor = lovrScannerAddAnchor(scanner, scanner->entityCount, id, handle);
-  } else {
-    // If the Scanner isn't ready yet, create a placeholder anchor and store the pose there.  Once
-    // the scanner is ready, it creates real anchors for all the placeholders.
-    anchor = lovrScannerAddAnchor(scanner, scanner->entityCount, XR_NULL_SPATIAL_ENTITY_ID_EXT, XR_NULL_HANDLE);
-    vec3_init(anchor->position, position);
-    quat_init(anchor->orientation, orientation);
-
-    // The Anchor shouldn't be inactive when it's first created, it should just be untracked
-    anchor->status = XR_SPATIAL_ENTITY_TRACKING_STATE_PAUSED_EXT;
-  }
-
+  XrSpatialEntityIdEXT id;
+  XrSpatialEntityEXT handle;
+  XR(xrCreateSpatialAnchorEXT(scanner->handle, &info, &id, &handle), "xrCreateSpatialAnchorEXT");
+  Anchor* anchor = lovrScannerAddAnchor(scanner, scanner->entityCount, id, handle);
   return anchor;
+}
+
+static bool onAnchorSaved(XrFutureEXT future, void* context, bool* chained) {
+  Anchor* anchor = context;
+  XrPersistSpatialEntityCompletionEXT completion = { .type = XR_TYPE_PERSIST_SPATIAL_ENTITY_COMPLETION_EXT };
+  XR(xrPersistSpatialEntityCompleteEXT(anchor->scanner->storage, future, &completion), "xrPersistSpatialEntityCompleteEXT");
+  XR(completion.futureResult, "xrPersistSpatialEntityAsyncEXT future");
+
+  if (completion.persistResult == XR_SPATIAL_PERSISTENCE_CONTEXT_RESULT_ENTITY_NOT_TRACKING_EXT) {
+    return lovrSetError("not tracking");
+  } else if (completion.persistResult < 0) {
+    return lovrSetError("unknown error");
+  }
+
+  anchor->uuid = completion.persistUuid;
+  anchor->saved = true;
+
+  return true;
+}
+
+Future* lovrPointAnchorSave(PointAnchor* anchor) {
+  lovrCheck(anchor->scanner && anchor->scanner->storage, "Scanner must be created with 'storage' flag to save anchors");
+
+  XrSpatialEntityPersistInfoEXT info = {
+    .type = XR_TYPE_SPATIAL_ENTITY_PERSIST_INFO_EXT,
+    .spatialContext = anchor->scanner->handle,
+    .spatialEntityId = anchor->id
+  };
+
+  XrFutureEXT handle;
+  XR(xrPersistSpatialEntityAsyncEXT(anchor->scanner->storage, &info, &handle), "xrPersistSpatialEntityAsyncEXT");
+
+  HeadsetFuture* future = lovrMalloc(sizeof(HeadsetFuture)); // TODO who frees this?
+  initFuture(future, handle, onAnchorSaved, anchor);
+  return &future->inner;
+}
+
+static bool onAnchorDeleted(XrFutureEXT future, void* context, bool* chained) {
+  Anchor* anchor = context;
+  XrUnpersistSpatialEntityCompletionEXT completion = { .type = XR_TYPE_UNPERSIST_SPATIAL_ENTITY_COMPLETION_EXT };
+  XR(xrUnpersistSpatialEntityCompleteEXT(anchor->scanner->storage, future, &completion), "xrUnpersistSpatialEntityCompleteEXT");
+  XR(completion.futureResult, "xrUnpersistSpatialEntityAsyncEXT future");
+
+  if (completion.unpersistResult == XR_SPATIAL_PERSISTENCE_CONTEXT_RESULT_PERSIST_UUID_NOT_FOUND_EXT) {
+    return lovrSetError("not found");
+  } else if (completion.unpersistResult < 0) {
+    return lovrSetError("unknown error");
+  }
+
+  anchor->saved = false;
+  return true;
+}
+
+Future* lovrPointAnchorDelete(PointAnchor* anchor) {
+  lovrCheck(anchor->scanner && anchor->scanner->storage, "Scanner must be created with 'storage' flag to delete anchors");
+  lovrCheck(anchor->saved, "not saved");
+
+  XrSpatialEntityUnpersistInfoEXT info = {
+    .type = XR_TYPE_SPATIAL_ENTITY_UNPERSIST_INFO_EXT,
+    .persistUuid = anchor->uuid
+  };
+
+  XrFutureEXT handle;
+  XR(xrUnpersistSpatialEntityAsyncEXT(anchor->scanner->storage, &info, &handle), "xrUnpersistSpatialEntityAsyncEXT");
+
+  HeadsetFuture* future = lovrMalloc(sizeof(HeadsetFuture)); // TODO who frees this?
+  initFuture(future, handle, onAnchorDeleted, anchor);
+  return &future->inner;
+}
+
+const uint8_t* lovrPointAnchorGetID(PointAnchor* anchor, size_t* length) {
+  if (!anchor->saved) return NULL;
+  *length = sizeof(anchor->uuid);
+  return anchor->uuid.data;
 }
 
 // Layer
@@ -4691,28 +4810,8 @@ static bool lovrSwapchainRelease(Swapchain* swapchain) {
   return true;
 }
 
-static void addFuture(XrFutureEXT future, bool (*callback)(XrFutureEXT future, void* context), void* context) {
-  arr_push(&state.futures, ((Future) { future, callback, context }));
-}
-
-static bool pollFuture(XrFutureEXT future, bool* ready) {
-  XrFuturePollInfoEXT info = { .type = XR_TYPE_FUTURE_POLL_INFO_EXT, .future = future };
-  XrFuturePollResultEXT result = { .type = XR_TYPE_FUTURE_POLL_RESULT_EXT };
-  XR(xrPollFutureEXT(state.instance, &info, &result), "xrPollFutureEXT");
-  *ready = result.state == XR_FUTURE_STATE_READY_EXT;
-  return true;
-}
-
-static void cancelFuture(XrFutureEXT future) {
-  xrCancelFutureEXT(state.instance, &(XrFutureCancelInfoEXT) {
-    .type = XR_TYPE_FUTURE_CANCEL_INFO_EXT,
-    .future = future
-  });
-}
-
 static void disconnect(void) {
   lovrHeadsetStop();
-  arr_free(&state.futures);
   lovrFree(state.spatialCapabilities);
   if (state.actionSet) xrDestroyActionSet(state.actionSet);
   if (state.messenger) xrDestroyDebugUtilsMessengerEXT(state.messenger);
@@ -5218,6 +5317,57 @@ static bool loadVisibilityMask(void) {
   lovrMeshSetDrawRange(state.mask, 0, indexCount);
 
   return true;
+}
+
+static bool pollFuture(Future* future, bool* ready) {
+  HeadsetFuture* parent = (HeadsetFuture*) future;
+  XrFuturePollInfoEXT info = { .type = XR_TYPE_FUTURE_POLL_INFO_EXT, .future = parent->handle };
+  XrFuturePollResultEXT result = { .type = XR_TYPE_FUTURE_POLL_RESULT_EXT };
+  XR(xrPollFutureEXT(state.instance, &info, &result), "xrPollFutureEXT");
+
+  if (result.state == XR_FUTURE_STATE_READY_EXT) {
+    bool chained = false;
+
+    // The callback can chain another future by setting chained to true and reinitializing this HeadsetFuture.
+    if (!parent->callback(parent->handle, parent->context, &chained)) {
+      return false;
+    }
+
+    *ready = !chained;
+    return true;
+  } else if (result.state == XR_FUTURE_STATE_PENDING_EXT) {
+    *ready = false;
+    return true;
+  } else {
+    return lovrSetError("Invalid future");
+  }
+}
+
+static bool waitFuture(Future* future) {
+  for (;;) {
+    bool ready = false;
+    if (!pollFuture(future, &ready)) {
+      return false;
+    }
+
+    if (ready) {
+      return true;
+    } else {
+      os_sleep(.05); // :( no way to wait for futures, and also they aren't guaranteed to complete
+    }
+  }
+}
+
+static FutureCallbacks futureCallbacks = {
+  .poll = pollFuture,
+  .wait = waitFuture
+};
+
+static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void* context) {
+  lovrFutureInit(&future->inner, &futureCallbacks);
+  future->handle = handle;
+  future->callback = callback;
+  future->context = context;
 }
 
 #ifdef _WIN32

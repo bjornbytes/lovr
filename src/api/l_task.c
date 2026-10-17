@@ -126,6 +126,43 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
   return lua_yield(L, 0);
 }
 
+static bool pollFuture(void** context, bool* ready) {
+  Future* future = *context;
+  if (!lovrFuturePoll(future)) {
+    *ready = false;
+    return true;
+  } else {
+    *ready = true;
+    return future->status == FUTURE_COMPLETE;
+  }
+}
+
+static bool waitFuture(void** context) {
+  return lovrFutureWait(*context);
+}
+
+int luax_yieldfuture(lua_State* L, Future* future, fn_continuation* continuation) {
+  Task* task = luax_getthreaddata(L);
+
+  if (!task) {
+    if (lovrFutureWait(future)) {
+      int n = continuation ? continuation(L, true, future) : 0;
+      lovrFutureDestroy(future);
+      return n;
+    } else {
+      if (continuation) continuation(L, false, future);
+      lua_pushstring(L, future->error);
+      lovrFutureDestroy(future);
+      return lua_error(L);
+    }
+  }
+
+  // TODO task module understands futures natively?
+  lovrTaskWaitPoll(task, pollFuture, waitFuture, continuation, future);
+  luax_pintask(L, task);
+  return lua_yield(L, 0);
+}
+
 static int luax_runtask(Task* task, int n) {
   lua_State* T = task->T;
 
