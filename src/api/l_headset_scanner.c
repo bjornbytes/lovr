@@ -8,21 +8,10 @@ static int l_lovrScannerGetType(lua_State* L) {
   return 1;
 }
 
-static bool luax_pollfuture(void** context, bool* ready) {
-  Future* future = *context;
-  if (!lovrFuturePoll(future)) {
-    *ready = false;
-    return true;
-  }
-  *ready = true;
-  return future->status == FUTURE_COMPLETE;
-}
-
 static int l_lovrScannerScan(lua_State* L) {
   Scanner* scanner = luax_checktype(L, 1, Scanner);
   if (luax_getthreaddata(L)) {
-    Future* future = lovrScannerScan(scanner, false);
-    return luax_yieldpoll(L, luax_pollfuture, NULL, NULL, future);
+    return luax_yieldfuture(L, lovrScannerScan(scanner, false), NULL);
   } else {
     lovrScannerScan(scanner, true);
     return 0;

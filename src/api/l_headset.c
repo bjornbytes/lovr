@@ -1017,7 +1017,6 @@ static int luax_pushscanner(lua_State* L, bool success, void* future) {
   if (!success) return 0;
   Scanner* scanner = lovrScannerCreateComplete(future);
   luax_pushtype(L, Scanner, scanner);
-  lovrRelease(scanner, lovrScannerDestroy);
   return true;
 }
 
@@ -1052,10 +1051,7 @@ static int l_lovrHeadsetNewScanner(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  Future* future = lovrScannerCreate(&info);
-  luax_assert(L, future);
-
-  return luax_yieldfuture(L, future, luax_pushscanner);
+  return luax_yieldfuture(L, lovrScannerCreate(&info), luax_pushscanner);
 }
 
 static int l_lovrHeadsetNewLayer(lua_State* L) {

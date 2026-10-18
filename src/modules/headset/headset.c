@@ -210,11 +210,13 @@ typedef struct {
   bool acquired;
 } Swapchain;
 
-typedef struct {
+typedef struct HeadsetFuture {
   Future inner;
   XrFutureEXT handle;
   bool (*callback)(XrFutureEXT future, void* context, bool* chained);
   void* context;
+  void (*destructor)(void* ref);
+  bool heap;
 } HeadsetFuture;
 
 struct Scanner {
@@ -458,7 +460,7 @@ static XrHandTrackerEXT getHandTracker(Device device);
 static XrBodyTrackerBD getBodyTracker(void);
 static bool loadControllerModels(void);
 static bool loadVisibilityMask(void);
-static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void* context);
+static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void* context, void (*destructor)(void*), bool heap);
 
 // Entry
 
@@ -3606,7 +3608,7 @@ static bool onSpatialContextCreated(XrFutureEXT future, void* context, bool* cha
   if (scanner->info.storage && scanner->storage) {
     XrSpatialDiscoverySnapshotCreateInfoEXT info = { .type = XR_TYPE_SPATIAL_DISCOVERY_SNAPSHOT_CREATE_INFO_EXT };
     XR(xrCreateSpatialDiscoverySnapshotAsyncEXT(scanner->handle, &info, &future), "xrCreateSpatialDiscoverySnapshotAsyncEXT");
-    initFuture(&scanner->future, future, onDiscoverySnapshotCreated, scanner);
+    initFuture(&scanner->future, future, onDiscoverySnapshotCreated, scanner, lovrScannerDestroy, false);
     *chained = true;
   }
 
@@ -3774,7 +3776,7 @@ static bool onPersistenceContextCreated(XrFutureEXT future, void* context, bool*
   }
 
   XR(xrCreateSpatialContextAsyncEXT(state.session, &createInfo, &future), "xrCreateSpatialContextAsyncEXT");
-  initFuture(&scanner->future, future, onSpatialContextCreated, scanner);
+  initFuture(&scanner->future, future, onSpatialContextCreated, scanner, lovrScannerDestroy, false);
   if (chained) *chained = true;
   return true;
 }
@@ -3798,7 +3800,7 @@ Future* lovrScannerCreate(ScannerInfo* info) {
 
     XrFutureEXT future;
     XRG(xrCreateSpatialPersistenceContextAsyncEXT(state.session, &contextInfo, &future), "xrCreateSpatialPersistenceContextAsyncEXT", fail);
-    initFuture(&scanner->future, future, onPersistenceContextCreated, scanner);
+    initFuture(&scanner->future, future, onPersistenceContextCreated, scanner, lovrScannerDestroy, false);
   } else if (!onPersistenceContextCreated(XR_NULL_FUTURE_EXT, scanner, NULL)) {
     goto fail;
   }
@@ -3866,15 +3868,18 @@ Future* lovrScannerScan(Scanner* scanner, bool background) {
   XR(xrCreateSpatialDiscoverySnapshotAsyncEXT(scanner->handle, &createInfo, &handle), "xrCreateSpatialDiscoverySnapshotAsyncEXT");
 
   HeadsetFuture* future;
+  bool heap = false;
 
   if (background) {
     arr_expand(&state.futures, 1);
     future = &state.futures.data[state.futures.length++];
   } else {
-    future = lovrCalloc(sizeof(HeadsetFuture)); // TODO who frees this?
+    future = lovrCalloc(sizeof(HeadsetFuture));
+    heap = true;
   }
 
-  initFuture(future, handle, onDiscoverySnapshotCreated, scanner);
+  initFuture(future, handle, onDiscoverySnapshotCreated, scanner, lovrScannerDestroy, heap);
+  lovrRetain(scanner);
   return &future->inner;
 }
 
@@ -4245,12 +4250,12 @@ PointAnchor* lovrPointAnchorCreate(Scanner* scanner, float* position, float* ori
   XrSpatialEntityIdEXT id;
   XrSpatialEntityEXT handle;
   XR(xrCreateSpatialAnchorEXT(scanner->handle, &info, &id, &handle), "xrCreateSpatialAnchorEXT");
-  Anchor* anchor = lovrScannerAddAnchor(scanner, scanner->entityCount, id, handle);
-  return anchor;
+  return lovrScannerAddAnchor(scanner, scanner->entityCount, id, handle);
 }
 
 static bool onAnchorSaved(XrFutureEXT future, void* context, bool* chained) {
   Anchor* anchor = context;
+  lovrAssert(anchor->scanner, "Scanner was destroyed");
   XrPersistSpatialEntityCompletionEXT completion = { .type = XR_TYPE_PERSIST_SPATIAL_ENTITY_COMPLETION_EXT };
   XR(xrPersistSpatialEntityCompleteEXT(anchor->scanner->storage, future, &completion), "xrPersistSpatialEntityCompleteEXT");
   XR(completion.futureResult, "xrPersistSpatialEntityAsyncEXT future");
@@ -4279,13 +4284,15 @@ Future* lovrPointAnchorSave(PointAnchor* anchor) {
   XrFutureEXT handle;
   XR(xrPersistSpatialEntityAsyncEXT(anchor->scanner->storage, &info, &handle), "xrPersistSpatialEntityAsyncEXT");
 
-  HeadsetFuture* future = lovrMalloc(sizeof(HeadsetFuture)); // TODO who frees this?
-  initFuture(future, handle, onAnchorSaved, anchor);
+  HeadsetFuture* future = lovrMalloc(sizeof(HeadsetFuture));
+  initFuture(future, handle, onAnchorSaved, anchor, lovrAnchorDestroy, true);
+  lovrRetain(anchor);
   return &future->inner;
 }
 
 static bool onAnchorDeleted(XrFutureEXT future, void* context, bool* chained) {
   Anchor* anchor = context;
+  lovrAssert(anchor->scanner, "Scanner was destroyed");
   XrUnpersistSpatialEntityCompletionEXT completion = { .type = XR_TYPE_UNPERSIST_SPATIAL_ENTITY_COMPLETION_EXT };
   XR(xrUnpersistSpatialEntityCompleteEXT(anchor->scanner->storage, future, &completion), "xrUnpersistSpatialEntityCompleteEXT");
   XR(completion.futureResult, "xrUnpersistSpatialEntityAsyncEXT future");
@@ -4312,8 +4319,9 @@ Future* lovrPointAnchorDelete(PointAnchor* anchor) {
   XrFutureEXT handle;
   XR(xrUnpersistSpatialEntityAsyncEXT(anchor->scanner->storage, &info, &handle), "xrUnpersistSpatialEntityAsyncEXT");
 
-  HeadsetFuture* future = lovrMalloc(sizeof(HeadsetFuture)); // TODO who frees this?
-  initFuture(future, handle, onAnchorDeleted, anchor);
+  HeadsetFuture* future = lovrMalloc(sizeof(HeadsetFuture));
+  initFuture(future, handle, onAnchorDeleted, anchor, lovrAnchorDestroy, true);
+  lovrRetain(anchor);
   return &future->inner;
 }
 
@@ -5358,16 +5366,39 @@ static bool waitFuture(Future* future) {
   }
 }
 
+static void dropFuture(Future* future) {
+  HeadsetFuture* parent = (HeadsetFuture*) future;
+
+  if (future->status == FUTURE_PENDING) {
+    XrFutureCancelInfoEXT info = { .type = XR_TYPE_FUTURE_CANCEL_INFO_EXT, .future = parent->handle };
+    xrCancelFutureEXT(state.instance, &info);
+    parent->handle = XR_NULL_FUTURE_EXT;
+  }
+
+  bool heap = parent->heap;
+
+  if (parent->destructor) {
+    lovrRelease(parent->context, parent->destructor);
+  }
+
+  if (heap) {
+    lovrFree(parent);
+  }
+}
+
 static FutureCallbacks futureCallbacks = {
   .poll = pollFuture,
-  .wait = waitFuture
+  .wait = waitFuture,
+  .drop = dropFuture
 };
 
-static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void* context) {
+static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void* context, void (*destructor)(void*), bool heap) {
   lovrFutureInit(&future->inner, &futureCallbacks);
   future->handle = handle;
   future->callback = callback;
   future->context = context;
+  future->destructor = destructor;
+  future->heap = heap;
 }
 
 #ifdef _WIN32

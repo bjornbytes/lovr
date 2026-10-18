@@ -142,7 +142,6 @@ void lovrLog(int level, const char* tag, const char* format, ...) {
 // Future
 
 Future* lovrFutureInit(Future* future, FutureCallbacks* callbacks) {
-  atomic_store(&future->ref, 1);
   future->status = FUTURE_PENDING;
   future->cb = callbacks;
   future->error = NULL;
@@ -150,8 +149,9 @@ Future* lovrFutureInit(Future* future, FutureCallbacks* callbacks) {
 }
 
 void lovrFutureDestroy(Future* future) {
-  if (future->cb->destroy) future->cb->destroy(future);
   lovrFree(future->error);
+  future->error = NULL;
+  if (future->cb->drop) future->cb->drop(future);
 }
 
 bool lovrFuturePoll(Future* future) {
@@ -169,6 +169,13 @@ bool lovrFuturePoll(Future* future) {
 }
 
 bool lovrFutureWait(Future* future) {
+  if (future->status == FUTURE_COMPLETE) {
+    return true;
+  } else if (future->status == FUTURE_FAILED) {
+    lovrSetError("%s", future->error);
+    return false;
+  }
+
   if (future->cb->wait(future)) {
     future->status = FUTURE_COMPLETE;
     return true;

@@ -173,16 +173,12 @@ static int l_lovrPointAnchorGetID(lua_State* L) {
 
 static int l_lovrPointAnchorSave(lua_State* L) {
   PointAnchor* anchor = luax_checktype(L, 1, PointAnchor);
-  Future* future = lovrPointAnchorSave(anchor);
-  luax_assert(L, future);
-  return luax_yieldfuture(L, future, NULL);
+  return luax_yieldfuture(L, lovrPointAnchorSave(anchor), NULL);
 }
 
 static int l_lovrPointAnchorDelete(lua_State* L) {
   PointAnchor* anchor = luax_checktype(L, 1, PointAnchor);
-  Future* future = lovrPointAnchorDelete(anchor);
-  luax_assert(L, future);
-  return luax_yieldfuture(L, future, NULL);
+  return luax_yieldfuture(L, lovrPointAnchorDelete(anchor), NULL);
 }
 
 const luaL_Reg lovrPointAnchor[] = {
@@ -215,7 +211,7 @@ static int l_lovrPlaneAnchorGetTriangles(lua_State* L) {
     return 1;
   }
 
-  lua_createtable(L, (int) vertexCount, 0);
+  lua_createtable(L, (int) 3 * vertexCount, 0);
   for (uint32_t i = 0; i < 3 * vertexCount; i++) {
     lua_pushnumber(L, vertices[i]);
     lua_rawseti(L, -2, (int) i + 1);

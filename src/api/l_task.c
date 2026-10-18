@@ -126,22 +126,9 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
   return lua_yield(L, 0);
 }
 
-static bool pollFuture(void** context, bool* ready) {
-  Future* future = *context;
-  if (!lovrFuturePoll(future)) {
-    *ready = false;
-    return true;
-  } else {
-    *ready = true;
-    return future->status == FUTURE_COMPLETE;
-  }
-}
-
-static bool waitFuture(void** context) {
-  return lovrFutureWait(*context);
-}
-
 int luax_yieldfuture(lua_State* L, Future* future, fn_continuation* continuation) {
+  luax_assert(L, future); // Assume NULL future was an error
+
   Task* task = luax_getthreaddata(L);
 
   if (!task) {
@@ -157,8 +144,7 @@ int luax_yieldfuture(lua_State* L, Future* future, fn_continuation* continuation
     }
   }
 
-  // TODO task module understands futures natively?
-  lovrTaskWaitPoll(task, pollFuture, waitFuture, continuation, future);
+  lovrTaskWaitFuture(task, future, continuation);
   luax_pintask(L, task);
   return lua_yield(L, 0);
 }
@@ -199,6 +185,9 @@ static int luax_runtask(Task* task, int n) {
       n += rest;
     } else {
       n = task->continuation ? task->continuation(T, !task->error, task->context) : 0;
+      if (task->waiting == WAIT_FUTURE) {
+        lovrFutureDestroy(task->context);
+      }
     }
 
     task->waiting = WAIT_NONE;
@@ -357,7 +346,7 @@ static int luax_waittask(lua_State* L, lua_State* T) {
     while (atomic_load(&task->deps) > 0) {
       job_spin();
     }
-  } else if (task->waiting == WAIT_POLL) {
+  } else if (task->waiting == WAIT_POLL || task->waiting == WAIT_FUTURE) {
     if (!task->fn(&task->context)) {
       task->error = lovrStrdup(lovrGetError());
     }

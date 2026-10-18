@@ -76,11 +76,10 @@ typedef enum { FUTURE_PENDING, FUTURE_COMPLETE, FUTURE_FAILED } FutureStatus;
 typedef struct {
   bool (*poll)(struct Future* future, bool* ready);
   bool (*wait)(struct Future* future);
-  void (*destroy)(struct Future* future);
+  void (*drop)(struct Future* future);
 } FutureCallbacks;
 
 struct Future {
-  atomic_uint ref;
   FutureStatus status;
   FutureCallbacks* cb;
   char* error;
