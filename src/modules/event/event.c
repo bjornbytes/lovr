@@ -31,6 +31,10 @@ void lovrEventDestroy(void) {
 #ifndef LOVR_DISABLE_THREAD
       case EVENT_THREAD_ERROR: lovrRelease(event->data.thread.thread, lovrThreadDestroy); break;
 #endif
+      case EVENT_FILECHANGED:
+        lovrFree(event->data.file.path);
+        lovrFree(event->data.file.oldpath);
+        break;
       case EVENT_CUSTOM:
         for (uint32_t j = 0; j < event->data.custom.count; j++) {
           lovrVariantDestroy(&event->data.custom.data[j]);
