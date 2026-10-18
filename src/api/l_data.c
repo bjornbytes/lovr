@@ -82,6 +82,7 @@ static int l_lovrDataCompress(lua_State* L) {
   if (blob) {
     Blob* outputBlob = lovrBlobCreate(output, outputSize, NULL);
     luax_pushtype(L, Blob, outputBlob);
+    lovrRelease(outputBlob, lovrBlobDestroy);
     return 1;
   } else {
     lua_pushlstring(L, output, outputSize);
@@ -108,6 +109,7 @@ static int l_lovrDataDecompress(lua_State* L) {
   if (blob) {
     Blob* outputBlob = lovrBlobCreate(output, outputSize, NULL);
     luax_pushtype(L, Blob, outputBlob);
+    lovrRelease(outputBlob, lovrBlobDestroy);
     return 1;
   } else {
     lua_pushlstring(L, output, outputSize);
