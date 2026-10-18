@@ -591,7 +591,6 @@ typedef struct PipelineJob {
   uint64_t hash;
   gpu_pipeline_info* info;
   gpu_pipeline* pipeline;
-  atomic_bool done;
   char* error;
 } PipelineJob;
 
@@ -1189,7 +1188,34 @@ static void compilePipeline(void* arg) {
     const char* error = gpu_get_error();
     job->error = lovrStrdup(error);
   }
-  job->done = true;
+}
+
+static bool waitForPipelines(PipelineJob* jobs, atomic_uint* counter) {
+  while (atomic_load(counter) > 0) {
+    job_spin();
+  }
+
+  bool success = true;
+
+  while (jobs) {
+    PipelineJob* job = jobs;
+    jobs = job->next;
+
+    if (job->error) {
+      if (success) {
+        lovrSetError("Failed to compile GPU pipeline: %s", job->error);
+        success = false;
+      }
+      lovrFree(job->error);
+    }
+
+    job->next = state.newPipelines;
+    while (!atomic_compare_exchange_strong(&state.newPipelines, &job->next, job)) {
+      continue;
+    }
+  }
+
+  return success;
 }
 
 static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_writes* timestamps) {
@@ -1204,8 +1230,9 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   Draw* draw = pass->draws;
   Draw* previous = NULL;
 
-  // List of pipeline jobs offloaded to worker threads (we must wait for them before doing draws)
+  // List of pipeline jobs offloaded to worker threads (must wait for them before doing draws)
   PipelineJob* pipelineJobs = NULL;
+  atomic_uint pipelineCounter = 0;
 
   for (uint32_t i = 0; i < pass->drawCount; i++, previous = draw, draw++) {
     // If the draw uses the same pipeline as the previous draw, use that
@@ -1243,22 +1270,17 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
 
     // If we couldn't find a pipeline to use, compile a new one
     uint32_t index = atomic_fetch_add(&state.pipelineCount, 1);
-
-    if (index >= MAX_PIPELINES) {
-      lovrSetError("Too many pipelines!");
-      return false;
-    }
+    lovrAssertGoto(fail, index < MAX_PIPELINES, "Too many pipelines!");
 
     PipelineJob* job = allocate(&thread.stack, sizeof(PipelineJob));
     job->next = NULL;
     job->hash = hash;
     job->info = draw->pipelineInfo;
     job->pipeline = getPipeline(index);
-    job->done = false;
     job->error = NULL;
 
     bool slow;
-    lovrAssert(gpu_pipeline_init_graphics(job->pipeline, job->info, &slow), "Failed to create GPU pipeline: %s", gpu_get_error());
+    lovrAssertGoto(fail, gpu_pipeline_init_graphics(job->pipeline, job->info, &slow), "Failed to create GPU pipeline: %s", gpu_get_error());
 
 #ifdef LOVR_DISABLE_THREAD
     if (slow) {
@@ -1269,7 +1291,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
 
     if (slow) {
       // The pipeline is going to be slow to compile, try to offload it to a worker thread
-      if (job_start(compilePipeline, job)) {
+      if (job_start(compilePipeline, job, &pipelineCounter)) {
         job->next = pipelineJobs;
         pipelineJobs = job;
       } else {
@@ -1408,7 +1430,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   if (activeDrawCount == 0) {
     gpu_render_begin(stream, &pass->target, timestamps);
     gpu_render_end(stream, &pass->target, timestamps);
-    return true;
+    return waitForPipelines(pipelineJobs, &pipelineCounter);
   }
 
   // Builtins
@@ -1425,7 +1447,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
 
   // Globals
   view = getBuffer(GPU_BUFFER_STREAM, sizeof(Globals), align);
-  if (!view.buffer) return false;
+  if (!view.buffer) goto fail;
   builtins[0].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
   Globals* global = view.pointer;
   global->resolution[0] = pass->width;
@@ -1439,14 +1461,14 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   // Cameras
   uint32_t padding = (6 - pass->views) * sizeof(Camera); // Ensure shader can always access all 6 cameras
   view = getBuffer(GPU_BUFFER_STREAM, pass->cameraCount * pass->views * sizeof(Camera) + padding, align);
-  if (!view.buffer) return false;
+  if (!view.buffer) goto fail;
   builtins[1].buffer = (gpu_buffer_binding) { view.buffer, view.offset, 6 * sizeof(Camera) };
   memcpy(view.pointer, pass->cameras, pass->cameraCount * pass->views * sizeof(Camera));
 
   // DrawData
   uint32_t alignedDrawCount = ALIGN(activeDrawCount, 256);
   view = getBuffer(GPU_BUFFER_STREAM, alignedDrawCount * sizeof(DrawData), align);
-  if (!view.buffer) return false;
+  if (!view.buffer) goto fail;
   builtins[2].buffer = (gpu_buffer_binding) { view.buffer, view.offset, 256 * sizeof(DrawData) };
   DrawData* data = view.pointer;
 
@@ -1472,7 +1494,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   }
 
   gpu_bundle* builtinBundle = getBundle(state.builtinLayout, builtins, COUNTOF(builtins));
-  if (!builtinBundle) return false;
+  if (!builtinBundle) goto fail;
 
   // Bundles
 
@@ -1488,7 +1510,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
     if (draw->bindings) {
       draw->bundle = getBundle(draw->shader->layout, draw->bindings, draw->shader->resourceCount);
       if (!draw->bundle) {
-        return false;
+        goto fail;
       }
     } else {
       draw->bundle = NULL;
@@ -1531,34 +1553,11 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   gpu_render_begin(stream, &pass->target, timestamps);
   gpu_bind_vertex_buffers(stream, &state.defaultBuffer->gpu, NULL, 1, 1);
 
-  bool hasError = false;
-
-  // Wait for any in-progress pipeline jobs to finish
-  while (pipelineJobs) {
-    PipelineJob* job = pipelineJobs;
-
-    while (!job->done) {
-      job_spin();
-    }
-
-    if (job->error) {
-      if (!hasError) {
-        lovrSetError("Failed to compile GPU pipeline: %s", job->error);
-        hasError = true;
-      }
-      lovrFree(job->error);
-    }
-
-    pipelineJobs = job->next;
-    job->next = state.newPipelines;
-    while (!atomic_compare_exchange_strong(&state.newPipelines, &job->next, job)) {
-      continue;
-    }
-  }
-
-  if (hasError) {
+  if (!waitForPipelines(pipelineJobs, &pipelineCounter)) {
     return false;
   }
+
+  pipelineJobs = NULL;
 
   for (uint32_t i = 0; i < activeDrawCount; i++) {
     Draw* draw = &pass->draws[activeDraws[i]];
@@ -1732,6 +1731,9 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   }
 
   return true;
+fail:
+  waitForPipelines(pipelineJobs, &pipelineCounter);
+  return false;
 }
 
 static Readback* lovrReadbackCreateTimestamp(Pass** passes, uint32_t count);
@@ -2548,8 +2550,6 @@ static void lovrTextureUpload(void* arg) {
     atomic_store(&state.textureUploadError, lovrStrdup(gpu_get_error()));
   }
 
-  atomic_fetch_sub(&state.textureUploads, 1);
-
   for (uint32_t i = 0; i < info->imageCount; i++) {
     lovrRelease(info->images[i], lovrImageDestroy);
   }
@@ -2651,10 +2651,10 @@ Texture* lovrTextureCreate(const TextureInfo* info) {
 
     lovrRetain(texture);
 
-    atomic_fetch_add(&state.textureUploads, 1);
-
-    if (!job_start(lovrTextureUpload, texture)) {
+    if (!job_start(lovrTextureUpload, texture, &state.textureUploads)) {
+      atomic_fetch_add(&state.textureUploads, 1);
       lovrTextureUpload(texture);
+      atomic_fetch_sub(&state.textureUploads, 1);
     }
 
     if (lovrImageGetLevelCount(info->images[0]) < mipmaps) {
@@ -4640,7 +4640,6 @@ static void rasterizeGlyph(void* arg) {
     dst += ctx->stride;
   }
 
-  atomic_fetch_sub(&state.glyphJobs, 1);
   lovrFree(ctx->src);
   lovrFree(ctx);
 }
@@ -4820,9 +4819,10 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
   context->stride = rowStride;
   context->src = lovrMalloc(pixelWidth * pixelHeight * 4 * sizeof(float));
   context->dst = bufferView.pointer;
-  atomic_fetch_add(&state.glyphJobs, 1);
-  if (!job_start(rasterizeGlyph, context)) {
+  if (!job_start(rasterizeGlyph, context, &state.glyphJobs)) {
+    atomic_fetch_add(&state.glyphJobs, 1);
     rasterizeGlyph(context);
+    atomic_fetch_sub(&state.glyphJobs, 1);
   }
 
   return glyph;

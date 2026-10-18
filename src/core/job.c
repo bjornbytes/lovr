@@ -1,5 +1,4 @@
 #include "job.h"
-#include <stdatomic.h>
 #include <threads.h>
 #include <string.h>
 
@@ -10,6 +9,7 @@
 typedef struct {
   fn_job* fn;
   void* arg;
+  atomic_uint* counter;
 } job;
 
 static struct {
@@ -30,6 +30,7 @@ static void runJob(void) {
   job job = state.jobs[state.head++ & JOB_MASK];
   mtx_unlock(&state.lock);
   job.fn(job.arg);
+  if (job.counter) atomic_fetch_sub(job.counter, 1);
 }
 
 static int workerLoop(void* arg) {
@@ -91,9 +92,11 @@ void job_destroy(void) {
   memset(&state, 0, sizeof(state));
 }
 
-bool job_start(fn_job* fn, void* arg) {
+bool job_start(fn_job* fn, void* arg, atomic_uint* counter) {
   if (state.workerCount == 0) {
+    if (counter) atomic_fetch_add(counter, 1);
     fn(arg);
+    if (counter) atomic_fetch_sub(counter, 1);
     return true;
   }
 
@@ -105,7 +108,8 @@ bool job_start(fn_job* fn, void* arg) {
   }
 
   bool empty = state.head == state.tail;
-  state.jobs[(state.tail++) & JOB_MASK] = (job) { fn, arg };
+  if (counter) atomic_fetch_add(counter, 1);
+  state.jobs[(state.tail++) & JOB_MASK] = (job) { fn, arg, counter };
   if (empty) cnd_broadcast(&state.hasJob);
   mtx_unlock(&state.lock);
   return true;

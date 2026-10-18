@@ -75,7 +75,7 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
       atomic_store(&task->deps, count);
 
       for (uint32_t i = 0; i < count; i++) {
-        if (!job_start(runJob, task)) {
+        if (!job_start(runJob, task, NULL)) {
           runJob(task);
         }
       }
@@ -104,7 +104,7 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
   task->waiting = WAIT_JOB;
 
   for (uint32_t i = 0; i < count; i++) {
-    if (!job_start(runJob, task)) {
+    if (!job_start(runJob, task, NULL)) {
       runJob(task);
     }
   }

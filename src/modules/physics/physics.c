@@ -42,6 +42,7 @@ struct World {
   char* tags[MAX_TAGS];
   JPH_TempAllocator* allocator;
   JPH_JobSystem* jobSystem;
+  atomic_uint jobCount;
   mtx_t lock;
 };
 
@@ -297,7 +298,8 @@ static void queueJob(void* context, JPH_JobFunction* function, void* arg) {
 #ifdef LOVR_DISABLE_THREAD
   function(arg);
 #else
-  if (!job_start(function, arg)) {
+  World* world = context;
+  if (!job_start(function, arg, &world->jobCount)) {
     function(arg);
   }
 #endif
@@ -457,6 +459,10 @@ void lovrWorldDestruct(World* world) {
     return;
   }
 
+  while (atomic_load(&world->jobCount) > 0) {
+    job_spin();
+  }
+
   while (world->colliders) {
     Collider* collider = world->colliders;
     Collider* next = collider->next;
@@ -473,8 +479,9 @@ void lovrWorldDestruct(World* world) {
   }
   mtx_destroy(&world->lock);
 
-  JPH_TempAllocator_Destroy(world->allocator);
+  JPH_JobSystem_Destroy(world->jobSystem);
   JPH_PhysicsSystem_Destroy(world->system);
+  JPH_TempAllocator_Destroy(world->allocator);
   world->system = NULL;
 }
 

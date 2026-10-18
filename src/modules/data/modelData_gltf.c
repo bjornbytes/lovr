@@ -84,7 +84,6 @@ typedef struct {
 } gltfScene;
 
 typedef struct {
-  atomic_uint done;
   Image* result;
   gltfImage* image;
   gltfBufferView* buffers;
@@ -216,7 +215,6 @@ static void loadImage(void* arg) {
       void* data = decodeBase64(ctx->image->uri.data, ctx->image->uri.length, &size);
       if (!data) {
         ctx->error = lovrStrdup("Could not decode base64 image");
-        atomic_store(&ctx->done, 1);
         return;
       }
       blob = lovrBlobCreate(data, size, NULL);
@@ -226,7 +224,6 @@ static void loadImage(void* arg) {
 
       if (path[0] == '/') {
         ctx->error = lovrStrdup("Absolute paths in models are not supported");
-        atomic_store(&ctx->done, 1);
         return;
       }
 
@@ -258,7 +255,6 @@ static void loadImage(void* arg) {
         memcpy(ctx->error, message, messageLength);
         memcpy(ctx->error + messageLength, path, length);
         ctx->error[messageLength + length + 1] = '\0';
-        atomic_store(&ctx->done, 1);
         return;
       }
 
@@ -268,11 +264,9 @@ static void loadImage(void* arg) {
     ctx->result = lovrImageCreateFromFile(blob);
     lovrRelease(blob, lovrBlobDestroy);
   }
-
-  atomic_store(&ctx->done, 1);
 }
 
-static void startImageJob(ModelData* model, ImageJob* jobs, uint32_t index, gltfBufferView* buffers, gltfImage* images, ModelDataIO* io, char* basePath) {
+static void startImageJob(ModelData* model, ImageJob* jobs, atomic_uint* count, uint32_t index, gltfBufferView* buffers, gltfImage* images, ModelDataIO* io, char* basePath) {
   if (jobs[index].image) {
     return;
   }
@@ -282,9 +276,8 @@ static void startImageJob(ModelData* model, ImageJob* jobs, uint32_t index, gltf
   jobs[index].basePath = basePath;
   jobs[index].io = io;
 
-  if (!job_start(loadImage, &jobs[index])) {
+  if (!job_start(loadImage, &jobs[index], count)) {
     loadImage(&jobs[index]);
-    jobs[index].done = 1;
   }
 }
 
@@ -517,6 +510,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
   gltfAnimationSampler* animationSamplers = NULL;
   gltfImage* images = NULL;
   ImageJob* imageJobs = NULL;
+  atomic_uint imageJobCount = 0;
   gltfTexture* textures = NULL;
   uint32_t* meshVertexCounts = NULL;
   gltfScene* scenes = NULL;
@@ -1015,7 +1009,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
               material->color[3] = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "baseColorTexture")) {
               token = nomTexture(json, token, material, &material->texture, textures);
-              startImageJob(model, imageJobs, material->texture, buffers, images, io, filename);
+              startImageJob(model, imageJobs, &imageJobCount, material->texture, buffers, images, io, filename);
               *root = '\0';
             } else if (STR_EQ(key, "metallicFactor")) {
               material->metalness = NOM_FLOAT(json, token);
@@ -1023,7 +1017,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
               material->roughness = NOM_FLOAT(json, token);
             } else if (STR_EQ(key, "metallicRoughnessTexture")) {
               token = nomTexture(json, token, material, &material->metalnessTexture, textures);
-              startImageJob(model, imageJobs, material->metalnessTexture, buffers, images, io, filename);
+              startImageJob(model, imageJobs, &imageJobCount, material->metalnessTexture, buffers, images, io, filename);
               material->roughnessTexture = material->metalnessTexture;
               *root = '\0';
             } else {
@@ -1032,15 +1026,15 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
           }
         } else if (STR_EQ(key, "normalTexture")) {
           token = nomTexture(json, token, material, &material->normalTexture, textures);
-          startImageJob(model, imageJobs, material->normalTexture, buffers, images, io, filename);
+          startImageJob(model, imageJobs, &imageJobCount, material->normalTexture, buffers, images, io, filename);
           *root = '\0';
         } else if (STR_EQ(key, "occlusionTexture")) {
           token = nomTexture(json, token, material, &material->occlusionTexture, textures);
-          startImageJob(model, imageJobs, material->occlusionTexture, buffers, images, io, filename);
+          startImageJob(model, imageJobs, &imageJobCount, material->occlusionTexture, buffers, images, io, filename);
           *root = '\0';
         } else if (STR_EQ(key, "emissiveTexture")) {
           token = nomTexture(json, token, material, &material->glowTexture, textures);
-          startImageJob(model, imageJobs, material->glowTexture, buffers, images, io, filename);
+          startImageJob(model, imageJobs, &imageJobCount, material->glowTexture, buffers, images, io, filename);
           *root = '\0';
         } else if (STR_EQ(key, "emissiveFactor")) {
           token++; // Enter array
@@ -1400,23 +1394,22 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
     meta->rootNode = scenes[rootScene].node;
   }
 
+  while (atomic_load(&imageJobCount) > 0) {
+    job_spin();
+  }
+
   for (uint32_t i = 0; i < meta->imageCount; i++) {
     ImageJob* job = &imageJobs[i];
+    if (!job->image) continue;
 
-    if (job->image) {
-      while (!atomic_load(&job->done)) {
-        job_spin();
-      }
-
-      if (job->error) {
-        lovrSetError(job->error);
-        lovrFree(job->error);
-        job->error = NULL;
-        goto fail;
-      } else {
-        model->images[i] = job->result;
-        job->result = NULL;
-      }
+    if (job->error) {
+      lovrSetError(job->error);
+      lovrFree(job->error);
+      job->error = NULL;
+      goto fail;
+    } else {
+      model->images[i] = job->result;
+      job->result = NULL;
     }
   }
 
@@ -1441,13 +1434,12 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
   return true;
 
 fail:
+  while (atomic_load(&imageJobCount) > 0) {
+    job_spin();
+  }
+
   for (uint32_t i = 0; i < meta->imageCount; i++) {
     ImageJob* job = &imageJobs[i];
-
-    while (!atomic_load(&job->done)) {
-      job_spin();
-    }
-
     lovrRelease(job->result, lovrImageDestroy);
     lovrFree(job->error);
   }

@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 
 #pragma once
 
@@ -8,5 +9,5 @@ typedef void fn_hook(uint32_t worker);
 
 bool job_init(uint32_t workerCount, fn_hook* init, fn_hook* quit);
 void job_destroy(void);
-bool job_start(fn_job* fn, void* arg);
+bool job_start(fn_job* fn, void* arg, atomic_uint* counter);
 void job_spin(void);

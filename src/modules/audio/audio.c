@@ -112,7 +112,7 @@ static struct {
   IPLReflectionEffect reflectionEffect;
   IPLReflectionMixer reflectionMixer;
   IPLAmbisonicsDecodeEffect ambisonicsDecodeEffect;
-  atomic_bool reverbFinished;
+  atomic_uint reverbPending;
   atomic_ullong sourceReverbMask;
   atomic_ullong listenerReverbMask;
   IPLAudioBuffer listenerReverb;
@@ -947,7 +947,6 @@ static void onSpatializerLog(IPLLogLevel iplLevel, const char* message) {
 
 static void simulateReflections(void* arg) {
   iplSimulatorRunReflections(state.simulator);
-  atomic_store(&state.reverbFinished, true);
 }
 
 static bool phonon_init(void) {
@@ -1035,13 +1034,11 @@ static bool phonon_init(void) {
     }
   }
 
-  atomic_store(&state.reverbFinished, true);
-
   return true;
 }
 
 static void phonon_destroy(void) {
-  while (!atomic_load(&state.reverbFinished)) {
+  while (atomic_load(&state.reverbPending)) {
     job_spin();
   }
 
@@ -1073,7 +1070,7 @@ static void phonon_update(float dt) {
   state.simulatorDirty = false;
 
   // TODO maybe split into 2 simulators so we can have less latency on direct simulation commits
-  if (state.reverbFinished) {
+  if (!atomic_load(&state.reverbPending)) {
     iplSimulatorCommit(state.simulator);
   }
 
@@ -1161,10 +1158,9 @@ static void phonon_update(float dt) {
       iplSourceRemove(state.listener, state.simulator);
     }
 
-    if (state.reverbFinished && (sourceReverbMask || listenerReverbMask)) {
+    if (!atomic_load(&state.reverbPending) && (sourceReverbMask || listenerReverbMask)) {
       if (state.reverbSimulationTimer <= 0.f) {
         state.reverbSimulationTimer = state.config.reverb.rate;
-        atomic_store(&state.reverbFinished, false);
 
         if (listenerReverbMask) {
           IPLSimulationInputs inputs;
@@ -1185,7 +1181,7 @@ static void phonon_update(float dt) {
 
         iplSimulatorSetSharedInputs(state.simulator, IPL_SIMULATIONFLAGS_REFLECTIONS, &sharedInputs);
 
-        while (!job_start(simulateReflections, NULL)) {
+        while (!job_start(simulateReflections, NULL, &state.reverbPending)) {
           job_spin();
         }
       } else {

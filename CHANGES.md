@@ -84,6 +84,7 @@ dev
 - Fix high CPU usage when using `Channel:push/pop` with a timeout.
 - Fix `CapsuleShape:setRadius`.
 - Fix `World:isCollisionEnabledBetween` when given `nil` tags.
+- Fix `World` memory leak.
 
 ### Deprecate
 
