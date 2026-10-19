@@ -1,5 +1,6 @@
 #include "api.h"
 #include "headset/headset.h"
+#include "graphics/graphics.h"
 #include "core/maf.h"
 #include <stdlib.h>
 #include "util.h"
@@ -197,39 +198,85 @@ static int l_lovrPlaneAnchorGetLabel(lua_State* L) {
   return 1;
 }
 
-static int l_lovrPlaneAnchorGetTriangles(lua_State* L) {
+static int l_lovrPlaneAnchorDidMeshChange(lua_State* L) {
   PlaneAnchor* anchor = luax_checktype(L, 1, PlaneAnchor);
+  bool changed = lovrPlaneAnchorDidMeshChange(anchor);
+  lua_pushboolean(L, changed);
+  return 1;
+}
 
-  uint32_t vertexCount;
-  const float* vertices = lovrPlaneAnchorGetVertices(anchor, &vertexCount);
+static int l_lovrPlaneAnchorGetMesh(lua_State* L) {
+  PlaneAnchor* anchor = luax_checktype(L, 1, PlaneAnchor);
+#ifdef LOVR_DISABLE_GRAPHICS
+  lua_pushnil(L);
+#else
+  Mesh* mesh = lovrPlaneAnchorGetMesh(anchor);
+  luax_pushtype(L, Mesh, mesh);
+#endif
+  return 1;
+}
 
-  uint32_t indexCount;
-  const uint32_t* indices = lovrPlaneAnchorGetIndices(anchor, &indexCount);
+static int l_lovrPlaneAnchorGetMeshPose(lua_State* L) {
+  PlaneAnchor* anchor = luax_checktype(L, 1, PlaneAnchor);
+  float position[3], orientation[4], angle, ax, ay, az;
+  lovrPlaneAnchorGetMeshPose(anchor, position, orientation);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
 
-  if (!vertices || !indices) {
-    lua_pushnil(L);
-    return 1;
-  }
+static int l_lovrPlaneAnchorGetVertexCount(lua_State* L) {
+  PlaneAnchor* anchor = luax_checktype(L, 1, PlaneAnchor);
+  uint32_t count;
+  lovrPlaneAnchorGetVertices(anchor, &count);
+  lua_pushinteger(L, count);
+  return 1;
+}
 
-  lua_createtable(L, (int) 3 * vertexCount, 0);
-  for (uint32_t i = 0; i < 3 * vertexCount; i++) {
-    lua_pushnumber(L, vertices[i]);
-    lua_rawseti(L, -2, (int) i + 1);
-  }
+static int l_lovrPlaneAnchorGetIndexCount(lua_State* L) {
+  PlaneAnchor* anchor = luax_checktype(L, 1, PlaneAnchor);
+  uint32_t count;
+  lovrPlaneAnchorGetIndices(anchor, &count);
+  lua_pushinteger(L, count);
+  return 1;
+}
 
-  lua_createtable(L, (int) indexCount, 0);
-  for (uint32_t i = 0; i < indexCount; i++) {
-    lua_pushinteger(L, indices[i] + 1);
-    lua_rawseti(L, -2, (int) i + 1);
-  }
-
+static int l_lovrPlaneAnchorGetVertex(lua_State* L) {
+  PlaneAnchor* anchor = luax_checktype(L, 1, PlaneAnchor);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  uint32_t count;
+  float* vertices = lovrPlaneAnchorGetVertices(anchor, &count);
+  lovrCheck(index < count, "Invalid vertex index %d", index + 1);
+  lua_pushnumber(L, vertices[index * 2 + 0]);
+  lua_pushnumber(L, vertices[index * 2 + 1]);
   return 2;
+}
+
+static int l_lovrPlaneAnchorGetIndex(lua_State* L) {
+  PlaneAnchor* anchor = luax_checktype(L, 1, PlaneAnchor);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  uint32_t count;
+  uint16_t* indices = lovrPlaneAnchorGetIndices(anchor, &count);
+  lovrCheck(index < count, "Invalid index %d", index + 1);
+  lua_pushinteger(L, indices[index]);
+  return 1;
 }
 
 const luaL_Reg lovrPlaneAnchor[] = {
   lovrAnchor,
   { "getLabel", l_lovrPlaneAnchorGetLabel },
-  { "getTriangles", l_lovrPlaneAnchorGetTriangles },
+  { "didMeshChange", l_lovrPlaneAnchorDidMeshChange },
+  { "getMeshPose", l_lovrPlaneAnchorGetMeshPose },
+  { "getVertexCount", l_lovrPlaneAnchorGetVertexCount },
+  { "getIndexCount", l_lovrPlaneAnchorGetIndexCount },
+  { "getVertex", l_lovrPlaneAnchorGetVertex },
+  { "getIndex", l_lovrPlaneAnchorGetIndex },
   { NULL, NULL }
 };
 

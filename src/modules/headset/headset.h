@@ -9,6 +9,7 @@
 #define MAX_LAYERS 10
 
 struct Future;
+struct Mesh;
 struct Model;
 struct ModelData;
 struct Texture;
@@ -309,8 +310,11 @@ struct Future* lovrPointAnchorDelete(PointAnchor* anchor);
 const uint8_t* lovrPointAnchorGetID(PointAnchor* anchor, size_t* length);
 
 const char* lovrPlaneAnchorGetLabel(PlaneAnchor* anchor, size_t* length);
+bool lovrPlaneAnchorDidMeshChange(PlaneAnchor* anchor);
+struct Mesh* lovrPlaneAnchorGetMesh(PlaneAnchor* anchor);
+void lovrPlaneAnchorGetMeshPose(PlaneAnchor* anchor, float* position, float* orientation);
 float* lovrPlaneAnchorGetVertices(PlaneAnchor* anchor, uint32_t* count);
-uint32_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count);
+uint16_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count);
 
 const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length);
 

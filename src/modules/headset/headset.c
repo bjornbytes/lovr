@@ -262,6 +262,10 @@ struct Anchor {
   float position[3];
   float orientation[4];
   float dimensions[3];
+  bool meshChanged;
+  bool meshDirty;
+  Mesh* mesh;
+  XrPosef meshPose;
   uint32_t vertexCount;
   uint32_t indexCount;
   void* vertices;
@@ -3989,6 +3993,8 @@ bool lovrScannerUpdate(Scanner* scanner) {
     Anchor* anchor = (Anchor*) (uintptr_t) entry;
     if (entry == MAP_NIL) continue;
 
+    anchor->meshChanged = false;
+
     // Remove STOPPED anchors
     if (data.entityStates[i] == XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT && anchor->status != data.entityStates[i]) {
       lovrEventPush((Event) { .type = EVENT_ANCHORLOST, .data.anchor.anchor = anchor });
@@ -4029,10 +4035,16 @@ bool lovrScannerUpdate(Scanner* scanner) {
         case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: {
           XrSpatialMeshDataEXT* mesh = &scanner->meshes[i];
 
+          anchor->meshPose = mesh->origin;
+
           // Assuming the mesh only changes if the vertex buffer changes
           if (mesh->vertexBuffer.bufferId == anchor->vertexBuffer) {
             break;
           }
+
+          anchor->vertexBuffer = mesh->vertexBuffer.bufferId;
+          anchor->meshChanged = true;
+          anchor->meshDirty = true;
 
           // Vertices
 
@@ -4046,20 +4058,10 @@ bool lovrScannerUpdate(Scanner* scanner) {
 
           if (count > anchor->vertexCount) {
             anchor->vertexCount = count;
-            anchor->vertices = lovrRealloc(anchor->vertices, anchor->vertexCount * 3 * sizeof(float));
+            anchor->vertices = lovrRealloc(anchor->vertices, anchor->vertexCount * 2 * sizeof(float));
           }
 
-          // Copy the vec2 data to the end of the array, so it can be expanded to vec3 in-place
-          XrVector2f* vertices = (XrVector2f*) ((char*) anchor->vertices + count * sizeof(float));
-          XR(xrGetSpatialBufferVector2fEXT(snapshot, &bufferInfo, anchor->vertexCount, &anchor->vertexCount, vertices), "xrGetSpatialBufferVector2fEXT");
-
-          float* v = anchor->vertices;
-          for (uint32_t i = 0; i < anchor->vertexCount; i++) {
-            v[0] = vertices[i].x;
-            v[1] = vertices[i].y;
-            v[2] = 0.f;
-            v += 3;
-          }
+          XR(xrGetSpatialBufferVector2fEXT(snapshot, &bufferInfo, anchor->vertexCount, &anchor->vertexCount, anchor->vertices), "xrGetSpatialBufferVector2fEXT");
 
           // Indices
 
@@ -4068,20 +4070,10 @@ bool lovrScannerUpdate(Scanner* scanner) {
 
           if (count > anchor->indexCount) {
             anchor->indexCount = count;
-            anchor->indices = lovrRealloc(anchor->indices, anchor->indexCount * sizeof(uint32_t));
+            anchor->indices = lovrRealloc(anchor->indices, anchor->indexCount * sizeof(uint16_t));
           }
 
-          // Copy the u16 data to the end of the array, so it can be expanded to u32 in-place
-          uint16_t* u16 = (uint16_t*) ((char*) anchor->indices + count * sizeof(uint16_t));
-          XR(xrGetSpatialBufferUint16EXT(snapshot, &bufferInfo, anchor->indexCount, &anchor->indexCount, u16), "xrGetSpatialBufferUint16EXT");
-
-          uint32_t* u32 = anchor->indices;
-          for (uint32_t i = 0; i < anchor->indexCount; i++) {
-            u32[i] = u16[i];
-          }
-
-          anchor->vertexBuffer = mesh->vertexBuffer.bufferId;
-
+          XR(xrGetSpatialBufferUint16EXT(snapshot, &bufferInfo, anchor->indexCount, &anchor->indexCount, anchor->indices), "xrGetSpatialBufferUint16EXT");
           break;
         }
         case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
@@ -4169,6 +4161,7 @@ void lovrAnchorDestroy(void* ref) {
   Anchor* anchor = ref;
   // Anchors are only destroyed if their Scanner is destroyed or they reach the STOPPED state, and
   // both of those already clean up the Anchor appropriately.
+  lovrRelease(anchor->mesh, lovrMeshDestroy);
   lovrFree(anchor->vertices);
   lovrFree(anchor->indices);
   lovrFree(anchor->label);
@@ -4220,12 +4213,35 @@ const char* lovrPlaneAnchorGetLabel(PlaneAnchor* anchor, size_t* length) {
   return label;
 }
 
+bool lovrPlaneAnchorDidMeshChange(PlaneAnchor* anchor) {
+  return anchor->meshChanged;
+}
+
+Mesh* lovrPlaneAnchorGetMesh(PlaneAnchor* anchor) {
+  if (anchor->meshDirty) {
+    if (!anchor->mesh || anchor->vertexCount > lovrMeshGetVertexFormat(anchor->mesh)->length) {
+      // Make mesh
+    }
+
+    // Set vertices, draw range
+
+    anchor->meshDirty = false;
+  }
+
+  return anchor->mesh;
+}
+
+void lovrPlaneAnchorGetMeshPose(PlaneAnchor* anchor, float* position, float* orientation) {
+  vec3_init(position, &anchor->meshPose.position.x);
+  quat_init(orientation, &anchor->meshPose.orientation.x);
+}
+
 float* lovrPlaneAnchorGetVertices(PlaneAnchor* anchor, uint32_t* count) {
   *count = anchor->vertexCount;
   return anchor->vertices;
 }
 
-uint32_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count) {
+uint16_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count) {
   *count = anchor->indexCount;
   return anchor->indices;
 }

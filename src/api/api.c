@@ -10,9 +10,12 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#ifndef LOVR_DISABLE_GRAPHICS
 #include "data/modelData.h"
+#ifndef LOVR_DISABLE_GRAPHICS
 #include "graphics/graphics.h"
+#endif
+#ifndef LOVR_DISABLE_HEADSET
+#include "headset/headset.h"
 #endif
 
 #ifdef _WIN32
@@ -833,6 +836,20 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     return index + 1;
   }
 
+#ifndef LOVR_DISABLE_HEADSET
+  PlaneAnchor* anchor = luax_totype(L, index, PlaneAnchor);
+
+  if (anchor) {
+    *vertices = lovrPlaneAnchorGetVertices(anchor, vertexCount);
+    uint16_t* u16 = lovrPlaneAnchorGetIndices(anchor, indexCount);
+    *indices = lovrMalloc(*indexCount * sizeof(uint32_t));
+    for (uint32_t i = 0; i < *indexCount; i++) {
+      *indices[i] = u16[i];
+    }
+    return index + 1;
+  }
+#endif
+
 #ifndef LOVR_DISABLE_GRAPHICS
   Mesh* mesh = luax_totype(L, index, Mesh);
 
@@ -840,11 +857,9 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     luax_assert(L, lovrMeshGetTriangles(mesh, vertices, indices, vertexCount, indexCount));
     return index + 1;
   }
-
-  luaL_argerror(L, index, "table, ModelData, or Mesh expected");
-#else
-  luaL_argerror(L, index, "table or ModelData expected");
 #endif
+
+  luaL_argerror(L, index, "table, ModelData, Mesh, or PlaneAnchor expected");
   return 0;
 }
 
