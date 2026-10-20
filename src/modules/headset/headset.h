@@ -22,14 +22,15 @@ typedef enum {
 } ControllerSkeletonMode;
 
 typedef struct {
-  float supersample;
-  bool dynamicResolution;
   bool debug;
   bool seated;
   bool mask;
   bool stencil;
   bool antialias;
   bool hdr;
+  float supersample;
+  bool dynamicResolution;
+  bool compressedFoveation;
   bool submitDepth;
   bool overlay;
   uint32_t overlayOrder;

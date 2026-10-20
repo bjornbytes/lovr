@@ -1171,13 +1171,14 @@ int luaopen_lovr_headset(lua_State* L) {
   luax_registertype(L, Layer);
 
   HeadsetConfig config = {
-    .supersample = 1.f,
-    .dynamicResolution = true,
     .seated = false,
     .mask = true,
     .stencil = false,
     .antialias = true,
     .hdr = false,
+    .supersample = 1.f,
+    .dynamicResolution = false,
+    .compressedFoveation = false,
     .submitDepth = true,
     .overlay = false,
     .overlayOrder = 0,
@@ -1188,18 +1189,6 @@ int luaopen_lovr_headset(lua_State* L) {
   if (lua_istable(L, -1)) {
     lua_getfield(L, -1, "headset");
     if (lua_istable(L, -1)) {
-      lua_getfield(L, -1, "supersample");
-      if (lua_type(L, -1) == LUA_TBOOLEAN) {
-        config.supersample = lua_toboolean(L, -1) ? 2.f : 1.f;
-      } else {
-        config.supersample = luax_optfloat(L, -1, 1.f);
-      }
-      lua_pop(L, 1);
-
-      lua_getfield(L, -1, "dynamicresolution");
-      config.dynamicResolution = lua_isnil(L, -1) ? true : lua_toboolean(L, -1);
-      lua_pop(L, 1);
-
       lua_getfield(L, -1, "debug");
       config.debug = lua_toboolean(L, -1);
       lua_pop(L, 1);
@@ -1222,6 +1211,22 @@ int luaopen_lovr_headset(lua_State* L) {
 
       lua_getfield(L, -1, "hdr");
       config.hdr = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "supersample");
+      if (lua_type(L, -1) == LUA_TBOOLEAN) {
+        config.supersample = lua_toboolean(L, -1) ? 2.f : 1.f;
+      } else {
+        config.supersample = luax_optfloat(L, -1, 1.f);
+      }
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "dynamicresolution");
+      config.dynamicResolution = lua_toboolean(L, -1);
+      lua_pop(L, 1);
+
+      lua_getfield(L, -1, "compressedfoveation");
+      config.compressedFoveation = lua_toboolean(L, -1);
       lua_pop(L, 1);
 
       lua_getfield(L, -1, "submitdepth");
