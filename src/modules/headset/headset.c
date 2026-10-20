@@ -975,6 +975,7 @@ void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
   features->depthSubmission = state.extensions.depth;
   features->equirectBackground = state.extensions.layerEquirect || state.extensions.layerEquirect2;
   features->eyeTracking = state.extensions.gaze;
+  features->foveation = state.extensions.foveation;
   features->handModel = state.extensions.handTrackingMesh;
   features->handTracking = state.extensions.handTracking;
   features->handTrackingElbow = state.extensions.handTrackingElbow;

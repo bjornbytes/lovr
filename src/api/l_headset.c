@@ -147,6 +147,7 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.depthSubmission), lua_setfield(L, -2, "depthSubmission");
   lua_pushboolean(L, features.equirectBackground), lua_setfield(L, -2, "equirectBackground");
   lua_pushboolean(L, features.eyeTracking), lua_setfield(L, -2, "eyeTracking");
+  lua_pushboolean(L, features.foveation), lua_setfield(L, -2, "foveation");
   lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
   lua_pushboolean(L, features.handTracking), lua_setfield(L, -2, "handTracking");
   lua_pushboolean(L, features.handTrackingElbow), lua_setfield(L, -2, "handTrackingElbow");

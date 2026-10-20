@@ -48,6 +48,7 @@ typedef struct {
   bool depthSubmission;
   bool equirectBackground;
   bool eyeTracking;
+  bool foveation;
   bool handModel;
   bool handTracking;
   bool handTrackingElbow;
