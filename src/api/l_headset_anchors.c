@@ -11,6 +11,7 @@ void luax_pushanchor(lua_State* L, Anchor* anchor) {
       case ANCHOR_POINT: luax_pushtype(L, PointAnchor, anchor); break;
       case ANCHOR_PLANE: luax_pushtype(L, PlaneAnchor, anchor); break;
       case ANCHOR_MARKER: luax_pushtype(L, MarkerAnchor, anchor); break;
+      case ANCHOR_OBJECT: luax_pushtype(L, ObjectAnchor, anchor); break;
       default: lovrUnreachable();
     }
   } else {
@@ -29,6 +30,7 @@ Anchor* luax_toanchor(lua_State* L, int index) {
     case T_PointAnchor: return object->pointer;
     case T_PlaneAnchor: return object->pointer;
     case T_MarkerAnchor: return object->pointer;
+    case T_ObjectAnchor: return object->pointer;
     default: return NULL;
   }
 }
@@ -291,5 +293,19 @@ static int l_lovrMarkerAnchorGetLabel(lua_State* L) {
 const luaL_Reg lovrMarkerAnchor[] = {
   lovrAnchor,
   { "getLabel", l_lovrMarkerAnchorGetLabel },
+  { NULL, NULL }
+};
+
+static int l_lovrObjectAnchorGetLabel(lua_State* L) {
+  ObjectAnchor* anchor = luax_checktype(L, 1, ObjectAnchor);
+  size_t length;
+  const char* label = lovrObjectAnchorGetLabel(anchor, &length);
+  lua_pushlstring(L, label, length);
+  return 1;
+}
+
+const luaL_Reg lovrObjectAnchor[] = {
+  lovrAnchor,
+  { "getLabel", l_lovrObjectAnchorGetLabel },
   { NULL, NULL }
 };

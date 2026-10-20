@@ -184,6 +184,7 @@ typedef enum {
   T_PointAnchor,
   T_PlaneAnchor,
   T_MarkerAnchor,
+  T_ObjectAnchor,
   T_Layer,
   T_Curve,
   T_Mat4,

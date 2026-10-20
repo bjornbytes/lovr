@@ -22,6 +22,7 @@ typedef struct Layer Layer;
 typedef Anchor PointAnchor;
 typedef Anchor PlaneAnchor;
 typedef Anchor MarkerAnchor;
+typedef Anchor ObjectAnchor;
 
 typedef enum {
   SKELETON_NONE,
@@ -182,7 +183,8 @@ typedef enum {
   SCANNER_QR,
   SCANNER_MICRO_QR,
   SCANNER_ARUCO,
-  SCANNER_APRIL
+  SCANNER_APRIL,
+  SCANNER_OBJECT
 } ScannerType;
 
 bool lovrHeadsetInit(HeadsetConfig* config);
@@ -292,7 +294,8 @@ bool lovrScannerUpdate(Scanner* scanner);
 typedef enum {
   ANCHOR_POINT,
   ANCHOR_PLANE,
-  ANCHOR_MARKER
+  ANCHOR_MARKER,
+  ANCHOR_OBJECT
 } AnchorType;
 
 void lovrAnchorDestroy(void* ref);
@@ -318,9 +321,12 @@ uint16_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count);
 
 const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length);
 
+const char* lovrObjectAnchorGetLabel(ObjectAnchor* anchor, size_t* length);
+
 #define lovrPointAnchorDestroy lovrAnchorDestroy
 #define lovrPlaneAnchorDestroy lovrAnchorDestroy
 #define lovrMarkerAnchorDestroy lovrAnchorDestroy
+#define lovrObjectAnchorDestroy lovrAnchorDestroy
 
 // Layer
 

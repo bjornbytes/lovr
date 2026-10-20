@@ -146,6 +146,7 @@ StringEntry lovrScannerType[] = {
   [SCANNER_MICRO_QR] = ENTRY("microqr"),
   [SCANNER_ARUCO] = ENTRY("aruco"),
   [SCANNER_APRIL] = ENTRY("april"),
+  [SCANNER_OBJECT] = ENTRY("object"),
   { 0 }
 };
 
@@ -1264,6 +1265,7 @@ extern const luaL_Reg lovrScanner[];
 extern const luaL_Reg lovrPointAnchor[];
 extern const luaL_Reg lovrPlaneAnchor[];
 extern const luaL_Reg lovrMarkerAnchor[];
+extern const luaL_Reg lovrObjectAnchor[];
 extern const luaL_Reg lovrLayer[];
 
 int luaopen_lovr_headset(lua_State* L) {
@@ -1273,6 +1275,7 @@ int luaopen_lovr_headset(lua_State* L) {
   luax_registertype(L, PointAnchor);
   luax_registertype(L, PlaneAnchor);
   luax_registertype(L, MarkerAnchor);
+  luax_registertype(L, ObjectAnchor);
   luax_registertype(L, Layer);
 
   HeadsetConfig config = {
