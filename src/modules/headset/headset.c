@@ -1189,6 +1189,10 @@ bool lovrHeadsetStart(void) {
     lovrAssertGoto(stop, supportsColor, "This VR runtime does not support sRGB rgba8 textures");
     if (!supportsDepth || !features.depthResolve) state.extensions.depth = false;
 
+    if (!features.foveation) {
+      state.extensions.foveation = false;
+    }
+
     if (!createSwapchains()) {
       goto stop;
     }
