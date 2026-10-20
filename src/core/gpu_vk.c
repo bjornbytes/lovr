@@ -230,6 +230,7 @@ typedef struct {
   bool timelineSemaphore;
   bool scalarBlockLayout;
   bool foveation;
+  bool foveation2;
   bool pipelineCacheControl;
   bool memoryBudget;
   bool accelerationStructure;
@@ -3126,6 +3127,7 @@ bool gpu_init(gpu_config* config) {
       { "VK_EXT_descriptor_indexing", true, &state.extensions.descriptorIndexing },
       { "VK_EXT_scalar_block_layout", true, &state.extensions.scalarBlockLayout },
       { "VK_EXT_fragment_density_map", true, &state.extensions.foveation },
+      { "VK_EXT_fragment_density_map2", true, &state.extensions.foveation2 },
       { "VK_EXT_pipeline_creation_cache_control", true, &state.extensions.pipelineCacheControl },
       { "VK_EXT_memory_budget", true, &state.extensions.memoryBudget },
       { "VK_EXT_host_image_copy", true, &state.extensions.hostImageCopy },
