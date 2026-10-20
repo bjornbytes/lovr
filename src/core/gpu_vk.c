@@ -3308,8 +3308,7 @@ bool gpu_init(gpu_config* config) {
       CHAIN(enabled, scalarBlockLayoutFeatures);
     }
 
-    if (state.extensions.foveation) {
-      // Note: vkGetPhysicalDeviceFeatures2 writes all supported features to fragmentDensityMapFeatures
+    if (state.extensions.foveation && fragmentDensityMapFeatures.fragmentDensityMapNonSubsampledImages) {
       CHAIN(enabled, fragmentDensityMapFeatures);
     }
 
@@ -3360,7 +3359,7 @@ bool gpu_init(gpu_config* config) {
       config->features->wireframe = enabled.features.fillModeNonSolid;
       config->features->depthClamp = enabled.features.depthClamp;
       config->features->depthResolve = state.extensions.depthResolve;
-      config->features->foveation = state.extensions.foveation;
+      config->features->foveation = state.extensions.foveation && fragmentDensityMapFeatures.fragmentDensityMapNonSubsampledImages;
       config->features->rayQuery = state.extensions.rayQuery && state.extensions.accelerationStructure;
       config->features->shaderDrawParameters = shaderDrawParameterFeatures.shaderDrawParameters;
       config->features->indirectDrawFirstInstance = enabled.features.drawIndirectFirstInstance;
