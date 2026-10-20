@@ -142,6 +142,7 @@ static int nextEvent(lua_State* L) {
         luax_pushvariant(L, variant);
         lovrVariantDestroy(variant);
       }
+      lovrFree(event.data.custom.data);
       return event.data.custom.count + 1;
 
     default:
