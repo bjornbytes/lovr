@@ -4164,6 +4164,7 @@ static bool lovrMaterialAllocate(Material* material) {
       lovrFree(block->buffer);
       lovrFree(block->bundlePool);
       lovrFree(block->bundles);
+      lovrFree(block);
       mtx_unlock(&state.lock);
       return false;
     }
@@ -4175,10 +4176,11 @@ static bool lovrMaterialAllocate(Material* material) {
     };
 
     if (!gpu_buffer_init(block->buffer, &bufferInfo)) {
+      gpu_bundle_pool_destroy(block->bundlePool);
       lovrFree(block->buffer);
       lovrFree(block->bundlePool);
       lovrFree(block->bundles);
-      gpu_bundle_pool_destroy(block->bundlePool);
+      lovrFree(block);
       mtx_unlock(&state.lock);
       return false;
     }
@@ -4203,6 +4205,9 @@ static bool lovrMaterialAllocate(Material* material) {
   if (block->bufferPointer) {
     material->pointer = (MaterialData*) ((char*) block->bufferPointer + material->index * MATERIAL_STRIDE);
     material->bufferTick = state.tick;
+  } else {
+    material->pointer = NULL;
+    material->bufferTick = 0;
   }
 
   block->head = block->nodes[block->head].next;
@@ -4274,11 +4279,12 @@ Material* lovrMaterialCreate(Texture* texture) {
   if (texture) {
     if (!lovrMaterialSetTexture(material, TEXTURE_COLOR, texture)) {
       lovrMaterialDestroy(material);
-      return false;
+      return NULL;
     }
   } else {
     if (!lovrMaterialAllocate(material)) {
-      return false;
+      lovrMaterialDestroy(material);
+      return NULL;
     }
 
     gpu_bundle_write(&material->bundle, &(gpu_bundle_info) {
@@ -4290,8 +4296,9 @@ Material* lovrMaterialCreate(Texture* texture) {
 
   if (material->pointer) {
     memcpy(material->pointer, &material->data, sizeof(MaterialData));
-  } else {
-    lovrMaterialUpload(material, 0, sizeof(MaterialData));
+  } else if (!lovrMaterialUpload(material, 0, sizeof(MaterialData))) {
+    lovrMaterialDestroy(material);
+    return NULL;
   }
 
   return material;
@@ -4705,10 +4712,11 @@ static Glyph* lovrFontGetGlyph(Font* font, uint32_t codepoint, bool* resized) {
       return NULL;
     }
 
-    Material* material = lovrMaterialCreate(atlas);
-    lovrMaterialSetSdfRange(material, font->info.spread / newWidth, font->info.spread / newHeight);
+    float range[2] = { font->info.spread / newWidth, font->info.spread / newHeight };
 
-    if (!material) {
+    Material* material = lovrMaterialCreate(atlas);
+    if (!material || !lovrMaterialSetSdfRange(material, range[0], range[1])) {
+      if (material) lovrMaterialDestroy(material);
       lovrTextureDestroy(atlas);
       mtx_unlock(&font->lock);
       return NULL;
@@ -5568,7 +5576,9 @@ Model* lovrModelCreate(const ModelInfo* info) {
           if (!model->textures[index]) goto fail;
         }
 
-        lovrMaterialSetTexture(material, t, model->textures[index]);
+        if (!lovrMaterialSetTexture(material, t, model->textures[index])) {
+          goto fail;
+        }
       }
     }
   }

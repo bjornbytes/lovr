@@ -73,7 +73,7 @@ static int l_lovrMaterialSetQuad(lua_State* L) {
   quad[1] = luax_checkfloat(L, 3);
   quad[2] = luax_checkfloat(L, 4);
   quad[3] = luax_checkfloat(L, 5);
-  lovrMaterialSetQuad(material, quad);
+  luax_assert(L, lovrMaterialSetQuad(material, quad));
   return 0;
 }
 
