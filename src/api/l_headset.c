@@ -283,7 +283,7 @@ static int l_lovrHeadsetSetFoveation(lua_State* L) {
     return 1;
   } else {
     FoveationLevel level = luax_checkenum(L, 1, FoveationLevel, NULL);
-    bool dynamic = lua_isnoneornil(L, -1) ? true : lua_toboolean(L, 2);
+    bool dynamic = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
     bool success = lovrHeadsetSetFoveation(level, dynamic);
     lua_pushboolean(L, success);
     return 1;
