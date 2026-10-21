@@ -52,6 +52,7 @@ local conf = {
     dynamicresolution = false,
     submitdepth = true,
     overlay = false,
+    window = true,
     controllerskeleton = 'controller',
     extensions = nil
   },
