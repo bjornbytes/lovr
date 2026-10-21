@@ -1,7 +1,6 @@
 #include "api.h"
 #include "data/blob.h"
 #include "thread/thread.h"
-#include "core/os.h"
 #include "util.h"
 #include <lualib.h>
 #include <threads.h>

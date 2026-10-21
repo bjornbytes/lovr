@@ -254,6 +254,14 @@ void _luax_pushtype(lua_State* L, int type, void* pointer) {
 
   // Allocate userdata
 #ifdef LOVR_USE_LUAU
+  lua_getuserdatametatable(L, type);
+  if (lua_isnil(L, -1)) { // TODO could maybe give it an empty metatable that registertype could fill in
+    lua_remove(L, -2);
+    return;
+  } else {
+    lua_pop(L, 1);
+  }
+
   Object* object = (Object*) lua_newuserdatataggedwithmetatable(L, sizeof(Object), type);
 #else
   Object* object = (Object*) lua_newuserdata(L, sizeof(Object));
