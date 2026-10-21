@@ -3952,7 +3952,11 @@ Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor) {
 }
 
 static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrSpatialComponentTypeEXT* components, uint32_t componentCount) {
-  XrSpatialComponentDataQueryConditionEXT condition = { .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_CONDITION_EXT };
+  XrSpatialComponentDataQueryConditionEXT condition = {
+    .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_CONDITION_EXT,
+    .componentTypeCount = componentCount,
+    .componentTypes = components
+  };
 
   XrSpatialComponentDataQueryResultEXT data = {
     .type = XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_RESULT_EXT,
