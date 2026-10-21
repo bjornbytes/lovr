@@ -147,6 +147,7 @@ StringEntry lovrScannerType[] = {
   [SCANNER_ARUCO] = ENTRY("aruco"),
   [SCANNER_APRIL] = ENTRY("april"),
   [SCANNER_OBJECT] = ENTRY("object"),
+  [SCANNER_MESH] = ENTRY("mesh"),
   { 0 }
 };
 
@@ -1266,6 +1267,7 @@ extern const luaL_Reg lovrPointAnchor[];
 extern const luaL_Reg lovrPlaneAnchor[];
 extern const luaL_Reg lovrMarkerAnchor[];
 extern const luaL_Reg lovrObjectAnchor[];
+extern const luaL_Reg lovrMeshAnchor[];
 extern const luaL_Reg lovrLayer[];
 
 int luaopen_lovr_headset(lua_State* L) {
@@ -1276,6 +1278,7 @@ int luaopen_lovr_headset(lua_State* L) {
   luax_registertype(L, PlaneAnchor);
   luax_registertype(L, MarkerAnchor);
   luax_registertype(L, ObjectAnchor);
+  luax_registertype(L, MeshAnchor);
   luax_registertype(L, Layer);
 
   HeadsetConfig config = {

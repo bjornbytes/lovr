@@ -12,6 +12,7 @@ void luax_pushanchor(lua_State* L, Anchor* anchor) {
       case ANCHOR_PLANE: luax_pushtype(L, PlaneAnchor, anchor); break;
       case ANCHOR_MARKER: luax_pushtype(L, MarkerAnchor, anchor); break;
       case ANCHOR_OBJECT: luax_pushtype(L, ObjectAnchor, anchor); break;
+      case ANCHOR_MESH: luax_pushtype(L, MeshAnchor, anchor); break;
       default: lovrUnreachable();
     }
   } else {
@@ -31,6 +32,7 @@ Anchor* luax_toanchor(lua_State* L, int index) {
     case T_PlaneAnchor: return object->pointer;
     case T_MarkerAnchor: return object->pointer;
     case T_ObjectAnchor: return object->pointer;
+    case T_MeshAnchor: return object->pointer;
     default: return NULL;
   }
 }
@@ -307,5 +309,91 @@ static int l_lovrObjectAnchorGetLabel(lua_State* L) {
 const luaL_Reg lovrObjectAnchor[] = {
   lovrAnchor,
   { "getLabel", l_lovrObjectAnchorGetLabel },
+  { NULL, NULL }
+};
+
+static int l_lovrMeshAnchorDidMeshChange(lua_State* L) {
+  MeshAnchor* anchor = luax_checktype(L, 1, MeshAnchor);
+  bool changed = lovrMeshAnchorDidMeshChange(anchor);
+  lua_pushboolean(L, changed);
+  return 1;
+}
+
+static int l_lovrMeshAnchorGetMesh(lua_State* L) {
+  MeshAnchor* anchor = luax_checktype(L, 1, MeshAnchor);
+#ifdef LOVR_DISABLE_GRAPHICS
+  lua_pushnil(L);
+#else
+  Mesh* mesh = lovrMeshAnchorGetMesh(anchor);
+  luax_pushtype(L, Mesh, mesh);
+#endif
+  return 1;
+}
+
+static int l_lovrMeshAnchorGetMeshPose(lua_State* L) {
+  MeshAnchor* anchor = luax_checktype(L, 1, MeshAnchor);
+  float position[3], orientation[4], angle, ax, ay, az;
+  lovrMeshAnchorGetMeshPose(anchor, position, orientation);
+  lua_pushnumber(L, position[0]);
+  lua_pushnumber(L, position[1]);
+  lua_pushnumber(L, position[2]);
+  quat_getAngleAxis(orientation, &angle, &ax, &ay, &az);
+  lua_pushnumber(L, angle);
+  lua_pushnumber(L, ax);
+  lua_pushnumber(L, ay);
+  lua_pushnumber(L, az);
+  return 7;
+}
+
+static int l_lovrMeshAnchorGetVertexCount(lua_State* L) {
+  MeshAnchor* anchor = luax_checktype(L, 1, MeshAnchor);
+  uint32_t count;
+  lovrMeshAnchorGetVertices(anchor, &count, NULL);
+  lua_pushinteger(L, count);
+  return 1;
+}
+
+static int l_lovrMeshAnchorGetIndexCount(lua_State* L) {
+  MeshAnchor* anchor = luax_checktype(L, 1, MeshAnchor);
+  uint32_t count;
+  lovrMeshAnchorGetIndices(anchor, &count);
+  lua_pushinteger(L, count);
+  return 1;
+}
+
+static int l_lovrMeshAnchorGetVertex(lua_State* L) {
+  MeshAnchor* anchor = luax_checktype(L, 1, MeshAnchor);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  uint32_t count;
+  float* normals;
+  float* vertices = lovrMeshAnchorGetVertices(anchor, &count, &normals);
+  lovrCheck(index < count, "Invalid vertex index %d", index + 1);
+  lua_pushnumber(L, vertices[index * 3 + 0]);
+  lua_pushnumber(L, vertices[index * 3 + 1]);
+  lua_pushnumber(L, vertices[index * 3 + 2]);
+  lua_pushnumber(L, normals ? normals[index * 3 + 0] : 0.);
+  lua_pushnumber(L, normals ? normals[index * 3 + 1] : 0.);
+  lua_pushnumber(L, normals ? normals[index * 3 + 2] : 0.);
+  return 6;
+}
+
+static int l_lovrMeshAnchorGetIndex(lua_State* L) {
+  MeshAnchor* anchor = luax_checktype(L, 1, MeshAnchor);
+  uint32_t index = luax_checku32(L, 2) - 1;
+  uint32_t count;
+  uint32_t* indices = lovrMeshAnchorGetIndices(anchor, &count);
+  lovrCheck(index < count, "Invalid index %d", index + 1);
+  lua_pushinteger(L, indices[index]);
+  return 1;
+}
+
+const luaL_Reg lovrMeshAnchor[] = {
+  lovrAnchor,
+  { "didMeshChange", l_lovrMeshAnchorDidMeshChange },
+  { "getMeshPose", l_lovrMeshAnchorGetMeshPose },
+  { "getVertexCount", l_lovrMeshAnchorGetVertexCount },
+  { "getIndexCount", l_lovrMeshAnchorGetIndexCount },
+  { "getVertex", l_lovrMeshAnchorGetVertex },
+  { "getIndex", l_lovrMeshAnchorGetIndex },
   { NULL, NULL }
 };

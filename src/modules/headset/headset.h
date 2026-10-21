@@ -23,6 +23,7 @@ typedef Anchor PointAnchor;
 typedef Anchor PlaneAnchor;
 typedef Anchor MarkerAnchor;
 typedef Anchor ObjectAnchor;
+typedef Anchor MeshAnchor;
 
 typedef enum {
   SKELETON_NONE,
@@ -184,7 +185,8 @@ typedef enum {
   SCANNER_MICRO_QR,
   SCANNER_ARUCO,
   SCANNER_APRIL,
-  SCANNER_OBJECT
+  SCANNER_OBJECT,
+  SCANNER_MESH
 } ScannerType;
 
 bool lovrHeadsetInit(HeadsetConfig* config);
@@ -295,7 +297,8 @@ typedef enum {
   ANCHOR_POINT,
   ANCHOR_PLANE,
   ANCHOR_MARKER,
-  ANCHOR_OBJECT
+  ANCHOR_OBJECT,
+  ANCHOR_MESH
 } AnchorType;
 
 void lovrAnchorDestroy(void* ref);
@@ -323,10 +326,17 @@ const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length);
 
 const char* lovrObjectAnchorGetLabel(ObjectAnchor* anchor, size_t* length);
 
+bool lovrMeshAnchorDidMeshChange(MeshAnchor* anchor);
+struct Mesh* lovrMeshAnchorGetMesh(MeshAnchor* anchor);
+void lovrMeshAnchorGetMeshPose(MeshAnchor* anchor, float* position, float* orientation);
+float* lovrMeshAnchorGetVertices(MeshAnchor* anchor, uint32_t* count, float** normals);
+uint32_t* lovrMeshAnchorGetIndices(MeshAnchor* anchor, uint32_t* count);
+
 #define lovrPointAnchorDestroy lovrAnchorDestroy
 #define lovrPlaneAnchorDestroy lovrAnchorDestroy
 #define lovrMarkerAnchorDestroy lovrAnchorDestroy
 #define lovrObjectAnchorDestroy lovrAnchorDestroy
+#define lovrMeshAnchorDestroy lovrAnchorDestroy
 
 // Layer
 
