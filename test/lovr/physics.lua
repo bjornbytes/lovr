@@ -20,6 +20,18 @@ group('physics', function()
       expect(world:isCollisionEnabledBetween(nil, 'a')).to.be(true)
     end)
 
+    test(':isTagStatic', function()
+      local taggedWorld = lovr.physics.newWorld({
+        tags = { 'dynamic', 'environment', 'sensor' },
+        staticTags = { 'environment', 'sensor' }
+      })
+
+      expect(taggedWorld:isTagStatic('dynamic')).to.equal(false)
+      expect(taggedWorld:isTagStatic('environment')).to.equal(true)
+      expect(taggedWorld:isTagStatic('sensor')).to.equal(true)
+      expect(function() taggedWorld:isTagStatic('unknown') end).to.fail()
+    end)
+
     test('distant colliders', function()
       local c1 = world:newBoxCollider(1e8, 0, 0)
       local c2 = world:newBoxCollider(1e8, 0, 0)
