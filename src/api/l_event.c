@@ -82,13 +82,13 @@ static int nextEvent(lua_State* L) {
     case EVENT_SCAN:
       luax_pushtype(L, Scanner, event.data.scan.scanner);
       lovrRelease(event.data.scan.scanner, lovrScannerDestroy);
-      return 1;
+      return 2;
 
     case EVENT_ANCHORFOUND:
     case EVENT_ANCHORLOST:
       luax_pushanchor(L, event.data.anchor.anchor);
       lovrRelease(event.data.anchor.anchor, lovrAnchorDestroy);
-      return 1;
+      return 2;
 #endif
 
     case EVENT_RESIZE:
