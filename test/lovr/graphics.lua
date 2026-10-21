@@ -271,6 +271,12 @@ group('graphics', function()
       expect({ buffer:getData() }).to.equal({ .1, .2, .3, .4 }, .0001)
     end)
 
+    test(':setData with flat table of numbers for vector array', function()
+      buffer = lovr.graphics.newBuffer('vec2', 4)
+      buffer:setData({ 1, 2, 3, 4, 5, 6, 7, 8 })
+      expect(buffer:getData()).to.equal({ 1, 2, 3, 4, 5, 6, 7, 8 })
+    end)
+
     test(':clear', function()
       buffer = lovr.graphics.newBuffer('int', { 1, 2, 3 })
       buffer:clear()
