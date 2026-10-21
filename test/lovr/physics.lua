@@ -1,6 +1,6 @@
 group('physics', function()
   local world
-  before(function() world = lovr.physics.newWorld({ tags = { 'a', 'b', 'c' } }) end)
+  before(function() world = lovr.physics.newWorld({ tags = { 'a', 'b', 'c' }, staticTags = { 'b', 'c' } }) end)
 
   group('World', function()
     test(':getTags', function()
@@ -14,22 +14,17 @@ group('physics', function()
       expect(world:isCollisionEnabledBetween('a', 'a')).to.be(false)
       expect(world:isCollisionEnabledBetween('b', 'c')).to.be(true)
       expect(world:isCollisionEnabledBetween('c', 'b')).to.be(true)
-      expect(world:isCollisionEnabledBetween('b', 'b')).to.be(true)
+      expect(world:isCollisionEnabledBetween('b', 'b')).to.be(false)
       expect(world:isCollisionEnabledBetween(nil, nil)).to.be(true)
       expect(world:isCollisionEnabledBetween('a', nil)).to.be(true)
       expect(world:isCollisionEnabledBetween(nil, 'a')).to.be(true)
     end)
 
     test(':isTagStatic', function()
-      local taggedWorld = lovr.physics.newWorld({
-        tags = { 'dynamic', 'environment', 'sensor' },
-        staticTags = { 'environment', 'sensor' }
-      })
-
-      expect(taggedWorld:isTagStatic('dynamic')).to.equal(false)
-      expect(taggedWorld:isTagStatic('environment')).to.equal(true)
-      expect(taggedWorld:isTagStatic('sensor')).to.equal(true)
-      expect(function() taggedWorld:isTagStatic('unknown') end).to.fail()
+      expect(world:isTagStatic('a')).to.equal(false)
+      expect(world:isTagStatic('b')).to.equal(true)
+      expect(world:isTagStatic('c')).to.equal(true)
+      expect(function() world:isTagStatic('unknown') end).to.fail()
     end)
 
     test('distant colliders', function()

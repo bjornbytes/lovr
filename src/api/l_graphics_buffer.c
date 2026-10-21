@@ -338,9 +338,9 @@ static bool luax_checkarray(lua_State* L, int index, int start, int count, const
       if (index < 0) index += lua_gettop(L) + 1;
       int n = typeComponents[array->type];
       count = MIN(count, (length - start + 1) / n);
-      for (int i = 0; i < count; i += n, data += array->stride) {
+      for (int i = 0; i < count; i++, data += array->stride) {
         for (int j = 0; j < n; j++) {
-          lua_rawgeti(L, index, start + i + j);
+          lua_rawgeti(L, index, start + i * n + j);
         }
         if (!luax_checkfieldn(L, -n, array, data)) {
           return false;
