@@ -2590,15 +2590,15 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writ
   }
 }
 
-void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps, uint32_t offsetCount, float* offsets) {
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps, const float* offsets, uint32_t offsetCount) {
   if (state.extensions.dynamicRendering) {
     if (state.extensions.foveationOffset && offsetCount > 0) {
       VkOffset2D fragmentDensityOffsets[2] = { 0 };
       offsetCount = MIN(offsetCount, COUNTOF(fragmentDensityOffsets));
 
       for (uint32_t i = 0; i < offsetCount; i++) {
-        fragmentDensityOffsets[i].x = (int32_t) (offsets[2 * i + 0] * canvas->width + .5f);
-        fragmentDensityOffsets[i].y = (int32_t) (offsets[2 * i + 1] * canvas->height + .5f);
+        fragmentDensityOffsets[i].x = (int32_t) (offsets[2 * i + 0] * canvas->width * .5f + .5f);
+        fragmentDensityOffsets[i].y = (int32_t) (offsets[2 * i + 1] * canvas->height * .5f + .5f);
       }
 
       vkCmdEndRendering2EXT(stream->commands, &(VkRenderingEndInfoEXT) {

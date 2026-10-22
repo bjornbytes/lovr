@@ -1430,7 +1430,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
 
   if (activeDrawCount == 0) {
     gpu_render_begin(stream, &pass->target, timestamps);
-    gpu_render_end(stream, &pass->target, timestamps, 0, NULL);
+    gpu_render_end(stream, &pass->target, timestamps, NULL, 0);
     return waitForPipelines(pipelineJobs, &pipelineCounter);
   }
 
@@ -1659,7 +1659,17 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
     gpu_tally_finish(stream, pass->tally.gpu, tally * pass->views);
   }
 
-  gpu_render_end(stream, &pass->target, timestamps, 0, NULL);
+  const float* offsets = NULL;
+  uint32_t offsetCount = 0;
+
+#ifndef LOVR_DISABLE_HEADSET
+  if (canvas->foveationOffset) {
+    offsets = lovrHeadsetGetFoveationOffsets();
+    offsetCount = offsets ? 2 :0;
+  }
+#endif
+
+  gpu_render_end(stream, &pass->target, timestamps, offsets, offsetCount);
 
   // Automipmap
 

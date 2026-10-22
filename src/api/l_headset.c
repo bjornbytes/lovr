@@ -148,6 +148,7 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.equirectBackground), lua_setfield(L, -2, "equirectBackground");
   lua_pushboolean(L, features.eyeTracking), lua_setfield(L, -2, "eyeTracking");
   lua_pushboolean(L, features.foveation), lua_setfield(L, -2, "foveation");
+  lua_pushboolean(L, features.foveationEyeTracked), lua_setfield(L, -2, "foveationEyeTracked");
   lua_pushboolean(L, features.handModel), lua_setfield(L, -2, "handModel");
   lua_pushboolean(L, features.handTracking), lua_setfield(L, -2, "handTracking");
   lua_pushboolean(L, features.handTrackingElbow), lua_setfield(L, -2, "handTrackingElbow");
@@ -269,22 +270,24 @@ static int l_lovrHeadsetGetRefreshRates(lua_State* L) {
 
 static int l_lovrHeadsetGetFoveation(lua_State* L) {
   FoveationLevel level;
-  bool dynamic;
-  lovrHeadsetGetFoveation(&level, &dynamic);
+  bool dynamic, eyeTracked;
+  lovrHeadsetGetFoveation(&level, &dynamic, &eyeTracked);
   luax_pushenum(L, FoveationLevel, level);
   lua_pushboolean(L, dynamic);
+  lua_pushboolean(L, eyeTracked);
   return 2;
 }
 
 static int l_lovrHeadsetSetFoveation(lua_State* L) {
   if (lua_isnoneornil(L, 1)) {
-    bool success = lovrHeadsetSetFoveation(FOVEATION_NONE, false);
+    bool success = lovrHeadsetSetFoveation(FOVEATION_NONE, false, false);
     lua_pushboolean(L, success);
     return 1;
   } else {
     FoveationLevel level = luax_checkenum(L, 1, FoveationLevel, NULL);
     bool dynamic = lua_isnoneornil(L, 2) ? true : lua_toboolean(L, 2);
-    bool success = lovrHeadsetSetFoveation(level, dynamic);
+    bool eyeTracked = lua_isnoneornil(L, 3) ? true : lua_toboolean(L, 3);
+    bool success = lovrHeadsetSetFoveation(level, dynamic, eyeTracked);
     lua_pushboolean(L, success);
     return 1;
   }
