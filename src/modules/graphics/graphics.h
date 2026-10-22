@@ -49,6 +49,7 @@ typedef struct {
   bool depthClamp;
   bool depthResolve;
   bool raytracing;
+  bool foveation;
   bool shaderDrawParameters;
   bool indirectDrawFirstInstance;
   bool packedBuffers;

@@ -50,6 +50,7 @@ local conf = {
     hdr = false,
     supersample = false,
     dynamicresolution = false,
+    compressedfoveation = false,
     submitdepth = true,
     overlay = false,
     controllerskeleton = 'controller',

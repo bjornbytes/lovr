@@ -29,6 +29,7 @@ dev
 - Add `timeBeforeSleep` and `sleepVelocityThreshold` settings to `lovr.physics.newWorld`.
 - Add `lovr.data.compress/decompress`.
 - Add `t.headset.dynamicresolution`.
+- Add `t.headset.compressedfoveation`.
 
 ### Change
 
