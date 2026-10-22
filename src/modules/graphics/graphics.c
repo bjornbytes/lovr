@@ -1430,7 +1430,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
 
   if (activeDrawCount == 0) {
     gpu_render_begin(stream, &pass->target, timestamps);
-    gpu_render_end(stream, &pass->target, timestamps);
+    gpu_render_end(stream, &pass->target, timestamps, 0, NULL);
     return waitForPipelines(pipelineJobs, &pipelineCounter);
   }
 
@@ -1659,7 +1659,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
     gpu_tally_finish(stream, pass->tally.gpu, tally * pass->views);
   }
 
-  gpu_render_end(stream, &pass->target, timestamps);
+  gpu_render_end(stream, &pass->target, timestamps, 0, NULL);
 
   // Automipmap
 

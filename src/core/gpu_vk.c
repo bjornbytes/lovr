@@ -231,6 +231,7 @@ typedef struct {
   bool scalarBlockLayout;
   bool foveation;
   bool foveation2;
+  bool foveationOffset;
   bool pipelineCacheControl;
   bool memoryBudget;
   bool accelerationStructure;
@@ -412,6 +413,7 @@ static void error(const char* message);
   X(vkCmdEndRenderPass2KHR)\
   X(vkCmdBeginRenderingKHR)\
   X(vkCmdEndRenderingKHR)\
+  X(vkCmdEndRendering2EXT)\
   X(vkCreateImageView)\
   X(vkDestroyImageView)\
   X(vkCreateFramebuffer)\
@@ -705,7 +707,8 @@ bool gpu_texture_init(gpu_texture* texture, gpu_texture_info* info) {
     .flags =
       (info->type == GPU_TEXTURE_3D ? VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT : 0) |
       (info->type == GPU_TEXTURE_CUBE ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0) |
-      (mutableFormat ? (VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT) : 0),
+      (mutableFormat ? (VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT) : 0) |
+      (info->foveationOffset ? VK_IMAGE_CREATE_FRAGMENT_DENSITY_MAP_OFFSET_BIT_EXT : 0),
     .imageType = imageTypes[info->type],
     .format = convertFormat(texture->format, info->srgb),
     .extent.width = info->size[0],
@@ -2587,9 +2590,28 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writ
   }
 }
 
-void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps) {
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps, uint32_t offsetCount, float* offsets) {
   if (state.extensions.dynamicRendering) {
-    vkCmdEndRenderingKHR(stream->commands);
+    if (state.extensions.foveationOffset && offsetCount > 0) {
+      VkOffset2D fragmentDensityOffsets[2] = { 0 };
+      offsetCount = MIN(offsetCount, COUNTOF(fragmentDensityOffsets));
+
+      for (uint32_t i = 0; i < offsetCount; i++) {
+        fragmentDensityOffsets[i].x = (int32_t) (offsets[2 * i + 0] * canvas->width + .5f);
+        fragmentDensityOffsets[i].y = (int32_t) (offsets[2 * i + 1] * canvas->height + .5f);
+      }
+
+      vkCmdEndRendering2EXT(stream->commands, &(VkRenderingEndInfoEXT) {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_END_INFO_EXT,
+        .pNext = &(VkRenderPassFragmentDensityMapOffsetEndInfoEXT) {
+          .sType = VK_STRUCTURE_TYPE_RENDER_PASS_FRAGMENT_DENSITY_MAP_OFFSET_END_INFO_EXT,
+          .fragmentDensityOffsetCount = offsetCount,
+          .pFragmentDensityOffsets = fragmentDensityOffsets
+        }
+      });
+    } else {
+      vkCmdEndRenderingKHR(stream->commands);
+    }
   } else {
     vkCmdEndRenderPass2KHR(stream->commands, &(VkSubpassEndInfo) {
       .sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO
@@ -3128,6 +3150,7 @@ bool gpu_init(gpu_config* config) {
       { "VK_EXT_scalar_block_layout", true, &state.extensions.scalarBlockLayout },
       { "VK_EXT_fragment_density_map", true, &state.extensions.foveation },
       { "VK_EXT_fragment_density_map2", true, &state.extensions.foveation2 },
+      { "VK_EXT_fragment_density_map_offset", true, &state.extensions.foveationOffset },
       { "VK_EXT_pipeline_creation_cache_control", true, &state.extensions.pipelineCacheControl },
       { "VK_EXT_memory_budget", true, &state.extensions.memoryBudget },
       { "VK_EXT_host_image_copy", true, &state.extensions.hostImageCopy },
@@ -3231,6 +3254,7 @@ bool gpu_init(gpu_config* config) {
     VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR };
     VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalarBlockLayoutFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT };
     VkPhysicalDeviceFragmentDensityMapFeaturesEXT fragmentDensityMapFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT };
+    VkPhysicalDeviceFragmentDensityMapOffsetFeaturesEXT fragmentDensityMapOffsetFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_OFFSET_FEATURES_EXT };
     VkPhysicalDevicePipelineCreationCacheControlFeaturesEXT pipelineCreationCacheControlFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES_EXT };
     VkPhysicalDeviceBufferDeviceAddressFeaturesKHR bufferDeviceAddressFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR };
     VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
@@ -3310,6 +3334,11 @@ bool gpu_init(gpu_config* config) {
 
     if (state.extensions.foveation && fragmentDensityMapFeatures.fragmentDensityMapNonSubsampledImages) {
       CHAIN(enabled, fragmentDensityMapFeatures);
+    }
+
+    if (state.extensions.foveationOffset) {
+      fragmentDensityMapOffsetFeatures.fragmentDensityMapOffset = true;
+      CHAIN(enabled, fragmentDensityMapOffsetFeatures);
     }
 
     if (state.extensions.pipelineCacheControl) {

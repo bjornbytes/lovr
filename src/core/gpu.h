@@ -272,6 +272,7 @@ typedef struct {
   uint32_t samples;
   uint32_t usage;
   bool srgb;
+  bool foveationOffset;
   uintptr_t handle;
   const char* label;
 } gpu_texture_info;
@@ -744,7 +745,7 @@ typedef struct {
 gpu_stream* gpu_stream_begin(const char* label);
 bool gpu_stream_end(gpu_stream* stream);
 void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps);
-void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps);
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps, uint32_t offsetCount, float* offsets);
 void gpu_compute_begin(gpu_stream* stream, gpu_timestamp_writes* timestamps);
 void gpu_compute_end(gpu_stream* stream, gpu_timestamp_writes* timestamps);
 void gpu_set_viewport(gpu_stream* stream, float viewport[4], float depthRange[2]);
