@@ -1602,6 +1602,12 @@ static bool updateFoveationProfile(FoveationLevel level, bool dynamic, bool eyeT
     profileInfo.dynamic = XR_FOVEATION_DYNAMIC_DISABLED_FB;
   }
 
+  XrFoveationEyeTrackedProfileCreateInfoMETA eyeTrackedInfo = { .type = XR_TYPE_FOVEATION_EYE_TRACKED_PROFILE_CREATE_INFO_META };
+
+  if (eyeTracked) {
+    profileInfo.next = &eyeTrackedInfo;
+  }
+
   XrFoveationProfileCreateInfoFB info = {
     .type = XR_TYPE_FOVEATION_PROFILE_CREATE_INFO_FB,
     .next = &profileInfo
@@ -1618,6 +1624,7 @@ static bool updateFoveationProfile(FoveationLevel level, bool dynamic, bool eyeT
   };
 
   if (XR_FAILED(xrUpdateSwapchainFB(state.swapchains[SWAPCHAIN_COLOR].handle, (XrSwapchainStateBaseHeaderFB*) &foveationState))) {
+    xrDestroyFoveationProfileFB(profile);
     return false;
   }
 
@@ -1635,7 +1642,7 @@ bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic, bool eyeTracked
     return true;
   }
 
-  if (eyeTracked && !state.extensions.foveationEyeTracked) {
+  if (eyeTracked && (!state.extensions.foveationEyeTracked || level == FOVEATION_NONE)) {
     eyeTracked = false;
   }
 

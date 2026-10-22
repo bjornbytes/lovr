@@ -117,12 +117,16 @@ var headset = {
     return false;
   },
 
-  lovrHeadsetGetFoveation(level, dynamic) {
+  lovrHeadsetGetFoveation(level, dynamic, eyeTracked) {
     return false;
   },
 
-  lovrHeadsetSetFoveation(level, dynamic) {
+  lovrHeadsetSetFoveation(level, dynamic, eyeTracked) {
     return false;
+  },
+
+  lovrHeadsetGetFoveationOffsets() {
+    return 0;
   },
 
   lovrHeadsetIsHDR() {
