@@ -1006,7 +1006,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writ
   stream->pass = wgpu_command_encoder_begin_render_pass(stream->commands, &info);
 }
 
-void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps) {
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps, int32_t* offsets, uint32_t offsetCount) {
   wgpu_render_pass_encoder_end(stream->pass);
   stream->pass = 0;
 }

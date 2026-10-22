@@ -272,6 +272,7 @@ typedef struct {
   uint32_t samples;
   uint32_t usage;
   bool srgb;
+  bool foveationOffset;
   uintptr_t handle;
   const char* label;
 } gpu_texture_info;
@@ -744,7 +745,7 @@ typedef struct {
 gpu_stream* gpu_stream_begin(const char* label);
 bool gpu_stream_end(gpu_stream* stream);
 void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps);
-void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps);
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps, int32_t* offsets, uint32_t offsetCount);
 void gpu_compute_begin(gpu_stream* stream, gpu_timestamp_writes* timestamps);
 void gpu_compute_end(gpu_stream* stream, gpu_timestamp_writes* timestamps);
 void gpu_set_viewport(gpu_stream* stream, float viewport[4], float depthRange[2]);
@@ -854,6 +855,7 @@ typedef struct {
   uint32_t pushConstantSize;
   uint32_t indirectDrawCount;
   uint32_t instances;
+  uint32_t foveationOffsetAlign[2];
   float anisotropy;
   float pointSize;
 } gpu_limits;

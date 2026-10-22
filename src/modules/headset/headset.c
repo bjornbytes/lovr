@@ -144,7 +144,8 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrDestroyPassthroughLayerFB)\
   X(xrGetPassthroughPreferencesMETA)\
   X(xrGetRecommendedLayerResolutionMETA)\
-  X(xrEnumerateColorSpacesSONY)
+  X(xrEnumerateColorSpacesSONY)\
+  X(xrGetFoveationEyeTrackedStateMETA)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -274,6 +275,8 @@ static struct {
   mtx_t modelLock;
   FoveationLevel foveationLevel;
   bool foveationDynamic;
+  bool foveationEyeTracked;
+  float foveationOffsets[4];
   XrPassthroughFB passthrough;
   XrPassthroughLayerFB passthroughLayerHandle;
   bool passthroughActive;
@@ -291,6 +294,7 @@ static struct {
     bool foveatedInset;
     bool foveation;
     bool foveationConfig;
+    bool foveationEyeTracked;
     bool foveationVulkan;
     bool frameController;
     bool gaze;
@@ -507,6 +511,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_FB_touch_controller_pro", &state.extensions.touchPro, true },
     { "XR_LOGITECH_mx_ink_stylus_interaction", &state.extensions.mxInk, true },
     { "XR_META_automatic_layer_filter", &state.extensions.layerAutoFilter, true },
+    { "XR_META_foveation_eye_tracked", &state.extensions.foveationEyeTracked, true },
     { "XR_META_hand_tracking_microgestures", &state.extensions.microgestures, true },
     { "XR_META_passthrough_preferences", &state.extensions.passthroughPreferences, true },
     { "XR_META_recommended_layer_resolution", &state.extensions.dynamicResolution, config->dynamicResolution },
@@ -619,6 +624,7 @@ bool lovrHeadsetConnect(void) {
   XrSystemKeyboardTrackingPropertiesFB keyboardTrackingProperties = { .type = XR_TYPE_SYSTEM_KEYBOARD_TRACKING_PROPERTIES_FB };
   XrSystemUserPresencePropertiesEXT presenceProperties = { .type = XR_TYPE_SYSTEM_USER_PRESENCE_PROPERTIES_EXT };
   XrSystemPassthroughProperties2FB passthroughProperties = { .type = XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB };
+  XrSystemFoveationEyeTrackedPropertiesMETA foveationEyeTrackedProperties = { .type = XR_TYPE_SYSTEM_FOVEATION_EYE_TRACKED_PROPERTIES_META };
 
   if (state.extensions.gaze) {
     eyeGazeProperties.next = state.systemProperties.next;
@@ -650,6 +656,11 @@ bool lovrHeadsetConnect(void) {
     state.systemProperties.next = &passthroughProperties;
   }
 
+  if (state.extensions.foveationEyeTracked) {
+    foveationEyeTrackedProperties.next = state.systemProperties.next;
+    state.systemProperties.next = &foveationEyeTrackedProperties;
+  }
+
   XRG(xrGetSystemProperties(state.instance, state.system, &state.systemProperties), "xrGetSystemProperties", fail);
   state.extensions.gaze = eyeGazeProperties.supportsEyeGazeInteraction;
   state.extensions.handTracking = handTrackingProperties.supportsHandTracking;
@@ -657,6 +668,7 @@ bool lovrHeadsetConnect(void) {
   state.extensions.keyboardTracking = keyboardTrackingProperties.supportsKeyboardTracking;
   state.extensions.presence = presenceProperties.supportsUserPresence;
   state.extensions.questPassthrough = passthroughProperties.capabilities & XR_PASSTHROUGH_CAPABILITY_BIT_FB;
+  state.extensions.foveationEyeTracked = foveationEyeTrackedProperties.supportsFoveationEyeTracked;
 
   // View Configuration
 
@@ -976,6 +988,7 @@ void lovrHeadsetGetFeatures(HeadsetFeatures* features) {
   features->equirectBackground = state.extensions.layerEquirect || state.extensions.layerEquirect2;
   features->eyeTracking = state.extensions.gaze;
   features->foveation = state.extensions.foveation;
+  features->foveationEyeTracked = state.extensions.foveationEyeTracked;
   features->handModel = state.extensions.handTrackingMesh;
   features->handTracking = state.extensions.handTracking;
   features->handTrackingElbow = state.extensions.handTrackingElbow;
@@ -1564,20 +1577,13 @@ float* lovrHeadsetGetRefreshRates(uint32_t* count) {
   return state.refreshRates;
 }
 
-void lovrHeadsetGetFoveation(FoveationLevel* level, bool* dynamic) {
+void lovrHeadsetGetFoveation(FoveationLevel* level, bool* dynamic, bool* eyeTracked) {
   *level = state.foveationLevel;
   *dynamic = state.foveationDynamic;
+  *eyeTracked = state.foveationEyeTracked;
 }
 
-bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic) {
-  if (!state.session || !state.extensions.foveation) {
-    return level == FOVEATION_NONE;
-  }
-
-  if (state.foveationLevel == level && state.foveationDynamic == dynamic) {
-    return true;
-  }
-
+static bool updateFoveationProfile(FoveationLevel level, bool dynamic, bool eyeTracked) {
   XrFoveationLevelProfileCreateInfoFB profileInfo = {
     .type = XR_TYPE_FOVEATION_LEVEL_PROFILE_CREATE_INFO_FB
   };
@@ -1596,6 +1602,12 @@ bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic) {
     profileInfo.dynamic = XR_FOVEATION_DYNAMIC_DISABLED_FB;
   }
 
+  XrFoveationEyeTrackedProfileCreateInfoMETA eyeTrackedInfo = { .type = XR_TYPE_FOVEATION_EYE_TRACKED_PROFILE_CREATE_INFO_META };
+
+  if (eyeTracked) {
+    profileInfo.next = &eyeTrackedInfo;
+  }
+
   XrFoveationProfileCreateInfoFB info = {
     .type = XR_TYPE_FOVEATION_PROFILE_CREATE_INFO_FB,
     .next = &profileInfo
@@ -1612,15 +1624,56 @@ bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic) {
   };
 
   if (XR_FAILED(xrUpdateSwapchainFB(state.swapchains[SWAPCHAIN_COLOR].handle, (XrSwapchainStateBaseHeaderFB*) &foveationState))) {
+    xrDestroyFoveationProfileFB(profile);
     return false;
   }
 
   xrDestroyFoveationProfileFB(profile);
 
+  return true;
+}
+
+bool lovrHeadsetSetFoveation(FoveationLevel level, bool dynamic, bool eyeTracked) {
+  if (!state.session || !state.extensions.foveation) {
+    return level == FOVEATION_NONE;
+  }
+
+  if (state.foveationLevel == level && state.foveationDynamic == dynamic && state.foveationEyeTracked == eyeTracked) {
+    return true;
+  }
+
+  if (eyeTracked && (!state.extensions.foveationEyeTracked || level == FOVEATION_NONE)) {
+    eyeTracked = false;
+  }
+
+  if (!updateFoveationProfile(level, dynamic, eyeTracked)) {
+    return false;
+  }
+
   state.foveationLevel = level;
   state.foveationDynamic = dynamic;
+  state.foveationEyeTracked = eyeTracked;
 
   return true;
+}
+
+const float* lovrHeadsetGetFoveationOffsets(void) {
+  if (!state.session || !state.extensions.foveationEyeTracked || !state.foveationEyeTracked) {
+    return NULL;
+  }
+
+  if (!updateFoveationProfile(state.foveationLevel, state.foveationDynamic, state.foveationEyeTracked)) {
+    return NULL;
+  }
+
+  XrFoveationEyeTrackedStateMETA foveationState = { .type = XR_TYPE_FOVEATION_EYE_TRACKED_STATE_META };
+  XR(xrGetFoveationEyeTrackedStateMETA(state.session, &foveationState), "xrGetFoveationEyeTrackedStateMETA");
+
+  if (!(foveationState.flags & XR_FOVEATION_EYE_TRACKED_STATE_VALID_BIT_META)) {
+    return NULL;
+  }
+
+  return memcpy(state.foveationOffsets, &foveationState.foveationCenter[0].x, 4 * sizeof(float));
 }
 
 bool lovrHeadsetIsHDR(void) {
@@ -3015,6 +3068,7 @@ bool lovrHeadsetGetPass(Pass** pass) {
   }
 
   canvas.foveation = state.foveationLevel ? state.swapchains[SWAPCHAIN_COLOR].foveationTextures[state.swapchains[SWAPCHAIN_COLOR].textureIndex] : NULL;
+  canvas.foveationOffset = state.foveationEyeTracked;
 
   if (!lovrPassSetCanvas(state.pass, &canvas)) {
     return false;
@@ -3542,10 +3596,12 @@ static bool lovrSwapchainInit(Swapchain* swapchain, uint32_t width, uint32_t hei
 
   XrVulkanSwapchainCreateInfoMETA vulkanCreateInfo = {
     .type = XR_TYPE_VULKAN_SWAPCHAIN_CREATE_INFO_META,
-    .additionalCreateFlags = VK_IMAGE_CREATE_SUBSAMPLED_BIT_EXT
+    .additionalCreateFlags =
+      (foveated && subsampled ? VK_IMAGE_CREATE_SUBSAMPLED_BIT_EXT : 0) |
+      (foveated && state.extensions.foveationEyeTracked ? VK_IMAGE_CREATE_FRAGMENT_DENSITY_MAP_OFFSET_BIT_EXT : 0)
   };
 
-  if (subsampled) {
+  if (state.extensions.vulkanSwapchainInfo && vulkanCreateInfo.additionalCreateFlags) {
     vulkanCreateInfo.next = info.next;
     info.next = &vulkanCreateInfo;
   }
