@@ -664,7 +664,7 @@ static void pollReadbacks(void);
 static Layout* getLayout(gpu_slot* slots, uint32_t count);
 static gpu_bundle* getBundle(Layout* layout, gpu_binding* bindings, uint32_t count);
 static bool getBundles(Layout* layout, gpu_bundle** bundles, uint32_t count);
-static gpu_texture* createTemporaryTexture(const TextureInfo* info, TextureFormat format, bool srgb, uint32_t samples);
+static gpu_texture* createTemporaryTexture(const TextureInfo* info, TextureFormat format, bool srgb, bool foveationOffset, uint32_t samples);
 static bool isDepthFormat(TextureFormat format);
 static bool supportsSRGB(TextureFormat format);
 static void getBlockSize(TextureFormat format, uint32_t* w, uint32_t* h, uint32_t* size);
@@ -7077,6 +7077,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
   compatible &= pass->height == texture->height;
   compatible &= pass->views == texture->layers;
   compatible &= pass->canvas.samples == samples;
+  compatible &= pass->canvas.foveationOffset == canvas->foveationOffset;
 
   for (uint32_t i = 0; i < 4 && color[i].texture; i++) {
     const TextureInfo* self = &color[i].texture->info;
@@ -7096,7 +7097,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
     }
 
     // Otherwise, make a new temporary texture
-    tempColorTextures[i] = createTemporaryTexture(texture, self->format, self->srgb, samples);
+    tempColorTextures[i] = createTemporaryTexture(texture, self->format, self->srgb, canvas->foveationOffset, samples);
 
     if (!tempColorTextures[i]) {
       for (uint32_t j = 0; j < i; j++) {
@@ -7119,7 +7120,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
     if (compatible && ((other && other->samples == 1 && other->format == format) || pass->canvas.depthFormat == format)) {
       tempDepthTexture = target->depth.texture;
     } else {
-      tempDepthTexture = createTemporaryTexture(texture, format, false, samples);
+      tempDepthTexture = createTemporaryTexture(texture, format, false, canvas->foveationOffset, samples);
 
       if (!tempDepthTexture) {
         for (uint32_t i = 0; i < 4; i++) {
@@ -9786,11 +9787,12 @@ static bool getBundles(Layout* layout, gpu_bundle** bundles, uint32_t count) {
   return true;
 }
 
-static gpu_texture* createTemporaryTexture(const TextureInfo* parent, TextureFormat format, bool srgb, uint32_t samples) {
+static gpu_texture* createTemporaryTexture(const TextureInfo* parent, TextureFormat format, bool srgb, bool foveationOffset, uint32_t samples) {
   gpu_texture_info info = {
     .type = parent->type == TEXTURE_2D ? GPU_TEXTURE_2D : GPU_TEXTURE_ARRAY,
     .format = (gpu_texture_format) format,
     .srgb = srgb,
+    .foveationOffset = foveationOffset,
     .size = { parent->width, parent->height, parent->layers },
     .mipmaps = 1,
     .samples = samples,

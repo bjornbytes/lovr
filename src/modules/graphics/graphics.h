@@ -610,6 +610,7 @@ typedef struct {
   Attachment color[4];
   Attachment depth;
   Texture* foveation;
+  bool foveationOffset;
   uint32_t depthFormat;
   uint32_t samples;
 } Canvas;
