@@ -291,6 +291,7 @@ static struct {
     bool foveatedInset;
     bool foveation;
     bool foveationConfig;
+    bool foveationEyeTracked;
     bool foveationVulkan;
     bool frameController;
     bool gaze;
@@ -507,6 +508,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_FB_touch_controller_pro", &state.extensions.touchPro, true },
     { "XR_LOGITECH_mx_ink_stylus_interaction", &state.extensions.mxInk, true },
     { "XR_META_automatic_layer_filter", &state.extensions.layerAutoFilter, true },
+    { "XR_META_foveation_eye_tracked", &state.extensions.foveationEyeTracked, true },
     { "XR_META_hand_tracking_microgestures", &state.extensions.microgestures, true },
     { "XR_META_passthrough_preferences", &state.extensions.passthroughPreferences, true },
     { "XR_META_recommended_layer_resolution", &state.extensions.dynamicResolution, config->dynamicResolution },
