@@ -2590,15 +2590,15 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writ
   }
 }
 
-void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps, const float* offsets, uint32_t offsetCount) {
+void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes* timestamps, int32_t* offsets, uint32_t offsetCount) {
   if (state.extensions.dynamicRendering) {
     if (state.extensions.foveationOffset && offsetCount > 0) {
-      VkOffset2D fragmentDensityOffsets[2] = { 0 };
-      offsetCount = MIN(offsetCount, COUNTOF(fragmentDensityOffsets));
+      VkOffset2D foveationOffsets[2] = { 0 };
+      offsetCount = MIN(offsetCount, COUNTOF(foveationOffsets));
 
       for (uint32_t i = 0; i < offsetCount; i++) {
-        fragmentDensityOffsets[i].x = (int32_t) (offsets[2 * i + 0] * canvas->width * .5f + .5f);
-        fragmentDensityOffsets[i].y = (int32_t) (offsets[2 * i + 1] * canvas->height * .5f + .5f);
+        foveationOffsets[i].x = offsets[2 * i + 0];
+        foveationOffsets[i].y = offsets[2 * i + 1];
       }
 
       vkCmdEndRendering2EXT(stream->commands, &(VkRenderingEndInfoEXT) {
@@ -2606,7 +2606,7 @@ void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes
         .pNext = &(VkRenderPassFragmentDensityMapOffsetEndInfoEXT) {
           .sType = VK_STRUCTURE_TYPE_RENDER_PASS_FRAGMENT_DENSITY_MAP_OFFSET_END_INFO_EXT,
           .fragmentDensityOffsetCount = offsetCount,
-          .pFragmentDensityOffsets = fragmentDensityOffsets
+          .pFragmentDensityOffsets = foveationOffsets
         }
       });
     } else {
@@ -3183,9 +3183,16 @@ bool gpu_init(gpu_config* config) {
 
     // Device Info
 
+    VkPhysicalDeviceFragmentDensityMapOffsetPropertiesEXT fragmentDensityMapOffsetProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_OFFSET_PROPERTIES_EXT };
     VkPhysicalDeviceMultiviewProperties multiviewProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES };
     VkPhysicalDeviceSubgroupProperties subgroupProperties = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, .pNext = &multiviewProperties };
     VkPhysicalDeviceProperties2 properties2 = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &subgroupProperties };
+
+    if (state.extensions.foveationOffset) {
+      fragmentDensityMapOffsetProperties.pNext = properties2.pNext;
+      properties2.pNext = &fragmentDensityMapOffsetProperties;
+    }
+
     vkGetPhysicalDeviceProperties2(state.adapter, &properties2);
 
     if (config->device) {
@@ -3236,6 +3243,8 @@ bool gpu_init(gpu_config* config) {
       config->limits->pushConstantSize = limits->maxPushConstantsSize;
       config->limits->indirectDrawCount = limits->maxDrawIndirectCount;
       config->limits->instances = multiviewProperties.maxMultiviewInstanceIndex;
+      config->limits->foveationOffsetAlign[0] = MAX(fragmentDensityMapOffsetProperties.fragmentDensityOffsetGranularity.width, 1);
+      config->limits->foveationOffsetAlign[1] = MAX(fragmentDensityMapOffsetProperties.fragmentDensityOffsetGranularity.height, 1);
       config->limits->anisotropy = limits->maxSamplerAnisotropy;
       config->limits->pointSize = limits->pointSizeRange[1];
     }

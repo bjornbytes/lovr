@@ -1659,17 +1659,24 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
     gpu_tally_finish(stream, pass->tally.gpu, tally * pass->views);
   }
 
-  const float* offsets = NULL;
+  int32_t ioffsets[4];
   uint32_t offsetCount = 0;
 
 #ifndef LOVR_DISABLE_HEADSET
-  if (canvas->foveationOffset) {
-    offsets = lovrHeadsetGetFoveationOffsets();
-    offsetCount = offsets ? 2 :0;
+  const float* offsets = canvas->foveationOffset ? lovrHeadsetGetFoveationOffsets() : NULL;
+
+  if (offsets) {
+    int32_t ax = (int32_t) state.limits.foveationOffsetAlign[0];
+    int32_t ay = (int32_t) state.limits.foveationOffsetAlign[1];
+    ioffsets[0] = (int32_t) roundf(offsets[0] * pass->width * .5f / ax) * ax;
+    ioffsets[1] = (int32_t) roundf(offsets[1] * pass->height * .5f / ay) * ay;
+    ioffsets[2] = (int32_t) roundf(offsets[2] * pass->width * .5f / ax) * ax;
+    ioffsets[3] = (int32_t) roundf(offsets[3] * pass->height * .5f / ay) * ay;
+    offsetCount = 2;
   }
 #endif
 
-  gpu_render_end(stream, &pass->target, timestamps, offsets, offsetCount);
+  gpu_render_end(stream, &pass->target, timestamps, ioffsets, offsetCount);
 
   // Automipmap
 
