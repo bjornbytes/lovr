@@ -372,8 +372,8 @@ var headset = {
     const canvas = stackAlloc(96);
     HEAPU32.fill(0, canvas >> 2, (canvas + 96) >> 2);
     HEAPU32[(canvas >> 2) + 0] = state.texture; // canvas.color[0].texture = state.texture
-    HEAPU32[(canvas >> 2) + 11] = state.depthFormat; // canvas.depthFormat = state.depthFormat
-    HEAPU32[(canvas >> 2) + 12] = 4; // canvas.samples = 4
+    HEAPU32[(canvas >> 2) + 12] = state.depthFormat; // canvas.depthFormat = state.depthFormat
+    HEAPU32[(canvas >> 2) + 13] = 4; // canvas.samples = 4
 
     if (!Module['_lovrPassSetCanvas'](state.pass, canvas)) {
       stackRestore(stack);
