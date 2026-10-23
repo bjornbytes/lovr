@@ -24,7 +24,7 @@ jobs:
       - name: Test
         run: build\%CMAKE_BUILD_TYPE%\lovr test --headless
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lovr.exe
           path: |
@@ -60,7 +60,7 @@ jobs:
           ./appimagetool-${{ matrix.arch }}.AppImage build/bin &&
           mv LÖVR-${{ matrix.arch }}.AppImage lovr-${{ matrix.arch }}.AppImage
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lovr-${{ matrix.arch }}.AppImage
           path: lovr-${{ matrix.arch }}.AppImage
@@ -113,7 +113,7 @@ jobs:
       - name: Build
         run: cmake --build build
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.abi == 'arm64-v8a' && 'lovr.apk' || 'lovr-x64.apk' }}
           path: build/lovr.apk
@@ -141,7 +141,7 @@ jobs:
       - name: Build
         run: emmake make -C build -j2
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lovr.wasm
           path: |
@@ -183,7 +183,7 @@ jobs:
           codesign -f -s - --preserve-metadata=identifier,entitlements,flags,runtime build/lovr.app &&
           ditto -c -k --keepParent build/lovr.app lovr.zip
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lovr.app
           path: lovr.zip
