@@ -146,6 +146,7 @@ StringEntry lovrScannerType[] = {
   [SCANNER_MICRO_QR] = ENTRY("microqr"),
   [SCANNER_ARUCO] = ENTRY("aruco"),
   [SCANNER_APRIL] = ENTRY("april"),
+  [SCANNER_IMAGE] = ENTRY("image"),
   [SCANNER_OBJECT] = ENTRY("object"),
   [SCANNER_MESH] = ENTRY("mesh"),
   { 0 }
@@ -1040,12 +1041,41 @@ static int l_lovrHeadsetNewScanner(lua_State* L) {
   }
 
   if (lua_istable(L, 2)) {
-    lua_getfield(L, 2, "size");
-    info.markerSize = luax_optfloat(L, -1, 0.f);
+    lua_getfield(L, 2, "width");
+    info.width = luax_optfloat(L, -1, 0.f);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "images");
+    if (info.type == SCANNER_IMAGE && lua_istable(L, -1)) {
+      lua_pushnil(L);
+      while (lua_next(L, -2) != 0) {
+        info.imageCount++;
+        lua_pop(L, 1);
+      }
+
+      info.images = lovrMalloc(info.imageCount * sizeof(ReferenceImage));
+
+      int i = 0;
+      bool valid = true;
+      lua_pushnil(L);
+      while (lua_next(L, -2) != 0) {
+        ReferenceImage* image = &info.images[i];
+        image->label = lua_type(L, -2) == LUA_TSTRING ? lua_tostring(L, -2) : NULL;
+        image->image = luax_totype(L, -1, Image);
+        valid &= image->label && image->image;
+        lua_pop(L, 1);
+        i++;
+      }
+
+      if (!valid) {
+        lovrFree(info.images);
+        return luaL_error(L, "Scanner images should be a table with string keys and Image values");
+      }
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "static");
-    info.staticMarkers = lua_toboolean(L, -1);
+    info.isStatic = lua_toboolean(L, -1);
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "storage");
@@ -1053,7 +1083,11 @@ static int l_lovrHeadsetNewScanner(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  return luax_yieldfuture(L, lovrScannerCreate(&info), luax_pushscanner);
+  Future* future = lovrScannerCreate(&info);
+  lovrFree(info.images);
+  luax_assert(L, future);
+
+  return luax_yieldfuture(L, future, luax_pushscanner);
 }
 
 static int l_lovrHeadsetNewLayer(lua_State* L) {
@@ -1266,6 +1300,7 @@ extern const luaL_Reg lovrScanner[];
 extern const luaL_Reg lovrPointAnchor[];
 extern const luaL_Reg lovrPlaneAnchor[];
 extern const luaL_Reg lovrMarkerAnchor[];
+extern const luaL_Reg lovrImageAnchor[];
 extern const luaL_Reg lovrObjectAnchor[];
 extern const luaL_Reg lovrMeshAnchor[];
 extern const luaL_Reg lovrLayer[];
@@ -1277,6 +1312,7 @@ int luaopen_lovr_headset(lua_State* L) {
   luax_registertype(L, PointAnchor);
   luax_registertype(L, PlaneAnchor);
   luax_registertype(L, MarkerAnchor);
+  luax_registertype(L, ImageAnchor);
   luax_registertype(L, ObjectAnchor);
   luax_registertype(L, MeshAnchor);
   luax_registertype(L, Layer);

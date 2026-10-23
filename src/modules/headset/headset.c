@@ -175,7 +175,10 @@ uintptr_t gpu_vk_get_queue(uint32_t* queueFamilyIndex, uint32_t* queueIndex);
   X(xrPersistSpatialEntityAsyncEXT)\
   X(xrPersistSpatialEntityCompleteEXT)\
   X(xrUnpersistSpatialEntityAsyncEXT)\
-  X(xrUnpersistSpatialEntityCompleteEXT)
+  X(xrUnpersistSpatialEntityCompleteEXT)\
+  X(xrCreateSpatialImageTrackingDatabaseAsyncEXT)\
+  X(xrCreateSpatialImageTrackingDatabaseCompleteEXT)\
+  X(xrDestroySpatialImageTrackingDatabaseEXT)
 
 #define XR_DECLARE(fn) static PFN_##fn fn;
 #define XR_LOAD(fn) xrGetInstanceProcAddr(state.instance, #fn, (PFN_xrVoidFunction*) &fn);
@@ -216,9 +219,8 @@ typedef struct HeadsetFuture {
   Future inner;
   XrFutureEXT handle;
   bool (*callback)(XrFutureEXT future, void* context, bool* chained);
+  void (*finalizer)(struct HeadsetFuture* future);
   void* context;
-  void (*destructor)(void* ref);
-  bool heap;
 } HeadsetFuture;
 
 struct Scanner {
@@ -228,6 +230,9 @@ struct Scanner {
   HeadsetFuture future;
   XrSpatialContextEXT handle;
   XrSpatialPersistenceContextEXT storage;
+  XrSpatialImageTrackingDatabaseEXT imageDatabase;
+  XrSpatialReferenceImageEXT* referenceImages;
+  XrSpatialReferenceImagePlaneEXT* planes;
   XrSpatialComponentTypeEXT* components;
   XrSpatialComponentTypeEXT* optionalComponents;
   uint32_t componentCount;
@@ -251,6 +256,7 @@ struct Scanner {
   XrSpatialKeyboardSemanticLabelEXT* keyboardLabels;
   XrSpatialMouseSemanticLabelEXT* mouseLabels;
   XrPosef* anchorPoses;
+  XrSpatialImage2DDataEXT* images;
   XrSpatialBufferEXT* meshNormals;
 };
 
@@ -421,6 +427,7 @@ static struct {
     bool handTrackingMotionRange;
     bool hdr;
     bool headless;
+    bool imageTracking;
     bool interactionRenderModel;
     bool keyboardTracking;
     bool layerAutoFilter;
@@ -481,7 +488,7 @@ static XrHandTrackerEXT getHandTracker(Device device);
 static XrBodyTrackerBD getBodyTracker(void);
 static bool loadControllerModels(void);
 static bool loadVisibilityMask(void);
-static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void* context, void (*destructor)(void*), bool heap);
+static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void (*finalizer)(HeadsetFuture*), void* context);
 
 // Entry
 
@@ -611,6 +618,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_EXT_render_model", &state.extensions.renderModel, true },
     { "XR_EXT_spatial_anchor", &state.extensions.anchors, true },
     { "XR_EXT_spatial_entity", &state.extensions.spatialEntity, true },
+    { "XR_EXT_spatial_image_tracking", &state.extensions.imageTracking, true },
     { "XR_EXT_spatial_marker_tracking", &state.extensions.markerTracking, true },
     { "XR_EXT_spatial_object_tracking", &state.extensions.objectTracking, true },
     { "XR_EXT_spatial_persistence", &state.extensions.anchorLoading, true },
@@ -1165,6 +1173,7 @@ bool lovrHeadsetIsScannerSupported(ScannerType type) {
     [SCANNER_MICRO_QR] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT,
     [SCANNER_ARUCO] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT,
     [SCANNER_APRIL] = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT,
+    [SCANNER_IMAGE] = XR_SPATIAL_CAPABILITY_IMAGE_TRACKING_EXT,
     [SCANNER_OBJECT] = XR_SPATIAL_CAPABILITY_OBJECT_TRACKING_EXT,
     [SCANNER_MESH] = XR_SPATIAL_CAPABILITY_MESH_TRACKING_EXT
   };
@@ -3476,6 +3485,15 @@ void lovrHeadsetSetButton(Device device, DeviceButton button, bool down) {
 
 // Scanner
 
+static void releaseScanner(HeadsetFuture* future) {
+  lovrRelease(future->context, lovrScannerDestroy);
+}
+
+static void releaseScannerAndFree(HeadsetFuture* future) {
+  lovrRelease(future->context, lovrScannerDestroy);
+  lovrFree(future);
+}
+
 static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEntityIdEXT id, XrSpatialEntityEXT handle) {
   if (slot >= scanner->entityCapacity) {
     uint32_t capacity = scanner->entityCapacity;
@@ -3501,6 +3519,7 @@ static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEn
         case XR_SPATIAL_COMPONENT_TYPE_KEYBOARD_SEMANTIC_LABEL_EXT: scanner->keyboardLabels = lovrRealloc(scanner->keyboardLabels, capacity * sizeof(scanner->keyboardLabels[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_MOUSE_SEMANTIC_LABEL_EXT: scanner->mouseLabels = lovrRealloc(scanner->mouseLabels, capacity * sizeof(scanner->mouseLabels[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT: scanner->anchorPoses = lovrRealloc(scanner->anchorPoses, capacity * sizeof(scanner->anchorPoses[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_IMAGE_2D_EXT: scanner->images = lovrRealloc(scanner->images, capacity * sizeof(scanner->images[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_NORMALS_EXT: scanner->meshNormals = lovrRealloc(scanner->meshNormals, capacity * sizeof(scanner->meshNormals[0])); break;
         default: break;
       }
@@ -3532,6 +3551,7 @@ static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEn
     case SCANNER_MICRO_QR: anchor->type = ANCHOR_MARKER; break;
     case SCANNER_ARUCO: anchor->type = ANCHOR_MARKER; break;
     case SCANNER_APRIL: anchor->type = ANCHOR_MARKER; break;
+    case SCANNER_IMAGE: anchor->type = ANCHOR_IMAGE; break;
     case SCANNER_OBJECT: anchor->type = ANCHOR_OBJECT; break;
     case SCANNER_MESH: anchor->type = ANCHOR_MESH; break;
     default: lovrUnreachable();
@@ -3640,29 +3660,24 @@ static bool onSpatialContextCreated(XrFutureEXT future, void* context, bool* cha
   if (scanner->info.storage && scanner->storage) {
     XrSpatialDiscoverySnapshotCreateInfoEXT info = { .type = XR_TYPE_SPATIAL_DISCOVERY_SNAPSHOT_CREATE_INFO_EXT };
     XR(xrCreateSpatialDiscoverySnapshotAsyncEXT(scanner->handle, &info, &future), "xrCreateSpatialDiscoverySnapshotAsyncEXT");
-    initFuture(&scanner->future, future, onDiscoverySnapshotCreated, scanner, lovrScannerDestroy, false);
+    initFuture(&scanner->future, future, onDiscoverySnapshotCreated, releaseScanner, scanner);
     *chained = true;
   }
 
   return true;
 }
 
-// Creates the spatial context once the persistence context is ready.  If the scanner didn't need a
-// persistence context, then future/chained will be NULL.
-static bool onPersistenceContextCreated(XrFutureEXT future, void* context, bool* chained) {
-  Scanner* scanner = context;
+// Launches the future to create the spatial context.  If the spatial context doesn't need to wait
+// for any other async handles (persistence context or image tracking database), then this can be
+// called right away in lovrScannerCreate.  Otherwise, it's called by onPersistenceContextCreated
+// or onImageDatabaseCreated and chained onto the Scanner's future.
+static bool createSpatialContext(Scanner* scanner, XrFutureEXT* future) {
   ScannerInfo* info = &scanner->info;
-
-  if (future) {
-    XrCreateSpatialPersistenceContextCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_PERSISTENCE_CONTEXT_COMPLETION_EXT };
-    XR(xrCreateSpatialPersistenceContextCompleteEXT(state.session, future, &completion), "xrCreateSpatialPersistenceContextCompleteEXT");
-    XR(completion.futureResult, "xrCreateSpatialPersistenceContextAsyncEXT future");
-    scanner->storage = completion.persistenceContext;
-  }
 
   XrSpatialCapabilityConfigurationBaseHeaderEXT base = { 0 };
   XrSpatialCapabilityConfigurationArucoMarkerEXT arucoConfig = { .type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT };
   XrSpatialCapabilityConfigurationAprilTagEXT aprilConfig = { .type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_APRIL_TAG_EXT };
+  XrSpatialCapabilityConfigurationImageTrackingEXT imageConfig = { .type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_IMAGE_TRACKING_EXT };
   XrSpatialCapabilityConfigurationBaseHeaderEXT* header = &base;
 
   switch (info->type) {
@@ -3716,6 +3731,12 @@ static bool onPersistenceContextCreated(XrFutureEXT future, void* context, bool*
         default: break;
       }
       break;
+    case SCANNER_IMAGE:
+      header = (XrSpatialCapabilityConfigurationBaseHeaderEXT*) &imageConfig;
+      header->capability = XR_SPATIAL_CAPABILITY_IMAGE_TRACKING_EXT;
+      imageConfig.imageTrackingDatabaseCount = 1;
+      imageConfig.imageTrackingDatabases = &scanner->imageDatabase;
+      break;
     case SCANNER_OBJECT:
       base.type = XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_OBJECT_TRACKING_EXT;
       base.capability = XR_SPATIAL_CAPABILITY_OBJECT_TRACKING_EXT;
@@ -3739,15 +3760,15 @@ static bool onPersistenceContextCreated(XrFutureEXT future, void* context, bool*
   for (uint32_t i = 0; i < featureCount; i++) {
     switch (features[i]) {
       case XR_SPATIAL_CAPABILITY_FEATURE_MARKER_TRACKING_FIXED_SIZE_MARKERS_EXT:
-        if (info->markerSize > 0.f) {
+        if (info->width > 0.f) {
           markerSize.type = XR_TYPE_SPATIAL_MARKER_SIZE_EXT;
           markerSize.next = header->next;
-          markerSize.markerSideLength = info->markerSize;
+          markerSize.markerSideLength = info->width;
           header->next = &markerSize;
         }
         break;
       case XR_SPATIAL_CAPABILITY_FEATURE_MARKER_TRACKING_STATIC_MARKERS_EXT:
-        if (info->staticMarkers) {
+        if (info->isStatic) {
           staticMarkers.type = XR_TYPE_SPATIAL_MARKER_STATIC_OPTIMIZATION_EXT;
           staticMarkers.next = header->next;
           staticMarkers.optimizeForStaticMarker = true;
@@ -3779,7 +3800,8 @@ static bool onPersistenceContextCreated(XrFutureEXT future, void* context, bool*
       case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_3D_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT:
-      case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT: {
+      case XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT:
+      case XR_SPATIAL_COMPONENT_TYPE_IMAGE_2D_EXT: {
         XrSpatialComponentTypeEXT temp = components[guaranteedComponentCount];
         components[guaranteedComponentCount] = components[i];
         components[i] = temp;
@@ -3844,15 +3866,56 @@ static bool onPersistenceContextCreated(XrFutureEXT future, void* context, bool*
     createInfo.next = &persistenceConfig;
   }
 
-  XR(xrCreateSpatialContextAsyncEXT(state.session, &createInfo, &future), "xrCreateSpatialContextAsyncEXT");
-  initFuture(&scanner->future, future, onSpatialContextCreated, scanner, lovrScannerDestroy, false);
-  if (chained) *chained = true;
+  XR(xrCreateSpatialContextAsyncEXT(state.session, &createInfo, future), "xrCreateSpatialContextAsyncEXT");
+  return true;
+}
+
+// Called when the persistence context is ready, creates the spatial context
+static bool onPersistenceContextCreated(XrFutureEXT future, void* context, bool* chained) {
+  Scanner* scanner = context;
+
+  XrCreateSpatialPersistenceContextCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_PERSISTENCE_CONTEXT_COMPLETION_EXT };
+  XR(xrCreateSpatialPersistenceContextCompleteEXT(state.session, future, &completion), "xrCreateSpatialPersistenceContextCompleteEXT");
+  XR(completion.futureResult, "xrCreateSpatialPersistenceContextAsyncEXT future");
+  scanner->storage = completion.persistenceContext;
+
+  if (!createSpatialContext(scanner, &scanner->future.handle)) {
+    return false;
+  }
+
+  initFuture(&scanner->future, scanner->future.handle, onSpatialContextCreated, releaseScanner, scanner);
+  *chained = true;
+  return true;
+}
+
+// Called when the image database is ready, creates the spatial context
+static bool onImageDatabaseCreated(XrFutureEXT future, void* context, bool* chained) {
+  Scanner* scanner = context;
+
+  XrCreateSpatialImageTrackingDatabaseCompletionEXT completion = { .type = XR_TYPE_CREATE_SPATIAL_IMAGE_TRACKING_DATABASE_COMPLETION_EXT };
+  XR(xrCreateSpatialImageTrackingDatabaseCompleteEXT(state.session, future, &completion), "xrCreateSpatialImageTrackingDatabaseCompleteEXT");
+  XR(completion.futureResult, "xrCreateSpatialImageTrackingDatabaseAsyncEXT future");
+  scanner->imageDatabase = completion.database;
+
+  // If the future fails, the whole scanner is destroyed, which also releases the images
+  for (uint32_t i = 0; i < scanner->info.imageCount; i++) {
+    lovrRelease(scanner->info.images[i].image, lovrImageDestroy);
+    scanner->info.images[i].image = NULL;
+  }
+
+  if (!createSpatialContext(scanner, &scanner->future.handle)) {
+    return false;
+  }
+
+  initFuture(&scanner->future, scanner->future.handle, onSpatialContextCreated, releaseScanner, scanner);
+  *chained = true;
   return true;
 }
 
 Future* lovrScannerCreate(ScannerInfo* info) {
   lovrAssert(state.session, "A headset session must be active to create a Scanner");
   lovrCheck(lovrHeadsetIsScannerSupported(info->type), "This scanner type is not supported");
+  lovrCheck(info->type != SCANNER_IMAGE || info->imageCount > 0, "Image Scanner must have at least one image");
 
   Scanner* scanner = lovrCalloc(sizeof(Scanner));
   scanner->ref = 1;
@@ -3869,14 +3932,101 @@ Future* lovrScannerCreate(ScannerInfo* info) {
 
     XrFutureEXT future;
     XRG(xrCreateSpatialPersistenceContextAsyncEXT(state.session, &contextInfo, &future), "xrCreateSpatialPersistenceContextAsyncEXT", fail);
-    initFuture(&scanner->future, future, onPersistenceContextCreated, scanner, lovrScannerDestroy, false);
-  } else if (!onPersistenceContextCreated(XR_NULL_FUTURE_EXT, scanner, NULL)) {
-    goto fail;
+    initFuture(&scanner->future, future, onPersistenceContextCreated, releaseScanner, scanner);
+  } else if (info->type == SCANNER_IMAGE) {
+    scanner->referenceImages = lovrMalloc(info->imageCount * sizeof(XrSpatialReferenceImageEXT));
+    scanner->planes = lovrMalloc(info->imageCount * 4 * sizeof(XrSpatialReferenceImagePlaneEXT));
+    scanner->info.images = lovrCalloc(info->imageCount * sizeof(ReferenceImage));
+
+    for (uint32_t i = 0; i < info->imageCount; i++) {
+      Image* image = info->images[i].image;
+      uint32_t width = lovrImageGetWidth(image, 0);
+      uint32_t height = lovrImageGetHeight(image, 0);
+      uint8_t* pixels = lovrImageGetLayerData(image, 0, 0);
+      lovrCheckGoto(fail, lovrImageGetFormat(image) == FORMAT_RGBA8, "Images must be rgba8");
+
+      scanner->referenceImages[i] = (XrSpatialReferenceImageEXT) {
+        .type = XR_TYPE_SPATIAL_REFERENCE_IMAGE_EXT,
+        .width = width,
+        .height = height,
+        .format = XR_SPATIAL_REFERENCE_IMAGE_FORMAT_RGBA_8888_EXT,
+        .planeCount = 4,
+        .planes = scanner->planes + 4 * i
+      };
+
+      for (uint32_t p = 0; p < 4; p++) {
+        scanner->planes[4 * i + p] = (XrSpatialReferenceImagePlaneEXT) {
+          .bufferSize = width * height * 4 - p,
+          .buffer = pixels + p,
+          .rowStride = width * 4,
+          .pixelStride = 4
+        };
+      }
+
+      scanner->info.images[i].image = info->images[i].image;
+      scanner->info.images[i].label = lovrStrdup(info->images[i].label);
+      lovrRetain(image);
+    }
+
+    XrSpatialImageTrackingDatabaseCreateInfoEXT databaseInfo = {
+      .type = XR_TYPE_SPATIAL_IMAGE_TRACKING_DATABASE_CREATE_INFO_EXT,
+      .spatialReferenceImageCount = info->imageCount,
+      .spatialReferenceImages = scanner->referenceImages
+    };
+
+    uint32_t featureCount;
+    XrSpatialCapabilityEXT capability = XR_SPATIAL_CAPABILITY_IMAGE_TRACKING_EXT;
+    XRG(xrEnumerateSpatialCapabilityFeaturesEXT(state.instance, state.system, capability, 0, &featureCount, NULL), "xrEnumerateSpatialCapabilityFeaturesEXT", fail);
+    XrSpatialCapabilityFeatureEXT* features = lovrMalloc(featureCount * sizeof(XrSpatialCapabilityFeatureEXT));
+    XRG(xrEnumerateSpatialCapabilityFeaturesEXT(state.instance, state.system, capability, featureCount, &featureCount, features), "xrEnumerateSpatialCapabilityFeaturesEXT", fail);
+
+    XrSpatialImageStaticOptimizationEXT staticImages;
+    XrSpatialImageSizeEXT imageSize;
+    bool automaticSize = false;
+
+    for (uint32_t i = 0; i < featureCount; i++) {
+      switch (features[i]) {
+        case XR_SPATIAL_CAPABILITY_FEATURE_IMAGE_TRACKING_STATIC_IMAGES_EXT:
+          if (info->isStatic) {
+            staticImages.type = XR_TYPE_SPATIAL_IMAGE_STATIC_OPTIMIZATION_EXT;
+            staticImages.next = databaseInfo.next;
+            staticImages.optimizeForStaticImage = true;
+            databaseInfo.next = &staticImages;
+          }
+          break;
+        case XR_SPATIAL_CAPABILITY_FEATURE_IMAGE_TRACKING_FIXED_SIZE_IMAGES_EXT:
+          if (info->width > 0.f) {
+            imageSize.type = XR_TYPE_SPATIAL_IMAGE_SIZE_EXT;
+            imageSize.next = databaseInfo.next;
+            imageSize.physicalWidth = info->width;
+            databaseInfo.next = &imageSize;
+          }
+          break;
+        case XR_SPATIAL_CAPABILITY_FEATURE_IMAGE_TRACKING_AUTOMATIC_SIZE_IMAGES_EXT:
+          automaticSize = true;
+          break;
+        default: break;
+      }
+    }
+
+    lovrFree(features);
+
+    lovrAssertGoto(fail, automaticSize || info->width > 0.f, "This runtime requires a width to be provided in newScanner");
+
+    XrFutureEXT future;
+    XRG(xrCreateSpatialImageTrackingDatabaseAsyncEXT(state.session, &databaseInfo, &future), "xrCreateSpatialImageTrackingDatabaseAsyncEXT", fail);
+    initFuture(&scanner->future, future, onImageDatabaseCreated, releaseScanner, scanner);
+  } else {
+    if (!createSpatialContext(scanner, &scanner->future.handle)) {
+      goto fail;
+    }
+
+    initFuture(&scanner->future, scanner->future.handle, onSpatialContextCreated, releaseScanner, scanner);
   }
 
   return &scanner->future.inner;
 fail:
-  lovrFree(scanner);
+  lovrScannerDestroy(scanner);
   return NULL;
 }
 
@@ -3910,7 +4060,18 @@ void lovrScannerDestroy(void* ref) {
 
   if (scanner->handle) xrDestroySpatialContextEXT(scanner->handle);
   if (scanner->storage) xrDestroySpatialPersistenceContextEXT(scanner->storage);
+  if (scanner->imageDatabase) xrDestroySpatialImageTrackingDatabaseEXT(scanner->imageDatabase);
 
+  if (scanner->info.images) {
+    for (uint32_t i = 0; i < scanner->info.imageCount; i++) {
+      lovrRelease(scanner->info.images[i].image, lovrImageDestroy);
+      lovrFree((char*) scanner->info.images[i].label);
+    }
+    lovrFree(scanner->info.images);
+  }
+
+  lovrFree(scanner->referenceImages);
+  lovrFree(scanner->planes);
   lovrFree(scanner->components);
   lovrFree(scanner->anchors);
   lovrFree(scanner->entities);
@@ -3926,6 +4087,7 @@ void lovrScannerDestroy(void* ref) {
   lovrFree(scanner->keyboardLabels);
   lovrFree(scanner->mouseLabels);
   lovrFree(scanner->anchorPoses);
+  lovrFree(scanner->images);
   lovrFree(scanner->meshNormals);
   lovrFree(scanner);
 }
@@ -3942,17 +4104,18 @@ Future* lovrScannerScan(Scanner* scanner, bool background) {
   XR(xrCreateSpatialDiscoverySnapshotAsyncEXT(scanner->handle, &createInfo, &handle), "xrCreateSpatialDiscoverySnapshotAsyncEXT");
 
   HeadsetFuture* future;
-  bool heap = false;
+  void (*finalizer)(HeadsetFuture*);
 
   if (background) {
     arr_expand(&state.futures, 1);
     future = &state.futures.data[state.futures.length++];
+    finalizer = releaseScanner;
   } else {
     future = lovrCalloc(sizeof(HeadsetFuture));
-    heap = true;
+    finalizer = releaseScannerAndFree;
   }
 
-  initFuture(future, handle, onDiscoverySnapshotCreated, scanner, lovrScannerDestroy, heap);
+  initFuture(future, handle, onDiscoverySnapshotCreated, finalizer, scanner);
   lovrRetain(scanner);
   return &future->inner;
 }
@@ -3994,6 +4157,7 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
   XrSpatialComponentKeyboardSemanticLabelListEXT keyboardLabels;
   XrSpatialComponentMouseSemanticLabelListEXT mouseLabels;
   XrSpatialComponentAnchorListEXT anchors;
+  XrSpatialComponentImage2DListEXT images;
   XrSpatialComponentMesh3DNormalsListEXT normals;
 
   for (uint32_t i = 0; i < componentCount; i++) {
@@ -4074,6 +4238,13 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
         anchors.locations = scanner->anchorPoses;
         anchors.next = data.next;
         data.next = &anchors;
+        break;
+      case XR_SPATIAL_COMPONENT_TYPE_IMAGE_2D_EXT:
+        images.type = XR_TYPE_SPATIAL_COMPONENT_IMAGE_2D_LIST_EXT;
+        images.imageCount = scanner->entityCapacity;
+        images.images = scanner->images;
+        images.next = data.next;
+        data.next = &images;
         break;
       case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_NORMALS_EXT:
         normals.type = XR_TYPE_SPATIAL_COMPONENT_MESH_3D_NORMALS_LIST_EXT;
@@ -4280,6 +4451,10 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
           memcpy(anchor->position, &scanner->anchorPoses[i].position.x, 3 * sizeof(float));
           memcpy(anchor->orientation, &scanner->anchorPoses[i].orientation.x, 4 * sizeof(float));
           break;
+        case XR_SPATIAL_COMPONENT_TYPE_IMAGE_2D_EXT:
+          anchor->label = (char*) scanner->info.images[scanner->images[i].referenceImageIndex].label;
+          anchor->labelLength = strlen(anchor->label);
+          break;
         case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_NORMALS_EXT: {
           XrSpatialBufferEXT* buffer = &scanner->meshNormals[i];
 
@@ -4422,6 +4597,13 @@ PointAnchor* lovrPointAnchorCreate(Scanner* scanner, float* position, float* ori
   return lovrScannerAddAnchor(scanner, scanner->entityCount, id, handle);
 }
 
+static void freeAnchorFuture(HeadsetFuture* future) {
+  Anchor* anchor = future->context;
+  lovrRelease(anchor->scanner, lovrScannerDestroy);
+  lovrRelease(anchor, lovrAnchorDestroy);
+  lovrFree(future);
+}
+
 static bool onAnchorSaved(XrFutureEXT future, void* context, bool* chained) {
   Anchor* anchor = context;
   lovrAssert(anchor->scanner, "Scanner was destroyed");
@@ -4454,7 +4636,8 @@ Future* lovrPointAnchorSave(PointAnchor* anchor) {
   XR(xrPersistSpatialEntityAsyncEXT(anchor->scanner->storage, &info, &handle), "xrPersistSpatialEntityAsyncEXT");
 
   HeadsetFuture* future = lovrMalloc(sizeof(HeadsetFuture));
-  initFuture(future, handle, onAnchorSaved, anchor, lovrAnchorDestroy, true);
+  initFuture(future, handle, onAnchorSaved, freeAnchorFuture, anchor);
+  lovrRetain(anchor->scanner);
   lovrRetain(anchor);
   return &future->inner;
 }
@@ -4489,7 +4672,8 @@ Future* lovrPointAnchorDelete(PointAnchor* anchor) {
   XR(xrUnpersistSpatialEntityAsyncEXT(anchor->scanner->storage, &info, &handle), "xrUnpersistSpatialEntityAsyncEXT");
 
   HeadsetFuture* future = lovrMalloc(sizeof(HeadsetFuture));
-  initFuture(future, handle, onAnchorDeleted, anchor, lovrAnchorDestroy, true);
+  initFuture(future, handle, onAnchorDeleted, freeAnchorFuture, anchor);
+  lovrRetain(anchor->scanner);
   lovrRetain(anchor);
   return &future->inner;
 }
@@ -4548,6 +4732,11 @@ uint16_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count) {
 }
 
 const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length) {
+  *length = anchor->labelLength;
+  return anchor->label;
+}
+
+const char* lovrImageAnchorGetLabel(ImageAnchor* anchor, size_t* length) {
   *length = anchor->labelLength;
   return anchor->label;
 }
@@ -5656,14 +5845,8 @@ static void dropFuture(Future* future) {
     parent->handle = XR_NULL_FUTURE_EXT;
   }
 
-  bool heap = parent->heap;
-
-  if (parent->destructor) {
-    lovrRelease(parent->context, parent->destructor);
-  }
-
-  if (heap) {
-    lovrFree(parent);
+  if (parent->finalizer) {
+    parent->finalizer(parent);
   }
 }
 
@@ -5673,13 +5856,12 @@ static FutureCallbacks futureCallbacks = {
   .drop = dropFuture
 };
 
-static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void* context, void (*destructor)(void*), bool heap) {
+static void initFuture(HeadsetFuture* future, XrFutureEXT handle, bool (*callback)(XrFutureEXT, void*, bool*), void (*finalizer)(HeadsetFuture*), void* context) {
   lovrFutureInit(&future->inner, &futureCallbacks);
   future->handle = handle;
   future->callback = callback;
+  future->finalizer = finalizer;
   future->context = context;
-  future->destructor = destructor;
-  future->heap = heap;
 }
 
 #ifdef _WIN32

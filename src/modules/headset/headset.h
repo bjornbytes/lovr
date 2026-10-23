@@ -9,6 +9,7 @@
 #define MAX_LAYERS 10
 
 struct Future;
+struct Image;
 struct Mesh;
 struct Model;
 struct ModelData;
@@ -22,6 +23,7 @@ typedef struct Layer Layer;
 typedef Anchor PointAnchor;
 typedef Anchor PlaneAnchor;
 typedef Anchor MarkerAnchor;
+typedef Anchor ImageAnchor;
 typedef Anchor ObjectAnchor;
 typedef Anchor MeshAnchor;
 
@@ -185,6 +187,7 @@ typedef enum {
   SCANNER_MICRO_QR,
   SCANNER_ARUCO,
   SCANNER_APRIL,
+  SCANNER_IMAGE,
   SCANNER_OBJECT,
   SCANNER_MESH
 } ScannerType;
@@ -275,11 +278,18 @@ typedef enum {
 } AprilDictionary;
 
 typedef struct {
+  const char* label;
+  struct Image* image;
+} ReferenceImage;
+
+typedef struct {
   ScannerType type;
   ArucoDictionary arucoDictionary;
   AprilDictionary aprilDictionary;
-  float markerSize;
-  bool staticMarkers;
+  float width;
+  uint32_t imageCount;
+  ReferenceImage* images;
+  bool isStatic;
   bool storage;
 } ScannerInfo;
 
@@ -297,6 +307,7 @@ typedef enum {
   ANCHOR_POINT,
   ANCHOR_PLANE,
   ANCHOR_MARKER,
+  ANCHOR_IMAGE,
   ANCHOR_OBJECT,
   ANCHOR_MESH
 } AnchorType;
@@ -324,6 +335,8 @@ uint16_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count);
 
 const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length);
 
+const char* lovrImageAnchorGetLabel(ImageAnchor* anchor, size_t* length);
+
 const char* lovrObjectAnchorGetLabel(ObjectAnchor* anchor, size_t* length);
 
 bool lovrMeshAnchorDidMeshChange(MeshAnchor* anchor);
@@ -335,6 +348,7 @@ uint32_t* lovrMeshAnchorGetIndices(MeshAnchor* anchor, uint32_t* count);
 #define lovrPointAnchorDestroy lovrAnchorDestroy
 #define lovrPlaneAnchorDestroy lovrAnchorDestroy
 #define lovrMarkerAnchorDestroy lovrAnchorDestroy
+#define lovrImageAnchorDestroy lovrAnchorDestroy
 #define lovrObjectAnchorDestroy lovrAnchorDestroy
 #define lovrMeshAnchorDestroy lovrAnchorDestroy
 
