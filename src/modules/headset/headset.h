@@ -312,6 +312,7 @@ typedef enum {
   ANCHOR_MESH
 } AnchorType;
 
+PointAnchor* lovrPointAnchorCreate(Scanner* scanner, float* position, float* orientation);
 void lovrAnchorDestroy(void* ref);
 bool lovrAnchorIsActive(Anchor* anchor);
 bool lovrAnchorIsTracked(Anchor* anchor);
@@ -319,31 +320,16 @@ AnchorType lovrAnchorGetType(Anchor* anchor);
 Anchor* lovrAnchorGetParent(Anchor* anchor);
 void lovrAnchorGetPosition(Anchor* anchor, float* position);
 void lovrAnchorGetOrientation(Anchor* anchor, float* orientation);
-void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions);
+int lovrAnchorGetDimensions(Anchor* anchor, float* dimensions);
+const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length);
+bool lovrAnchorDidMeshChange(Anchor* anchor);
+struct Mesh* lovrAnchorGetMesh(Anchor* anchor);
+void lovrAnchorGetMeshPose(Anchor* anchor, float* position, float* orientation);
+float* lovrAnchorGetVertices(Anchor* anchor, uint32_t* count, float** normals);
+void* lovrAnchorGetIndices(Anchor* anchor, uint32_t* count);
 
-PointAnchor* lovrPointAnchorCreate(Scanner* scanner, float* position, float* orientation);
 struct Future* lovrPointAnchorSave(PointAnchor* anchor);
 struct Future* lovrPointAnchorDelete(PointAnchor* anchor);
-const uint8_t* lovrPointAnchorGetID(PointAnchor* anchor, size_t* length);
-
-const char* lovrPlaneAnchorGetLabel(PlaneAnchor* anchor, size_t* length);
-bool lovrPlaneAnchorDidMeshChange(PlaneAnchor* anchor);
-struct Mesh* lovrPlaneAnchorGetMesh(PlaneAnchor* anchor);
-void lovrPlaneAnchorGetMeshPose(PlaneAnchor* anchor, float* position, float* orientation);
-float* lovrPlaneAnchorGetVertices(PlaneAnchor* anchor, uint32_t* count);
-uint16_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count);
-
-const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length);
-
-const char* lovrImageAnchorGetLabel(ImageAnchor* anchor, size_t* length);
-
-const char* lovrObjectAnchorGetLabel(ObjectAnchor* anchor, size_t* length);
-
-bool lovrMeshAnchorDidMeshChange(MeshAnchor* anchor);
-struct Mesh* lovrMeshAnchorGetMesh(MeshAnchor* anchor);
-void lovrMeshAnchorGetMeshPose(MeshAnchor* anchor, float* position, float* orientation);
-float* lovrMeshAnchorGetVertices(MeshAnchor* anchor, uint32_t* count, float** normals);
-uint32_t* lovrMeshAnchorGetIndices(MeshAnchor* anchor, uint32_t* count);
 
 #define lovrPointAnchorDestroy lovrAnchorDestroy
 #define lovrPlaneAnchorDestroy lovrAnchorDestroy

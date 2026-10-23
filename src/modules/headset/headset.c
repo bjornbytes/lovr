@@ -4539,6 +4539,24 @@ bool lovrScannerUpdate(Scanner* scanner) {
 
 // Anchor
 
+PointAnchor* lovrPointAnchorCreate(Scanner* scanner, float* position, float* orientation) {
+  lovrAssert(state.session, "A headset session must be active to create an Anchor");
+  lovrCheck(scanner->info.type == SCANNER_POINT, "Invalid scanner type (only point scanners can create anchors)");
+
+  XrSpatialAnchorCreateInfoEXT info = {
+    .type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,
+    .baseSpace = state.referenceSpace,
+    .time = state.frameState.predictedDisplayTime,
+    .pose.position = { position[0], position[1], position[2] },
+    .pose.orientation = { orientation[0], orientation[1], orientation[2], orientation[3] }
+  };
+
+  XrSpatialEntityIdEXT id;
+  XrSpatialEntityEXT handle;
+  XR(xrCreateSpatialAnchorEXT(scanner->handle, &info, &id, &handle), "xrCreateSpatialAnchorEXT");
+  return lovrScannerAddAnchor(scanner, scanner->entityCount, id, handle);
+}
+
 void lovrAnchorDestroy(void* ref) {
   Anchor* anchor = ref;
   // Anchors are only destroyed if their Scanner is destroyed or they reach the STOPPED state, and
@@ -4578,26 +4596,100 @@ void lovrAnchorGetOrientation(Anchor* anchor, float* orientation) {
   quat_init(orientation, anchor->orientation);
 }
 
-void lovrAnchorGetDimensions(Anchor* anchor, float* dimensions) {
+int lovrAnchorGetDimensions(Anchor* anchor, float* dimensions) {
   vec3_init(dimensions, anchor->dimensions);
+  return anchor->type == ANCHOR_OBJECT || anchor->type == ANCHOR_MESH ? 3 : 2;
 }
 
-PointAnchor* lovrPointAnchorCreate(Scanner* scanner, float* position, float* orientation) {
-  lovrAssert(state.session, "A headset session must be active to create an Anchor");
-  lovrCheck(scanner->info.type == SCANNER_POINT, "Invalid scanner type (only point scanners can create anchors)");
+const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length) {
+  const char* label;
 
-  XrSpatialAnchorCreateInfoEXT info = {
-    .type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,
-    .baseSpace = state.referenceSpace,
-    .time = state.frameState.predictedDisplayTime,
-    .pose.position = { position[0], position[1], position[2] },
-    .pose.orientation = { orientation[0], orientation[1], orientation[2], orientation[3] }
-  };
+  switch (anchor->type) {
+    case ANCHOR_POINT:
+      if (anchor->label) {
+        *length = anchor->labelLength;
+        return anchor->label;
+      } else {
+        *length = 0;
+        return NULL;
+      }
+      break;
+    case ANCHOR_PLANE:
+      switch (anchor->planeLabel) {
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL_FLOOR_EXT: label = "floor"; break;
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL_WALL_EXT: label = "wall"; break;
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL_CEILING_EXT: label = "ceiling"; break;
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
+        default: return *length = 0, NULL;
+      }
+      break;
+    case ANCHOR_MARKER:
+      *length = anchor->labelLength;
+      return anchor->label;
+    case ANCHOR_IMAGE:
+      *length = anchor->labelLength;
+      return anchor->label;
+    case ANCHOR_OBJECT:
+      if (anchor->keyboardLabel == XR_SPATIAL_KEYBOARD_SEMANTIC_LABEL_KEYBOARD_EXT) {
+        label = "keyboard";
+      } else if (anchor->mouseLabel == XR_SPATIAL_MOUSE_SEMANTIC_LABEL_MOUSE_EXT) {
+        label = "mouse";
+      } else {
+        switch (anchor->objectLabel) {
+          case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_SOFA_EXT: label = "couch"; break;
+          case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_BED_EXT: label = "bed"; break;
+          case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_CHAIR_EXT: label = "chair"; break;
+          case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
+          case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_LAMP_EXT: label = "lamp"; break;
+          case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_PLANT_EXT: label = "plant"; break;
+          case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_DISPLAY_SCREEN_EXT: label = "screen"; break;
+          case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_WALL_ART_EXT: label = "art"; break;
+          case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_CABINET_EXT: label = "cabinet"; break;
+          default: return *length = 0, NULL;
+        }
+      }
+      break;
+    default:
+      *length = 0;
+      return NULL;
+  }
 
-  XrSpatialEntityIdEXT id;
-  XrSpatialEntityEXT handle;
-  XR(xrCreateSpatialAnchorEXT(scanner->handle, &info, &id, &handle), "xrCreateSpatialAnchorEXT");
-  return lovrScannerAddAnchor(scanner, scanner->entityCount, id, handle);
+  *length = strlen(label);
+  return label;
+}
+
+bool lovrAnchorDidMeshChange(Anchor* anchor) {
+  return anchor->meshChanged;
+}
+
+Mesh* lovrAnchorGetMesh(Anchor* anchor) {
+  if (anchor->meshDirty) {
+    if (!anchor->mesh || anchor->vertexCount > lovrMeshGetVertexFormat(anchor->mesh)->length) {
+      // Make mesh
+    }
+
+    // Set vertices, draw range
+
+    anchor->meshDirty = false;
+  }
+
+  return anchor->mesh;
+}
+
+void lovrAnchorGetMeshPose(Anchor* anchor, float* position, float* orientation) {
+  vec3_init(position, &anchor->meshPose.position.x);
+  quat_init(orientation, &anchor->meshPose.orientation.x);
+}
+
+float* lovrAnchorGetVertices(Anchor* anchor, uint32_t* count, float** normals) {
+  *count = anchor->vertexCount;
+  if (normals) *normals = anchor->normals;
+  return anchor->vertices;
+}
+
+void* lovrAnchorGetIndices(Anchor* anchor, uint32_t* count) {
+  *count = anchor->indexCount;
+  return anchor->indices;
 }
 
 static void freeAnchorFuture(HeadsetFuture* future) {
@@ -4622,6 +4714,24 @@ static bool onAnchorSaved(XrFutureEXT future, void* context, bool* chained) {
 
   anchor->uuid = completion.persistUuid;
   anchor->saved = true;
+
+  if (!anchor->label) {
+    anchor->labelLength = 32;
+    anchor->label = lovrMalloc(anchor->labelLength);
+  }
+
+  size_t cursor = 0;
+  for (size_t i = 0; i < anchor->labelLength; i++) {
+    uint8_t byte = anchor->uuid.data[i];
+    for (int j = 0; j < 2; j++) {
+      uint8_t nibble = j == 0 ? (byte >> 4) & 0xf : byte & 0xf;
+      if (nibble >= 0xa) {
+        anchor->label[cursor++] = 'a' + (nibble - 0xa);
+      } else {
+        anchor->label[cursor++] = '0' + nibble;
+      }
+    }
+  }
 
   return true;
 }
@@ -4659,6 +4769,8 @@ static bool onAnchorDeleted(XrFutureEXT future, void* context, bool* chained) {
   }
 
   anchor->saved = false;
+  lovrFree(anchor->label);
+  anchor->label = NULL;
   return true;
 }
 
@@ -4679,129 +4791,6 @@ Future* lovrPointAnchorDelete(PointAnchor* anchor) {
   lovrRetain(anchor->scanner);
   lovrRetain(anchor);
   return &future->inner;
-}
-
-const uint8_t* lovrPointAnchorGetID(PointAnchor* anchor, size_t* length) {
-  if (!anchor->saved) return NULL;
-  *length = sizeof(anchor->uuid);
-  return anchor->uuid.data;
-}
-
-const char* lovrPlaneAnchorGetLabel(PlaneAnchor* anchor, size_t* length) {
-  const char* label;
-  switch (anchor->planeLabel) {
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_FLOOR_EXT: label = "floor"; break;
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_WALL_EXT: label = "wall"; break;
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_CEILING_EXT: label = "ceiling"; break;
-    case XR_SPATIAL_PLANE_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
-    default: return *length = 0, NULL;
-  }
-
-  *length = strlen(label);
-  return label;
-}
-
-bool lovrPlaneAnchorDidMeshChange(PlaneAnchor* anchor) {
-  return anchor->meshChanged;
-}
-
-Mesh* lovrPlaneAnchorGetMesh(PlaneAnchor* anchor) {
-  if (anchor->meshDirty) {
-    if (!anchor->mesh || anchor->vertexCount > lovrMeshGetVertexFormat(anchor->mesh)->length) {
-      // Make mesh
-    }
-
-    // Set vertices, draw range
-
-    anchor->meshDirty = false;
-  }
-
-  return anchor->mesh;
-}
-
-void lovrPlaneAnchorGetMeshPose(PlaneAnchor* anchor, float* position, float* orientation) {
-  vec3_init(position, &anchor->meshPose.position.x);
-  quat_init(orientation, &anchor->meshPose.orientation.x);
-}
-
-float* lovrPlaneAnchorGetVertices(PlaneAnchor* anchor, uint32_t* count) {
-  *count = anchor->vertexCount;
-  return anchor->vertices;
-}
-
-uint16_t* lovrPlaneAnchorGetIndices(PlaneAnchor* anchor, uint32_t* count) {
-  *count = anchor->indexCount;
-  return anchor->indices;
-}
-
-const char* lovrMarkerAnchorGetLabel(MarkerAnchor* anchor, size_t* length) {
-  *length = anchor->labelLength;
-  return anchor->label;
-}
-
-const char* lovrImageAnchorGetLabel(ImageAnchor* anchor, size_t* length) {
-  *length = anchor->labelLength;
-  return anchor->label;
-}
-
-const char* lovrObjectAnchorGetLabel(ObjectAnchor* anchor, size_t* length) {
-  const char* label;
-
-  if (anchor->keyboardLabel == XR_SPATIAL_KEYBOARD_SEMANTIC_LABEL_KEYBOARD_EXT) {
-    label = "keyboard";
-  } else if (anchor->mouseLabel == XR_SPATIAL_MOUSE_SEMANTIC_LABEL_MOUSE_EXT) {
-    label = "mouse";
-  } else {
-    switch (anchor->objectLabel) {
-      case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_SOFA_EXT: label = "couch"; break;
-      case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_BED_EXT: label = "bed"; break;
-      case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_CHAIR_EXT: label = "chair"; break;
-      case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
-      case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_LAMP_EXT: label = "lamp"; break;
-      case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_PLANT_EXT: label = "plant"; break;
-      case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_DISPLAY_SCREEN_EXT: label = "screen"; break;
-      case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_WALL_ART_EXT: label = "art"; break;
-      case XR_SPATIAL_OBJECT_SEMANTIC_LABEL_CABINET_EXT: label = "cabinet"; break;
-      default: return *length = 0, NULL;
-    }
-  }
-
-  *length = strlen(label);
-  return label;
-}
-
-bool lovrMeshAnchorDidMeshChange(MeshAnchor* anchor) {
-  return anchor->meshChanged;
-}
-
-Mesh* lovrMeshAnchorGetMesh(MeshAnchor* anchor) {
-  if (anchor->meshDirty) {
-    if (!anchor->mesh || anchor->vertexCount > lovrMeshGetVertexFormat(anchor->mesh)->length) {
-      // Make mesh
-    }
-
-    // Set vertices, draw range
-
-    anchor->meshDirty = false;
-  }
-
-  return anchor->mesh;
-}
-
-void lovrMeshAnchorGetMeshPose(MeshAnchor* anchor, float* position, float* orientation) {
-  vec3_init(position, &anchor->meshPose.position.x);
-  quat_init(orientation, &anchor->meshPose.orientation.x);
-}
-
-float* lovrMeshAnchorGetVertices(MeshAnchor* anchor, uint32_t* count, float** normals) {
-  *count = anchor->vertexCount;
-  if (normals) *normals = anchor->normals;
-  return anchor->vertices;
-}
-
-uint32_t* lovrMeshAnchorGetIndices(MeshAnchor* anchor, uint32_t* count) {
-  *count = anchor->indexCount;
-  return anchor->indices;
 }
 
 // Layer

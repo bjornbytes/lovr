@@ -840,7 +840,7 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
   PlaneAnchor* plane = luax_totype(L, index, PlaneAnchor);
 
   if (plane) {
-    const float* vertex2D = lovrPlaneAnchorGetVertices(plane, vertexCount);
+    const float* vertex2D = lovrAnchorGetVertices(plane, vertexCount, NULL);
     *vertices = lovrMalloc(*vertexCount * 3 * sizeof(float));
     for (uint32_t i = 0; i < *vertexCount; i++) {
       (*vertices)[3 * i + 0] = vertex2D[2 * i + 0];
@@ -848,7 +848,7 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
       (*vertices)[3 * i + 2] = 0.f;
     }
 
-    uint16_t* u16 = lovrPlaneAnchorGetIndices(plane, indexCount);
+    uint16_t* u16 = lovrAnchorGetIndices(plane, indexCount);
     *indices = lovrMalloc(*indexCount * sizeof(uint32_t));
     for (uint32_t i = 0; i < *indexCount; i++) {
       (*indices)[i] = u16[i];
@@ -859,11 +859,11 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
   MeshAnchor* meshAnchor = luax_totype(L, index, MeshAnchor);
 
   if (meshAnchor) {
-    const float* vertex3D = lovrMeshAnchorGetVertices(meshAnchor, vertexCount, NULL);
+    const float* vertex3D = lovrAnchorGetVertices(meshAnchor, vertexCount, NULL);
     *vertices = lovrMalloc(*vertexCount * 3 * sizeof(float));
     memcpy(*vertices, vertex3D, *vertexCount * 3 * sizeof(float));
 
-    uint32_t* u32 = lovrMeshAnchorGetIndices(meshAnchor, indexCount);
+    uint32_t* u32 = lovrAnchorGetIndices(meshAnchor, indexCount);
     *indices = lovrMalloc(*indexCount * sizeof(uint32_t));
     memcpy(*indices, u32, *indexCount * sizeof(uint32_t));
 
