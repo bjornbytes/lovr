@@ -4460,7 +4460,7 @@ bool lovrMaterialSetTexture(Material* material, MaterialTexture type, Texture* t
   if (texture == material->textures[type]) return true;
 
   if (texture) {
-    lovrCheck(type == TEXTURE_COLOR || texture->info.type == TEXTURE_2D, "Material textures must be 2D");
+    lovrCheck(texture->info.type == TEXTURE_2D, "Material textures must be 2D");
     lovrCheck(texture->info.samples == 1, "Material textures can not be multisampled");
     lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Textures must be created with the 'sample' usage to use them in Materials");
   }
@@ -9094,35 +9094,85 @@ bool lovrPassText(Pass* pass, ColoredString* strings, uint32_t count, float* tra
 }
 
 bool lovrPassSkybox(Pass* pass, Texture* texture) {
-  Material* material = NULL;
+  if (texture && texture->info.type == TEXTURE_CUBE) {
+    Shader* shader = pass->pipeline->shader;
 
-  if (texture && (material = lovrTextureToMaterial(texture)) == NULL) {
-    return false;
+    if (!shader) {
+      Shader* builtin = lovrGraphicsGetDefaultShader(SHADER_CUBEMAP);
+      if (!builtin) return false;
+      lovrPassSetShader(pass, builtin);
+    }
+
+    if (!lovrPassSendTexture(pass, "SkyboxTexture", strlen("SkyboxTexture"), &texture, 1)) {
+      lovrPassSetShader(pass, shader);
+      return false;
+    }
+
+    bool success = lovrPassDraw(pass, &(DrawInfo) {
+      .mode = DRAW_TRIANGLES,
+      .vertex.format = VERTEX_EMPTY,
+      .count = 6
+    });
+
+    if (!shader) lovrPassSetShader(pass, NULL);
+
+    return success;
+  } else {
+    Material* material = NULL;
+
+    if (texture && (material = lovrTextureToMaterial(texture)) == NULL) {
+      return false;
+    }
+
+    return lovrPassDraw(pass, &(DrawInfo) {
+      .mode = DRAW_TRIANGLES,
+      .shader = SHADER_EQUIRECT,
+      .material = material,
+      .vertex.format = VERTEX_EMPTY,
+      .count = 6
+    });
   }
-
-  return lovrPassDraw(pass, &(DrawInfo) {
-    .mode = DRAW_TRIANGLES,
-    .shader = !texture || texture->info.type == TEXTURE_2D ? SHADER_EQUIRECT : SHADER_CUBEMAP,
-    .material = material,
-    .vertex.format = VERTEX_EMPTY,
-    .count = 6
-  });
 }
 
 bool lovrPassFill(Pass* pass, Texture* texture) {
-  Material* material = NULL;
+  if (texture && texture->info.type == TEXTURE_ARRAY) {
+    Shader* shader = pass->pipeline->shader;
 
-  if (texture && (material = lovrTextureToMaterial(texture)) == NULL) {
-    return false;
+    if (!shader) {
+      Shader* builtin = lovrGraphicsGetDefaultShader(SHADER_FILL_ARRAY);
+      if (!builtin) return false;
+      lovrPassSetShader(pass, builtin);
+    }
+
+    if (!lovrPassSendTexture(pass, "ArrayTexture", strlen("ArrayTexture"), &texture, 1)) {
+      lovrPassSetShader(pass, shader);
+      return false;
+    }
+
+    bool success = lovrPassDraw(pass, &(DrawInfo) {
+      .mode = DRAW_TRIANGLES,
+      .vertex.format = VERTEX_EMPTY,
+      .count = 3
+    });
+
+    if (!shader) lovrPassSetShader(pass, NULL);
+
+    return success;
+  } else {
+    Material* material = NULL;
+
+    if (texture && (material = lovrTextureToMaterial(texture)) == NULL) {
+      return false;
+    }
+
+    return lovrPassDraw(pass, &(DrawInfo) {
+      .mode = DRAW_TRIANGLES,
+      .shader = SHADER_FILL_2D,
+      .material = material,
+      .vertex.format = VERTEX_EMPTY,
+      .count = 3
+    });
   }
-
-  return lovrPassDraw(pass, &(DrawInfo) {
-    .mode = DRAW_TRIANGLES,
-    .shader = texture && texture->info.type == TEXTURE_ARRAY ? SHADER_FILL_ARRAY : SHADER_FILL_2D,
-    .material = material,
-    .vertex.format = VERTEX_EMPTY,
-    .count = 3
-  });
 }
 
 bool lovrPassMonkey(Pass* pass, float* transform) {
