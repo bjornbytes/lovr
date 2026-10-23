@@ -247,7 +247,7 @@ struct Scanner {
   XrSpatialEntityIdEXT* entityIds;
   XrSpatialEntityTrackingStateEXT* entityStates;
   XrSpatialBounded2DDataEXT* bounds2D;
-  XrSpatialBounded2DDataEXT* bounds3D;
+  XrBoxf* bounds3D;
   XrSpatialEntityIdEXT* parents;
   XrSpatialMeshDataEXT* meshes;
   XrSpatialPlaneSemanticLabelEXT* planeLabels;
@@ -4147,7 +4147,7 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
   };
 
   XrSpatialComponentBounded2DListEXT bounds2D;
-  XrSpatialComponentBounded2DListEXT bounds3D;
+  XrSpatialComponentBounded3DListEXT bounds3D;
   XrSpatialComponentParentListEXT parents;
   XrSpatialComponentMesh3DListEXT mesh3D;
   XrSpatialComponentMesh2DListEXT mesh2D;
@@ -4355,16 +4355,19 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
 
           // Indices
 
+          uint32_t indexSize;
           bufferInfo.bufferId = mesh->indexBuffer.bufferId;
           if (mesh->indexBuffer.bufferType == XR_SPATIAL_BUFFER_TYPE_UINT32_EXT) {
             XR(xrGetSpatialBufferUint32EXT(snapshot, &bufferInfo, 0, &count, NULL), "xrGetSpatialBufferUint32EXT");
+            indexSize = 4;
           } else {
             XR(xrGetSpatialBufferUint16EXT(snapshot, &bufferInfo, 0, &count, NULL), "xrGetSpatialBufferUint16EXT");
+            indexSize = 2;
           }
 
           if (count > anchor->indexCount) {
             anchor->indexCount = count;
-            anchor->indices = lovrRealloc(anchor->indices, anchor->indexCount * sizeof(uint16_t));
+            anchor->indices = lovrRealloc(anchor->indices, anchor->indexCount * indexSize);
           }
 
           if (mesh->indexBuffer.bufferType == XR_SPATIAL_BUFFER_TYPE_UINT32_EXT) {
