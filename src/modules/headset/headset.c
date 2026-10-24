@@ -250,6 +250,7 @@ struct Scanner {
   XrBoxf* bounds3D;
   XrSpatialMeshDataEXT* meshes;
   XrSpatialPlaneSemanticLabelEXT* planeLabels;
+  XrSpatialPlaneSemanticLabel2EXT* planeLabels2;
   XrSpatialMarkerDataEXT* markers;
   XrSpatialObjectSemanticLabelEXT* objectLabels;
   XrSpatialKeyboardSemanticLabelEXT* keyboardLabels;
@@ -270,6 +271,7 @@ struct Anchor {
   XrSpatialEntityEXT handle;
   XrSpatialEntityTrackingStateEXT status;
   XrSpatialPlaneSemanticLabelEXT planeLabel;
+  XrSpatialPlaneSemanticLabel2EXT planeLabel2;
   XrSpatialObjectSemanticLabelEXT objectLabel;
   XrSpatialKeyboardSemanticLabelEXT keyboardLabel;
   XrSpatialMouseSemanticLabelEXT mouseLabel;
@@ -447,6 +449,7 @@ static struct {
     bool passthroughPreferences;
     bool picoController;
     bool picoUltraController;
+    bool planeLabel2;
     bool planeTracking;
     bool presence;
     bool questPassthrough;
@@ -621,6 +624,7 @@ bool lovrHeadsetConnect(void) {
     { "XR_EXT_spatial_object_tracking", &state.extensions.objectTracking, true },
     { "XR_EXT_spatial_persistence", &state.extensions.anchorLoading, true },
     { "XR_EXT_spatial_persistence_operations", &state.extensions.anchorSaving, true },
+    { "XR_EXT_spatial_plane_semantic_label2", &state.extensions.planeLabel2, true },
     { "XR_EXT_spatial_plane_tracking", &state.extensions.planeTracking, true },
     { "XR_EXT_user_presence", &state.extensions.presence, true },
     { "XR_EXT_uuid", &state.extensions.uuid, true },
@@ -3511,6 +3515,7 @@ static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEn
         case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT: scanner->planeLabels = lovrRealloc(scanner->planeLabels, capacity * sizeof(scanner->planeLabels[0])); break;
+        case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL2_EXT: scanner->planeLabels2 = lovrRealloc(scanner->planeLabels2, capacity * sizeof(scanner->planeLabels2[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT: scanner->markers = lovrRealloc(scanner->markers, capacity * sizeof(scanner->markers[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_OBJECT_SEMANTIC_LABEL_EXT: scanner->objectLabels = lovrRealloc(scanner->objectLabels, capacity * sizeof(scanner->objectLabels[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_KEYBOARD_SEMANTIC_LABEL_EXT: scanner->keyboardLabels = lovrRealloc(scanner->keyboardLabels, capacity * sizeof(scanner->keyboardLabels[0])); break;
@@ -3808,6 +3813,7 @@ static bool createSpatialContext(Scanner* scanner, XrFutureEXT* future) {
       // Optional (move to end)
       case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
+      case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL2_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_OBJECT_SEMANTIC_LABEL_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_KEYBOARD_SEMANTIC_LABEL_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_MOUSE_SEMANTIC_LABEL_EXT:
@@ -4076,6 +4082,7 @@ void lovrScannerDestroy(void* ref) {
   lovrFree(scanner->bounds3D);
   lovrFree(scanner->meshes);
   lovrFree(scanner->planeLabels);
+  lovrFree(scanner->planeLabels2);
   lovrFree(scanner->markers);
   lovrFree(scanner->objectLabels);
   lovrFree(scanner->keyboardLabels);
@@ -4145,6 +4152,7 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
   XrSpatialComponentMesh3DListEXT mesh3D;
   XrSpatialComponentMesh2DListEXT mesh2D;
   XrSpatialComponentPlaneSemanticLabelListEXT planeLabels;
+  XrSpatialComponentPlaneSemanticLabel2ListEXT planeLabels2;
   XrSpatialComponentMarkerListEXT markers;
   XrSpatialComponentObjectSemanticLabelListEXT objectLabels;
   XrSpatialComponentKeyboardSemanticLabelListEXT keyboardLabels;
@@ -4189,6 +4197,13 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
         planeLabels.semanticLabels = scanner->planeLabels;
         planeLabels.next = data.next;
         data.next = &planeLabels;
+        break;
+      case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL2_EXT:
+        planeLabels2.type = XR_TYPE_SPATIAL_COMPONENT_PLANE_SEMANTIC_LABEL2_LIST_EXT;
+        planeLabels2.semanticLabelCount = scanner->entityCapacity;
+        planeLabels2.semanticLabels = scanner->planeLabels2;
+        planeLabels2.next = data.next;
+        data.next = &planeLabels2;
         break;
       case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT:
         markers.type = XR_TYPE_SPATIAL_COMPONENT_MARKER_LIST_EXT;
@@ -4363,6 +4378,9 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
         }
         case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
           anchor->planeLabel = scanner->planeLabels[i];
+          break;
+        case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL2_EXT:
+          anchor->planeLabel2 = scanner->planeLabels2[i];
           break;
         case XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT: {
           XrSpatialMarkerDataEXT* marker = &scanner->markers[i];
@@ -4591,14 +4609,24 @@ const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length) {
       }
       break;
     case ANCHOR_PLANE:
+      switch (anchor->planeLabel2) {
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL2_FLOOR_EXT: label = "floor"; break;
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL2_WALL_EXT: label = "wall"; break;
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL2_CEILING_EXT: label = "ceiling"; break;
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL2_TABLE_EXT: label = "table"; break;
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL2_DOOR_EXT: label = "door"; break;
+        case XR_SPATIAL_PLANE_SEMANTIC_LABEL2_WINDOW_EXT: label = "window"; break;
+        default: break;
+      }
       switch (anchor->planeLabel) {
         case XR_SPATIAL_PLANE_SEMANTIC_LABEL_FLOOR_EXT: label = "floor"; break;
         case XR_SPATIAL_PLANE_SEMANTIC_LABEL_WALL_EXT: label = "wall"; break;
         case XR_SPATIAL_PLANE_SEMANTIC_LABEL_CEILING_EXT: label = "ceiling"; break;
         case XR_SPATIAL_PLANE_SEMANTIC_LABEL_TABLE_EXT: label = "table"; break;
-        default: return *length = 0, NULL;
+        default: break;
       }
-      break;
+      *length = 0;
+      return NULL;
     case ANCHOR_MARKER:
       *length = anchor->labelLength;
       return anchor->label;
