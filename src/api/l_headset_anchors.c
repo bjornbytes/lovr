@@ -201,8 +201,8 @@ static int l_lovrAnchorGetIndexU16(lua_State* L) {
   return 1;
 }
 
-static int l_lovrMeshAnchorGetVertex3D(lua_State* L) {
-  MeshAnchor* anchor = luax_checktype(L, 1, MeshAnchor);
+static int l_lovrAnchorGetVertex3D(lua_State* L) {
+  Anchor* anchor = luax_checkanchor(L, 1);
   uint32_t index = luax_checku32(L, 2) - 1;
   uint32_t count;
   float* normals;
@@ -217,8 +217,8 @@ static int l_lovrMeshAnchorGetVertex3D(lua_State* L) {
   return 6;
 }
 
-static int l_lovrMeshAnchorGetIndexU32(lua_State* L) {
-  MeshAnchor* anchor = luax_checktype(L, 1, MeshAnchor);
+static int l_lovrAnchorGetIndexU32(lua_State* L) {
+  Anchor* anchor = luax_checkanchor(L, 1);
   uint32_t index = luax_checku32(L, 2) - 1;
   uint32_t count;
   uint32_t* indices = lovrAnchorGetIndices(anchor, &count);
@@ -306,7 +306,7 @@ const luaL_Reg lovrMeshAnchor[] = {
   { "getMeshPose", l_lovrAnchorGetMeshPose },
   { "getVertexCount", l_lovrAnchorGetVertexCount },
   { "getIndexCount", l_lovrAnchorGetIndexCount },
-  { "getVertex", l_lovrMeshAnchorGetVertex3D },
-  { "getIndex", l_lovrMeshAnchorGetIndexU32 },
+  { "getVertex", l_lovrAnchorGetVertex3D },
+  { "getIndex", l_lovrAnchorGetIndexU32 },
   { NULL, NULL }
 };

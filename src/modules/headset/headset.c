@@ -4479,10 +4479,10 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
 
           if (count > anchor->normalCount) {
             anchor->normalCount = count;
-            anchor->normals = lovrRealloc(anchor->vertices, anchor->normalCount * 3 * sizeof(float));
+            anchor->normals = lovrRealloc(anchor->normals, anchor->normalCount * 3 * sizeof(float));
           }
 
-          XR(xrGetSpatialBufferVector3fEXT(snapshot, &bufferInfo, anchor->vertexCount, &anchor->vertexCount, anchor->normals), "xrGetSpatialBufferVector3fEXT");
+          XR(xrGetSpatialBufferVector3fEXT(snapshot, &bufferInfo, anchor->normalCount, &anchor->normalCount, anchor->normals), "xrGetSpatialBufferVector3fEXT");
           break;
         }
         default:break;
@@ -4664,12 +4664,79 @@ bool lovrAnchorDidMeshChange(Anchor* anchor) {
 
 Mesh* lovrAnchorGetMesh(Anchor* anchor) {
   if (anchor->meshDirty) {
+    void* data = NULL;
+
     if (!anchor->mesh || anchor->vertexCount > lovrMeshGetVertexFormat(anchor->mesh)->length) {
-      // Make mesh
+      DataField format[3];
+
+      if (anchor->type == ANCHOR_PLANE) {
+        format[0] = (DataField) { .length = anchor->vertexCount, .stride = 20, .fields = &format[1], .fieldCount = 2 };
+        format[1] = (DataField) { .name = "VertexPosition", .type = TYPE_F32x2, .offset = 0 };
+        format[2] = (DataField) { .name = "VertexNormal", .type = TYPE_F32x3, .offset = 8 };
+      } else {
+        format[0] = (DataField) { .length = anchor->vertexCount, .stride = 24, .fields = &format[1], .fieldCount = 2 };
+        format[1] = (DataField) { .name = "VertexPosition", .type = TYPE_F32x3, .offset = 0 };
+        format[2] = (DataField) { .name = "VertexNormal", .type = TYPE_F32x3, .offset = 12 };
+      }
+
+      MeshInfo info = {
+        .vertexFormat = format,
+        .storage = MESH_GPU
+      };
+
+      Mesh* mesh = lovrMeshCreate(&info, &data);
+      if (!mesh) return NULL;
+
+      lovrMeshSetMaterial(mesh, anchor->mesh ? lovrMeshGetMaterial(anchor->mesh) : NULL);
+      lovrRelease(anchor->mesh, lovrMeshDestroy);
+      anchor->mesh = mesh;
+    } else {
+      data = lovrMeshSetVertices(anchor->mesh, 0, anchor->vertexCount);
     }
 
-    // Set vertices, draw range
+    if (!data) {
+      return NULL;
+    }
 
+    float* dst = data;
+    float* src = anchor->vertices;
+
+    if (anchor->type == ANCHOR_PLANE) {
+      for (uint32_t i = 0; i < anchor->vertexCount; i++) {
+        dst[5 * i + 0] = src[2 * i + 0];
+        dst[5 * i + 1] = src[2 * i + 1];
+        dst[5 * i + 2] = 0.f;
+        dst[5 * i + 3] = 0.f;
+        dst[5 * i + 4] = 1.f;
+      }
+    } else {
+      for (uint32_t i = 0; i < anchor->vertexCount; i++) {
+        dst[6 * i + 0] = src[3 * i + 0];
+        dst[6 * i + 1] = src[3 * i + 1];
+        dst[6 * i + 2] = src[3 * i + 2];
+        float* normal = dst + 6 * i + 3;
+        if (anchor->normals) {
+          memcpy(normal, anchor->normals + 3 * i, 3 * sizeof(float));
+        } else {
+          vec3_set(normal, 0.f, 0.f, 0.f);
+        }
+      }
+    }
+
+    lovrBufferFlush(lovrMeshGetVertexBuffer(anchor->mesh));
+
+    DataType indexType = anchor->type == ANCHOR_PLANE ? TYPE_U16 : TYPE_U32;
+    void* indices = lovrMeshSetIndices(anchor->mesh, anchor->indexCount, indexType);
+
+    if (!indices) {
+      return NULL;
+    }
+
+    uint32_t indexSize = indexType == TYPE_U16 ? 2 : 4;
+    memcpy(indices, anchor->indices, anchor->indexCount * indexSize);
+    lovrBufferFlush(lovrMeshGetIndexBuffer(anchor->mesh));
+
+    lovrMeshSetDrawRange(anchor->mesh, 0, anchor->indexCount);
     anchor->meshDirty = false;
   }
 
