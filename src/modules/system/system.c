@@ -7,12 +7,18 @@
 
 static atomic_uint ref;
 
+enum {
+  DOWN = (1 << 0),
+  PRESSED = (1 << 1),
+  RELEASED = (1 << 2)
+};
+
 static struct {
   bool keyRepeat;
-  bool prevKeyState[OS_KEY_COUNT];
-  bool keyState[OS_KEY_COUNT];
-  bool prevMouseState[8];
-  bool mouseState[8];
+  uint8_t keyState[OS_KEY_COUNT];
+  uint8_t nextKeyState[OS_KEY_COUNT];
+  uint8_t mouseState[8];
+  uint8_t nextMouseState[8];
   double mouseX;
   double mouseY;
   double scrollDelta;
@@ -20,7 +26,14 @@ static struct {
 
 static void onKey(os_button_action action, os_key key, uint32_t scancode, bool repeat) {
   if (repeat && !state.keyRepeat) return;
-  state.keyState[key] = (action == BUTTON_PRESSED);
+
+  if (action == BUTTON_PRESSED) {
+    state.nextKeyState[key] |= DOWN | PRESSED;
+  } else {
+    state.nextKeyState[key] |= RELEASED;
+    state.nextKeyState[key] &= ~DOWN;
+  }
+
   lovrEventPush((Event) {
     .type = action == BUTTON_PRESSED ? EVENT_KEYPRESSED : EVENT_KEYRELEASED,
     .data.key.code = key,
@@ -39,7 +52,15 @@ static void onText(uint32_t codepoint) {
 }
 
 static void onMouseButton(int button, bool pressed) {
-  if ((size_t) button < COUNTOF(state.mouseState)) state.mouseState[button] = pressed;
+  if ((size_t) button < COUNTOF(state.mouseState)) {
+    if (pressed) {
+      state.nextMouseState[button] |= DOWN | PRESSED;
+    } else {
+      state.nextMouseState[button] |= RELEASED;
+      state.nextMouseState[button] &= ~DOWN;
+    }
+  }
+
   lovrEventPush((Event) {
     .type = pressed ? EVENT_MOUSEPRESSED : EVENT_MOUSERELEASED,
     .data.mouse.x = state.mouseX,
@@ -176,22 +197,24 @@ float lovrSystemGetWindowDensity(void) {
 }
 
 void lovrSystemPollEvents(double timeout) {
-  memcpy(state.prevKeyState, state.keyState, sizeof(state.keyState));
-  memcpy(state.prevMouseState, state.mouseState, sizeof(state.mouseState));
   state.scrollDelta = 0.;
   os_poll_events(timeout);
+  memcpy(state.keyState, state.nextKeyState, sizeof(state.keyState));
+  memcpy(state.mouseState, state.nextMouseState, sizeof(state.mouseState));
+  for (size_t i = 0; i < COUNTOF(state.keyState); i++) state.nextKeyState[i] &= DOWN;
+  for (size_t i = 0; i < COUNTOF(state.mouseState); i++) state.nextMouseState[i] &= DOWN;
 }
 
 bool lovrSystemIsKeyDown(int keycode) {
-  return state.keyState[keycode];
+  return state.keyState[keycode] & DOWN;
 }
 
 bool lovrSystemWasKeyPressed(int keycode) {
-  return !state.prevKeyState[keycode] && state.keyState[keycode];
+  return state.keyState[keycode] & PRESSED;
 }
 
 bool lovrSystemWasKeyReleased(int keycode) {
-  return state.prevKeyState[keycode] && !state.keyState[keycode];
+  return state.keyState[keycode] & RELEASED;
 }
 
 bool lovrSystemHasKeyRepeat(void) {
@@ -209,17 +232,17 @@ void lovrSystemGetMousePosition(double* x, double* y) {
 
 bool lovrSystemIsMouseDown(int button) {
   if ((size_t) button > COUNTOF(state.mouseState)) return false;
-  return state.mouseState[button];
+  return state.mouseState[button] & DOWN;
 }
 
 bool lovrSystemWasMousePressed(int button) {
   if ((size_t) button > COUNTOF(state.mouseState)) return false;
-  return !state.prevMouseState[button] && state.mouseState[button];
+  return state.mouseState[button] & PRESSED;
 }
 
 bool lovrSystemWasMouseReleased(int button) {
   if ((size_t) button > COUNTOF(state.mouseState)) return false;
-  return state.prevMouseState[button] && !state.mouseState[button];
+  return state.mouseState[button] & RELEASED;
 }
 
 MouseMode lovrSystemGetMouseMode(void) {
