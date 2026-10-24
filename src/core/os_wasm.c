@@ -48,12 +48,15 @@ static EM_BOOL onFocusChanged(int type, const EmscriptenFocusEvent* data, void* 
 }
 
 static EM_BOOL onResize(int type, const EmscriptenUiEvent* data, void* userdata) {
-  int newWidth, newHeight;
-  emscripten_get_canvas_element_size(CANVAS, &newWidth, &newHeight);
+  double width, height;
+  emscripten_get_element_css_size(CANVAS, &width, &height);
+  width *= emscripten_get_device_pixel_ratio();
+  height *= emscripten_get_device_pixel_ratio();
 
-  if (state.width != (uint32_t) newWidth || state.height != (uint32_t) newHeight) {
-    state.width = newWidth;
-    state.height = newHeight;
+  if (state.width != (uint32_t) width || state.height != (uint32_t) height) {
+    state.width = (uint32_t) width;
+    state.height = (uint32_t) height;
+    emscripten_set_canvas_element_size(CANVAS, state.width, state.height);
     if (state.onWindowResize) {
       state.onWindowResize(state.width, state.height);
       return true;
@@ -86,8 +89,8 @@ static EM_BOOL onMouseMove(int type, const EmscriptenMouseEvent* data, void* use
     state.mouseX += data->movementX;
     state.mouseY += data->movementY;
   } else {
-    state.mouseX = data->clientX;
-    state.mouseY = data->clientY;
+    state.mouseX = data->targetX;
+    state.mouseY = data->targetY;
   }
   if (state.onMouseMove) {
     state.onMouseMove(state.mouseX, state.mouseY);
@@ -214,10 +217,11 @@ bool os_init(void) {
   emscripten_set_wheel_callback(CANVAS, NULL, true, onMouseWheelMove);
   emscripten_set_keydown_callback(CANVAS, NULL, true, onKeyEvent);
   emscripten_set_keyup_callback(CANVAS, NULL, true, onKeyEvent);
-  int width, height;
-  emscripten_get_canvas_element_size(CANVAS, &width, &height);
-  state.width = width;
-  state.height = height;
+  double width, height;
+  emscripten_get_element_css_size(CANVAS, &width, &height);
+  state.width = width * emscripten_get_device_pixel_ratio();
+  state.height = height * emscripten_get_device_pixel_ratio();
+  emscripten_set_canvas_element_size(CANVAS, state.width, state.height);
   return true;
 }
 
