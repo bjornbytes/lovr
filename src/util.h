@@ -69,6 +69,27 @@ enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
 void lovrSetLogCallback(fn_log* callback, void* userdata);
 void lovrLog(int level, const char* tag, const char* format, ...);
 
+// Future
+typedef struct Future Future;
+typedef enum { FUTURE_PENDING, FUTURE_COMPLETE, FUTURE_FAILED } FutureStatus;
+
+typedef struct {
+  bool (*poll)(struct Future* future, bool* ready);
+  bool (*wait)(struct Future* future);
+  void (*drop)(struct Future* future);
+} FutureCallbacks;
+
+struct Future {
+  FutureStatus status;
+  FutureCallbacks* cb;
+  char* error;
+};
+
+Future* lovrFutureInit(Future* future, FutureCallbacks* callbacks);
+void lovrFutureDestroy(Future* future);
+bool lovrFuturePoll(Future* future);
+bool lovrFutureWait(Future* future);
+
 // Profiling
 #ifdef LOVR_PROFILE
 #include <TracyC.h>
@@ -97,6 +118,7 @@ void lovrLog(int level, const char* tag, const char* format, ...);
 #define arr_pop(a) (a)->data[--(a)->length]
 #define arr_append(a, p, n) arr_reserve(a, (a)->length + n), memcpy((a)->data + (a)->length, p, n * sizeof(*(a)->data)), (a)->length += n
 #define arr_splice(a, i, n) memmove((a)->data + (i), (a)->data + ((i) + n), ((a)->length - (i) - (n)) * sizeof(*(a)->data)), (a)->length -= n
+#define arr_swapsplice(a, i) (a)->data[i] = arr_pop(a)
 #define arr_clear(a) (a)->length = 0
 
 static inline void _arr_reserve(void** data, size_t n, size_t* capacity, size_t stride) {
@@ -158,6 +180,13 @@ typedef enum {
   T_Raytracer,
   T_Readback,
   T_Pass,
+  T_Scanner,
+  T_PointAnchor,
+  T_PlaneAnchor,
+  T_MarkerAnchor,
+  T_ImageAnchor,
+  T_ObjectAnchor,
+  T_MeshAnchor,
   T_Layer,
   T_Curve,
   T_Mat4,

@@ -111,6 +111,47 @@ StringEntry lovrDeviceAxis[] = {
   { 0 }
 };
 
+StringEntry lovrArucoDictionary[] = {
+  [ARUCO_4x4_50] = ENTRY("4x4_50"),
+  [ARUCO_4x4_100] = ENTRY("4x4_100"),
+  [ARUCO_4x4_250] = ENTRY("4x4_250"),
+  [ARUCO_4x4_1000] = ENTRY("4x4_1000"),
+  [ARUCO_5x5_50] = ENTRY("5x5_50"),
+  [ARUCO_5x5_100] = ENTRY("5x5_100"),
+  [ARUCO_5x5_250] = ENTRY("5x5_250"),
+  [ARUCO_5x5_1000] = ENTRY("5x5_1000"),
+  [ARUCO_6x6_50] = ENTRY("6x6_50"),
+  [ARUCO_6x6_100] = ENTRY("6x6_100"),
+  [ARUCO_6x6_250] = ENTRY("6x6_250"),
+  [ARUCO_6x6_1000] = ENTRY("6x6_1000"),
+  [ARUCO_7x7_50] = ENTRY("7x7_50"),
+  [ARUCO_7x7_100] = ENTRY("7x7_100"),
+  [ARUCO_7x7_250] = ENTRY("7x7_250"),
+  [ARUCO_7x7_1000] = ENTRY("7x7_1000"),
+  { 0 }
+};
+
+StringEntry lovrAprilDictionary[] = {
+  [APRIL_16H5] = ENTRY("16h5"),
+  [APRIL_25H9] = ENTRY("25h9"),
+  [APRIL_36H10] = ENTRY("36h10"),
+  [APRIL_36H11] = ENTRY("36h11"),
+  { 0 }
+};
+
+StringEntry lovrScannerType[] = {
+  [SCANNER_POINT] = ENTRY("point"),
+  [SCANNER_PLANE] = ENTRY("plane"),
+  [SCANNER_QR] = ENTRY("qr"),
+  [SCANNER_MICRO_QR] = ENTRY("microqr"),
+  [SCANNER_ARUCO] = ENTRY("aruco"),
+  [SCANNER_APRIL] = ENTRY("april"),
+  [SCANNER_IMAGE] = ENTRY("image"),
+  [SCANNER_OBJECT] = ENTRY("object"),
+  [SCANNER_MESH] = ENTRY("mesh"),
+  { 0 }
+};
+
 static Device luax_optdevice(lua_State* L, int index) {
   const char* str = luaL_optstring(L, 1, "head");
   if (!strcmp(str, "left")) {
@@ -139,6 +180,8 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   HeadsetFeatures features = { 0 };
   lovrHeadsetGetFeatures(&features);
   lua_newtable(L);
+  lua_pushboolean(L, features.anchor), lua_setfield(L, -2, "anchor");
+  lua_pushboolean(L, features.anchorPersistence), lua_setfield(L, -2, "anchorPersistence");
   lua_pushboolean(L, features.battery), lua_setfield(L, -2, "battery");
   lua_pushboolean(L, features.bodyTracking), lua_setfield(L, -2, "bodyTracking");
   lua_pushboolean(L, features.controllerModel), lua_setfield(L, -2, "controllerModel");
@@ -162,6 +205,13 @@ static int l_lovrHeadsetGetFeatures(lua_State* L) {
   lua_pushboolean(L, features.proximity), lua_setfield(L, -2, "proximity");
   lua_pushboolean(L, features.refreshRate), lua_setfield(L, -2, "refreshRate");
   lua_pushboolean(L, features.viveTrackers), lua_setfield(L, -2, "viveTrackers");
+  return 1;
+}
+
+static int l_lovrHeadsetIsScannerSupported(lua_State* L) {
+  ScannerType type = luax_checkenum(L, 1, ScannerType, NULL);
+  bool supported = lovrHeadsetIsScannerSupported(type);
+  lua_pushboolean(L, supported);
   return 1;
 }
 
@@ -966,6 +1016,80 @@ static int l_lovrHeadsetSetButton(lua_State* L) {
   return 0;
 }
 
+static int luax_pushscanner(lua_State* L, bool success, void* future) {
+  if (!success) return 0;
+  Scanner* scanner = lovrScannerCreateComplete(future);
+  luax_pushtype(L, Scanner, scanner);
+  return true;
+}
+
+static int l_lovrHeadsetNewScanner(lua_State* L) {
+  ScannerInfo info = { 0 };
+
+  info.type = luax_checkenum(L, 1, ScannerType, NULL);
+
+  if (info.type == SCANNER_APRIL || info.type == SCANNER_ARUCO) {
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_getfield(L, 2, "dictionary");
+    luax_check(L, !lua_isnil(L, -1), "Marker dictionary is required");
+    if (info.type == SCANNER_APRIL) {
+      info.aprilDictionary = luax_checkenum(L, -1, AprilDictionary, NULL);
+    } else {
+      info.arucoDictionary = luax_checkenum(L, -1, ArucoDictionary, NULL);
+    }
+    lua_pop(L, 1);
+  }
+
+  if (lua_istable(L, 2)) {
+    lua_getfield(L, 2, "width");
+    info.width = luax_optfloat(L, -1, 0.f);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "images");
+    if (info.type == SCANNER_IMAGE && lua_istable(L, -1)) {
+      lua_pushnil(L);
+      while (lua_next(L, -2) != 0) {
+        info.imageCount++;
+        lua_pop(L, 1);
+      }
+
+      info.images = lovrMalloc(info.imageCount * sizeof(ReferenceImage));
+
+      int i = 0;
+      bool valid = true;
+      lua_pushnil(L);
+      while (lua_next(L, -2) != 0) {
+        ReferenceImage* image = &info.images[i];
+        image->label = lua_type(L, -2) == LUA_TSTRING ? lua_tostring(L, -2) : NULL;
+        image->image = luax_totype(L, -1, Image);
+        valid &= image->label && image->image;
+        lua_pop(L, 1);
+        i++;
+      }
+
+      if (!valid) {
+        lovrFree(info.images);
+        return luaL_error(L, "Scanner images should be a table with string keys and Image values");
+      }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "static");
+    info.isStatic = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "storage");
+    info.storage = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+
+  Future* future = lovrScannerCreate(&info);
+  lovrFree(info.images);
+  luax_assert(L, future);
+
+  return luax_yieldfuture(L, future, luax_pushscanner);
+}
+
 static int l_lovrHeadsetNewLayer(lua_State* L) {
   LayerInfo info = { .filter = true };
 
@@ -1096,6 +1220,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "getName", l_lovrHeadsetGetName },
   { "getDriver", l_lovrHeadsetGetDriver },
   { "getFeatures", l_lovrHeadsetGetFeatures },
+  { "isScannerSupported", l_lovrHeadsetIsScannerSupported },
   { "isSeated", l_lovrHeadsetIsSeated },
   { "start", l_lovrHeadsetStart },
   { "stop", l_lovrHeadsetStop },
@@ -1157,6 +1282,7 @@ static const luaL_Reg lovrHeadset[] = {
   { "setOrientation", l_lovrHeadsetSetOrientation },
   { "setPose", l_lovrHeadsetSetPose },
   { "setButton", l_lovrHeadsetSetButton },
+  { "newScanner", l_lovrHeadsetNewScanner },
   { "newLayer", l_lovrHeadsetNewLayer },
   { "getHands", l_lovrHeadsetGetHands },
 
@@ -1167,11 +1293,28 @@ static const luaL_Reg lovrHeadset[] = {
   { NULL, NULL }
 };
 
+extern int l_lovrScannerAnchors(lua_State* L);
+extern int luax_anchoriterator(lua_State* L);
+
+extern const luaL_Reg lovrScanner[];
+extern const luaL_Reg lovrPointAnchor[];
+extern const luaL_Reg lovrPlaneAnchor[];
+extern const luaL_Reg lovrMarkerAnchor[];
+extern const luaL_Reg lovrImageAnchor[];
+extern const luaL_Reg lovrObjectAnchor[];
+extern const luaL_Reg lovrMeshAnchor[];
 extern const luaL_Reg lovrLayer[];
 
 int luaopen_lovr_headset(lua_State* L) {
   lua_newtable(L);
   luax_register(L, lovrHeadset);
+  luax_registertype(L, Scanner);
+  luax_registertype(L, PointAnchor);
+  luax_registertype(L, PlaneAnchor);
+  luax_registertype(L, MarkerAnchor);
+  luax_registertype(L, ImageAnchor);
+  luax_registertype(L, ObjectAnchor);
+  luax_registertype(L, MeshAnchor);
   luax_registertype(L, Layer);
 
   HeadsetConfig config = {
@@ -1270,6 +1413,12 @@ int luaopen_lovr_headset(lua_State* L) {
     }
     lua_pop(L, 1);
   }
+  lua_pop(L, 1);
+
+  luaL_getmetatable(L, "Scanner");
+  lua_pushcfunction(L, luax_anchoriterator);
+  lua_pushcclosure(L, l_lovrScannerAnchors, 1);
+  lua_setfield(L, -2, "anchors");
   lua_pop(L, 1);
 
   luax_assert(L, lovrHeadsetInit(&config));

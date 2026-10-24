@@ -10,9 +10,12 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#ifndef LOVR_DISABLE_GRAPHICS
 #include "data/modelData.h"
+#ifndef LOVR_DISABLE_GRAPHICS
 #include "graphics/graphics.h"
+#endif
+#ifndef LOVR_DISABLE_HEADSET
+#include "headset/headset.h"
 #endif
 
 #ifdef _WIN32
@@ -833,6 +836,42 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     return index + 1;
   }
 
+#ifndef LOVR_DISABLE_HEADSET
+  PlaneAnchor* plane = luax_totype(L, index, PlaneAnchor);
+
+  if (plane) {
+    const float* vertex2D = lovrAnchorGetVertices(plane, vertexCount, NULL);
+    *vertices = lovrMalloc(*vertexCount * 3 * sizeof(float));
+    for (uint32_t i = 0; i < *vertexCount; i++) {
+      (*vertices)[3 * i + 0] = vertex2D[2 * i + 0];
+      (*vertices)[3 * i + 1] = vertex2D[2 * i + 1];
+      (*vertices)[3 * i + 2] = 0.f;
+    }
+
+    uint16_t* u16 = lovrAnchorGetIndices(plane, indexCount);
+    *indices = lovrMalloc(*indexCount * sizeof(uint32_t));
+    for (uint32_t i = 0; i < *indexCount; i++) {
+      (*indices)[i] = u16[i];
+    }
+    return index + 1;
+  }
+
+  MeshAnchor* meshAnchor = luax_totype(L, index, MeshAnchor);
+
+  if (meshAnchor) {
+    const float* vertex3D = lovrAnchorGetVertices(meshAnchor, vertexCount, NULL);
+    *vertices = lovrMalloc(*vertexCount * 3 * sizeof(float));
+    memcpy(*vertices, vertex3D, *vertexCount * 3 * sizeof(float));
+
+    uint32_t* u32 = lovrAnchorGetIndices(meshAnchor, indexCount);
+    *indices = lovrMalloc(*indexCount * sizeof(uint32_t));
+    memcpy(*indices, u32, *indexCount * sizeof(uint32_t));
+
+    return index + 1;
+  }
+
+#endif
+
 #ifndef LOVR_DISABLE_GRAPHICS
   Mesh* mesh = luax_totype(L, index, Mesh);
 
@@ -840,11 +879,9 @@ int luax_readmesh(lua_State* L, int index, float** vertices, uint32_t* vertexCou
     luax_assert(L, lovrMeshGetTriangles(mesh, vertices, indices, vertexCount, indexCount));
     return index + 1;
   }
-
-  luaL_argerror(L, index, "table, ModelData, or Mesh expected");
-#else
-  luaL_argerror(L, index, "table or ModelData expected");
 #endif
+
+  luaL_argerror(L, index, "table, ModelData, Mesh, or PlaneAnchor expected");
   return 0;
 }
 
