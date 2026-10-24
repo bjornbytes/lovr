@@ -248,7 +248,6 @@ struct Scanner {
   XrSpatialEntityTrackingStateEXT* entityStates;
   XrSpatialBounded2DDataEXT* bounds2D;
   XrBoxf* bounds3D;
-  XrSpatialEntityIdEXT* parents;
   XrSpatialMeshDataEXT* meshes;
   XrSpatialPlaneSemanticLabelEXT* planeLabels;
   XrSpatialMarkerDataEXT* markers;
@@ -269,7 +268,6 @@ struct Anchor {
   XrUuidEXT uuid;
   bool saved;
   XrSpatialEntityEXT handle;
-  XrSpatialEntityIdEXT parent;
   XrSpatialEntityTrackingStateEXT status;
   XrSpatialPlaneSemanticLabelEXT planeLabel;
   XrSpatialObjectSemanticLabelEXT objectLabel;
@@ -3510,7 +3508,6 @@ static Anchor* lovrScannerAddAnchor(Scanner* scanner, uint32_t slot, XrSpatialEn
       switch (scanner->components[c]) {
         case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT: scanner->bounds2D = lovrRealloc(scanner->bounds2D, capacity * sizeof(scanner->bounds2D[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_BOUNDED_3D_EXT: scanner->bounds3D = lovrRealloc(scanner->bounds3D, capacity * sizeof(scanner->bounds3D[0])); break;
-        case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT: scanner->parents = lovrRealloc(scanner->parents, capacity * sizeof(scanner->parents[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: scanner->meshes = lovrRealloc(scanner->meshes, capacity * sizeof(scanner->meshes[0])); break;
         case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT: scanner->planeLabels = lovrRealloc(scanner->planeLabels, capacity * sizeof(scanner->planeLabels[0])); break;
@@ -3809,7 +3806,6 @@ static bool createSpatialContext(Scanner* scanner, XrFutureEXT* future) {
         break;
       }
       // Optional (move to end)
-      case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_PLANE_SEMANTIC_LABEL_EXT:
       case XR_SPATIAL_COMPONENT_TYPE_OBJECT_SEMANTIC_LABEL_EXT:
@@ -4050,7 +4046,6 @@ void lovrScannerDestroy(void* ref) {
     xrDestroySpatialEntityEXT(anchor->handle);
     anchor->handle = NULL;
     anchor->scanner = NULL;
-    anchor->parent = XR_NULL_SPATIAL_ENTITY_ID_EXT;
     anchor->status = XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT;
     lovrRelease(scanner->anchors[i], lovrAnchorDestroy);
     scanner->anchors[i] = NULL;
@@ -4079,7 +4074,6 @@ void lovrScannerDestroy(void* ref) {
   lovrFree(scanner->entityStates);
   lovrFree(scanner->bounds2D);
   lovrFree(scanner->bounds3D);
-  lovrFree(scanner->parents);
   lovrFree(scanner->meshes);
   lovrFree(scanner->planeLabels);
   lovrFree(scanner->markers);
@@ -4148,7 +4142,6 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
 
   XrSpatialComponentBounded2DListEXT bounds2D;
   XrSpatialComponentBounded3DListEXT bounds3D;
-  XrSpatialComponentParentListEXT parents;
   XrSpatialComponentMesh3DListEXT mesh3D;
   XrSpatialComponentMesh2DListEXT mesh2D;
   XrSpatialComponentPlaneSemanticLabelListEXT planeLabels;
@@ -4175,13 +4168,6 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
         bounds3D.bounds = scanner->bounds3D;
         bounds3D.next = data.next;
         data.next = &bounds3D;
-        break;
-      case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
-        parents.type = XR_TYPE_SPATIAL_COMPONENT_PARENT_LIST_EXT;
-        parents.parentCount = scanner->entityCapacity;
-        parents.parents = scanner->parents;
-        parents.next = data.next;
-        data.next = &parents;
         break;
       case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_EXT:
         mesh3D.type = XR_TYPE_SPATIAL_COMPONENT_MESH_3D_LIST_EXT;
@@ -4304,9 +4290,6 @@ static bool queryComponents(Scanner* scanner, XrSpatialSnapshotEXT snapshot, XrS
           memcpy(anchor->position, &scanner->bounds3D[i].center.position.x, 3 * sizeof(float));
           memcpy(anchor->orientation, &scanner->bounds3D[i].center.orientation.x, 4 * sizeof(float));
           memcpy(anchor->dimensions, &scanner->bounds3D[i].extents, 3 * sizeof(float));
-          break;
-        case XR_SPATIAL_COMPONENT_TYPE_PARENT_EXT:
-          anchor->parent = scanner->parents[i];
           break;
         case XR_SPATIAL_COMPONENT_TYPE_MESH_3D_EXT:
         case XR_SPATIAL_COMPONENT_TYPE_MESH_2D_EXT: {
@@ -4579,13 +4562,6 @@ bool lovrAnchorIsTracked(Anchor* anchor) {
 
 AnchorType lovrAnchorGetType(Anchor* anchor) {
   return anchor->type;
-}
-
-Anchor* lovrAnchorGetParent(Anchor* anchor) {
-  if (!lovrAnchorIsActive(anchor) || !anchor->parent) return NULL;
-  uint64_t hash = hash64(&anchor->parent, sizeof(XrSpatialEntityIdEXT));
-  uint64_t entry = map_get(&anchor->scanner->anchorLookup, hash);
-  return entry == MAP_NIL ? NULL : (Anchor*) (uintptr_t) entry;
 }
 
 void lovrAnchorGetPosition(Anchor* anchor, float* position) {

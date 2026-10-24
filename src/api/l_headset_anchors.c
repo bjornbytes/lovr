@@ -44,13 +44,6 @@ static int l_lovrAnchorIsTracked(lua_State* L) {
   return 1;
 }
 
-static int l_lovrAnchorGetParent(lua_State* L) {
-  Anchor* anchor = luax_checkanchor(L, 1);
-  Anchor* parent = lovrAnchorGetParent(anchor);
-  luax_pushanchor(L, parent);
-  return 1;
-}
-
 static int l_lovrAnchorGetPosition(lua_State* L) {
   Anchor* anchor = luax_checkanchor(L, 1);
   float position[3];
@@ -240,7 +233,6 @@ static int l_lovrAnchorDelete(lua_State* L) {
 #define lovrAnchor \
   { "isActive", l_lovrAnchorIsActive }, \
   { "isTracked", l_lovrAnchorIsTracked }, \
-  { "getParent", l_lovrAnchorGetParent }, \
   { "getPosition", l_lovrAnchorGetPosition }, \
   { "getOrientation", l_lovrAnchorGetOrientation }, \
   { "getPose", l_lovrAnchorGetPose }
