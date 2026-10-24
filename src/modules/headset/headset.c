@@ -4716,7 +4716,7 @@ Mesh* lovrAnchorGetMesh(Anchor* anchor) {
         dst[6 * i + 2] = src[3 * i + 2];
         float* normal = dst + 6 * i + 3;
         if (anchor->normals) {
-          memcpy(normal, anchor->normals + 3 * i, 3 * sizeof(float));
+          memcpy(normal, (float*) anchor->normals + 3 * i, 3 * sizeof(float));
         } else {
           vec3_set(normal, 0.f, 0.f, 0.f);
         }
