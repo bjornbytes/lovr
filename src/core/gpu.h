@@ -675,6 +675,7 @@ typedef struct {
   gpu_save_op save, stencilSave;
   float clear;
   uint8_t stencilClear;
+  bool readonly;
 } gpu_depth_attachment;
 
 typedef struct {

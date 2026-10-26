@@ -611,6 +611,7 @@ typedef struct {
   Attachment depth;
   Texture* foveation;
   bool foveationOffset;
+  bool readonlyDepth;
   uint32_t depthFormat;
   uint32_t samples;
 } Canvas;
@@ -734,7 +735,7 @@ void lovrPassSetBlendState(Pass* pass, uint32_t index, bool enable, BlendState c
 void lovrPassSetColor(Pass* pass, float color[4]);
 void lovrPassSetColorWrite(Pass* pass, uint32_t index, bool r, bool g, bool b, bool a);
 void lovrPassSetDepthTest(Pass* pass, CompareMode test);
-void lovrPassSetDepthWrite(Pass* pass, bool write);
+bool lovrPassSetDepthWrite(Pass* pass, bool write);
 void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
 void lovrPassSetDepthClamp(Pass* pass, bool clamp);
 void lovrPassSetFaceCull(Pass* pass, CullMode mode);

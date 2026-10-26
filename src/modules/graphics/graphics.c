@@ -1756,7 +1756,7 @@ fail:
 
 static Readback* lovrReadbackCreateTimestamp(Pass** passes, uint32_t count);
 
-static void syncAttachment(Texture* texture, bool depth, bool resolve, bool load, bool temporary) {
+static void syncAttachment(Texture* texture, bool depth, bool resolve, bool load, bool temporary, bool readonly) {
   if (!texture) return;
 
   Access access = {
@@ -1764,15 +1764,16 @@ static void syncAttachment(Texture* texture, bool depth, bool resolve, bool load
     .object = texture
   };
 
-  bool read = !temporary && load;
+  bool read = !temporary && (load || readonly);
+  bool write = !readonly;
 
   // Depth resolve operations act like color resolves w.r.t. sync
   if (!depth || resolve || temporary) {
     access.phase = GPU_PHASE_COLOR;
-    access.cache = GPU_CACHE_COLOR_WRITE | (read ? GPU_CACHE_COLOR_READ : 0);
+    access.cache = (write ? GPU_CACHE_COLOR_WRITE : 0) | (read ? GPU_CACHE_COLOR_READ : 0);
   } else {
     access.phase = read ? GPU_PHASE_DEPTH_EARLY : GPU_PHASE_DEPTH_LATE;
-    access.cache = GPU_CACHE_DEPTH_WRITE | (read ? GPU_CACHE_DEPTH_READ : 0);
+    access.cache = (write ? GPU_CACHE_DEPTH_WRITE : 0) | (read ? GPU_CACHE_DEPTH_READ : 0);
   }
 
   syncResource(&access, access.sync->barrier);
@@ -1840,8 +1841,8 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       Attachment* attachment = &canvas->color[a];
       bool load = pass->target.color[a].load == GPU_LOAD_OP_KEEP;
       if (attachment->texture == state.window) continue;
-      syncAttachment(attachment->texture, false, false, load, pass->tempColor[a]);
-      syncAttachment(attachment->resolve, false, true, false, false);
+      syncAttachment(attachment->texture, false, false, load, pass->tempColor[a], false);
+      syncAttachment(attachment->resolve, false, true, false, false, false);
       xrCanvas |= attachment->texture->info.xr || (attachment->resolve && attachment->resolve->info.xr);
     }
 
@@ -1849,8 +1850,8 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     if (canvas->depth.texture) {
       Attachment* attachment = &canvas->depth;
       bool load = pass->target.depth.load == GPU_LOAD_OP_KEEP;
-      syncAttachment(attachment->texture, true, false, load, pass->tempDepth);
-      syncAttachment(attachment->resolve, true, true, false, false);
+      syncAttachment(attachment->texture, true, false, load, pass->tempDepth, pass->canvas.readonlyDepth);
+      syncAttachment(attachment->resolve, true, true, false, false, false);
       xrCanvas |= attachment->texture->info.xr || (attachment->resolve && attachment->resolve->info.xr);
     }
 
@@ -6919,6 +6920,8 @@ void lovrPassReset(Pass* pass) {
   pass->transformIndex = 0;
   mat4_identity(pass->transform);
 
+  Canvas* canvas = &pass->canvas;
+
   pass->pipelineIndex = 0;
   memset(pass->pipeline, 0, sizeof(Pipeline));
   pass->pipeline->mode = DRAW_TRIANGLES;
@@ -6928,7 +6931,7 @@ void lovrPassReset(Pass* pass) {
   pass->pipeline->color[2] = 1.f;
   pass->pipeline->color[3] = 1.f;
   pass->pipeline->info.depth.test = GPU_COMPARE_GEQUAL;
-  pass->pipeline->info.depth.write = true;
+  pass->pipeline->info.depth.write = canvas->readonlyDepth ? false : true;
   pass->pipeline->info.stencil.testMask = 0xff;
   pass->pipeline->info.stencil.writeMask = 0xff;
 
@@ -6936,8 +6939,6 @@ void lovrPassReset(Pass* pass) {
     lovrPassSetBlendMode(pass, i, BLEND_ALPHA, BLEND_ALPHA_MULTIPLY);
     pass->pipeline->info.color[i].mask = 0xf;
   }
-
-  Canvas* canvas = &pass->canvas;
 
   for (uint32_t i = 0; i < 4 && canvas->color[i].texture; i++) {
     pass->pipeline->info.color[i].format = (gpu_texture_format) canvas->color[i].texture->info.format;
@@ -7072,7 +7073,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
       TextureInfo* resolve = &depth->resolve->info;
       lovrCheck(state.features.depthResolve, "This GPU does not support resolving depth textures");
       lovrCheck(resolve->format == info->format, "Depth resolve texture format does not match main depth texture format");
-      lovrCheck(resolve->usage & TEXTURE_RENDER, "Depth resolve texture format does not match main depth texture format");
+      lovrCheck(resolve->usage & TEXTURE_RENDER, "Texture must be created with the 'render' usage to render to it");
       lovrCheck(resolve->width == texture->width, "Canvas texture sizes must match");
       lovrCheck(resolve->height == texture->height, "Canvas texture sizes must match");
       lovrCheck(resolve->layers == texture->layers, "Canvas texture layer counts match");
@@ -7133,6 +7134,7 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
     const TextureInfo* other = pass->canvas.depth.texture ? &pass->canvas.depth.texture->info : NULL;
 
     lovrCheck(target->depth.load != GPU_LOAD_OP_KEEP, "When clear is set to false, canvas texture sample count must match the sample count of the pass");
+    lovrCheck(!canvas->readonlyDepth, "Unable to use a temporary depth texture with readonly depth");
 
     if (compatible && ((other && other->samples == 1 && other->format == format) || pass->canvas.depthFormat == format)) {
       tempDepthTexture = target->depth.texture;
@@ -7218,16 +7220,19 @@ bool lovrPassSetCanvas(Pass* pass, Canvas* canvas) {
       target->depth.texture = tempDepthTexture;
       target->depth.resolve = canvas->depth.texture ? canvas->depth.texture->renderView : NULL;
       target->depth.save = target->depth.stencilSave = GPU_SAVE_OP_DISCARD;
+      target->depth.readonly = false;
       pass->tempDepth = true;
     } else {
       target->depth.texture = canvas->depth.texture->renderView;
       target->depth.resolve = canvas->depth.resolve ? canvas->depth.resolve->renderView : NULL;
       target->depth.save = canvas->depth.resolve ? GPU_SAVE_OP_DISCARD : GPU_SAVE_OP_KEEP;
       target->depth.stencilSave = target->depth.save;
+      target->depth.readonly = canvas->readonlyDepth;
     }
   } else {
     target->depth.texture = NULL;
     target->depth.resolve = NULL;
+    target->depth.readonly = false;
   }
 
   target->foveation = canvas->foveation ? canvas->foveation->gpu : NULL;
@@ -7252,6 +7257,7 @@ void lovrPassGetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadA
 }
 
 bool lovrPassSetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadAction depthLoad, float depthClear) {
+  lovrCheck(depthLoad != LOAD_KEEP || !pass->tempDepth, "Can not set depth clear to false unless canvas texture sample count matches pass sample count (try setting pass sample count to 1)");
   gpu_canvas* target = &pass->target;
   for (uint32_t i = 0; i < 4 && pass->canvas.color[i].texture; i++) {
     lovrCheck(loads[i] != LOAD_KEEP || !pass->tempColor[i], "Can not set clear to false unless canvas texture sample count matches pass sample count (try setting pass sample count to 1)");
@@ -7268,7 +7274,6 @@ bool lovrPassSetClear(Pass* pass, LoadAction loads[4], float clears[4][4], LoadA
   target->depth.load = (gpu_load_op) depthLoad;
   target->depth.stencilLoad = (gpu_load_op) depthLoad;
   target->depth.clear = depthLoad == LOAD_CLEAR ? depthClear : 0.f;
-  lovrCheck(depthLoad != LOAD_KEEP || !pass->tempDepth, "Can not set depth clear to false unless canvas texture sample count matches pass sample count (try setting pass sample count to 1)");
   return true;
 }
 
@@ -7506,9 +7511,11 @@ void lovrPassSetDepthTest(Pass* pass, CompareMode test) {
   pass->pipeline->info.depth.test = (gpu_compare_mode) test;
 }
 
-void lovrPassSetDepthWrite(Pass* pass, bool write) {
+bool lovrPassSetDepthWrite(Pass* pass, bool write) {
+  lovrCheck(!pass->canvas.readonlyDepth || !write, "Readonly depth requires depth write to be false");
   pass->pipeline->dirty |= pass->pipeline->info.depth.write != write;
   pass->pipeline->info.depth.write = write;
+  return true;
 }
 
 void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped) {
@@ -7719,6 +7726,8 @@ bool lovrPassSetStencilWrite(Pass* pass, StencilAction actions[3], uint8_t value
   if (hasReplace && pass->pipeline->info.stencil.test != GPU_COMPARE_NONE) {
     lovrCheck(value == pass->pipeline->info.stencil.value, "When stencil write is 'replace' and stencil test is active, their values must match");
   }
+  bool readonly = actions[0] == STENCIL_KEEP && actions[1] == STENCIL_KEEP && actions[2] == STENCIL_KEEP;
+  lovrCheck(!pass->canvas.readonlyDepth || readonly, "Readonly depth requires stencil write to be false");
   pass->pipeline->info.stencil.failOp = (gpu_stencil_op) actions[0];
   pass->pipeline->info.stencil.depthFailOp = (gpu_stencil_op) actions[1];
   pass->pipeline->info.stencil.passOp = (gpu_stencil_op) actions[2];
@@ -7836,6 +7845,14 @@ bool lovrPassSendTexture(Pass* pass, const char* name, size_t length, Texture** 
       } else {
         lovrCheck(textures[i]->sampleViewFloat, "Trying to send an integer texture to a floating point sampler");
       }
+    }
+
+    if (textures[i]->info.usage & TEXTURE_RENDER) {
+      for (uint32_t j = 0; j < COUNTOF(pass->canvas.color) && pass->canvas.color[j].texture; j++) {
+        lovrCheck(pass->canvas.color[j].texture != textures[i], "Trying to send a texture to a shader while rendering to it");
+      }
+
+      lovrCheck(pass->canvas.readonlyDepth || pass->canvas.depth.texture != textures[i], "Trying to send a depth texture to a shader while rendering to it, but the depth texture wasn't marked readonly in Pass:setCanvas");
     }
   }
 

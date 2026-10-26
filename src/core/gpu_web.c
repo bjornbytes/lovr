@@ -978,14 +978,14 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writ
 
   WGpuRenderPassDepthStencilAttachment depth = {
     .view = canvas->depth.texture ? canvas->depth.texture->view : 0,
-    .depthLoadOp = canvas->depth.texture ? loadOps[canvas->depth.load] : WGPU_LOAD_OP_UNDEFINED,
-    .depthStoreOp = canvas->depth.texture ? storeOps[canvas->depth.save] : WGPU_STORE_OP_UNDEFINED,
+    .depthLoadOp = canvas->depth.texture && !canvas->depth.readonly ? loadOps[canvas->depth.load] : WGPU_LOAD_OP_UNDEFINED,
+    .depthStoreOp = canvas->depth.texture && !canvas->depth.readonly ? storeOps[canvas->depth.save] : WGPU_STORE_OP_UNDEFINED,
     .depthClearValue = canvas->depth.clear,
-    .depthReadOnly = false,
-    .stencilLoadOp = stencil ? loadOps[canvas->depth.stencilLoad] : WGPU_LOAD_OP_UNDEFINED,
-    .stencilStoreOp = stencil ? storeOps[canvas->depth.stencilSave] : WGPU_STORE_OP_UNDEFINED,
+    .depthReadOnly = canvas->depth.readonly,
+    .stencilLoadOp = stencil && !canvas->depth.readonly ? loadOps[canvas->depth.stencilLoad] : WGPU_LOAD_OP_UNDEFINED,
+    .stencilStoreOp = stencil && !canvas->depth.readonly ? storeOps[canvas->depth.stencilSave] : WGPU_STORE_OP_UNDEFINED,
     .stencilClearValue = 0,
-    .stencilReadOnly = false
+    .stencilReadOnly = canvas->depth.readonly
   };
 
   WGpuRenderPassDescriptor info = {

@@ -30,6 +30,7 @@ dev
 - Add `lovr.data.compress/decompress`.
 - Add `t.headset.dynamicresolution`.
 - Add `t.headset.compressedfoveation`.
+- Add `readonly` flag to `depth` table in `Pass:setCanvas`.
 
 ### Change
 

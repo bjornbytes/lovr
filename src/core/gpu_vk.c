@@ -223,6 +223,7 @@ typedef struct {
   bool swapchain;
   bool colorspace;
   bool depthResolve;
+  bool storeOpNone;
   bool formatList;
   bool renderPass2;
   bool synchronization2;
@@ -309,7 +310,7 @@ static uint64_t getFinishedTick(void);
 static bool hasLayer(VkLayerProperties* layers, uint32_t count, const char* layer);
 static bool hasExtension(VkExtensionProperties* extensions, uint32_t count, const char* extension);
 static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type);
-static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve, bool discard, VkImageMemoryBarrier2KHR* barrier);
+static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve, bool discard, bool readonly, VkImageMemoryBarrier2KHR* barrier);
 static VkImageLayout getNaturalLayout(uint32_t usage);
 static VkFormat convertFormat(gpu_texture_format format, int colorspace);
 static VkFormat convertAttributeType(gpu_attribute_type type);
@@ -2274,17 +2275,18 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writ
 
   bool BEGIN = true;
   bool RESOLVE = true;
+  bool READONLY = true;
 
   for (uint32_t i = 0; i < 4 && canvas->color[i].texture; i++) {
     bool DISCARD = canvas->color[i].load != GPU_LOAD_OP_KEEP;
-    barrierCount += transitionAttachment(canvas->color[i].texture, BEGIN, !RESOLVE, DISCARD, &barriers[barrierCount]);
-    barrierCount += transitionAttachment(canvas->color[i].resolve, BEGIN, RESOLVE, true, &barriers[barrierCount]);
+    barrierCount += transitionAttachment(canvas->color[i].texture, BEGIN, !RESOLVE, DISCARD, !READONLY, &barriers[barrierCount]);
+    barrierCount += transitionAttachment(canvas->color[i].resolve, BEGIN, RESOLVE, true, !READONLY, &barriers[barrierCount]);
   }
 
   if (canvas->depth.texture) {
-    bool DISCARD = canvas->depth.load != GPU_LOAD_OP_KEEP;
-    barrierCount += transitionAttachment(canvas->depth.texture, BEGIN, !RESOLVE, DISCARD, &barriers[barrierCount]);
-    barrierCount += transitionAttachment(canvas->depth.resolve, BEGIN, RESOLVE, true, &barriers[barrierCount]);
+    bool DISCARD = canvas->depth.load != GPU_LOAD_OP_KEEP && !canvas->depth.readonly;
+    barrierCount += transitionAttachment(canvas->depth.texture, BEGIN, !RESOLVE, DISCARD, canvas->depth.readonly, &barriers[barrierCount]);
+    barrierCount += transitionAttachment(canvas->depth.resolve, BEGIN, RESOLVE, true, !READONLY, &barriers[barrierCount]);
   }
 
   if (barrierCount > 0) {
@@ -2332,19 +2334,19 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writ
       depth = (VkRenderingAttachmentInfo) {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
         .imageView = canvas->depth.texture->view,
-        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+        .imageLayout = canvas->depth.readonly ? VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR : VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
         .resolveMode = canvas->depth.resolve ? VK_RESOLVE_MODE_SAMPLE_ZERO_BIT : VK_RESOLVE_MODE_NONE,
         .resolveImageView = canvas->depth.resolve ? canvas->depth.resolve->view : VK_NULL_HANDLE,
         .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
-        .loadOp = loadOps[canvas->depth.load],
-        .storeOp = storeOps[canvas->depth.save],
+        .loadOp = canvas->depth.readonly ? VK_ATTACHMENT_LOAD_OP_LOAD : loadOps[canvas->depth.load],
+        .storeOp = canvas->depth.readonly && state.extensions.storeOpNone ? VK_ATTACHMENT_STORE_OP_NONE_EXT : storeOps[canvas->depth.save],
         .clearValue.depthStencil.depth = canvas->depth.clear
       };
 
       if (hasStencil) {
         stencil = depth;
-        stencil.loadOp = loadOps[canvas->depth.stencilLoad];
-        stencil.storeOp = storeOps[canvas->depth.stencilSave];
+        stencil.loadOp = canvas->depth.readonly ? VK_ATTACHMENT_LOAD_OP_LOAD : loadOps[canvas->depth.stencilLoad];
+        stencil.storeOp = canvas->depth.readonly && state.extensions.storeOpNone ? VK_ATTACHMENT_STORE_OP_NONE_EXT : storeOps[canvas->depth.stencilSave];
         stencil.clearValue.depthStencil.stencil = canvas->depth.stencilClear;
       }
     }
@@ -2436,7 +2438,7 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writ
 
       references[referenceIndex] = (VkAttachmentReference2) {
         .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
-        .layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+        .layout = canvas->depth.readonly ? VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR : VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
         .attachment = index
       };
 
@@ -2444,9 +2446,9 @@ void gpu_render_begin(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writ
         .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
         .format = convertFormat(canvas->depth.texture->format, LINEAR),
         .samples = canvas->depth.texture->samples,
-        .loadOp = loadOps[canvas->depth.load],
+        .loadOp = canvas->depth.readonly ? VK_ATTACHMENT_LOAD_OP_LOAD : loadOps[canvas->depth.load],
         .storeOp = canvas->depth.resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[canvas->depth.save],
-        .stencilLoadOp = loadOps[canvas->depth.stencilLoad],
+        .stencilLoadOp = canvas->depth.readonly ? VK_ATTACHMENT_LOAD_OP_LOAD : loadOps[canvas->depth.stencilLoad],
         .stencilStoreOp = canvas->depth.resolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : storeOps[canvas->depth.stencilSave],
         .initialLayout = references[referenceIndex].layout,
         .finalLayout = references[referenceIndex].layout
@@ -2632,14 +2634,15 @@ void gpu_render_end(gpu_stream* stream, gpu_canvas* canvas, gpu_timestamp_writes
   bool BEGIN = true;
   bool RESOLVE = true;
   bool DISCARD = true;
+  bool READONLY = true;
 
   for (uint32_t i = 0; i < 4 && canvas->color[i].texture; i++) {
-    barrierCount += transitionAttachment(canvas->color[i].texture, !BEGIN, !RESOLVE, !DISCARD, &barriers[barrierCount]);
-    barrierCount += transitionAttachment(canvas->color[i].resolve, !BEGIN, RESOLVE, !DISCARD, &barriers[barrierCount]);
+    barrierCount += transitionAttachment(canvas->color[i].texture, !BEGIN, !RESOLVE, !DISCARD, !READONLY, &barriers[barrierCount]);
+    barrierCount += transitionAttachment(canvas->color[i].resolve, !BEGIN, RESOLVE, !DISCARD, !READONLY, &barriers[barrierCount]);
   }
 
-  barrierCount += transitionAttachment(canvas->depth.texture, !BEGIN, !RESOLVE, !DISCARD, &barriers[barrierCount]);
-  barrierCount += transitionAttachment(canvas->depth.resolve, !BEGIN, RESOLVE, !DISCARD, &barriers[barrierCount]);
+  barrierCount += transitionAttachment(canvas->depth.texture, !BEGIN, !RESOLVE, !DISCARD, canvas->depth.readonly, &barriers[barrierCount]);
+  barrierCount += transitionAttachment(canvas->depth.resolve, !BEGIN, RESOLVE, !DISCARD, !READONLY, &barriers[barrierCount]);
 
   if (barrierCount > 0) {
     vkCmdPipelineBarrier2KHR(stream->commands, &(VkDependencyInfoKHR) {
@@ -3146,6 +3149,9 @@ bool gpu_init(gpu_config* config) {
       { "VK_KHR_timeline_semaphore", true, &state.extensions.timelineSemaphore },
       { "VK_KHR_copy_commands2", true, &state.extensions.copy2 },
       { "VK_KHR_format_feature_flags2", true, &state.extensions.formatFlags2 },
+      { "VK_KHR_shader_float16_int8", true, &state.extensions.float16Int8 },
+      { "VK_KHR_8bit_storage", true, &state.extensions.storage8 },
+      { "VK_KHR_16bit_storage", true, &state.extensions.storage16 },
       { "VK_EXT_descriptor_indexing", true, &state.extensions.descriptorIndexing },
       { "VK_EXT_scalar_block_layout", true, &state.extensions.scalarBlockLayout },
       { "VK_EXT_fragment_density_map", true, &state.extensions.foveation },
@@ -3155,9 +3161,7 @@ bool gpu_init(gpu_config* config) {
       { "VK_EXT_memory_budget", true, &state.extensions.memoryBudget },
       { "VK_EXT_host_image_copy", true, &state.extensions.hostImageCopy },
       { "VK_EXT_shader_atomic_float", true, &state.extensions.atomicFloat },
-      { "VK_KHR_shader_float16_int8", true, &state.extensions.float16Int8 },
-      { "VK_KHR_8bit_storage", true, &state.extensions.storage8 },
-      { "VK_KHR_16bit_storage", true, &state.extensions.storage16 }
+      { "VK_EXT_load_store_op_none", true, &state.extensions.storeOpNone }
     };
 
     uint32_t extensionCount = 0;
@@ -4330,20 +4334,26 @@ static VkBufferUsageFlags getBufferUsage(gpu_buffer_type type) {
   }
 }
 
-static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve, bool discard, VkImageMemoryBarrier2KHR* barrier) {
-  if (!texture || texture->layout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR) {
+static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve, bool discard, bool readonly, VkImageMemoryBarrier2KHR* barrier) {
+  if (!texture || (texture->layout == VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR && !readonly)) {
     return false;
   }
 
   bool depth = texture->aspect != VK_IMAGE_ASPECT_COLOR_BIT;
 
   VkPipelineStageFlags2 stage = (depth && !resolve) ?
-    (VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT_KHR | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT_KHR ) :
+    (VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT_KHR | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT_KHR) :
     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR;
 
   VkAccessFlags2 access = (depth && !resolve) ?
-    (VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR) :
+    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR :
     (VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT_KHR);
+
+  if (depth && !readonly) {
+    access |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR;
+  }
+
+  VkImageLayout layout = readonly ? VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR : VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
 
   if (begin) {
     *barrier = (VkImageMemoryBarrier2KHR) {
@@ -4353,7 +4363,7 @@ static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve,
       .dstStageMask = stage,
       .dstAccessMask = access,
       .oldLayout = discard || resolve ? VK_IMAGE_LAYOUT_UNDEFINED : texture->layout,
-      .newLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+      .newLayout = layout,
       .image = texture->handle,
       .subresourceRange.aspectMask = texture->aspect,
       .subresourceRange.baseMipLevel = texture->baseLevel,
@@ -4367,7 +4377,7 @@ static bool transitionAttachment(gpu_texture* texture, bool begin, bool resolve,
       .srcAccessMask = access,
       .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR,
       .dstAccessMask = VK_ACCESS_2_NONE_KHR,
-      .oldLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+      .oldLayout = layout,
       .newLayout = texture->layout,
       .image = texture->handle,
       .subresourceRange.aspectMask = texture->aspect,

@@ -1,6 +1,5 @@
 #include "api.h"
 #include "graphics/graphics.h"
-#include "data/blob.h"
 #include "data/image.h"
 #include "math/math.h"
 #include "core/maf.h"
@@ -122,6 +121,10 @@ int l_lovrPassSetCanvas(lua_State* L) {
 
         lua_getfield(L, -1, "resolve");
         canvas.depth.resolve = lua_isnil(L, -1) ? NULL : luax_checktype(L, -1, Texture);
+        lua_pop(L, 1);
+
+        lua_getfield(L, -1, "readonly");
+        canvas.readonlyDepth = lua_toboolean(L, -1);
         lua_pop(L, 1);
         break;
       default: return luaL_error(L, "Expected Texture, TextureFormat, boolean, table, or nil for canvas depth buffer");
@@ -595,7 +598,7 @@ static int l_lovrPassSetDepthTest(lua_State* L) {
 static int l_lovrPassSetDepthWrite(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   bool write = lua_toboolean(L, 2);
-  lovrPassSetDepthWrite(pass, write);
+  luax_assert(L, lovrPassSetDepthWrite(pass, write));
   return 0;
 }
 
