@@ -3138,7 +3138,19 @@ void lovrTextureSetSampler(Texture* texture, Sampler* sampler) {
 
 Material* lovrTextureToMaterial(Texture* texture) {
   if (!texture->material) {
-    texture->material = lovrMaterialCreate(texture);
+    if (texture->info.layers > 1) {
+      Texture* view = lovrTextureCreateView(texture, &(TextureViewInfo) {
+        .type = TEXTURE_2D,
+        .layerCount = 1,
+        .levelCount = ~0u
+      });
+      if (!view) return NULL;
+      texture->material = lovrMaterialCreate(view);
+      lovrRelease(view, lovrTextureDestroy);
+    } else {
+      texture->material = lovrMaterialCreate(texture);
+    }
+
     if (!texture->material) return NULL;
 
     // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
