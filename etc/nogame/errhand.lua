@@ -1,7 +1,7 @@
 function lovr.errhand(message)
-  local traceback = (debug and debug.traceback('', 4) or ''):gsub('\n[^\n]+$', ''):gsub('\t', ''):gsub('stack traceback:', '\nStack:\n')
+  local traceback = (debug and debug.traceback('', 4) or ''):gsub('stack traceback:', ''):gsub('\n[^\n]*$', ''):gsub('^\n+', ''):gsub('\t', '')
 
-  print('Error:\n\n' .. tostring(message) .. traceback)
+  print('Error:\n\n' .. tostring(message) .. '\n\nStack:\n\n' .. traceback)
 
   local hasHeadset = lovr.headset and (lovr.headset.isActive() or lovr.system.isWindowOpen())
 
@@ -324,7 +324,7 @@ function lovr.errhand(message)
     end)
   end
 
-  if debug then
+  if debug and _VERSION ~= 'Luau' then
     for i = 4, 50 do
       local frame = debug.getinfo(i, 'Snufl')
 
@@ -411,38 +411,38 @@ function lovr.errhand(message)
 
       buildVariableTable(frame)
     end
-
-    while #stack > 0 and stack[#stack].short_src and (stack[#stack].short_src:match('boot.lua') or stack[#stack].short_src:match('[C]')) do
-      table.remove(stack)
-    end
-
-    if #stack == 0 then
-      table.insert(stack, {
-        label = '<none>',
-        short_src = '',
-        variables = {},
-        expanded = {},
-        rows = {},
-        rowIndex = 1,
-        scroll = 0
-      })
-    end
-
-    local index = 1
-
-    while index < #stack and stack[index].what == 'C' or (stack[index].short_src and stack[index].short_src:match('^%[vector%]')) do
-      index = index + 1
-    end
-
-    -- Need to compute layout so setLevel knows where to scroll
-    if lovr.headset and lovr.headset.isActive() then
-      resize(lovr.headset.getDisplayDimensions())
-    elseif lovr.system.isWindowOpen() then
-      resize(lovr.system.getWindowDimensions())
-    end
-
-    setLevel(index)
   end
+
+  while #stack > 0 and stack[#stack].short_src and (stack[#stack].short_src:match('boot.lua') or stack[#stack].short_src:match('[C]')) do
+    table.remove(stack)
+  end
+
+  if #stack == 0 then
+    table.insert(stack, {
+      label = '<none>',
+      short_src = '',
+      variables = {},
+      expanded = {},
+      rows = {},
+      rowIndex = 1,
+      scroll = 0
+    })
+  end
+
+  local index = 1
+
+  while index < #stack and stack[index].what == 'C' or (stack[index].short_src and stack[index].short_src:match('^%[vector%]')) do
+    index = index + 1
+  end
+
+  -- Need to compute layout so setLevel knows where to scroll
+  if lovr.headset and lovr.headset.isActive() then
+    resize(lovr.headset.getDisplayDimensions())
+  elseif lovr.system.isWindowOpen() then
+    resize(lovr.system.getWindowDimensions())
+  end
+
+  setLevel(index)
 
   if lovr.audio then lovr.audio.stop() end
 
