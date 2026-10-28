@@ -3149,14 +3149,14 @@ Material* lovrTextureToMaterial(Texture* texture) {
       lovrRelease(view, lovrTextureDestroy);
     } else {
       texture->material = lovrMaterialCreate(texture);
+
+      if (texture->material) {
+        // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
+        // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
+        lovrRelease(texture, lovrTextureDestroy);
+        texture->material->textures[TEXTURE_COLOR] = NULL;
+      }
     }
-
-    if (!texture->material) return NULL;
-
-    // Since the Material refcounts the Texture, this creates a cycle.  Release the texture to make
-    // sure this is a weak relationship (the automaterial does not keep the texture refcounted).
-    lovrRelease(texture, lovrTextureDestroy);
-    texture->material->textures[TEXTURE_COLOR] = NULL;
   }
 
   return texture->material;
