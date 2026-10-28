@@ -140,4 +140,23 @@ group('math', function()
       expect({ quaternion(1.2, 0, 0, 0):unpack() }).to.equal({ 0, 0, 0, 1 }, 1e-4)
     end)
   end)
+
+  group('vector', function()
+    test(':lerp', function()
+      -- simple case
+      local a = vector(5, 3, 8)
+      local b = vector(7, 2, 0)
+
+      expect(a:lerp(b, 0)).to.equal(a)
+      expect(a:lerp(b, 0.5)).to.equal(vector(6, 2.5, 4))
+      expect(a:lerp(b, 1)).to.equal(b)
+
+      -- floating point edge-case
+      local fa = vector(1.2, 3.45, 5.6)
+      local fb = vector(4.5, 0.45, 3.3)
+
+      expect(fa:lerp(fb, 0)).to.equal(fa)
+      expect(fa:lerp(fb, 1)).to.equal(fb)
+    end)
+  end)
 end)
