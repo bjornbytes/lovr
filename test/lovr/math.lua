@@ -151,12 +151,21 @@ group('math', function()
       expect(a:lerp(b, 0.5)).to.equal(vector(6, 2.5, 4))
       expect(a:lerp(b, 1)).to.equal(b)
 
-      -- floating point edge-case
-      local fa = vector(1.2, 3.45, 5.6)
-      local fb = vector(4.5, 0.45, 3.3)
+      -- exactness (lerp(0) == a, lerp(1) == b)
+      local exactA = vector(1.2, 3.45, 5.6)
+      local exactB = vector(4.5, 0.45, 3.3)
 
-      expect(fa:lerp(fb, 0)).to.equal(fa)
-      expect(fa:lerp(fb, 1)).to.equal(fb)
+      expect(exactA:lerp(exactB, 0)).to.equal(exactA)
+      expect(exactA:lerp(exactB, 1)).to.equal(exactB)
+
+      -- monotonicity (lerp(t0) >= lerp(t1) if t0 >= t1)
+      local monoA = vector(41808, 0, 0)
+      local monoB = vector(3598, 0, 0)
+      local monoT0 = 0.9
+      local monoT1 = monoT0 - 1e-16
+      expect(monoT0 > monoT1).to.be.truthy()
+
+      expect(monoA:lerp(monoB, monoT0).x >= monoA:lerp(monoB, monoT1).x).to.be.truthy()
     end)
   end)
 end)

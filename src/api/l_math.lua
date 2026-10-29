@@ -65,9 +65,9 @@ end
 
 function vector.lerp(v, u, t)
   local lerped = {
-    x = v.x * (1 - t) + u.x * t,
-    y = v.y * (1 - t) + u.y * t,
-    z = v.z * (1 - t) + u.z * t
+    x = t == 1 and u.x or v.x + (u.x - v.x) * t,
+    y = t == 1 and u.y or v.y + (u.y - v.y) * t,
+    z = t == 1 and u.z or v.z + (u.z - v.z) * t
   }
 
   setmetatable(lerped, vector)
