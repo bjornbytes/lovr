@@ -94,9 +94,9 @@ MAF vec3 vec3_cross(vec3 v, const vec3 u) {
 }
 
 MAF vec3 vec3_lerp(vec3 v, const vec3 u, float t) {
-  v[0] = v[0] * (1.f - t) + u[0] * t;
-  v[1] = v[1] * (1.f - t) + u[1] * t;
-  v[2] = v[2] * (1.f - t) + u[2] * t;
+  v[0] = t == 1.f ? u[0] : v[0] + (u[0] - v[0]) * t;
+  v[1] = t == 1.f ? u[1] : v[1] + (u[1] - v[1]) * t;
+  v[2] = t == 1.f ? u[2] : v[2] + (u[2] - v[2]) * t;
   return v;
 }
 

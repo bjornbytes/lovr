@@ -160,4 +160,32 @@ group('math', function()
     expect(lovr.math.linearToGamma({ .5, .5, .5 })).to.approximately.equal(.735, .735, .735)
     expect(lovr.math.linearToGamma(.5)).to.approximately.equal(.735)
   end)
+
+  group('vector', function()
+    test(':lerp', function()
+      -- simple case
+      local a = vector(5, 3, 8)
+      local b = vector(7, 2, 0)
+
+      expect(a:lerp(b, 0)).to.equal(a)
+      expect(a:lerp(b, 0.5)).to.equal(vector(6, 2.5, 4))
+      expect(a:lerp(b, 1)).to.equal(b)
+
+      -- exactness (lerp(0) == a, lerp(1) == b)
+      local exactA = vector(1.2, 3.45, 5.6)
+      local exactB = vector(4.5, 0.45, 3.3)
+
+      expect(exactA:lerp(exactB, 0)).to.equal(exactA)
+      expect(exactA:lerp(exactB, 1)).to.equal(exactB)
+
+      -- monotonicity (lerp(t0) >= lerp(t1) if t0 >= t1)
+      local monoA = vector(41808, 0, 0)
+      local monoB = vector(3598, 0, 0)
+      local monoT0 = 0.9
+      local monoT1 = monoT0 - 1e-16
+      expect(monoT0 > monoT1).to.be.truthy()
+
+      expect(monoA:lerp(monoB, monoT0).x >= monoA:lerp(monoB, monoT1).x).to.be.truthy()
+    end)
+  end)
 end)
