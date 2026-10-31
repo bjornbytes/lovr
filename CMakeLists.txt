@@ -126,11 +126,6 @@ if(LOVR_USE_LUAU)
   set(LUAU_BUILD_CLI OFF CACHE BOOL "")
   set(LUAU_EXTERN_C ON CACHE BOOL "")
   add_subdirectory(deps/luau luau)
-  foreach(target Luau.VM Luau.Compiler)
-    get_target_property(defs ${target} INTERFACE_COMPILE_DEFINITIONS)
-    list(FILTER defs EXCLUDE REGEX [[LUA.*_API]])
-    set_target_properties(${target} PROPERTIES INTERFACE_COMPILE_DEFINITIONS "${defs}")
-  endforeach()
   set_target_properties(
     Luau.Analysis
     Luau.CLI.lib
