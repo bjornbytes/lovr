@@ -246,6 +246,7 @@ function lovr.mirror(pass)
 end
 
 local mouseX, mouseY, handX, handY, distance, pitch, yaw = nil, nil, 0, 0, .5, nil, nil
+local inverseProjection
 
 function lovr.simulate(dt)
   if not lovr.math then return end
@@ -308,7 +309,8 @@ function lovr.simulate(dt)
 
   local left, right, up, down = lovr.headset.getViewAngles(1)
   local near, far = lovr.headset.getClipDistance()
-  local inverseProjection = mat4():fov(left, right, up, down, near, far):invert()
+  inverseProjection = inverseProjection or lovr.math.newMat4()
+  inverseProjection:fov(left, right, up, down, near, far):invert()
 
   local width, height = lovr.system.getWindowDimensions()
   local coordinate = vector(handX / width * 2 - 1, handY / height * 2 - 1, 1, 1)
