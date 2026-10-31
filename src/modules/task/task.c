@@ -139,6 +139,32 @@ void lovrTaskWaitPoll(Task* task, fn_poll* poll, fn_task* block, fn_continuation
   state.polls = task;
 }
 
+static bool pollFuture(void** context, bool* ready) {
+  Future* future = *context;
+  if (!lovrFuturePoll(future)) {
+    *ready = false;
+    return true;
+  } else {
+    *ready = true;
+    return future->status == FUTURE_COMPLETE;
+  }
+}
+
+static bool waitFuture(void** context) {
+  return lovrFutureWait(*context);
+}
+
+void lovrTaskWaitFuture(Task* task, Future* future, fn_continuation* continuation) {
+  task->fn = waitFuture;
+  task->poll = pollFuture;
+  task->context = future;
+  task->continuation = continuation;
+  atomic_store(&task->deps, 1);
+  task->waiting = WAIT_FUTURE;
+  task->next = state.polls;
+  state.polls = task;
+}
+
 void lovrTaskFinish(Task* task) {
   while (task->waiters) {
     Waiter* waiter = task->waiters;

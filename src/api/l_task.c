@@ -126,6 +126,29 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
   return lua_yield(L, 0);
 }
 
+int luax_yieldfuture(lua_State* L, Future* future, fn_continuation* continuation) {
+  luax_assert(L, future); // Assume NULL future was an error
+
+  Task* task = luax_getthreaddata(L);
+
+  if (!task) {
+    if (lovrFutureWait(future)) {
+      int n = continuation ? continuation(L, true, future) : 0;
+      lovrFutureDestroy(future);
+      return n;
+    } else {
+      if (continuation) continuation(L, false, future);
+      lua_pushstring(L, future->error);
+      lovrFutureDestroy(future);
+      return lua_error(L);
+    }
+  }
+
+  lovrTaskWaitFuture(task, future, continuation);
+  luax_pintask(L, task);
+  return lua_yield(L, 0);
+}
+
 static int luax_runtask(Task* task, int n) {
   lua_State* T = task->T;
 
@@ -162,6 +185,9 @@ static int luax_runtask(Task* task, int n) {
       n += rest;
     } else {
       n = task->continuation ? task->continuation(T, !task->error, task->context) : 0;
+      if (task->waiting == WAIT_FUTURE) {
+        lovrFutureDestroy(task->context);
+      }
     }
 
     task->waiting = WAIT_NONE;
@@ -320,7 +346,7 @@ static int luax_waittask(lua_State* L, lua_State* T) {
     while (atomic_load(&task->deps) > 0) {
       job_spin();
     }
-  } else if (task->waiting == WAIT_POLL) {
+  } else if (task->waiting == WAIT_POLL || task->waiting == WAIT_FUTURE) {
     if (!task->fn(&task->context)) {
       task->error = lovrStrdup(lovrGetError());
     }
