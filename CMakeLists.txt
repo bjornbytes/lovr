@@ -126,16 +126,18 @@ if(LOVR_USE_LUAU)
   set(LUAU_BUILD_CLI OFF CACHE BOOL "")
   set(LUAU_EXTERN_C ON CACHE BOOL "")
   add_subdirectory(deps/luau luau)
-  set_target_properties(
-    Luau.Analysis
-    Luau.CLI.lib
-    Luau.CodeGen
-    Luau.Config
-    Luau.Require
-    PROPERTIES EXCLUDE_FROM_ALL 1
-  )
-  set(LOVR_LUA Luau.VM Luau.Compiler Luau.Ast)
-  set_target_properties(${LOVR_LUA} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+  set_target_properties(Luau.Analysis Luau.CLI.lib Luau.CodeGen Luau.Config Luau.Require PROPERTIES EXCLUDE_FROM_ALL 1)
+  foreach(target Luau.Ast Luau.Bytecode Luau.Common Luau.Compiler Luau.VM)
+    list(APPEND LUAU_SRC $<TARGET_OBJECTS:${target}>)
+    set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+  endforeach()
+  if(EMSCRIPTEN)
+    add_library(luau STATIC ${LUAU_SRC})
+  else()
+    add_library(luau SHARED ${LUAU_SRC})
+  endif()
+  set(LOVR_LUA_INCLUDE deps/luau/VM/include deps/luau/Compiler/include)
+  set(LOVR_LUA luau)
 elseif(LOVR_USE_LUAJIT AND NOT EMSCRIPTEN)
   if(LOVR_SYSTEM_LUA)
     pkg_search_module(LUAJIT REQUIRED luajit)
