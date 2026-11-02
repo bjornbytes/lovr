@@ -88,6 +88,7 @@ dev
 - Fix `World:isCollisionEnabledBetween` when given `nil` tags.
 - Fix `World` memory leak.
 - Fix `Buffer:setData` when setting a table of numbers on a vector array field.
+- Fix race condition in audio thread.
 
 ### Deprecate
 

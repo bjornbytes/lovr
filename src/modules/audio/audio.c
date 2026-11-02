@@ -52,10 +52,7 @@ struct Source {
   bool pitchable;
   bool spatial;
   atomic_bool playing;
-  atomic_bool hasTail;
   atomic_uint offset;
-  atomic_uint playRequest;
-  atomic_uint seekRequest;
 #ifdef LOVR_USE_PHONON
   IPLSource handle;
   IPLDirectEffect directEffect;
@@ -93,7 +90,7 @@ static struct {
   AudioStream* streams[2];
   Source* activeSources[64];
   atomic_ullong activeSourceMask;
-  uint64_t pendingSourceMask;
+  uint64_t sourceMask;
   atomic_uint backbuffer;
   uint32_t frontbuffer;
   bool simulatorDirty;
@@ -164,31 +161,14 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
 
   phonon_mix_begin();
 
-  FOREACH_SOURCE(state.activeSourceMask, source) {
-    if (!source) {
-      continue;
-    }
-
-    uint32_t play = atomic_exchange(&source->playRequest, ~0u);
-
-    if (play != ~0u) {
-      if (!source->playing && play == 1) {
-        phonon_source_reset(source);
-      }
-
-      source->playing = !!play;
-    }
-
-    uint32_t seek = atomic_exchange(&source->seekRequest, ~0u);
-    if (seek != ~0u) source->offset = seek;
-
+  FOREACH_SOURCE(atomic_load(&state.activeSourceMask), source) {
     if (source->pitchable) {
       ma_data_converter_set_rate_ratio(source->converter, source->pitchRatio);
     }
 
     uint32_t channels = lovrSoundGetChannelCount(source->sound);
 
-    if (source->playing) {
+    if (atomic_load(&source->playing)) {
       // Read and convert raw frames until there's BUFFER_SIZE converted frames
       // - No converter: just read frames into raw
       // - Converter: keep reading as many frames as possible/needed into raw and convert into tmp.
@@ -197,31 +177,29 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
       uint32_t framesRemaining = BUFFER_SIZE;
 
       while (framesRemaining > 0) {
+        uint32_t offset = atomic_load(&source->offset);
         uint32_t framesRead;
 
         if (source->converter) {
           uint32_t capacity = sizeof(raw) / (channels * sizeof(float));
           ma_uint64 chunk;
           ma_data_converter_get_required_input_frame_count(source->converter, framesRemaining, &chunk);
-          framesRead = lovrSoundRead(source->sound, source->offset, MIN(chunk, capacity), raw);
+          framesRead = lovrSoundRead(source->sound, offset, MIN(chunk, capacity), raw);
         } else {
-          framesRead = lovrSoundRead(source->sound, source->offset, framesRemaining, cursor);
+          framesRead = lovrSoundRead(source->sound, offset, framesRemaining, cursor);
         }
 
         if (framesRead == 0) {
-          if (source->looping) {
-            source->offset = 0;
+          if (!atomic_compare_exchange_strong(&source->offset, &offset, 0) || source->looping) {
             continue;
-          } else {
-            source->offset = 0;
-            source->playing = false;
-            memset(cursor, 0, framesRemaining * channels * sizeof(float));
-            break;
           }
-        } else {
-          uint32_t offset = atomic_load_explicit(&source->offset, memory_order_relaxed);
-          atomic_store_explicit(&source->offset, offset + framesRead, memory_order_relaxed);
+
+          atomic_store(&source->playing, false);
+          memset(cursor, 0, framesRemaining * channels * sizeof(float));
+          break;
         }
+
+        atomic_compare_exchange_strong(&source->offset, &offset, offset + framesRead);
 
         if (source->converter) {
           ma_uint64 framesIn = framesRead;
@@ -246,10 +224,11 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
     }
 
     float* mix = buf == raw ? tmp : raw;
+    bool tail = false;
 
     // Spatialize
     if (source->spatial) {
-      source->hasTail = phonon_mix_source(source, buf, mix);
+      tail = phonon_mix_source(source, buf, mix);
       buf = mix;
     } else if (channels == 1) {
       for (uint32_t i = 0; i < BUFFER_SIZE; i++) {
@@ -262,6 +241,11 @@ static void onPlayback(ma_device* device, void* out, const void* in, uint32_t co
     // Mix
     for (uint32_t i = 0; i < 2 * BUFFER_SIZE; i++) {
       dst[i] += buf[i];
+    }
+
+    // Mark slot as inactive
+    if (!atomic_load(&source->playing) && !tail) {
+      atomic_fetch_and(&state.activeSourceMask, ~(1ull << source->slot));
     }
   }
 
@@ -336,7 +320,7 @@ void lovrAudioDestroy(void) {
     lovrFree(state.deviceInfo[i]);
   }
   Source* source;
-  FOREACH_SOURCE(state.activeSourceMask | state.pendingSourceMask, source) lovrRelease(source, lovrSourceDestroy);
+  FOREACH_SOURCE(state.sourceMask, source) lovrRelease(source, lovrSourceDestroy);
   ma_context_uninit(&state.context);
   lovrRelease(state.streams[AUDIO_PLAYBACK], lovrAudioStreamDestroy);
   lovrRelease(state.streams[AUDIO_CAPTURE], lovrAudioStreamDestroy);
@@ -499,11 +483,15 @@ bool lovrAudioIsStarted(AudioType type) {
 
 void lovrAudioUpdate(float dt) {
   Source* source;
-  FOREACH_SOURCE(state.activeSourceMask | state.pendingSourceMask, source) {
-    if (!source->playing && source->playRequest != 1 && !source->hasTail) {
+  uint64_t mask = 0; // Mask of sources that started playback
+  FOREACH_SOURCE(state.sourceMask & ~atomic_load(&state.activeSourceMask), source) {
+    if (atomic_load(&source->playing)) {
+      phonon_source_reset(source);
+      mask |= 1ull << source->slot;
+    } else {
+      // Free up slot once audio thread is done with it
       phonon_source_remove(source);
-      state.activeSourceMask &= ~(1ull << source->slot);
-      state.pendingSourceMask &= ~(1ull << source->slot);
+      state.sourceMask &= ~(1ull << source->slot);
       state.activeSources[source->slot] = NULL;
       source->slot = ~0u;
       lovrRelease(source, lovrSourceDestroy);
@@ -512,8 +500,8 @@ void lovrAudioUpdate(float dt) {
 
   phonon_update(dt);
 
-  atomic_fetch_or(&state.activeSourceMask, state.pendingSourceMask);
-  state.pendingSourceMask = 0;
+  // Tell audio thread to start mixing new sources
+  atomic_fetch_or(&state.activeSourceMask, mask);
 }
 
 float lovrAudioGetVolume(VolumeUnit units) {
@@ -674,27 +662,22 @@ bool lovrSourcePlay(Source* source) {
   }
 
   if (source->slot == ~0u) {
-    uint64_t mask = state.activeSourceMask | state.pendingSourceMask;
-    if (mask == ~0ull) return false;
-    uint32_t slot = mask ? CTZL(~mask) : 0;
-    state.pendingSourceMask |= (1ull << slot);
+    if (state.sourceMask == ~0ull) return false;
+    uint32_t slot = CTZL(~state.sourceMask);
+    state.sourceMask |= 1ull << slot;
     state.activeSources[slot] = source;
     source->slot = slot;
     lovrRetain(source);
     phonon_source_add(source);
   }
 
-  source->playRequest = 1;
+  atomic_store(&source->playing, true);
 
   return true;
 }
 
 void lovrSourcePause(Source* source) {
-  if (source->slot == ~0u) {
-    source->playing = false;
-  } else {
-    source->playRequest = 0;
-  }
+  atomic_store(&source->playing, false);
 }
 
 void lovrSourceStop(Source* source) {
@@ -703,7 +686,7 @@ void lovrSourceStop(Source* source) {
 }
 
 bool lovrSourceIsPlaying(Source* source) {
-  return source->playing || source->playRequest == 1;
+  return atomic_load(&source->playing);
 }
 
 bool lovrSourceIsLooping(Source* source) {
@@ -737,11 +720,13 @@ void lovrSourceSetVolume(Source* source, float volume, VolumeUnit units) {
 }
 
 void lovrSourceSeek(Source* source, double time, TimeUnit units) {
-  source->seekRequest = units == UNIT_SECONDS ? (uint32_t) (time * lovrSoundGetSampleRate(source->sound) + .5) : (uint32_t) time;
+  uint32_t offset = units == UNIT_SECONDS ? (uint32_t) (time * lovrSoundGetSampleRate(source->sound) + .5) : (uint32_t) time;
+  atomic_store(&source->offset, offset);
 }
 
 double lovrSourceTell(Source* source, TimeUnit units) {
-  return units == UNIT_SECONDS ? (double) source->offset / lovrSoundGetSampleRate(source->sound) : source->offset;
+  uint32_t offset = atomic_load(&source->offset);
+  return units == UNIT_SECONDS ? (double) offset / lovrSoundGetSampleRate(source->sound) : offset;
 }
 
 double lovrSourceGetDuration(Source* source, TimeUnit units) {
@@ -1075,7 +1060,6 @@ static void phonon_update(float dt) {
   }
 
   uint32_t backbuffer = state.backbuffer;
-  uint64_t mask = state.activeSourceMask | state.pendingSourceMask;
 
   IPLSimulationSharedInputs sharedInputs;
   convertPose(state.position, state.orientation, &state.listenerBasis[backbuffer]);
@@ -1088,7 +1072,7 @@ static void phonon_update(float dt) {
   iplSimulatorSetSharedInputs(state.simulator, IPL_SIMULATIONFLAGS_DIRECT, &sharedInputs);
 
   Source* source;
-  FOREACH_SOURCE(mask, source) {
+  FOREACH_SOURCE(state.sourceMask, source) {
     IPLSimulationInputs inputs;
     inputs.flags = IPL_SIMULATIONFLAGS_DIRECT;
 
@@ -1123,7 +1107,7 @@ static void phonon_update(float dt) {
 
   iplSimulatorRunDirect(state.simulator);
 
-  FOREACH_SOURCE(mask, source) {
+  FOREACH_SOURCE(state.sourceMask, source) {
     IPLSimulationOutputs outputs;
     iplSourceGetOutputs(source->handle, IPL_SIMULATIONFLAGS_DIRECT, &outputs);
     source->directParams[backbuffer] = outputs.direct;
@@ -1142,12 +1126,12 @@ static void phonon_update(float dt) {
   uint64_t listenerReverbMask = 0;
 
   if (state.config.reverb.type != REVERB_NONE && state.enabledMeshCount > 0) {
-    FOREACH_SOURCE(mask, source) {
+    FOREACH_SOURCE(state.sourceMask, source) {
       if (source->spatial && source->reverb > 0.f) {
         if (source->reverbMode == REVERB_SOURCE) {
-          sourceReverbMask |= (1u << source->slot);
+          sourceReverbMask |= (1ull << source->slot);
         } else {
-          listenerReverbMask |= (1u << source->slot);
+          listenerReverbMask |= (1ull << source->slot);
         }
       }
     }
@@ -1244,7 +1228,7 @@ static bool phonon_mix_source_ambisonic(Source* source, float* src, float* dst) 
   bool tail = false;
 
   // Tail
-  if (!source->playing) {
+  if (!atomic_load(&source->playing)) {
     if (iplAmbisonicsDecodeEffectGetTailSize(source->ambisonicEffect) > 0) {
       tail |= !iplAmbisonicsDecodeEffectGetTail(source->ambisonicEffect, &output);
       iplAudioBufferInterleave(state.phonon, &output, dst);
@@ -1347,7 +1331,7 @@ static bool phonon_mix_source(Source* source, float* src, float* dst) {
   }
 
   // Tail
-  if (!source->playing) {
+  if (!atomic_load(&source->playing)) {
     IPLAudioBuffer buffer = { 2, BUFFER_SIZE, (float*[2]) { left, right } };
 
     if (iplBinauralEffectGetTailSize(source->binauralEffect) > 0) {
