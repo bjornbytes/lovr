@@ -11,6 +11,8 @@
   <uses-permission android:name="com.oculus.permission.HAND_TRACKING"/>
   <uses-permission android:name="com.oculus.permission.TRACKED_KEYBOARD"/>
   <uses-permission android:name="com.oculus.permission.RENDER_MODEL"/>
+  <uses-permission android:name="com.oculus.permission.USE_ANCHOR_API"/>
+  <uses-permission android:name="com.oculus.permission.USE_SCENE"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>

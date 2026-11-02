@@ -19,7 +19,9 @@ typedef struct {
 #define ENTRY(s) { sizeof(s) - 1, s }
 
 extern StringEntry lovrAnimationProperty[];
+extern StringEntry lovrAprilDictionary[];
 extern StringEntry lovrArcMode[];
+extern StringEntry lovrArucoDictionary[];
 extern StringEntry lovrAudioMaterial[];
 extern StringEntry lovrAudioShareMode[];
 extern StringEntry lovrAudioType[];
@@ -63,6 +65,7 @@ extern StringEntry lovrProjectionType[];
 extern StringEntry lovrReverbMode[];
 extern StringEntry lovrReverbType[];
 extern StringEntry lovrSampleFormat[];
+extern StringEntry lovrScannerType[];
 extern StringEntry lovrShaderStage[];
 extern StringEntry lovrShaderType[];
 extern StringEntry lovrShapeType[];
@@ -189,6 +192,13 @@ struct Material* luax_optmaterial(lua_State* L, int index);
 struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t* count, struct ColoredString* stack);
 #endif
 
+#ifndef LOVR_DISABLE_HEADSET
+struct Anchor;
+void luax_pushanchor(lua_State* L, struct Anchor* anchor);
+struct Anchor* luax_toanchor(lua_State* L, int index);
+struct Anchor* luax_checkanchor(lua_State* L, int index);
+#endif
+
 #ifndef LOVR_DISABLE_MATH
 uint64_t luax_checkrandomseed(lua_State* L, int index);
 #endif
@@ -211,6 +221,8 @@ struct Shape* luax_newterrainshape(lua_State* L, int index);
 
 #ifndef LOVR_DISABLE_TASK
 #include "task/task.h"
+struct Future;
 int luax_yieldpoll(lua_State* L, fn_poll* poll, fn_task* block, fn_continuation* continuation, void* context);
 int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void* context, uint32_t count);
+int luax_yieldfuture(lua_State* L, struct Future* future, fn_continuation* continuation);
 #endif

@@ -3,6 +3,7 @@
 
 #pragma once
 
+struct Future;
 struct lua_State;
 typedef bool fn_task(void** context);
 typedef bool fn_poll(void** context, bool* ready);
@@ -25,6 +26,7 @@ typedef enum {
   WAIT_NONE,
   WAIT_TASK,
   WAIT_POLL,
+  WAIT_FUTURE,
   WAIT_JOB
 } WaitType;
 
@@ -49,5 +51,6 @@ bool lovrTaskIsReady(Task* task);
 void lovrTaskEnqueue(Task* task);
 void lovrTaskDequeue(Task* task);
 void lovrTaskWaitPoll(Task* task, fn_poll* poll, fn_task* block, fn_continuation* continuation, void* context);
+void lovrTaskWaitFuture(Task* task, struct Future* future, fn_continuation* continuation);
 void lovrTaskFinish(Task* task);
 bool lovrTaskAddDependency(Task* task, Task* dependency);

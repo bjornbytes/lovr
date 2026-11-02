@@ -4,6 +4,8 @@
 
 #pragma once
 
+struct Scanner;
+struct Anchor;
 struct Thread;
 union Variant;
 
@@ -20,6 +22,9 @@ typedef enum {
   EVENT_MOUNT,
   EVENT_RECENTER,
   EVENT_MODELSCHANGED,
+  EVENT_SCAN,
+  EVENT_ANCHORFOUND,
+  EVENT_ANCHORLOST,
   EVENT_RESIZE,
   EVENT_KEYPRESSED,
   EVENT_KEYRELEASED,
@@ -53,6 +58,14 @@ typedef struct {
 typedef struct {
   bool mounted;
 } MountEvent;
+
+typedef struct {
+  struct Scanner* scanner;
+} ScanEvent;
+
+typedef struct {
+  struct Anchor* anchor;
+} AnchorEvent;
 
 typedef struct {
   uint32_t width;
@@ -110,6 +123,8 @@ typedef union {
   VisibleEvent visible;
   FocusEvent focus;
   MountEvent mount;
+  ScanEvent scan;
+  AnchorEvent anchor;
   ResizeEvent resize;
   KeyEvent key;
   TextEvent text;

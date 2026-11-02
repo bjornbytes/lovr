@@ -1,4 +1,5 @@
 #include "event/event.h"
+#include "headset/headset.h"
 #include "thread/thread.h"
 #include "util.h"
 #include <threads.h>
@@ -28,6 +29,11 @@ void lovrEventDestroy(void) {
   for (size_t i = state.head; i < state.events.length; i++) {
     Event* event = &state.events.data[i];
     switch (event->type) {
+#ifndef LOVR_DISABLE_HEADSET
+      case EVENT_SCAN: lovrRelease(event->data.scan.scanner, lovrScannerDestroy); break;
+      case EVENT_ANCHORFOUND: lovrRelease(event->data.anchor.anchor, lovrAnchorDestroy); break;
+      case EVENT_ANCHORLOST: lovrRelease(event->data.anchor.anchor, lovrAnchorDestroy); break;
+#endif
 #ifndef LOVR_DISABLE_THREAD
       case EVENT_THREAD_ERROR: lovrRelease(event->data.thread.thread, lovrThreadDestroy); break;
 #endif
@@ -52,6 +58,16 @@ void lovrEventDestroy(void) {
 }
 
 void lovrEventPush(Event event) {
+#ifndef LOVR_DISABLE_HEADSET
+  if (event.type == EVENT_SCAN) {
+    lovrRetain(event.data.scan.scanner);
+  }
+
+  if (event.type == EVENT_ANCHORFOUND || event.type == EVENT_ANCHORLOST) {
+    lovrRetain(event.data.anchor.anchor);
+  }
+#endif
+
 #ifndef LOVR_DISABLE_THREAD
   if (event.type == EVENT_THREAD_ERROR) {
     lovrRetain(event.data.thread.thread);

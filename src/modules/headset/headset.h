@@ -8,12 +8,24 @@
 #define BODY_JOINT_COUNT 24
 #define MAX_LAYERS 10
 
+struct Future;
+struct Image;
+struct Mesh;
 struct Model;
 struct ModelData;
 struct Texture;
 struct Pass;
 
+typedef struct Scanner Scanner;
+typedef struct Anchor Anchor;
 typedef struct Layer Layer;
+
+typedef Anchor PointAnchor;
+typedef Anchor PlaneAnchor;
+typedef Anchor MarkerAnchor;
+typedef Anchor ImageAnchor;
+typedef Anchor ObjectAnchor;
+typedef Anchor MeshAnchor;
 
 typedef enum {
   SKELETON_NONE,
@@ -40,6 +52,8 @@ typedef struct {
 } HeadsetConfig;
 
 typedef struct {
+  bool anchor;
+  bool anchorPersistence;
   bool battery;
   bool bodyTracking;
   bool cubeBackground;
@@ -166,6 +180,18 @@ typedef enum {
   SOURCE_HAND
 } SkeletonSource;
 
+typedef enum {
+  SCANNER_POINT,
+  SCANNER_PLANE,
+  SCANNER_QR,
+  SCANNER_MICRO_QR,
+  SCANNER_ARUCO,
+  SCANNER_APRIL,
+  SCANNER_IMAGE,
+  SCANNER_OBJECT,
+  SCANNER_MESH
+} ScannerType;
+
 bool lovrHeadsetInit(HeadsetConfig* config);
 void lovrHeadsetDestroy(void);
 bool lovrHeadsetConnect(void);
@@ -173,6 +199,7 @@ bool lovrHeadsetIsConnected(void);
 const char* lovrHeadsetGetName(void);
 const char* lovrHeadsetGetDriver(void);
 void lovrHeadsetGetFeatures(HeadsetFeatures* features);
+bool lovrHeadsetIsScannerSupported(ScannerType type);
 bool lovrHeadsetIsSeated(void);
 bool lovrHeadsetStart(void);
 void lovrHeadsetStop(void);
@@ -221,6 +248,95 @@ bool lovrHeadsetGetPass(struct Pass** pass);
 bool lovrHeadsetSubmit(void);
 void lovrHeadsetSetPose(Device device, float* position, float* orientation);
 void lovrHeadsetSetButton(Device device, DeviceButton button, bool down);
+
+// Scanner
+
+typedef enum {
+  ARUCO_4x4_50,
+  ARUCO_4x4_100,
+  ARUCO_4x4_250,
+  ARUCO_4x4_1000,
+  ARUCO_5x5_50,
+  ARUCO_5x5_100,
+  ARUCO_5x5_250,
+  ARUCO_5x5_1000,
+  ARUCO_6x6_50,
+  ARUCO_6x6_100,
+  ARUCO_6x6_250,
+  ARUCO_6x6_1000,
+  ARUCO_7x7_50,
+  ARUCO_7x7_100,
+  ARUCO_7x7_250,
+  ARUCO_7x7_1000
+} ArucoDictionary;
+
+typedef enum {
+  APRIL_16H5,
+  APRIL_25H9,
+  APRIL_36H10,
+  APRIL_36H11
+} AprilDictionary;
+
+typedef struct {
+  const char* label;
+  struct Image* image;
+} ReferenceImage;
+
+typedef struct {
+  ScannerType type;
+  ArucoDictionary arucoDictionary;
+  AprilDictionary aprilDictionary;
+  float width;
+  uint32_t imageCount;
+  ReferenceImage* images;
+  bool isStatic;
+  bool storage;
+} ScannerInfo;
+
+struct Future* lovrScannerCreate(ScannerInfo* info);
+Scanner* lovrScannerCreateComplete(struct Future* future);
+void lovrScannerDestroy(void* ref);
+ScannerType lovrScannerGetType(Scanner* scanner);
+struct Future* lovrScannerScan(Scanner* scanner, bool background);
+Anchor* lovrScannerGetAnchors(Scanner* scanner, Anchor* anchor);
+bool lovrScannerUpdate(Scanner* scanner);
+
+// Anchor
+
+typedef enum {
+  ANCHOR_POINT,
+  ANCHOR_PLANE,
+  ANCHOR_MARKER,
+  ANCHOR_IMAGE,
+  ANCHOR_OBJECT,
+  ANCHOR_MESH
+} AnchorType;
+
+PointAnchor* lovrPointAnchorCreate(Scanner* scanner, float* position, float* orientation);
+void lovrAnchorDestroy(void* ref);
+bool lovrAnchorIsActive(Anchor* anchor);
+bool lovrAnchorIsTracked(Anchor* anchor);
+AnchorType lovrAnchorGetType(Anchor* anchor);
+Anchor* lovrAnchorGetParent(Anchor* anchor);
+void lovrAnchorGetPosition(Anchor* anchor, float* position);
+void lovrAnchorGetOrientation(Anchor* anchor, float* orientation);
+int lovrAnchorGetDimensions(Anchor* anchor, float* dimensions);
+const char* lovrAnchorGetLabel(Anchor* anchor, size_t* length);
+bool lovrAnchorDidMeshChange(Anchor* anchor);
+struct Mesh* lovrAnchorGetMesh(Anchor* anchor);
+void lovrAnchorGetMeshPose(Anchor* anchor, float* position, float* orientation);
+float* lovrAnchorGetVertices(Anchor* anchor, uint32_t* count, float** normals);
+void* lovrAnchorGetIndices(Anchor* anchor, uint32_t* count);
+
+struct Future* lovrPointAnchorSave(PointAnchor* anchor);
+struct Future* lovrPointAnchorDelete(PointAnchor* anchor);
+
+#define lovrPointAnchorDestroy lovrAnchorDestroy
+#define lovrPlaneAnchorDestroy lovrAnchorDestroy
+#define lovrMarkerAnchorDestroy lovrAnchorDestroy
+#define lovrImageAnchorDestroy lovrAnchorDestroy
+#define lovrObjectAnchorDestroy lovrAnchorDestroy
+#define lovrMeshAnchorDestroy lovrAnchorDestroy
 
 // Layer
 
