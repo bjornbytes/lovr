@@ -32,6 +32,7 @@ dev
 - Fix `CapsuleShape:setRadius`.
 - Fix `World:isCollisionEnabledBetween` when given `nil` tags.
 - Fix `Buffer:setData` when setting a table of numbers on a vector array field.
+- Fix race condition in audio thread.
 
 v0.19.0 - 2026-06-07
 ---
