@@ -5798,6 +5798,15 @@ Model* lovrModelClone(Model* parent) {
 
 void lovrModelDestroy(void* ref) {
   Model* model = ref;
+  ModelMetadata* meta = &model->meta;
+  for (uint32_t i = 0; i < meta->materialCount; i++) {
+    lovrRelease(model->materials[i], lovrMaterialDestroy);
+  }
+  for (uint32_t i = 0; i < meta->imageCount; i++) {
+    lovrRelease(model->textures[i], lovrTextureDestroy);
+  }
+  lovrFree(model->materials);
+  lovrFree(model->textures);
   if (model->parent) {
     lovrRelease(model->parent, lovrModelDestroy);
     lovrRelease(model->vertexBuffer, lovrBufferDestroy);
@@ -5809,15 +5818,6 @@ void lovrModelDestroy(void* ref) {
     lovrFree(model);
     return;
   }
-  ModelMetadata* meta = &model->meta;
-  for (uint32_t i = 0; i < meta->materialCount; i++) {
-    lovrRelease(model->materials[i], lovrMaterialDestroy);
-  }
-  for (uint32_t i = 0; i < meta->imageCount; i++) {
-    lovrRelease(model->textures[i], lovrTextureDestroy);
-  }
-  lovrFree(model->materials);
-  lovrFree(model->textures);
   if (model->meshes) {
     for (uint32_t i = 0; i < meta->meshCount; i++) {
       lovrRelease(model->meshes[i], lovrMeshDestroy);
