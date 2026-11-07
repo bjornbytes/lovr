@@ -1756,7 +1756,7 @@ fail:
 
 static Readback* lovrReadbackCreateTimestamp(Pass** passes, uint32_t count);
 
-static void syncAttachment(Texture* texture, bool depth, bool resolve, bool load, bool temporary, bool readonly) {
+static void syncAttachment(Texture* texture, gpu_barrier* barrier, bool depth, bool resolve, bool load, bool temporary, bool readonly) {
   if (!texture) return;
 
   Access access = {
@@ -1777,6 +1777,7 @@ static void syncAttachment(Texture* texture, bool depth, bool resolve, bool load
   }
 
   syncResource(&access, access.sync->barrier);
+  access.sync->barrier = barrier;
 
   if (texture->info.mipmaps > 1) {
     access.sync->writePhase = GPU_PHASE_BLIT;
@@ -1841,8 +1842,8 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
       Attachment* attachment = &canvas->color[a];
       bool load = pass->target.color[a].load == GPU_LOAD_OP_KEEP;
       if (attachment->texture == state.window) continue;
-      syncAttachment(attachment->texture, false, false, load, pass->tempColor[a], false);
-      syncAttachment(attachment->resolve, false, true, false, false, false);
+      syncAttachment(attachment->texture, &renderBarriers[i], false, false, load, pass->tempColor[a], false);
+      syncAttachment(attachment->resolve, &renderBarriers[i], false, true, false, false, false);
       xrCanvas |= attachment->texture->info.xr || (attachment->resolve && attachment->resolve->info.xr);
     }
 
@@ -1850,8 +1851,8 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
     if (canvas->depth.texture) {
       Attachment* attachment = &canvas->depth;
       bool load = pass->target.depth.load == GPU_LOAD_OP_KEEP;
-      syncAttachment(attachment->texture, true, false, load, pass->tempDepth, pass->canvas.readonlyDepth);
-      syncAttachment(attachment->resolve, true, true, false, false, false);
+      syncAttachment(attachment->texture, &renderBarriers[i], true, false, load, pass->tempDepth, pass->canvas.readonlyDepth);
+      syncAttachment(attachment->resolve, &renderBarriers[i], true, true, false, false, false);
       xrCanvas |= attachment->texture->info.xr || (attachment->resolve && attachment->resolve->info.xr);
     }
 
