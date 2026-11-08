@@ -225,6 +225,7 @@ const char* lovrFilesystemGetSource(void) {
 void lovrFilesystemWatch(void) {}
 void lovrFilesystemUnwatch(void) {}
 #else
+#define DMON_IMPL
 #include "lib/dmon/dmon.h"
 
 static void onFileEvent(dmon_watch_id id, dmon_action action, const char* dir, const char* path, const char* oldpath, void* ctx) {

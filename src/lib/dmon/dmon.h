@@ -86,6 +86,7 @@
 //      1.3.7       Fix deadlock caused by constantly locking the mutex in the thread loop (recent change)
 //      1.3.8       Fix a cpp compatiblity compiler bug after recent changes
 //      1.3.9       Switch from deprecated FSEventStreamScheduleWithRunLoop to FSEventStreamSetDispatchQueue on macOS
+//      1.3.10      Reduced memory usage for Linux backend from 4MB to 256KB
 //
 
 #include <stdbool.h>
@@ -138,17 +139,21 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 
 #define DMON_OS_WINDOWS 0
 #define DMON_OS_MACOS 0
-#define DMON_OS_LINUX 0
+#define DMON_OS_INOTIFY 0
 
 #if defined(_WIN32) || defined(_WIN64)
 #    undef DMON_OS_WINDOWS
 #    define DMON_OS_WINDOWS 1
 #elif defined(__linux__)
-#    undef DMON_OS_LINUX
-#    define DMON_OS_LINUX 1
+#    undef DMON_OS_INOTIFY
+#    define DMON_OS_INOTIFY 1
 #elif defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)
 #    undef DMON_OS_MACOS
 #    define DMON_OS_MACOS __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__
+//   FreeBSD 15.0 supports Linux's inotify
+#elif __FreeBSD__ >= 15
+#    undef DMON_OS_INOTIFY
+#    define DMON_OS_INOTIFY 1
 #else
 #    define DMON_OS 0
 #    error "unsupported platform"
@@ -166,14 +171,19 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #    ifdef _MSC_VER
 #        pragma intrinsic(_InterlockedExchange)
 #    endif
-#elif DMON_OS_LINUX
+#elif DMON_OS_INOTIFY
 #    ifndef __USE_MISC
 #        define __USE_MISC
 #    endif
+#    include <sys/param.h>
 #    include <dirent.h>
 #    include <errno.h>
 #    include <fcntl.h>
-#    include <linux/limits.h>
+#    if __FreeBSD__
+#        include <sys/limits.h>
+#    else
+#        include <linux/limits.h>
+#    endif
 #    include <pthread.h>
 #    include <sys/inotify.h>
 #    include <sys/stat.h>
@@ -328,13 +338,13 @@ _DMON_PRIVATE char* _dmon_unixpath(char* dst, int size, const char* path)
     return dst;
 }
 
-#if DMON_OS_LINUX || DMON_OS_MACOS
+#if DMON_OS_INOTIFY || DMON_OS_MACOS
 _DMON_PRIVATE char* _dmon_strcat(char* dst, int dst_sz, const char* src)
 {
     int len = (int)strlen(dst);
     return _dmon_strcpy(dst + len, dst_sz - len, src);
 }
-#endif // DMON_OS_LINUX || DMON_OS_MACOS
+#endif // DMON_OS_INOTIFY || DMON_OS_MACOS
 
 // stretchy buffer: https://github.com/nothings/stb/blob/master/stretchy_buffer.h
 #define stb_sb_free(a)         ((a) ? DMON_FREE(stb__sbraw(a)),0 : 0)
@@ -755,11 +765,11 @@ DMON_API_IMPL void dmon_unwatch(dmon_watch_id id)
     LeaveCriticalSection(&_dmon.mutex);
 }
 
-#elif DMON_OS_LINUX
+#elif DMON_OS_INOTIFY
 // ---------------------------------------------------------------------------------------------------------------------
 // @Linux
 // inotify linux backend
-#define _DMON_TEMP_BUFFSIZE ((sizeof(struct inotify_event) + PATH_MAX) * 1024)
+#define _DMON_TEMP_BUFFSIZE ((sizeof(struct inotify_event) + NAME_MAX + 1) * 1024)
 
 typedef struct dmon__watch_subdir {
     char rootdir[DMON_MAX_PATH];
