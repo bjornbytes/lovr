@@ -93,6 +93,8 @@ elseif(UNIX)
   find_package(PkgConfig)
   if(NOT APPLE)
     set(CMAKE_SKIP_RPATH OFF)
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -s")
+    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -s")
   endif()
 endif()
 
