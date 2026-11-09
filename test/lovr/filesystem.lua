@@ -89,4 +89,8 @@ group('filesystem', function()
     expect(lovr.filesystem.isFile('base/root.txt')).to.equal(true)
     expect(lovr.filesystem.unmount(archive)).to.equal(true)
   end)
+
+  test('absolute paths', function()
+    expect(lovr.filesystem.read('conf.lua')).to.equal(lovr.filesystem.read(lovr.filesystem.getSource() .. '/conf.lua'))
+  end)
 end)
