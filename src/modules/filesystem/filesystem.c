@@ -38,17 +38,17 @@ typedef struct {
   zip_node* node;
   zip_stream* stream;
   uint64_t offset;
-} FileHandle;
+} Handle;
 
 typedef struct Archive Archive;
 
 typedef struct {
-  bool (*open)(Archive* archive, const char* path, OpenMode mode, FileHandle* handle);
-  bool (*close)(Archive* archive, FileHandle* handle);
-  bool (*read)(Archive* archive, FileHandle* handle, uint8_t* data, size_t size, size_t* count);
-  bool (*write)(Archive* archive, FileHandle* handle, const uint8_t* data, size_t size, size_t* count);
-  bool (*seek)(Archive* archive, FileHandle* handle, uint64_t offset);
-  bool (*fsize)(Archive* archive, FileHandle* handle, uint64_t* size);
+  bool (*open)(Archive* archive, const char* path, OpenMode mode, Handle* handle);
+  bool (*close)(Archive* archive, Handle* handle);
+  bool (*read)(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count);
+  bool (*write)(Archive* archive, Handle* handle, const uint8_t* data, size_t size, size_t* count);
+  bool (*seek)(Archive* archive, Handle* handle, uint64_t offset);
+  bool (*fsize)(Archive* archive, Handle* handle, uint64_t* size);
   bool (*stat)(Archive* archive, const char* path, FileInfo* info, bool needTime);
   bool (*remove)(Archive* archive, const char* path);
   bool (*mkdir)(Archive* archive, const char* path);
@@ -72,7 +72,7 @@ struct Archive {
 struct File {
   atomic_uint ref;
   OpenMode mode;
-  FileHandle handle;
+  Handle handle;
   Archive* archive;
   char* path;
 };
@@ -297,7 +297,6 @@ const char* lovrFilesystemGetSource(void) {
 void lovrFilesystemWatch(void) {}
 void lovrFilesystemUnwatch(void) {}
 #else
-#define DMON_IMPL
 #include "lib/dmon/dmon.h"
 
 static void onFileEvent(dmon_watch_id id, dmon_action action, const char* dir, const char* path, const char* oldpath, void* ctx) {
@@ -434,7 +433,7 @@ bool lovrFilesystemStat(const char* path, FileInfo* info, bool needTime) {
 
 void* lovrFilesystemRead(const char* path, size_t* size) {
   Archive* archive = NULL;
-  FileHandle handle;
+  Handle handle;
 
   if (isAbsolute(path)) {
     if (state.root->fn->open(state.root, path, OPEN_READ, &handle)) {
@@ -496,7 +495,7 @@ bool lovrFilesystemWrite(const char* path, const char* content, size_t size, boo
   Archive* archive = getWriteArchive(&path, buffer);
   if (!archive) return false;
 
-  FileHandle handle;
+  Handle handle;
   if (!archive->fn->open(archive, path, append ? OPEN_APPEND : OPEN_WRITE, &handle)) {
     return false;
   }
@@ -663,7 +662,7 @@ void lovrFilesystemSetRequirePath(const char* requirePath) {
 
 File* lovrFileCreate(const char* path, OpenMode mode) {
   Archive* archive = NULL;
-  FileHandle handle = { 0 };
+  Handle handle = { 0 };
 
   if (isAbsolute(path)) {
     if (state.root->fn->open(state.root, path, mode, &handle)) {
@@ -762,18 +761,18 @@ static bool dir_resolve(Archive* archive, const char** path, char* buffer) {
   return true;
 }
 
-static bool dir_open(Archive* archive, const char* path, OpenMode mode, FileHandle* handle) {
+static bool dir_open(Archive* archive, const char* path, OpenMode mode, Handle* handle) {
   char buffer[LOVR_PATH_MAX];
   char modes[] = { 'r', 'w', 'a' };
   handle->offset = 0;
   return dir_resolve(archive, &path, buffer) && checkfs(fs_open(path, modes[mode], &handle->file));
 }
 
-static bool dir_close(Archive* archive, FileHandle* handle) {
+static bool dir_close(Archive* archive, Handle* handle) {
   return checkfs(fs_close(handle->file));
 }
 
-static bool dir_read(Archive* archive, FileHandle* handle, uint8_t* data, size_t size, size_t* count) {
+static bool dir_read(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count) {
   if (checkfs(fs_read(handle->file, data, size, count))) {
     handle->offset += *count;
     return true;
@@ -782,7 +781,7 @@ static bool dir_read(Archive* archive, FileHandle* handle, uint8_t* data, size_t
   }
 }
 
-static bool dir_write(Archive* archive, FileHandle* handle, const uint8_t* data, size_t size, size_t* count) {
+static bool dir_write(Archive* archive, Handle* handle, const uint8_t* data, size_t size, size_t* count) {
   if (checkfs(fs_write(handle->file, data, size, count))) {
     handle->offset += *count;
     return true;
@@ -791,7 +790,7 @@ static bool dir_write(Archive* archive, FileHandle* handle, const uint8_t* data,
   }
 }
 
-static bool dir_seek(Archive* archive, FileHandle* handle, uint64_t offset) {
+static bool dir_seek(Archive* archive, Handle* handle, uint64_t offset) {
   if (checkfs(fs_seek(handle->file, offset))) {
     handle->offset = offset;
     return true;
@@ -800,7 +799,7 @@ static bool dir_seek(Archive* archive, FileHandle* handle, uint64_t offset) {
   }
 }
 
-static bool dir_fsize(Archive* archive, FileHandle* handle, uint64_t* size) {
+static bool dir_fsize(Archive* archive, Handle* handle, uint64_t* size) {
   fs_info info;
   if (checkfs(fs_fstat(handle->file, &info))) {
     *size = info.size;
@@ -1064,7 +1063,7 @@ static zip_node* zip_resolve(Archive* archive, const char* path) {
   return index == MAP_NIL ? NULL : &archive->nodes.data[index];
 }
 
-static bool zip_open(Archive* archive, const char* path, OpenMode mode, FileHandle* handle) {
+static bool zip_open(Archive* archive, const char* path, OpenMode mode, Handle* handle) {
   lovrCheck(mode == OPEN_READ, "Read only");
 
   handle->node = zip_resolve(archive, path);
@@ -1085,7 +1084,7 @@ static bool zip_open(Archive* archive, const char* path, OpenMode mode, FileHand
   return true;
 }
 
-static bool zip_close(Archive* archive, FileHandle* handle) {
+static bool zip_close(Archive* archive, Handle* handle) {
   lovrFree(handle->stream);
   return true;
 }
@@ -1115,7 +1114,7 @@ static bool decompress(zip_node* node, zip_stream* stream, uint8_t* data, size_t
   return true;
 }
 
-static bool zip_read(Archive* archive, FileHandle* handle, uint8_t* data, size_t size, size_t* count) {
+static bool zip_read(Archive* archive, Handle* handle, uint8_t* data, size_t size, size_t* count) {
   zip_node* node = handle->node;
   zip_stream* stream = handle->stream;
 
@@ -1191,12 +1190,12 @@ static bool zip_read(Archive* archive, FileHandle* handle, uint8_t* data, size_t
   return false;
 }
 
-static bool zip_seek(Archive* archive, FileHandle* handle, uint64_t offset) {
+static bool zip_seek(Archive* archive, Handle* handle, uint64_t offset) {
   handle->offset = offset;
   return true;
 }
 
-static bool zip_fsize(Archive* archive, FileHandle* handle, uint64_t* size) {
+static bool zip_fsize(Archive* archive, Handle* handle, uint64_t* size) {
   zip_node* node = handle->node;
   *size = node->uncompressedSize;
   return true;
