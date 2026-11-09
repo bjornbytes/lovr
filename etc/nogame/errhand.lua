@@ -54,7 +54,7 @@ function lovr.errhand(message)
     frame = stack[level]
 
     if level ~= prev and stack[level].lines and stack[level].currentline ~= -1 then
-      scrollSource((frame.currentline + .5) * textSize - (layout.source.h - padding) / 2)
+      scrollSource(frame.currentline * textSize - (layout.source.h - padding) / 2)
     end
   end
 
