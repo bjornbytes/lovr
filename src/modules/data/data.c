@@ -3,6 +3,7 @@
 #include "lib/sdefl/sdefl.h"
 #include "util.h"
 #include <threads.h>
+#include <limits.h>
 
 static thread_local struct sdefl sdefl;
 

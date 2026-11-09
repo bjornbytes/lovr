@@ -10,6 +10,7 @@
 #endif
 #include <stdatomic.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 #include <math.h>
 #ifdef _MSC_VER
