@@ -35,6 +35,9 @@ void lovrEventDestroy(void) {
         lovrFree(event->data.file.path);
         lovrFree(event->data.file.oldpath);
         break;
+      case EVENT_FILEDROPPED:
+        lovrFree(event->data.drop.path);
+        break;
       case EVENT_CUSTOM:
         for (uint32_t j = 0; j < event->data.custom.count; j++) {
           lovrVariantDestroy(&event->data.custom.data[j]);

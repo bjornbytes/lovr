@@ -47,3 +47,4 @@ fs_error fs_stat(const char* path, fs_info* info);
 fs_error fs_remove(const char* path);
 fs_error fs_mkdir(const char* path);
 fs_error fs_list(const char* path, fs_list_cb* callback, void* context);
+fs_error fs_resolve(const char* path, char* dst, size_t capacity);

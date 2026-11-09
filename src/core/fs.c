@@ -210,6 +210,28 @@ fs_error fs_list(const char* path, fs_list_cb* callback, void* context) {
   return FS_OK;
 }
 
+fs_error fs_resolve(const char* path, char* dst, size_t capacity) {
+  WCHAR wpath[FS_PATH_MAX];
+  if (!MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, FS_PATH_MAX)) {
+    return error();
+  }
+
+  WCHAR resolved[FS_PATH_MAX];
+  DWORD length = GetFullPathNameW(wpath, FS_PATH_MAX, resolved, NULL);
+
+  if (length == 0) {
+    return error();
+  } else if (length >= FS_PATH_MAX) {
+    return FS_TOO_LONG;
+  }
+
+  if (!WideCharToMultiByte(CP_UTF8, 0, resolved, length + 1, dst, (int) capacity, NULL, NULL)) {
+    return error();
+  }
+
+  return FS_OK;
+}
+
 #else // !_WIN32
 
 #include "fs.h"
@@ -218,6 +240,8 @@ fs_error fs_list(const char* path, fs_list_cb* callback, void* context) {
 #include <sys/stat.h>
 #include <dirent.h>
 #include <limits.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -368,6 +392,22 @@ fs_error fs_list(const char* path, fs_list_cb* callback, void* context) {
 
   closedir(dir);
   return FS_OK;
+}
+
+fs_error fs_resolve(const char* path, char* dst, size_t capacity) {
+  char buffer[PATH_MAX];
+  char* resolved = realpath(path, buffer);
+  if (resolved) {
+    size_t length = strlen(resolved);
+    if (length >= capacity) {
+      return FS_TOO_LONG;
+    } else {
+      memcpy(dst, resolved, length + 1);
+      return FS_OK;
+    }
+  } else {
+    return check(-1);
+  }
 }
 
 #endif
