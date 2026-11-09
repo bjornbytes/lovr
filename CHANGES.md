@@ -30,6 +30,7 @@ dev
 - Add `t.headset.dynamicresolution`.
 - Add `t.headset.compressedfoveation`.
 - Add `readonly` flag to `depth` table in `Pass:setCanvas`.
+- Add `lovr.filedropped` event.
 - Add `lovr.filesystem.exists`.
 
 ### Change
@@ -54,6 +55,8 @@ dev
 - Change `uvShift` and `uvScale` material properties to be named `quad`.
 - Change `ModelData` node accessors to return transforms in global space by default.
 - Change `t.headset.mask` to be `false` by default.
+- Change `lovr.filesystem` methods to work with absolute paths (instead of treating them as virtual paths).
+- Change `lovr.filesystem.getSource` to always return an absolute path.
 
 ### Fix
 
