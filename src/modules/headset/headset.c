@@ -3850,8 +3850,8 @@ static bool createSwapchains(void) {
     XrRecommendedLayerResolutionMETA resolution = { .type = XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_META };
 
     if (XR_SUCCEEDED(xrGetRecommendedLayerResolutionMETA(state.session, &info, &resolution)) && resolution.isValid) {
-      width = MAX(width, resolution.recommendedImageDimensions.width);
-      height = MAX(height, resolution.recommendedImageDimensions.height);
+      width = MAX(width, (uint32_t) resolution.recommendedImageDimensions.width);
+      height = MAX(height, (uint32_t) resolution.recommendedImageDimensions.height);
     } else {
       state.extensions.dynamicResolution = false;
     }

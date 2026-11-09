@@ -2551,7 +2551,13 @@ static void lovrTextureUpload(void* arg) {
 
   for (uint32_t level = 0; level < levelCount; level++) {
     void** layers = &data[level * info->layers];
-    layerSizes[level] = lovrImageGetLayerSize(info->images[0], level);
+    size_t size = lovrImageGetLayerSize(info->images[0], level);
+
+    if (size > UINT_MAX) {
+      atomic_store(&state.textureUploadError, lovrStrdup("Image data is too big!"));
+    }
+
+    layerSizes[level] = (uint32_t) size;
 
     for (uint32_t layer = 0; layer < info->layers; layer++) {
       Image* image = info->imageCount == 1 ? info->images[0] : info->images[layer];

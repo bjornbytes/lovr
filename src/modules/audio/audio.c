@@ -1183,10 +1183,12 @@ static bool phonon_set_hrtf(Blob* blob) {
   IPLHRTF hrtf = NULL;
 
   if (blob) {
+    lovrAssert(blob->size <= INT_MAX, "Blob is too big!");
+
     IPLHRTFSettings settings = {
       .type = IPL_HRTFTYPE_SOFA,
       .sofaData = blob->data,
-      .sofaDataSize = blob->size,
+      .sofaDataSize = (int) blob->size,
       .volume = 1.f,
       .normType = IPL_HRTFNORMTYPE_NONE
     };
@@ -1651,7 +1653,7 @@ static bool phonon_mesh_init(AudioMesh* mesh, float* vertices, uint32_t* indices
 
   if (iplSceneCreate(state.phonon, &sceneSettings, &mesh->scene)) {
     lovrSetError("Failed to create AudioMesh scene");
-    return NULL;
+    return false;
   }
 
   // StaticMesh

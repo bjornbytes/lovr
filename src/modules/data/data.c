@@ -12,12 +12,15 @@ void* lovrDataCompress(const void* data, size_t size, CompressionMethod method, 
     return lovrMalloc(0);
   }
 
+  lovrCheck(size < INT_MAX, "Too much data");
+
+  int isize = (int) size;
   const uint8_t gzipHeader[10] = { 0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff };
-  size_t bound = sdefl_bound(size) + (method == COMPRESSION_GZIP ? 18 : 0);
+  size_t bound = sdefl_bound(isize) + (method == COMPRESSION_GZIP ? 18 : 0);
   uint8_t* output = lovrMalloc(bound);
   void* dst = output + (method == COMPRESSION_GZIP ? sizeof(gzipHeader) : 0);
   int lvl = level == ~0u ? SDEFL_LVL_DEF : CLAMP((int) level, SDEFL_LVL_MIN, SDEFL_LVL_MAX);
-  int compressedSize = (method == COMPRESSION_ZLIB ? zsdeflate : sdeflate)(&sdefl, dst, data, (int) size, lvl);
+  int compressedSize = (method == COMPRESSION_ZLIB ? zsdeflate : sdeflate)(&sdefl, dst, data, isize, lvl);
 
   if (compressedSize <= 0) {
     lovrFree(output);
@@ -26,10 +29,10 @@ void* lovrDataCompress(const void* data, size_t size, CompressionMethod method, 
 
   if (method == COMPRESSION_GZIP) {
     size_t cursor = 0;
-    uint32_t crc = lovrDataCRC32(data, size);
+    uint32_t crc = lovrDataCRC32(data, isize);
     memcpy(output + cursor, gzipHeader, sizeof(gzipHeader)), cursor += sizeof(gzipHeader) + compressedSize;
     memcpy(output + cursor, &crc, sizeof(uint32_t)), cursor += 4;
-    memcpy(output + cursor, &(uint32_t) { size }, sizeof(uint32_t));
+    memcpy(output + cursor, &(uint32_t) { isize }, sizeof(uint32_t));
     *outputSize = (size_t) compressedSize + 18;
   } else {
     *outputSize = (size_t) compressedSize;

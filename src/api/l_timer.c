@@ -31,14 +31,19 @@ static int l_lovrTimerStep(lua_State* L) {
   return 1;
 }
 
+typedef union {
+  double f64;
+  void* p;
+} TimeoutContext;
+
 static bool luax_polltime(void** context, bool* ready) {
-  double timeout = ((union { double f64; void* p; }) { .p = *context }).f64;
+  double timeout = ((TimeoutContext) { .p = *context }).f64;
   *ready = lovrTimerGetTime() >= timeout;
   return true;
 }
 
 static bool luax_waittime(void** context) {
-  double timeout = ((union { double f64; void* p; }) { .p = *context }).f64;
+  double timeout = ((TimeoutContext) { .p = *context }).f64;
   lovrTimerSleep(timeout - lovrTimerGetTime());
   return true;
 }
@@ -46,8 +51,8 @@ static bool luax_waittime(void** context) {
 static int l_lovrTimerSleep(lua_State* L) {
   double duration = luaL_checknumber(L, 1);
   if (luax_getthreaddata(L)) {
-    void* timeout = ((union { double f64; void* p; }) { .f64 = lovrTimerGetTime() + duration }).p;
-    return luax_yieldpoll(L, luax_polltime, luax_waittime, NULL, timeout);
+    void* context = ((TimeoutContext) { .f64 = lovrTimerGetTime() + duration }).p;
+    return luax_yieldpoll(L, luax_polltime, luax_waittime, NULL, context);
   } else {
     lovrTimerSleep(duration);
     return 0;

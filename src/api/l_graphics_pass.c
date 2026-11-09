@@ -810,13 +810,13 @@ static int l_lovrPassSend(lua_State* L) {
       Texture** textures = lovrMalloc(count * sizeof(Texture*));
 
       for (size_t i = 0; i < count; i++) {
-        lua_rawgeti(L, 3, i + 1);
+        lua_rawgeti(L, 3, (int) i + 1);
         textures[i] = luax_totype(L, -1, Texture);
         lovrCheck(textures[i], "Expected table of textures");
         lua_pop(L, 1);
       }
 
-      bool success = lovrPassSendTexture(pass, name, length, textures, count);
+      bool success = lovrPassSendTexture(pass, name, length, textures, (int) count);
       lovrFree(textures);
       luax_assert(L, success);
       return 0;
