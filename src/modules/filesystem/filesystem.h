@@ -6,7 +6,6 @@
 
 #define LOVR_PATH_MAX 1024
 
-typedef struct Archive Archive;
 typedef struct File File;
 
 typedef enum {
@@ -27,11 +26,6 @@ typedef struct {
   uint64_t lastModified;
 } FileInfo;
 
-typedef enum {
-  MOUNT_READ,
-  MOUNT_READWRITE
-} MountMode;
-
 bool lovrFilesystemInit(void);
 void lovrFilesystemDestroy(void);
 bool lovrFilesystemSetSource(const char* source);
@@ -39,10 +33,10 @@ const char* lovrFilesystemGetSource(void);
 bool lovrFilesystemIsFused(void);
 void lovrFilesystemWatch(void);
 void lovrFilesystemUnwatch(void);
-bool lovrFilesystemMount(const char* path, const char* mountpoint, MountMode mode, bool append, const char *root);
+bool lovrFilesystemMount(const char* path, const char* mountpoint, bool append, const char *root);
 bool lovrFilesystemUnmount(const char* path);
 const char* lovrFilesystemGetRealDirectory(const char* path);
-bool lovrFilesystemGetInfo(const char* path, FileInfo* info, bool needTime);
+bool lovrFilesystemStat(const char* path, FileInfo* info, bool needTime);
 void* lovrFilesystemRead(const char* path, size_t* size);
 bool lovrFilesystemWrite(const char* path, const char* content, size_t size, bool append);
 bool lovrFilesystemRemove(const char* path);
@@ -58,11 +52,6 @@ size_t lovrFilesystemGetUserDirectory(char* buffer, size_t size);
 size_t lovrFilesystemGetWorkingDirectory(char* buffer, size_t size);
 const char* lovrFilesystemGetRequirePath(void);
 void lovrFilesystemSetRequirePath(const char* requirePath);
-
-// Archive
-
-Archive* lovrArchiveCreate(const char* path, const char* mountpoint, MountMode mode, const char* root);
-void lovrArchiveDestroy(void* ref);
 
 // File
 

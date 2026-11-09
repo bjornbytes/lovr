@@ -19,12 +19,6 @@ StringEntry lovrFileAction[] = {
   { 0 }
 };
 
-StringEntry lovrMountMode[] = {
-  [MOUNT_READ] = ENTRY("read"),
-  [MOUNT_READWRITE] = ENTRY("readwrite"),
-  { 0 }
-};
-
 StringEntry lovrOpenMode[] = {
   [OPEN_READ] = ENTRY("r"),
   [OPEN_WRITE] = ENTRY("w"),
@@ -138,11 +132,9 @@ static int l_lovrFilesystemUnwatch(lua_State* L) {
 static int l_lovrFilesystemMount(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   const char* mountpoint = luaL_optstring(L, 2, NULL);
-  int index = 3;
-  MountMode mode = lua_type(L, 3) == LUA_TSTRING ? luax_checkenum(L, index++, MountMode, "read") : MOUNT_READ;
-  bool append = lua_toboolean(L, index++);
-  const char* root = luaL_optstring(L, index++, NULL);
-  return luax_pushsuccess(L, lovrFilesystemMount(path, mountpoint, mode, append, root));
+  bool append = lua_toboolean(L, 3);
+  const char* root = luaL_optstring(L, 4, NULL);
+  return luax_pushsuccess(L, lovrFilesystemMount(path, mountpoint, append, root));
 }
 
 static int l_lovrFilesystemUnmount(lua_State* L) {
@@ -158,14 +150,15 @@ static int l_lovrFilesystemGetRealDirectory(lua_State* L) {
 }
 
 static int l_lovrFilesystemExists(lua_State* L) {
-  lua_pushboolean(L, lovrFilesystemGetInfo(luaL_checkstring(L, 1), NULL, false));
+  FileInfo info;
+  lua_pushboolean(L, lovrFilesystemStat(luaL_checkstring(L, 1), &info, false));
   return 1;
 }
 
 static int l_lovrFilesystemIsDirectory(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   FileInfo info;
-  bool success = lovrFilesystemGetInfo(path, &info, false);
+  bool success = lovrFilesystemStat(path, &info, false);
   lua_pushboolean(L, success && info.type == FILE_DIRECTORY);
   return 1;
 }
@@ -173,7 +166,7 @@ static int l_lovrFilesystemIsDirectory(lua_State* L) {
 static int l_lovrFilesystemIsFile(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   FileInfo info;
-  bool success = lovrFilesystemGetInfo(path, &info, false);
+  bool success = lovrFilesystemStat(path, &info, false);
   lua_pushboolean(L, success && info.type == FILE_REGULAR);
   return 1;
 }
@@ -181,7 +174,7 @@ static int l_lovrFilesystemIsFile(lua_State* L) {
 static int l_lovrFilesystemGetSize(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   FileInfo info;
-  bool success = lovrFilesystemGetInfo(path, &info, false);
+  bool success = lovrFilesystemStat(path, &info, false);
   if (!success) return luax_pushnilerror(L);
   if (info.type != FILE_REGULAR) {
     lua_pushnil(L);
@@ -196,7 +189,7 @@ static int l_lovrFilesystemGetSize(lua_State* L) {
 static int l_lovrFilesystemGetLastModified(lua_State* L) {
   const char* path = luaL_checkstring(L, 1);
   FileInfo info;
-  bool success = lovrFilesystemGetInfo(path, &info, true);
+  bool success = lovrFilesystemStat(path, &info, true);
   if (!success) return luax_pushnilerror(L);
   lua_pushinteger(L, info.lastModified);
   return 1;
@@ -469,7 +462,7 @@ static int luaLoader(lua_State* L) {
       *f = '\0';
 
       FileInfo info;
-      if (lovrFilesystemGetInfo(filename, &info, false) && info.type == FILE_REGULAR) {
+      if (lovrFilesystemStat(filename, &info, false) && info.type == FILE_REGULAR) {
         return luax_loadfile(L, filename, debug, NULL);
       }
 
