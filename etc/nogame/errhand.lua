@@ -24,9 +24,12 @@ function lovr.errhand(message)
   local panel = 1
   local stackColumnWidth = 0
   local sourceScroll = 0
+  local mounted = lovr.headset and lovr.headset.isActive() and lovr.headset.isMounted()
   local dirty = true
 
   local thumbsticks = {}
+  local layerPass
+  local layer
 
   local ok, font = pcall(lovr.graphics.newFont, 'ZhiMaMono-Regular.ttf')
 
@@ -53,7 +56,7 @@ function lovr.errhand(message)
     level = clamp(index, 1, #stack)
     frame = stack[level]
 
-    if level ~= prev and stack[level].lines and stack[level].currentline ~= -1 then
+    if level ~= prev and layout.source and stack[level].lines and stack[level].currentline ~= -1 then
       scrollSource(frame.currentline * textSize - (layout.source.h - padding) / 2)
     end
   end
@@ -117,7 +120,15 @@ function lovr.errhand(message)
     frame.scroll = clamp(frame.scroll, frame.rowIndex * textSize - (layout.variables.h - 2 * padding), (frame.rowIndex - 1) * textSize)
   end
 
-  local function resize(width, height)
+  local function relayout()
+    local width, height
+
+    if mounted then
+      width, height = select(3, layer:getViewport())
+    else
+      width, height = lovr.system.getWindowDimensions()
+    end
+
     layout.message = {
       x = padding,
       y = padding + margin,
@@ -147,6 +158,10 @@ function lovr.errhand(message)
       w = width / 2 - 1.5 * padding,
       h = height - padding - rowY
     }
+
+    scrollSource(sourceScroll)
+    ensureVariableVisible()
+    dirty = true
   end
 
   local function up()
@@ -228,8 +243,6 @@ function lovr.errhand(message)
 
   local function render(pass)
     if not pass then return end
-
-    resize(pass:getDimensions())
 
     local function section(pass, title, layout, focused, callback)
       local x, y, w, h = layout.x, layout.y, layout.w, layout.h
@@ -435,16 +448,12 @@ function lovr.errhand(message)
     index = index + 1
   end
 
-  -- Need to compute layout so setLevel knows where to scroll
-  if lovr.headset and lovr.headset.isActive() then
-    resize(lovr.headset.getDisplayDimensions())
-  elseif lovr.system.isWindowOpen() then
-    resize(lovr.system.getWindowDimensions())
-  end
-
   setLevel(index)
 
   if lovr.audio then lovr.audio.stop() end
+
+  lovr.system.setKeyRepeat(true)
+  lovr.system.setMouseMode('normal')
 
   if not lovr.headset or lovr.headset.getPassthrough() == 'opaque' then
     lovr.graphics.setBackgroundColor(.11, .10, .14)
@@ -461,8 +470,7 @@ function lovr.errhand(message)
     layerPass = lovr.graphics.newPass()
   end
 
-  lovr.system.setKeyRepeat(true)
-  lovr.system.setMouseMode('normal')
+  relayout()
 
   return function()
     lovr.timer.step()
@@ -477,9 +485,11 @@ function lovr.errhand(message)
         return 'restart', lovr.restart and lovr.restart()
       elseif name == 'filechanged'then
         lovr.event.restart()
+      elseif name == 'mount' then
+        mounted = a
+        relayout()
       elseif name == 'resize' then
-        resize(a, b)
-        dirty = true
+        relayout()
       elseif name == 'keypressed' then
         if a == 'f5' then
           lovr.event.restart()
@@ -507,7 +517,7 @@ function lovr.errhand(message)
           focusNextPanel()
           dirty = true
         end
-      elseif name == 'wheelmoved' then
+      elseif name == 'wheelmoved' and not mounted then
         local dy = b
         local mx, my = lovr.system.getMousePosition()
         if inside(mx, my, layout.source) then
@@ -518,7 +528,7 @@ function lovr.errhand(message)
           clampVariableScroll()
           dirty = true
         end
-      elseif name == 'mousepressed' and c == 1 then
+      elseif name == 'mousepressed' and c == 1 and not mounted then
         local x, y = a, b
         if inside(x, y, layout.stack) then
           local row = 1 + math.floor((y - padding - layout.stack.y) / textSize)
@@ -592,18 +602,15 @@ function lovr.errhand(message)
           if math.abs(dy) > math.abs(dx) then
             if dy > 0 then
               up()
-              dirty = true
             else
               down()
-              dirty = true
             end
           elseif dx > 0 then
             right()
-            dirty = true
           else
             left()
-            dirty = true
           end
+          dirty = true
         elseif panel == 2 and math.abs(dy) > .2 then
           scrollSource(sourceScroll - (dy > 0 and dy - .2 or dy + .2) * textSize * .8)
           dirty = true
@@ -615,13 +622,14 @@ function lovr.errhand(message)
 
     if dirty then
       window = lovr.system.isWindowOpen() and lovr.graphics.getWindowPass()
-      render(window)
 
-      if layer and layer:getTexture() then
+      if mounted and layer and layer:getTexture() then
         quad = layerPass
         quad:setCanvas(layer:getTexture())
         quad:setClear(.11, .10, .14)
         render(quad)
+      else
+        render(window)
       end
 
       dirty = false
