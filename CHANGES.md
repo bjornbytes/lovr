@@ -58,6 +58,25 @@ dev
 - Change `lovr.filesystem` methods to work with absolute paths (instead of treating them as virtual paths).
 - Change `lovr.filesystem.getSource` to always return an absolute path.
 
+### Deprecate
+
+- Deprecate `lovr.headset.getTime` (use `lovr.timer.getDisplayTime`).
+- Deprecate `lovr.headset.getDeltaTime` (use `lovr.timer.getDelta`).
+- Deprecate `gpuTime` and `submitTime` fields of `Pass:getStats` (use `lovr.graphics.getTiming`).
+
+### Remove
+
+- Remove `Collider:is/setGravityIgnored` (previously deprecated).
+- Remove `World:get/setTightness` (previously deprecated).
+- Remove `World:get/setResponseTime` (previously deprecated).
+- Remove `World:get/setLinearDamping` (previously deprecated).
+- Remove `World:get/setAngularDamping` (previously deprecated).
+- Remove `World:is/setSleepingAllowed` (previously deprecated).
+- Remove `World:get/setStepCount` (previously deprecated).
+
+v0.19.1 - 2026-11-10
+---
+
 ### Fix
 
 - Fix `Pass:drawPart`.
@@ -92,22 +111,6 @@ dev
 - Fix `World` memory leak.
 - Fix `Buffer:setData` when setting a table of numbers on a vector array field.
 - Fix race condition in audio thread.
-
-### Deprecate
-
-- Deprecate `lovr.headset.getTime` (use `lovr.timer.getDisplayTime`).
-- Deprecate `lovr.headset.getDeltaTime` (use `lovr.timer.getDelta`).
-- Deprecate `gpuTime` and `submitTime` fields of `Pass:getStats` (use `lovr.graphics.getTiming`).
-
-### Remove
-
-- Remove `Collider:is/setGravityIgnored` (previously deprecated).
-- Remove `World:get/setTightness` (previously deprecated).
-- Remove `World:get/setResponseTime` (previously deprecated).
-- Remove `World:get/setLinearDamping` (previously deprecated).
-- Remove `World:get/setAngularDamping` (previously deprecated).
-- Remove `World:is/setSleepingAllowed` (previously deprecated).
-- Remove `World:get/setStepCount` (previously deprecated).
 
 v0.19.0 - 2026-06-07
 ---
