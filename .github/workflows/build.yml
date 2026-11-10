@@ -57,7 +57,7 @@ jobs:
         run: >
           curl -sOL https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${{ matrix.arch }}.AppImage &&
           chmod +x ./appimagetool-${{ matrix.arch }}.AppImage &&
-          ./appimagetool-${{ matrix.arch }}.AppImage build/bin &&
+          ./appimagetool-${{ matrix.arch }}.AppImage -n build/bin &&
           mv LÖVR-${{ matrix.arch }}.AppImage lovr-${{ matrix.arch }}.AppImage
       - name: Upload
         uses: actions/upload-artifact@v7
