@@ -8,7 +8,7 @@
 
 #define LOVR_VERSION_MAJOR 0
 #define LOVR_VERSION_MINOR 19
-#define LOVR_VERSION_PATCH 0
+#define LOVR_VERSION_PATCH 1
 #define LOVR_VERSION_ALIAS "Forbidden Jorts"
 
 #ifndef M_PI

@@ -13,7 +13,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleVersion</key>
-	<string>v0.19.0</string>
+	<string>v0.19.1</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>
