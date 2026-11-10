@@ -9,7 +9,24 @@ static int l_lovrLightProbeClear(lua_State* L) {
   return 0;
 }
 
-static int l_lovrLightProbeGetCoefficients(lua_State* L) {
+static int l_lovrLightProbePack(lua_State* L) {
+  LightProbe* probe = luax_checktype(L, 1, LightProbe);
+  luaL_checktype(L, 2, LUA_TTABLE);
+  float coefficients[9][3];
+  memset(coefficients, 0, sizeof(coefficients));
+  int length = luax_len(L, 2);
+  for (int i = 0; i < length; i++) {
+    float color[4];
+    lua_rawgeti(L, 2, i + 1);
+    luax_optcolor(L, -1, color);
+    memcpy(coefficients[i], color, 3 * sizeof(float));
+    lua_pop(L, 1);
+  }
+  lovrLightProbeSetCoefficients(probe, coefficients);
+  return 0;
+}
+
+static int l_lovrLightProbeUnpack(lua_State* L) {
   LightProbe* probe = luax_checktype(L, 1, LightProbe);
   float coefficients[9][3];
   lovrLightProbeGetCoefficients(probe, coefficients);
@@ -25,23 +42,6 @@ static int l_lovrLightProbeGetCoefficients(lua_State* L) {
     lua_rawseti(L, -2, i + 1);
   }
   return 1;
-}
-
-static int l_lovrLightProbeSetCoefficients(lua_State* L) {
-  LightProbe* probe = luax_checktype(L, 1, LightProbe);
-  luaL_checktype(L, 2, LUA_TTABLE);
-  float coefficients[9][3];
-  memset(coefficients, 0, sizeof(coefficients));
-  int length = luax_len(L, 2);
-  for (int i = 0; i < length; i++) {
-    float color[4];
-    lua_rawgeti(L, 2, i + 1);
-    luax_optcolor(L, -1, color);
-    memcpy(coefficients[i], color, 3 * sizeof(float));
-    lua_pop(L, 1);
-  }
-  lovrLightProbeSetCoefficients(probe, coefficients);
-  return 0;
 }
 
 static int l_lovrLightProbeEvaluate(lua_State* L) {
@@ -98,8 +98,8 @@ static int l_lovrLightProbeScale(lua_State* L) {
 const luaL_Reg lovrLightProbe[] = {
   { "clear", l_lovrLightProbeClear },
   { "evaluate", l_lovrLightProbeEvaluate },
-  { "getCoefficients", l_lovrLightProbeGetCoefficients },
-  { "setCoefficients", l_lovrLightProbeSetCoefficients },
+  { "pack", l_lovrLightProbePack },
+  { "unpack", l_lovrLightProbeUnpack },
   { "addAmbientLight", l_lovrLightProbeAddAmbientLight },
   { "addDirectionalLight", l_lovrLightProbeAddDirectionalLight },
   { "add", l_lovrLightProbeAdd },
