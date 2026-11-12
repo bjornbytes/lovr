@@ -255,7 +255,7 @@ static int luax_pushreadbackprobe(lua_State* L, bool success, void* readback) {
 
 static int l_lovrTextureNewLightProbe(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
-  uint32_t level = luax_optu32(L, 2, 0);
+  uint32_t level = luax_optu32(L, 2, 1) - 1;
   Readback* readback = lovrTextureComputeLightProbe(texture, level);
   luax_assert(L, readback);
   return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackprobe, readback);

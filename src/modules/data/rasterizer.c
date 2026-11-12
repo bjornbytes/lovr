@@ -554,7 +554,7 @@ bool lovrRasterizerGetPixels(Rasterizer* rasterizer, uint32_t codepoint, float* 
     for (uint32_t y = 0; y < glyph->h; y++) {
       for (uint32_t x = 0; x < glyph->w; x++) {
         float pixel[4];
-        lovrImageGetPixel(rasterizer->atlas, glyph->x + x, glyph->y + y, 0, pixel);
+        lovrImageGetPixel(rasterizer->atlas, glyph->x + x, glyph->y + y, pixel);
         pixels[4 * (y * width + x) + 0] = pixel[0];
         pixels[4 * (y * width + x) + 1] = pixel[1];
         pixels[4 * (y * width + x) + 2] = pixel[2];

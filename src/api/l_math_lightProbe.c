@@ -82,6 +82,7 @@ static int l_lovrLightProbeSet(lua_State* L) {
 static int l_lovrLightProbeUnpack(lua_State* L) {
   LightProbe* probe = luax_checktype(L, 1, LightProbe);
   float* data = lovrLightProbeGetData(probe);
+  luaL_checkstack(L, 27, "in LightProbe:unpack");
   for (uint32_t i = 0; i < 27; i++) {
     lua_pushnumber(L, data[i]);
   }
