@@ -421,7 +421,8 @@ enum {
   DIRTY_CAMERA = (1 << 2),
   DIRTY_VIEWPORT = (1 << 3),
   DIRTY_SCISSOR = (1 << 4),
-  NEEDS_VIEW_CULL = (1 << 5)
+  DIRTY_PROBE = (1 << 5),
+  NEEDS_VIEW_CULL = (1 << 6)
 };
 
 typedef struct {
@@ -464,6 +465,7 @@ typedef struct {
   bool dirty;
   bool viewCull;
   DrawMode mode;
+  uint32_t probe;
   float color[4];
   Buffer* lastVertexBuffer;
   VertexFormat lastVertexFormat;
@@ -510,6 +512,7 @@ typedef struct {
   uint16_t camera;
   uint16_t viewport;
   uint16_t scissor;
+  uint16_t probe;
   Shader* shader;
   Material* material;
   gpu_pipeline_info* pipelineInfo;
@@ -574,6 +577,8 @@ struct Pass {
   Pipeline* pipeline;
   uint32_t transformIndex;
   uint32_t pipelineIndex;
+  float* probes;
+  uint32_t probeCount;
   gpu_binding* bindings;
   void* uniforms;
   uint32_t computeCount;
@@ -742,7 +747,8 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     { .number = 0, .type = GPU_SLOT_UNIFORM_BUFFER, .stages = GPU_STAGE_GRAPHICS }, // Globals
     { .number = 1, .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .stages = GPU_STAGE_GRAPHICS }, // Cameras
     { .number = 2, .type = GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .stages = GPU_STAGE_GRAPHICS }, // DrawData
-    { .number = 3, .type = GPU_SLOT_SAMPLER, .stages = GPU_STAGE_GRAPHICS } // Sampler
+    { .number = 3, .type = GPU_SLOT_STORAGE_BUFFER, .stages = GPU_STAGE_GRAPHICS }, // LightProbes
+    { .number = 4, .type = GPU_SLOT_SAMPLER, .stages = GPU_STAGE_GRAPHICS } // Sampler
   };
 
   gpu_slot materialSlots[] = {
@@ -1440,7 +1446,8 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
     { 0, GPU_SLOT_UNIFORM_BUFFER, .buffer = { 0 } },
     { 1, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .buffer = { 0 } },
     { 2, GPU_SLOT_UNIFORM_BUFFER_DYNAMIC, .buffer = { 0 } },
-    { 3, GPU_SLOT_SAMPLER, .texture.sampler = pass->sampler ? pass->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu }
+    { 3, GPU_SLOT_STORAGE_BUFFER, .buffer = { 0 } },
+    { 4, GPU_SLOT_SAMPLER, .texture.sampler = pass->sampler ? pass->sampler->gpu : state.defaultSamplers[FILTER_LINEAR]->gpu }
   };
 
   BufferView view;
@@ -1492,6 +1499,19 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
     data->color[1] = draw->color[1];
     data->color[2] = draw->color[2];
     data->color[3] = draw->color[3];
+  }
+
+  // LightProbes
+  view = getBuffer(GPU_BUFFER_STREAM, pass->probeCount * 36 * sizeof(float), state.limits.storageBufferAlign);
+  if (!view.buffer) goto fail;
+  builtins[3].buffer = (gpu_buffer_binding) { view.buffer, view.offset, view.extent };
+
+  float* p = pass->probes;
+  float* q = view.pointer;
+  for (uint32_t i = 0; i < pass->probeCount; i++) {
+    for (uint32_t j = 0; j < 9; j++, p += 3, q += 4) {
+      memcpy(q, p, 3 * sizeof(float));
+    }
   }
 
   gpu_bundle* builtinBundle = getBundle(state.builtinLayout, builtins, COUNTOF(builtins));
@@ -1637,7 +1657,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
     }
 
     if (draw->shader->pushConstantSize >= 4) {
-      gpu_push_constants(stream, draw->shader->gpu, (uint32_t[1]) { i & 0xff }, 4);
+      gpu_push_constants(stream, draw->shader->gpu, (uint32_t[1]) { (draw->probe << 16) | (i & 0xff) }, 4);
     }
 
     if (draw->flags & DRAW_INDIRECT) {
@@ -3133,6 +3153,72 @@ bool lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count)
   return true;
 }
 
+Readback* lovrTextureComputeLightProbe(Texture* texture, uint32_t level) {
+  bool cubemap = texture->info.type == TEXTURE_CUBE;
+
+  lovrCheck(cubemap || texture->info.type == TEXTURE_2D, "Texture type must be 2d or cube");
+  lovrCheck(texture->info.usage == TEXTURE_SAMPLE, "Texture must have 'sample' usage");
+  lovrCheck(level < texture->info.mipmaps, "Mipmap level is out of range");
+
+  Readback* readback = lovrReadbackCreateEmpty(9 * 4 * sizeof(float));
+  if (!readback) return NULL;
+
+  mtx_lock(&state.lock);
+
+  gpu_barrier barrier = syncStream(texture->sync, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_TEXTURE);
+  gpu_sync(state.stream, &barrier, 1);
+
+  Shader* shader = lovrGraphicsGetDefaultShader(cubemap ? SHADER_HARMONICA_CUBEMAP : SHADER_HARMONICA_EQUIRECT);
+  if (!shader) return mtx_unlock(&state.lock), NULL;
+
+  gpu_texture* view;
+  size_t stack = stackPush(&thread.stack);
+
+  // Cubemaps need a temporary array view, since texelFetch doesn't work with cubemaps
+  if (cubemap) {
+    view = allocate(&thread.stack, gpu_sizeof_texture());
+
+    gpu_texture_view_info info = {
+      .source = texture->gpu,
+      .type = GPU_TEXTURE_ARRAY,
+      .usage = GPU_TEXTURE_SAMPLE,
+      .srgb = texture->info.srgb,
+      .label = "Cubemap View"
+    };
+
+    if (!gpu_texture_init_view(view, &info)) {
+      stackPop(&thread.stack, stack);
+      mtx_unlock(&state.lock);
+      lovrSetError("Failed to create cubemap texture view: %s", gpu_get_error());
+      return NULL;
+    }
+  } else {
+    view = texture->gpu;
+  }
+
+  gpu_binding bindings[] = {
+    { 0, GPU_SLOT_SAMPLED_TEXTURE, .texture.object = view },
+    { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { readback->view.buffer, 0, readback->view.extent } }
+  };
+
+  gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
+  if (!bundle) return mtx_unlock(&state.lock), NULL;
+
+  gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
+  gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
+  gpu_push_constants(state.stream, shader->gpu, (uint32_t[1]) { level }, 4);
+  gpu_compute(state.stream, 1, 1, 1);
+
+  if (cubemap) {
+    gpu_texture_destroy(view);
+  }
+
+  stackPop(&thread.stack, stack);
+  mtx_unlock(&state.lock);
+
+  return readback;
+}
+
 Sampler* lovrTextureGetSampler(Texture* texture) {
   return texture->sampler;
 }
@@ -3537,6 +3623,12 @@ ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage 
     },
     [SHADER_TALLY_MERGE] = {
       [STAGE_COMPUTE] = { STAGE_COMPUTE, NULL, lovr_shader_tallymerge_comp, sizeof(lovr_shader_tallymerge_comp) }
+    },
+    [SHADER_HARMONICA_CUBEMAP] = {
+      [STAGE_COMPUTE] = { STAGE_COMPUTE, NULL, lovr_shader_harmonica_cubemap_comp, sizeof(lovr_shader_harmonica_cubemap_comp) }
+    },
+    [SHADER_HARMONICA_EQUIRECT] = {
+      [STAGE_COMPUTE] = { STAGE_COMPUTE, NULL, lovr_shader_harmonica_equirect_comp, sizeof(lovr_shader_harmonica_equirect_comp) }
     }
   };
 
@@ -3547,7 +3639,14 @@ Shader* lovrGraphicsGetDefaultShader(DefaultShader type) {
   Shader* shader = state.defaultShaders[type];
 
   if (!shader) {
-    if (type == SHADER_ANIMATOR || type == SHADER_BLENDER || type == SHADER_TALLY_MERGE) {
+    bool compute =
+      type == SHADER_ANIMATOR ||
+      type == SHADER_BLENDER ||
+      type == SHADER_TALLY_MERGE ||
+      type == SHADER_HARMONICA_CUBEMAP ||
+      type == SHADER_HARMONICA_EQUIRECT;
+
+    if (compute) {
       shader = lovrShaderCreate(&(ShaderInfo) {
         .type = SHADER_COMPUTE,
         .stages = (ShaderSource[1]) {
@@ -6615,6 +6714,18 @@ static Readback* lovrReadbackCreate(ReadbackType type) {
   return readback;
 }
 
+Readback* lovrReadbackCreateEmpty(uint32_t extent) {
+  mtx_lock(&state.lock);
+  BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, 4);
+  if (!view.buffer) return mtx_unlock(&state.lock), NULL;
+  Readback* readback = lovrReadbackCreate(READBACK_BUFFER);
+  void* data = lovrMalloc(extent);
+  readback->blob = lovrBlobCreate(data, extent, "Readback");
+  readback->view = view;
+  mtx_unlock(&state.lock);
+  return readback;
+}
+
 Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t extent) {
   if (extent == ~0u) extent = buffer->info.size - offset;
   lovrCheck(offset + extent <= buffer->info.size, "Tried to read past the end of the Buffer");
@@ -6762,7 +6873,7 @@ bool lovrReadbackWait(Readback* readback) {
 void* lovrReadbackGetData(Readback* readback, DataField** format, uint32_t* count) {
   if (!lovrReadbackPoll(readback)) return NULL;
 
-  if (readback->type == READBACK_BUFFER && readback->buffer->info.format) {
+  if (readback->type == READBACK_BUFFER && readback->buffer && readback->buffer->info.format) {
     *format = readback->buffer->info.format;
     *count = (uint32_t) (readback->blob->size / readback->buffer->info.format->stride);
     return readback->blob->data;
@@ -6987,6 +7098,10 @@ void lovrPassReset(Pass* pass) {
 
   lovrPassSetViewport(pass, (float[6]) { 0.f, 0.f, (float) pass->width, (float) pass->height, 0.f, 1.f });
   lovrPassSetScissor(pass, (uint32_t[4]) { 0, 0, pass->width, pass->height });
+
+  pass->probes = lovrPassAllocate(pass, 27 * sizeof(float));
+  memset(pass->probes, 0, 27 * sizeof(float));
+  pass->probeCount = 1;
 
   pass->sampler = NULL;
 }
@@ -7395,6 +7510,7 @@ bool lovrPassPush(Pass* pass, StackType stack) {
       lovrRetain(pass->pipeline->font);
       lovrRetain(pass->pipeline->shader);
       lovrRetain(pass->pipeline->material);
+      pass->flags &= ~DIRTY_PROBE;
       return true;
     default: return true;
   }
@@ -7407,6 +7523,7 @@ bool lovrPassPop(Pass* pass, StackType stack) {
       pass->transform -= 16;
       return true;
     case STACK_STATE:
+      pass->flags &= ~DIRTY_PROBE;
       lovrRelease(pass->pipeline->font, lovrFontDestroy);
       lovrRelease(pass->pipeline->shader, lovrShaderDestroy);
       lovrRelease(pass->pipeline->material, lovrMaterialDestroy);
@@ -7561,6 +7678,36 @@ void lovrPassSetFont(Pass* pass, Font* font) {
     lovrRelease(pass->pipeline->font, lovrFontDestroy);
     pass->pipeline->font = font;
   }
+}
+
+void lovrPassSetLightProbe(Pass* pass, LightProbe* probe) {
+  if (!probe) {
+    pass->pipeline->probe = 0;
+    return;
+  }
+
+  const float* data = lovrLightProbeGetData(probe);
+  const size_t size = 27 * sizeof(float);
+
+  if (!memcmp(pass->probes + (pass->probeCount - 1) * 27, data, size)) {
+    pass->pipeline->probe = pass->probeCount - 1;
+    return;
+  }
+
+  if (pass->flags & DIRTY_PROBE) {
+    memcpy(pass->probes + (pass->probeCount - 1) * 27, data, size);
+    return;
+  }
+
+  if ((pass->probeCount & (pass->probeCount - 1)) == 0) {
+    float* probes = lovrPassAllocate(pass, MAX(pass->probeCount << 1, 1) * size);
+    if (pass->probes) memcpy(probes, pass->probes, pass->probeCount * size);
+    pass->probes = probes;
+  }
+
+  memcpy(pass->probes + pass->probeCount * 27, data, size);
+  pass->pipeline->probe = pass->probeCount++;
+  pass->flags |= DIRTY_PROBE;
 }
 
 void lovrPassSetMaterial(Pass* pass, Material* material) {
@@ -8179,6 +8326,9 @@ bool lovrPassDraw(Pass* pass, DrawInfo* info) {
   draw->viewport = pass->viewportCount - 1;
   draw->scissor = pass->scissorCount - 1;
   pass->flags &= ~DIRTY_CAMERA & ~DIRTY_VIEWPORT & ~DIRTY_SCISSOR;
+
+  draw->probe = pass->pipeline->probe;
+  if (pass->pipeline->probe == pass->probeCount - 1) pass->flags &= ~DIRTY_PROBE;
 
   draw->shader = pass->pipeline->shader ? pass->pipeline->shader : lovrGraphicsGetDefaultShader(info->shader);
   if (!draw->shader) return false;

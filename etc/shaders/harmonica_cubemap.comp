@@ -1,0 +1,83 @@
+#version 460
+#extension GL_EXT_samplerless_texture_functions : require
+#extension GL_GOOGLE_include_directive : require
+
+#include "lovr.glsl"
+
+layout(constant_id = 0) const uint subgroupSize = 0;
+
+#define THREADS 96
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 6) in;
+shared vec3 coefficients[THREADS][9];
+shared float totalAngle[THREADS];
+
+layout(set = 0, binding = 0) uniform texture2DArray cubemap;
+layout(set = 0, binding = 1) writeonly buffer Basis { vec3 basis[9]; };
+layout(push_constant) uniform PushConstants { uint level; };
+
+void lovrmain() {
+  uint id = LocalThreadIndex;
+  uint face = LocalThreadID.z;
+
+  totalAngle[id] = 0.;
+  for (int i = 0; i < 9; i++) {
+    coefficients[id][i] = vec3(0.);
+  }
+
+  int size = textureSize(cubemap, int(level)).x;
+  int tile = size / int(WorkgroupSize.x);
+  ivec2 origin = ivec2(LocalThreadID.xy) * tile;
+
+  for (int y = 0; y < tile; y++) {
+    for (int x = 0; x < tile; x++) {
+      ivec2 xy = origin + ivec2(x, y);
+      vec2 uv = (xy + .5) / size * 2. - 1.;
+
+      // Note: Z coordinate is flipped to convert to left-handed cubemap coordinate space
+      vec3 dir;
+      switch (face) {
+        case 0: dir = vec3(+1., -uv.y, +uv.x); break;
+        case 1: dir = vec3(-1., -uv.y, -uv.x); break;
+        case 2: dir = vec3(+uv.x, +1., -uv.y); break;
+        case 3: dir = vec3(+uv.x, -1., +uv.y); break;
+        case 4: dir = vec3(+uv.x, -uv.y, -1.); break;
+        case 5: dir = vec3(-uv.x, -uv.y, +1.); break;
+      }
+
+      float len2 = dot(dir, dir);
+      float len = sqrt(len2);
+      dir *= 1. / len;
+
+      float solidAngle = 4. / (len2 * len); // (uv^2)^(3/2) == len(uv)^2 * len(uv)
+      vec3 color = texelFetch(cubemap, ivec3(xy, face), int(level)).rgb * solidAngle;
+      totalAngle[id] += solidAngle;
+
+      coefficients[id][0] += color * .28209479177388;
+      coefficients[id][1] += color * .48860251190292 * dir.y;
+      coefficients[id][2] += color * .48860251190292 * dir.z;
+      coefficients[id][3] += color * .48860251190292 * dir.x;
+      coefficients[id][4] += color * 1.0925484305921 * dir.x * dir.y;
+      coefficients[id][5] += color * 1.0925484305921 * dir.y * dir.z;
+      coefficients[id][6] += color * .31539156525252 * (3. * dir.z * dir.z - 1.);
+      coefficients[id][7] += color * 1.0925484305921 * dir.x * dir.z;
+      coefficients[id][8] += color * .54627421529604 * (dir.x * dir.x - dir.y * dir.y);
+    }
+  }
+
+  barrier();
+
+  if (id == 0) {
+    for (int t = 1; t < THREADS; t++) {
+      totalAngle[0] += totalAngle[t];
+      for (int i = 0; i < 9; i++) {
+        coefficients[0][i] += coefficients[t][i];
+      }
+    }
+
+    float scale = 4. * PI / totalAngle[0];
+
+    for (int i = 0; i < 9; i++) {
+      basis[i] = coefficients[0][i] * scale;
+    }
+  }
+}

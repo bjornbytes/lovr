@@ -9,6 +9,7 @@ struct Image;
 struct Rasterizer;
 struct ModelData;
 struct ModelMetadata;
+struct LightProbe;
 
 typedef struct Buffer Buffer;
 typedef struct Texture Texture;
@@ -276,6 +277,7 @@ bool lovrTextureCopy(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t
 bool lovrTextureBlit(Texture* src, Texture* dst, uint32_t srcOffset[4], uint32_t dstOffset[4], uint32_t srcExtent[3], uint32_t dstExtent[3], FilterMode filter);
 bool lovrTextureClear(Texture* texture, float value[4], uint32_t layer, uint32_t layerCount, uint32_t level, uint32_t levelCount);
 bool lovrTextureGenerateMipmaps(Texture* texture, uint32_t base, uint32_t count);
+Readback* lovrTextureComputeLightProbe(Texture* texture, uint32_t level);
 Sampler* lovrTextureGetSampler(Texture* texture);
 void lovrTextureSetSampler(Texture* texture, Sampler* sampler);
 Material* lovrTextureToMaterial(Texture* texture);
@@ -326,6 +328,8 @@ typedef enum {
   SHADER_ANIMATOR,
   SHADER_BLENDER,
   SHADER_TALLY_MERGE,
+  SHADER_HARMONICA_CUBEMAP,
+  SHADER_HARMONICA_EQUIRECT,
   DEFAULT_SHADER_COUNT
 } DefaultShader;
 
@@ -573,6 +577,7 @@ typedef struct {
   double submit;
 } Timing;
 
+Readback* lovrReadbackCreateEmpty(uint32_t extent);
 Readback* lovrReadbackCreateBuffer(Buffer* buffer, uint32_t offset, uint32_t extent);
 Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32_t extent[3]);
 void lovrReadbackDestroy(void* ref);
@@ -740,6 +745,7 @@ void lovrPassSetDepthOffset(Pass* pass, float offset, float sloped);
 void lovrPassSetDepthClamp(Pass* pass, bool clamp);
 void lovrPassSetFaceCull(Pass* pass, CullMode mode);
 void lovrPassSetFont(Pass* pass, Font* font);
+void lovrPassSetLightProbe(Pass* pass, struct LightProbe* probe);
 void lovrPassSetMaterial(Pass* pass, Material* material);
 void lovrPassSetMeshMode(Pass* pass, DrawMode mode);
 void lovrPassSetSampler(Pass* pass, Sampler* sampler);

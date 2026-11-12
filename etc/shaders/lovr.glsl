@@ -32,10 +32,15 @@ struct Draw {
   vec4 color;
 };
 
+struct LightProbe {
+  vec3 coefficients[9];
+};
+
 layout(set = 0, binding = 0) uniform Globals { vec2 Resolution; float Time; };
 layout(set = 0, binding = 1) uniform CameraBuffer { Camera Cameras[6]; };
 layout(set = 0, binding = 2) uniform DrawBuffer { layout(row_major) Draw Draws[256]; };
-layout(set = 0, binding = 3) uniform sampler Sampler;
+layout(set = 0, binding = 3) readonly buffer LightProbeBuffer { LightProbe LightProbes[]; };
+layout(set = 0, binding = 4) uniform sampler Sampler;
 
 struct MaterialData {
   vec4 color;
@@ -64,7 +69,7 @@ layout(set = 1, binding = 6) uniform texture2D OcclusionTexture;
 layout(set = 1, binding = 7) uniform texture2D NormalTexture;
 
 layout(push_constant) uniform PushConstants {
-  uint _drawID;
+  uint drawIdAndProbe;
 };
 #endif
 
@@ -152,6 +157,7 @@ layout(location = 15) in vec4 Tangent;
 
 #define Constants uniform DefaultUniformBlock
 #define raytracer accelerationStructureEXT
+#define ProbeIndex (drawIdAndProbe >> 16)
 
 #ifndef GL_COMPUTE_SHADER
 #define Projection Cameras[ViewIndex].projection
@@ -162,9 +168,10 @@ layout(location = 15) in vec4 Tangent;
 #endif
 
 #ifdef GL_VERTEX_SHADER
-#define Transform mat4(Draws[_drawID].transform)
-#define NormalMatrix (cofactor3(Draws[_drawID].transform))
-#define PassColor Draws[_drawID].color
+#define DrawID (drawIdAndProbe & 0xffff)
+#define Transform mat4(Draws[DrawID].transform)
+#define NormalMatrix (cofactor3(Draws[DrawID].transform))
+#define PassColor Draws[DrawID].color
 #define ClipFromLocal (ViewProjection * Transform)
 #define ClipFromWorld (ViewProjection)
 #define ClipFromView (Projection)
@@ -192,7 +199,7 @@ mat3 cofactor3(mat4x3 m) {
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
-#define DefaultColor (flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color)
+#define DefaultColor ((flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color) + vec4(getProbeColor(), 1.))
 #endif
 
 // Helper for sampling textures using the default sampler set using Pass:setSampler
@@ -409,6 +416,7 @@ vec2 prefilteredBRDF(float NoV, float roughness) {
   return vec2(-1.04, 1.04) * a004 + r.zw;
 }
 
+// Deprecated
 vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
   return max(
     sh[0] +
@@ -421,6 +429,26 @@ vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
     sh[7] * n.z * n.x +
     sh[8] * (n.x * n.x - n.y * n.y)
   , 0.);
+}
+
+vec3 getProbeColor(LightProbe probe, vec3 n) {
+  vec3 sh[9] = probe.coefficients;
+  return max(
+    .88622692545276 * sh[0] +
+    1.0233267079465 * sh[1] * n.y +
+    1.0233267079465 * sh[2] * n.z +
+    1.0233267079465 * sh[3] * n.x +
+    .85808553080978 * sh[4] * n.x * n.y +
+    .85808553080978 * sh[5] * n.y * n.z +
+    .24770795610038 * sh[6] * (3 * n.z * n.z - 1) +
+    .85808553080978 * sh[7] * n.x * n.z +
+    .42904276540489 * sh[8] * (n.x * n.x - n.y * n.y),
+    0.
+  );
+}
+
+vec3 getProbeColor() {
+  return getProbeColor(LightProbes[ProbeIndex], normalize(Normal));
 }
 
 vec3 getIndirectLighting(const Surface surface, textureCube environment, vec3 sphericalHarmonics[9]) {

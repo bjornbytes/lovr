@@ -16,8 +16,8 @@ struct Curve {
 };
 
 struct LightProbe {
-  uint32_t ref;
-  float coefficients[9][3];
+  atomic_uint ref;
+  float data[9][3];
 };
 
 struct Mat4 {
@@ -293,204 +293,89 @@ float lovrCurveStep(Curve* curve, float distance, int iterations) {
 // LightProbe
 
 LightProbe* lovrLightProbeCreate(void) {
-  LightProbe* probe = calloc(1, sizeof(LightProbe));
-  lovrAssert(probe, "Out of memory");
-  lovrLightProbeClear(probe);
+  LightProbe* probe = lovrCalloc(sizeof(LightProbe));
   probe->ref = 1;
   return probe;
 }
 
 void lovrLightProbeDestroy(void* ref) {
   LightProbe* probe = ref;
-  free(probe);
+  lovrFree(probe);
+}
+
+float* lovrLightProbeGetData(LightProbe* probe) {
+  return &probe->data[0][0];
 }
 
 void lovrLightProbeClear(LightProbe* probe) {
-  memset(probe->coefficients, 0, sizeof(probe->coefficients));
+  memset(probe->data, 0, sizeof(probe->data));
 }
 
-void lovrLightProbeGetCoefficients(LightProbe* probe, float coefficients[9][3]) {
-  memcpy(coefficients, probe->coefficients, sizeof(probe->coefficients));
-}
+void lovrLightProbeEvaluate(LightProbe* probe, float normal[3], float color[3]) {
+  memset(color, 0, 3 * sizeof(float));
 
-void lovrLightProbeSetCoefficients(LightProbe* probe, float coefficients[9][3]) {
-  memcpy(probe->coefficients, coefficients, sizeof(probe->coefficients));
-}
-
-void lovrLightProbeEvaluate(LightProbe* probe, float normal[4], float color[4]) {
-  memset(color, 0, 4 * sizeof(float));
-
-  float n[4];
+  float n[3];
   vec3_init(n, normal);
   vec3_normalize(n);
 
   for (uint32_t i = 0; i < 3; i++) {
-    color[i] += .88622692545276f * probe->coefficients[0][i];
+    color[i] += .88622692545276f * probe->data[0][i];
 
-    color[i] += 1.0233267079465f * probe->coefficients[1][i] * n[1];
-    color[i] += 1.0233267079465f * probe->coefficients[2][i] * n[2];
-    color[i] += 1.0233267079465f * probe->coefficients[3][i] * n[0];
+    color[i] += 1.0233267079465f * probe->data[1][i] * n[1];
+    color[i] += 1.0233267079465f * probe->data[2][i] * n[2];
+    color[i] += 1.0233267079465f * probe->data[3][i] * n[0];
 
-    color[i] += .85808553080978f * probe->coefficients[4][i] * n[0] * n[1];
-    color[i] += .85808553080978f * probe->coefficients[5][i] * n[1] * n[2];
-    color[i] += .24770795610038f * probe->coefficients[6][i] * (3.f * n[2] * n[2] - 1.f);
-    color[i] += .85808553080978f * probe->coefficients[7][i] * n[0] * n[2];
-    color[i] += .42904276540489f * probe->coefficients[8][i] * (n[0] * n[0] - n[1] * n[1]);
+    color[i] += .85808553080978f * probe->data[4][i] * n[0] * n[1];
+    color[i] += .85808553080978f * probe->data[5][i] * n[1] * n[2];
+    color[i] += .24770795610038f * probe->data[6][i] * (3.f * n[2] * n[2] - 1.f);
+    color[i] += .85808553080978f * probe->data[7][i] * n[0] * n[2];
+    color[i] += .42904276540489f * probe->data[8][i] * (n[0] * n[0] - n[1] * n[1]);
   }
 }
 
-void lovrLightProbeAddAmbientLight(LightProbe* probe, float color[4]) {
+void lovrLightProbeAddAmbientLight(LightProbe* probe, float color[3]) {
   float scale = 3.544907701811f; // 2 * math.pi ^ .5
-  probe->coefficients[0][0] += scale * .28209479177388f * color[0];
-  probe->coefficients[0][1] += scale * .28209479177388f * color[1];
-  probe->coefficients[0][2] += scale * .28209479177388f * color[2];
+  probe->data[0][0] += scale * .28209479177388f * color[0];
+  probe->data[0][1] += scale * .28209479177388f * color[1];
+  probe->data[0][2] += scale * .28209479177388f * color[2];
 }
 
-void lovrLightProbeAddDirectionalLight(LightProbe* probe, float direction[4], float color[4]) {
-  float dir[4];
+void lovrLightProbeAddDirectionalLight(LightProbe* probe, float direction[3], float color[3]) {
+  float dir[3];
   vec3_init(dir, direction);
   vec3_normalize(dir);
 
   float scale = 2.9567930857316f; // 16 * math.pi / 17
 
   for (uint32_t i = 0; i < 3; i++) {
-    probe->coefficients[0][i] += scale * .28209479177388f * color[i];
-    probe->coefficients[1][i] += scale * .48860251190292f * color[i] * dir[1];
-    probe->coefficients[2][i] += scale * .48860251190292f * color[i] * dir[2];
-    probe->coefficients[3][i] += scale * .48860251190292f * color[i] * dir[0];
-    probe->coefficients[4][i] += scale * 1.0925484305921f * color[i] * dir[0] * dir[1];
-    probe->coefficients[5][i] += scale * 1.0925484305921f * color[i] * dir[1] * dir[2];
-    probe->coefficients[6][i] += scale * .31539156525252f * color[i] * (3.f * dir[2] * dir[2] - 1.f);
-    probe->coefficients[7][i] += scale * 1.0925484305921f * color[i] * dir[0] * dir[2];
-    probe->coefficients[8][i] += scale * .54627421529604f * color[i] * (dir[0] * dir[0] - dir[1] * dir[1]);
+    probe->data[0][i] += scale * .28209479177388f * color[i];
+    probe->data[1][i] += scale * .48860251190292f * color[i] * dir[1];
+    probe->data[2][i] += scale * .48860251190292f * color[i] * dir[2];
+    probe->data[3][i] += scale * .48860251190292f * color[i] * dir[0];
+    probe->data[4][i] += scale * 1.0925484305921f * color[i] * dir[0] * dir[1];
+    probe->data[5][i] += scale * 1.0925484305921f * color[i] * dir[1] * dir[2];
+    probe->data[6][i] += scale * .31539156525252f * color[i] * (3.f * dir[2] * dir[2] - 1.f);
+    probe->data[7][i] += scale * 1.0925484305921f * color[i] * dir[0] * dir[2];
+    probe->data[8][i] += scale * .54627421529604f * color[i] * (dir[0] * dir[0] - dir[1] * dir[1]);
   }
 }
 
-void lovrLightProbeAddCubemap(LightProbe* probe, uint32_t size, fn_pixel* getPixel, void* context) {
-  float coefficients[9][3];
-  memset(coefficients, 0, sizeof(coefficients));
-
-  float totalAngle = 0.;
-  for (uint32_t face = 0; face < 6; face++) {
-    for (uint32_t y = 0; y < size; y++) {
-      for (uint32_t x = 0; x < size; x++) {
-        float u = 2.f * ((float) x + 0.5f) / (float) size - 1.f;
-        float v = 2.f * ((float) y + 0.5f) / (float) size - 1.f;
-        float dx, dy, dz;
-
-        switch (face) {
-          case 0: dx = -1.f; dy = -v; dz = -u; break;
-          case 1: dx = 1.f; dy = -v; dz = u; break;
-          case 2: dx = -u; dy = 1.f; dz = v; break;
-          case 3: dx = -u; dy = -1.f; dz = -v; break;
-          case 4: dx = -u; dy = -v; dz = 1.f; break;
-          case 5: dx = u; dy = -v; dz = -1.f; break;
-        }
-
-        float dot = dx * dx + dy * dy + dz * dz;
-        float length = sqrtf(dot);
-
-        dx /= length;
-        dy /= length;
-        dz /= length;
-
-        float solidAngle = 4.f / (dot * length);
-        totalAngle += solidAngle;
-
-        float color[4];
-        getPixel(context, x, y, face, color);
-
-        color[0] *= solidAngle;
-        color[1] *= solidAngle;
-        color[2] *= solidAngle;
-
-        for (uint32_t c = 0; c < 3; c++) {
-          coefficients[0][c] += .28209479177388f * color[c];
-          coefficients[1][c] += .48860251190292f * color[c] * dy;
-          coefficients[2][c] += .48860251190292f * color[c] * dz;
-          coefficients[3][c] += .48860251190292f * color[c] * dx;
-          coefficients[4][c] += 1.0925484305921f * color[c] * dx * dy;
-          coefficients[5][c] += 1.0925484305921f * color[c] * dy * dz;
-          coefficients[6][c] += .31539156525252f * color[c] * (3.f * dz * dz - 1.f);
-          coefficients[7][c] += 1.0925484305921f * color[c] * dx * dz;
-          coefficients[8][c] += .54627421529604f * color[c] * (dx * dx - dy * dy);
-        }
-      }
-    }
-  }
-
-  for (uint32_t i = 0; i < 9; i++) {
-    for (uint32_t c = 0; c < 3; c++) {
-      probe->coefficients[i][c] += (coefficients[i][c] / totalAngle) * 4.f * M_PI;
-    }
-  }
-}
-
-void lovrLightProbeAddEquirect(LightProbe* probe, uint32_t width, uint32_t height, fn_pixel* getPixel, void* context) {
-  float coefficients[9][3];
-  memset(coefficients, 0, sizeof(coefficients));
-
-  float totalAngle = 0.f;
-  float pi = (float) M_PI;
-  for (uint32_t y = 0; y < height; y++) {
-    float phi = y / (float) height * pi;
-    float sinphi = sinf(phi);
-    float cosphi = cosf(phi);
-    for (uint32_t x = 0; x < width; x++) {
-      float theta = (.75f - x / (float) width) * (2.f * pi);
-      float solidAngle = (2.f * pi / width) * (pi / height) * fabsf(cosphi);
-      totalAngle += solidAngle;
-
-      float color[4];
-      getPixel(context, x, y, 0, color);
-
-      color[0] *= solidAngle;
-      color[1] *= solidAngle;
-      color[2] *= solidAngle;
-
-      float dx = cosf(theta) * sinphi;
-      float dy = cosphi;
-      float dz = -sinf(theta) * sinphi;
-
-      for (uint32_t c = 0; c < 3; c++) {
-        coefficients[0][c] += .28209479177388f * color[c];
-        coefficients[1][c] += .48860251190292f * color[c] * dy;
-        coefficients[2][c] += .48860251190292f * color[c] * dz;
-        coefficients[3][c] += .48860251190292f * color[c] * dx;
-        coefficients[4][c] += 1.0925484305921f * color[c] * dx * dy;
-        coefficients[5][c] += 1.0925484305921f * color[c] * dy * dz;
-        coefficients[6][c] += .31539156525252f * color[c] * (3.f * dz * dz - 1.f);
-        coefficients[7][c] += 1.0925484305921f * color[c] * dx * dz;
-        coefficients[8][c] += .54627421529604f * color[c] * (dx * dx - dy * dy);
-      }
-    }
-  }
-
-  for (uint32_t i = 0; i < 9; i++) {
-    for (uint32_t c = 0; c < 3; c++) {
-      probe->coefficients[i][c] += (coefficients[i][c] / totalAngle) * 4.f * pi;
-    }
-  }
-}
-
-void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other) {
-  float* a = &probe->coefficients[0][0];
-  float* b = &other->coefficients[0][0];
+void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other, float scale) {
+  float* a = &probe->data[0][0];
+  float* b = &other->data[0][0];
   for (uint32_t i = 0; i < 27; i++) {
-    a[i] += b[i];
+    a[i] += b[i] * scale;
   }
 }
 
 void lovrLightProbeLerp(LightProbe* probe, LightProbe* other, float t) {
-  float* a = &probe->coefficients[0][0];
-  float* b = &other->coefficients[0][0];
-  for (uint32_t i = 0; i < 27; i++) {
-    a[i] = a[i] + (b[i] - a[i]) * t;
+  for (uint32_t i = 0; i < 9; i++) {
+    vec3_lerp(probe->data[i], other->data[i], t);
   }
 }
 
 void lovrLightProbeScale(LightProbe* probe, float scale) {
-  float* c = &probe->coefficients[0][0];
+  float* c = &probe->data[0][0];
   for (uint32_t i = 0; i < 27; i++) {
     c[i] *= scale;
   }

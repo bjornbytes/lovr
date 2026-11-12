@@ -1,0 +1,75 @@
+#version 460
+#extension GL_EXT_samplerless_texture_functions : require
+#extension GL_GOOGLE_include_directive : require
+
+#include "lovr.glsl"
+
+layout(constant_id = 0) const uint subgroupSize = 0;
+
+#define THREADS 64
+layout(local_size_x = 8, local_size_y = 8) in;
+shared vec3 coefficients[THREADS][9];
+shared float totalAngle[THREADS];
+
+layout(set = 0, binding = 0) uniform texture2D equirect;
+layout(set = 0, binding = 1) writeonly buffer Basis { vec3 basis[9]; };
+layout(push_constant) uniform PushConstants { int level; };
+
+void lovrmain() {
+  uint id = LocalThreadIndex;
+
+  totalAngle[id] = 0.;
+  for (int i = 0; i < 9; i++) {
+    coefficients[id][i] = vec3(0.);
+  }
+
+  ivec2 size = textureSize(equirect, int(level));
+  ivec2 tile = (size + ivec2(7, 7)) / ivec2(WorkgroupSize.xy);
+  ivec2 origin = ivec2(LocalThreadID.xy) * tile;
+  float width = size.x;
+  float height = size.y;
+
+  for (int y = 0; y < tile.y; y++) {
+    if (origin.y + y >= size.y) continue;
+    float phi = (origin.y + y) / height * PI;
+    float sinphi = sin(phi);
+    float cosphi = cos(phi);
+
+    for (int x = 0; x < tile.x; x++) {
+      if (origin.x + x >= size.x) continue;
+      float theta = (.75 - (origin.x + x) / width) * 2. * PI;
+
+      float solidAngle = (2. * PI / width) * (PI / height) * abs(sinphi);
+      totalAngle[id] += solidAngle;
+
+      vec3 color = texelFetch(equirect, origin + ivec2(x, y), int(level)).rgb * solidAngle;
+      vec3 dir = normalize(vec3(cos(theta) * sinphi, cosphi, -sin(theta) * sinphi));
+      coefficients[id][0] += color * .28209479177388;
+      coefficients[id][1] += color * .48860251190292 * dir.y;
+      coefficients[id][2] += color * .48860251190292 * dir.z;
+      coefficients[id][3] += color * .48860251190292 * dir.x;
+      coefficients[id][4] += color * 1.0925484305921 * dir.x * dir.y;
+      coefficients[id][5] += color * 1.0925484305921 * dir.y * dir.z;
+      coefficients[id][6] += color * .31539156525252 * (3. * dir.z * dir.z - 1.);
+      coefficients[id][7] += color * 1.0925484305921 * dir.x * dir.z;
+      coefficients[id][8] += color * .54627421529604 * (dir.x * dir.x - dir.y * dir.y);
+    }
+  }
+
+  barrier();
+
+  if (id == 0) {
+    for (int t = 1; t < THREADS; t++) {
+      totalAngle[0] += totalAngle[t];
+      for (int i = 0; i < 9; i++) {
+        coefficients[0][i] += coefficients[t][i];
+      }
+    }
+
+    float scale = 4. * PI / totalAngle[0];
+
+    for (int i = 0; i < 9; i++) {
+      basis[i] = coefficients[0][i] * scale;
+    }
+  }
+}

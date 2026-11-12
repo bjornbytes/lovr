@@ -36,19 +36,14 @@ float lovrCurveStep(Curve* curve, float distance, int iterations);
 
 // LightProbe
 
-typedef void fn_pixel(void* context, uint32_t x, uint32_t y, uint32_t z, float color[4]);
-
 LightProbe* lovrLightProbeCreate(void);
 void lovrLightProbeDestroy(void* ref);
+float* lovrLightProbeGetData(LightProbe* probe);
 void lovrLightProbeClear(LightProbe* probe);
-void lovrLightProbeGetCoefficients(LightProbe* probe, float coefficients[9][3]);
-void lovrLightProbeSetCoefficients(LightProbe* probe, float coefficients[9][3]);
-void lovrLightProbeEvaluate(LightProbe* probe, float normal[4], float color[4]);
+void lovrLightProbeEvaluate(LightProbe* probe, float normal[3], float color[3]);
 void lovrLightProbeAddAmbientLight(LightProbe* probe, float color[4]);
-void lovrLightProbeAddDirectionalLight(LightProbe* probe, float direction[4], float color[4]);
-void lovrLightProbeAddCubemap(LightProbe* probe, uint32_t size, fn_pixel* getPixel, void* context);
-void lovrLightProbeAddEquirect(LightProbe* probe, uint32_t width, uint32_t height, fn_pixel* getPixel, void* context);
-void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other);
+void lovrLightProbeAddDirectionalLight(LightProbe* probe, float direction[3], float color[3]);
+void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other, float scale);
 void lovrLightProbeLerp(LightProbe* probe, LightProbe* other, float t);
 void lovrLightProbeScale(LightProbe* probe, float scale);
 
