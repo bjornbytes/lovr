@@ -191,6 +191,7 @@ struct ColoredString* luax_checkcoloredstrings(lua_State* L, int index, uint32_t
 
 #ifndef LOVR_DISABLE_MATH
 uint64_t luax_checkrandomseed(lua_State* L, int index);
+void luax_readprobe(lua_State* L, int index, float* data);
 #endif
 
 #ifndef LOVR_DISABLE_PHYSICS

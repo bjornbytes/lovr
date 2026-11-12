@@ -1,7 +1,9 @@
 #include "api.h"
 #include "util.h"
 #include "graphics/graphics.h"
+#include "data/blob.h"
 #include "data/image.h"
+#include "math/math.h"
 #include <string.h>
 
 static int l_lovrTextureGetLabel(lua_State* L) {
@@ -232,6 +234,33 @@ static int l_lovrTextureGenerateMipmaps(lua_State* L) {
   return 0;
 }
 
+static int luax_pushreadbackprobe(lua_State* L, bool success, void* readback) {
+  if (success) {
+    Blob* blob = lovrReadbackGetBlob(readback);
+    lovrRelease(readback, lovrReadbackDestroy);
+    LightProbe* probe = lovrLightProbeCreate();
+    float* src = blob->data;
+    float* dst = lovrLightProbeGetData(probe);
+    for (uint32_t i = 0; i < 9; i++, src += 4, dst += 3) {
+      memcpy(dst, src, 3 * sizeof(float));
+    }
+    luax_pushtype(L, LightProbe, probe);
+    lovrRelease(probe, lovrLightProbeDestroy);
+    return 1;
+  } else {
+    lovrRelease(readback, lovrReadbackDestroy);
+    return 0;
+  }
+}
+
+static int l_lovrTextureNewLightProbe(lua_State* L) {
+  Texture* texture = luax_checktype(L, 1, Texture);
+  uint32_t level = luax_optu32(L, 2, 0);
+  Readback* readback = lovrTextureComputeLightProbe(texture, level);
+  luax_assert(L, readback);
+  return luax_yieldpoll(L, luax_pollreadback, luax_waitreadback, luax_pushreadbackprobe, readback);
+}
+
 static int l_lovrTextureGetSampler(lua_State* L) {
   Texture* texture = luax_checktype(L, 1, Texture);
   Sampler* sampler = lovrTextureGetSampler(texture);
@@ -283,6 +312,7 @@ const luaL_Reg lovrTexture[] = {
   { "setPixels", l_lovrTextureSetPixels },
   { "clear", l_lovrTextureClear },
   { "generateMipmaps", l_lovrTextureGenerateMipmaps },
+  { "newLightProbe", l_lovrTextureNewLightProbe },
   { "getSampler", l_lovrTextureGetSampler },
   { "setSampler", l_lovrTextureSetSampler },
   { "__tostring", l_lovrTextureToString },
