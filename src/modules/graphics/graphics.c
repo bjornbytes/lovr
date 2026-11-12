@@ -800,7 +800,7 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
   float white[4] = { 1.f, 1.f, 1.f, 1.f };
   for (uint32_t y = 0; y < 4; y++) {
     for (uint32_t x = 0; x < 4; x++) {
-      lovrImageSetPixel(image, x, y, 0, white);
+      lovrImageSetPixel(image, x, y, white);
     }
   }
 
@@ -3157,7 +3157,7 @@ Readback* lovrTextureComputeLightProbe(Texture* texture, uint32_t level) {
   bool cubemap = texture->info.type == TEXTURE_CUBE;
 
   lovrCheck(cubemap || texture->info.type == TEXTURE_2D, "Texture type must be 2d or cube");
-  lovrCheck(texture->info.usage == TEXTURE_SAMPLE, "Texture must have 'sample' usage");
+  lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Texture must have 'sample' usage");
   lovrCheck(level < texture->info.mipmaps, "Mipmap level is out of range");
 
   Readback* readback = lovrReadbackCreateEmpty(9 * 4 * sizeof(float));

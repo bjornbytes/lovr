@@ -311,7 +311,7 @@ void lovrLightProbeClear(LightProbe* probe) {
   memset(probe->data, 0, sizeof(probe->data));
 }
 
-void lovrLightProbeEvaluate(LightProbe* probe, float normal[3], float color[3]) {
+void lovrLightProbeEvaluate(LightProbe* probe, float* normal, float* color) {
   memset(color, 0, 3 * sizeof(float));
 
   float n[3];
@@ -333,14 +333,14 @@ void lovrLightProbeEvaluate(LightProbe* probe, float normal[3], float color[3]) 
   }
 }
 
-void lovrLightProbeAddAmbientLight(LightProbe* probe, float color[3]) {
+void lovrLightProbeAddAmbientLight(LightProbe* probe, float* color) {
   float scale = 3.544907701811f; // 2 * math.pi ^ .5
   probe->data[0][0] += scale * .28209479177388f * color[0];
   probe->data[0][1] += scale * .28209479177388f * color[1];
   probe->data[0][2] += scale * .28209479177388f * color[2];
 }
 
-void lovrLightProbeAddDirectionalLight(LightProbe* probe, float direction[3], float color[3]) {
+void lovrLightProbeAddDirectionalLight(LightProbe* probe, float* direction, float* color) {
   float dir[3];
   vec3_init(dir, direction);
   vec3_normalize(dir);

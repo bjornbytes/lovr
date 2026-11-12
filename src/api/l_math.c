@@ -72,6 +72,7 @@ static int l_lovrMathNewLightProbe(lua_State* L) {
   float data[9][3];
   luax_readprobe(L, 2, &data[0][0]);
   LightProbe* probe = lovrLightProbeCreate();
+  memcpy(lovrLightProbeGetData(probe), data, sizeof(data));
   luax_pushtype(L, LightProbe, probe);
   lovrRelease(probe, lovrLightProbeDestroy);
   return 1;

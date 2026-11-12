@@ -199,7 +199,7 @@ mat3 cofactor3(mat4x3 m) {
 #endif
 
 #ifdef GL_FRAGMENT_SHADER
-#define DefaultColor ((flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color) + vec4(getProbeColor(), 1.))
+#define DefaultColor ((flag_colorTexture ? (Color * getPixel(ColorTexture, UV)) : Color) + vec4(getProbeColor(), 0.))
 #endif
 
 // Helper for sampling textures using the default sampler set using Pass:setSampler
