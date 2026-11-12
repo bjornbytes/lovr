@@ -1,4 +1,5 @@
-#include "shaders/unlit.vert.h"
+#include "shaders/default.vert.h"
+#include "shaders/default.frag.h"
 #include "shaders/unlit.frag.h"
 #include "shaders/normal.frag.h"
 #include "shaders/font.frag.h"

@@ -335,9 +335,9 @@ void lovrLightProbeEvaluate(LightProbe* probe, float* normal, float* color) {
 
 void lovrLightProbeAddAmbientLight(LightProbe* probe, float* color) {
   float scale = 3.544907701811f; // 2 * math.pi ^ .5
-  probe->data[0][0] += scale * .28209479177388f * color[0];
-  probe->data[0][1] += scale * .28209479177388f * color[1];
-  probe->data[0][2] += scale * .28209479177388f * color[2];
+  probe->data[0][0] += scale * color[0];
+  probe->data[0][1] += scale * color[1];
+  probe->data[0][2] += scale * color[2];
 }
 
 void lovrLightProbeAddDirectionalLight(LightProbe* probe, float* direction, float* color) {

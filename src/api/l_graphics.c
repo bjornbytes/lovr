@@ -77,6 +77,7 @@ StringEntry lovrCullMode[] = {
 };
 
 StringEntry lovrDefaultShader[] = {
+  [SHADER_DEFAULT] = ENTRY("default"),
   [SHADER_UNLIT] = ENTRY("unlit"),
   [SHADER_NORMAL] = ENTRY("normal"),
   [SHADER_FONT] = ENTRY("font"),
