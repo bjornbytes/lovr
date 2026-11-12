@@ -3583,16 +3583,20 @@ static bool lovrShaderInit(Shader* shader) {
 
 ShaderSource lovrGraphicsGetDefaultShaderSource(DefaultShader type, ShaderStage stage) {
   const ShaderSource sources[][3] = {
+    [SHADER_DEFAULT] = {
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_default_vert, sizeof(lovr_shader_default_vert) },
+      [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_default_frag, sizeof(lovr_shader_default_frag) }
+    },
     [SHADER_UNLIT] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_default_vert, sizeof(lovr_shader_default_vert) },
       [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_unlit_frag, sizeof(lovr_shader_unlit_frag) }
     },
     [SHADER_NORMAL] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_default_vert, sizeof(lovr_shader_default_vert) },
       [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_normal_frag, sizeof(lovr_shader_normal_frag) }
     },
     [SHADER_FONT] = {
-      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_unlit_vert, sizeof(lovr_shader_unlit_vert) },
+      [STAGE_VERTEX] = { STAGE_VERTEX, NULL, lovr_shader_default_vert, sizeof(lovr_shader_default_vert) },
       [STAGE_FRAGMENT] = { STAGE_FRAGMENT, NULL, lovr_shader_font_frag, sizeof(lovr_shader_font_frag) }
     },
     [SHADER_CUBEMAP] = {
@@ -7100,7 +7104,10 @@ void lovrPassReset(Pass* pass) {
   lovrPassSetScissor(pass, (uint32_t[4]) { 0, 0, pass->width, pass->height });
 
   pass->probes = lovrPassAllocate(pass, 27 * sizeof(float));
-  memset(pass->probes, 0, 27 * sizeof(float));
+  pass->probes[0] = 3.544907701811f;
+  pass->probes[1] = 3.544907701811f;
+  pass->probes[2] = 3.544907701811f;
+  memset(pass->probes + 3, 0, 24 * sizeof(float));
   pass->probeCount = 1;
 
   pass->sampler = NULL;
