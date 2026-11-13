@@ -3198,7 +3198,7 @@ Readback* lovrTextureComputeLightProbe(Texture* texture, uint32_t level) {
 
   gpu_binding bindings[] = {
     { 0, GPU_SLOT_SAMPLED_TEXTURE, .texture.object = view },
-    { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { readback->view.buffer, 0, readback->view.extent } }
+    { 1, GPU_SLOT_STORAGE_BUFFER, .buffer = { readback->view.buffer, readback->view.offset, readback->view.extent } }
   };
 
   gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
@@ -6720,7 +6720,7 @@ static Readback* lovrReadbackCreate(ReadbackType type) {
 
 Readback* lovrReadbackCreateEmpty(uint32_t extent) {
   mtx_lock(&state.lock);
-  BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, 4);
+  BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, state.limits.storageBufferAlign);
   if (!view.buffer) return mtx_unlock(&state.lock), NULL;
   Readback* readback = lovrReadbackCreate(READBACK_BUFFER);
   void* data = lovrMalloc(extent);
