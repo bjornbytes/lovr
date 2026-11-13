@@ -431,8 +431,7 @@ vec3 evaluateSphericalHarmonics(vec3 sh[9], vec3 n) {
   , 0.);
 }
 
-vec3 getProbeColor(LightProbe probe, vec3 n) {
-  vec3 sh[9] = probe.coefficients;
+vec3 getProbeColor(vec3 sh[9], vec3 n) {
   return max(
     .88622692545276 * sh[0] +
     1.0233267079465 * sh[1] * n.y +
@@ -447,9 +446,10 @@ vec3 getProbeColor(LightProbe probe, vec3 n) {
   );
 }
 
-vec3 getProbeColor() {
-  return getProbeColor(LightProbes[ProbeIndex], normalize(Normal));
-}
+vec3 getProbeColor(LightProbe probe, vec3 n) { return getProbeColor(probe.coefficients, n); }
+vec3 getProbeColor(LightProbe probe) { return getProbeColor(probe, normalize(Normal)); }
+vec3 getProbeColor(vec3 n) { return getProbeColor(LightProbes[ProbeIndex], n); }
+vec3 getProbeColor() { return getProbeColor(LightProbes[ProbeIndex], normalize(Normal)); }
 
 vec3 getIndirectLighting(const Surface surface, textureCube environment, vec3 sphericalHarmonics[9]) {
   float NoV = dot(surface.normal, surface.view);

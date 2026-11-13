@@ -57,12 +57,12 @@ void luax_readprobe(lua_State* L, int index, float* data) {
   } else {
     LightProbe* other = luax_totype(L, index, LightProbe);
 
-    if (!other) {
-      luax_typeerror(L, index, "number, table, or LightProbe");
+    if (other) {
+      memcpy(data, lovrLightProbeGetData(other), 27 * sizeof(float));
       return;
     }
 
-    memcpy(data, lovrLightProbeGetData(other), 27 * sizeof(float));
+    luax_typeerror(L, index, "number, table, or LightProbe");
   }
 }
 
