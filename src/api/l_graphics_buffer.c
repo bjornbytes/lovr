@@ -262,7 +262,27 @@ static bool luax_checkfieldt(lua_State* L, int index, const DataField* field, vo
   return ok;
 }
 
+static bool luax_optfieldprobe(lua_State* L, int index, uint32_t count, const DataField* field, char* data) {
+  if (count != 9 || field->fieldCount > 0 || (field->type != TYPE_F32x3 && field->type != TYPE_F32x4)) {
+    return false;
+  }
+
+  LightProbe* probe = luax_totype(L, index, LightProbe);
+  if (!probe) return false;
+
+  const float* p = lovrLightProbeGetData(probe);
+  for (int i = 0; i < 9; i++, data += field->stride) {
+    memcpy(data, p + 3 * i, 3 * sizeof(float));
+  }
+
+  return true;
+}
+
 static bool luax_checkstruct(lua_State* L, int index, const DataField* structure, char* data) {
+  if (structure->fieldCount == 1 && luax_optfieldprobe(L, index, structure->fields->length, structure->fields, data)) {
+    return true;
+  }
+
   luax_fieldcheck(L, lua_istable(L, index), index, structure, false);
   if (index < 0) index += lua_gettop(L) + 1;
   uint32_t length = luax_len(L, index);
@@ -317,6 +337,10 @@ static bool luax_checkstruct(lua_State* L, int index, const DataField* structure
 }
 
 static bool luax_checkarray(lua_State* L, int index, int start, int count, const DataField* array, char* data) {
+  if (luax_optfieldprobe(L, index, count, array, data)) {
+    return true;
+  }
+
   luax_fieldcheck(L, lua_istable(L, index), index, array, true);
   int length = luax_len(L, index);
   count = MIN(count, (length - start + 1));
