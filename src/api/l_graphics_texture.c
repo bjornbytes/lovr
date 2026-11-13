@@ -117,9 +117,9 @@ static bool luax_waitreadback(void** context) {
 static int luax_pushreadbackimage(lua_State* L, bool success, void* readback) {
   if (success) {
     Image* image = lovrReadbackGetImage(readback);
-    lovrRelease(readback, lovrReadbackDestroy);
     luax_assert(L, image);
     luax_pushtype(L, Image, image);
+    lovrRelease(readback, lovrReadbackDestroy);
     return 1;
   } else {
     lovrRelease(readback, lovrReadbackDestroy);
@@ -237,7 +237,6 @@ static int l_lovrTextureGenerateMipmaps(lua_State* L) {
 static int luax_pushreadbackprobe(lua_State* L, bool success, void* readback) {
   if (success) {
     Blob* blob = lovrReadbackGetBlob(readback);
-    lovrRelease(readback, lovrReadbackDestroy);
     LightProbe* probe = lovrLightProbeCreate();
     float* src = blob->data;
     float* dst = lovrLightProbeGetData(probe);
@@ -246,6 +245,7 @@ static int luax_pushreadbackprobe(lua_State* L, bool success, void* readback) {
     }
     luax_pushtype(L, LightProbe, probe);
     lovrRelease(probe, lovrLightProbeDestroy);
+    lovrRelease(readback, lovrReadbackDestroy);
     return 1;
   } else {
     lovrRelease(readback, lovrReadbackDestroy);
