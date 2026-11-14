@@ -3160,16 +3160,16 @@ Readback* lovrTextureComputeLightProbe(Texture* texture, uint32_t level) {
   lovrCheck(texture->info.usage & TEXTURE_SAMPLE, "Texture must have 'sample' usage");
   lovrCheck(level < texture->info.mipmaps, "Mipmap level is out of range");
 
-  Readback* readback = lovrReadbackCreateEmpty(9 * 4 * sizeof(float));
-  if (!readback) return NULL;
+  Shader* shader = lovrGraphicsGetDefaultShader(cubemap ? SHADER_HARMONICA_CUBEMAP : SHADER_HARMONICA_EQUIRECT);
+  if (!shader) return NULL;
 
   mtx_lock(&state.lock);
 
+  Readback* readback = lovrReadbackCreateEmpty(9 * 4 * sizeof(float));
+  if (!readback) return mtx_unlock(&state.lock), NULL;
+
   gpu_barrier barrier = syncStream(texture->sync, GPU_PHASE_SHADER_COMPUTE, GPU_CACHE_TEXTURE);
   gpu_sync(state.stream, &barrier, 1);
-
-  Shader* shader = lovrGraphicsGetDefaultShader(cubemap ? SHADER_HARMONICA_CUBEMAP : SHADER_HARMONICA_EQUIRECT);
-  if (!shader) return mtx_unlock(&state.lock), NULL;
 
   gpu_texture* view;
   size_t stack = stackPush(&thread.stack);
@@ -3187,9 +3187,10 @@ Readback* lovrTextureComputeLightProbe(Texture* texture, uint32_t level) {
     };
 
     if (!gpu_texture_init_view(view, &info)) {
-      stackPop(&thread.stack, stack);
-      mtx_unlock(&state.lock);
       lovrSetError("Failed to create cubemap texture view: %s", gpu_get_error());
+      stackPop(&thread.stack, stack);
+      lovrRelease(readback, lovrReadbackDestroy);
+      mtx_unlock(&state.lock);
       return NULL;
     }
   } else {
@@ -3202,7 +3203,13 @@ Readback* lovrTextureComputeLightProbe(Texture* texture, uint32_t level) {
   };
 
   gpu_bundle* bundle = getBundle(shader->layout, bindings, COUNTOF(bindings));
-  if (!bundle) return mtx_unlock(&state.lock), NULL;
+
+  if (!bundle) {
+    stackPop(&thread.stack, stack);
+    lovrRelease(readback, lovrReadbackDestroy);
+    mtx_unlock(&state.lock);
+    return NULL;
+  }
 
   gpu_bind_pipeline(state.stream, shader->computePipeline, GPU_PIPELINE_COMPUTE);
   gpu_bind_bundles(state.stream, shader->gpu, &bundle, 0, 1, NULL, 0);
@@ -6718,15 +6725,14 @@ static Readback* lovrReadbackCreate(ReadbackType type) {
   return readback;
 }
 
+// Requires lock to be held (only called internally)
 Readback* lovrReadbackCreateEmpty(uint32_t extent) {
-  mtx_lock(&state.lock);
   BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, extent, state.limits.storageBufferAlign);
-  if (!view.buffer) return mtx_unlock(&state.lock), NULL;
+  if (!view.buffer) return NULL;
   Readback* readback = lovrReadbackCreate(READBACK_BUFFER);
   void* data = lovrMalloc(extent);
   readback->blob = lovrBlobCreate(data, extent, "Readback");
   readback->view = view;
-  mtx_unlock(&state.lock);
   return readback;
 }
 
@@ -6774,8 +6780,7 @@ Readback* lovrReadbackCreateTexture(Texture* texture, uint32_t offset[4], uint32
   return readback;
 }
 
-// Note that this is currently only called from within lovrGraphicsSubmit, so we don't need to lock,
-// because it's already holding the lock
+// Requires lock to be held (only called internally)
 static Readback* lovrReadbackCreateTimestamp(Pass** passes, uint32_t count) {
   BufferView view = getBuffer(GPU_BUFFER_DOWNLOAD, count * 2 * sizeof(uint64_t), 8);
   if (!view.buffer) return NULL;
