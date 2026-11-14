@@ -115,6 +115,14 @@ void lovrTaskEnqueue(Task* task) {
 
 void lovrTaskDequeue(Task* task) {
   task->dequeued = true;
+  if (task->waiting == WAIT_POLL) {
+    for (Task** list = &state.polls; *list; list = &(*list)->next) {
+      if (*list == task) {
+        *list = task->next;
+        break;
+      }
+    }
+  }
 }
 
 void lovrTaskWaitPoll(Task* task, fn_task* poll, fn_task* block, fn_continuation* continuation, void* context) {
