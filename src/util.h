@@ -160,6 +160,7 @@ typedef enum {
   T_Pass,
   T_Layer,
   T_Curve,
+  T_LightProbe,
   T_Mat4,
   T_RandomGenerator,
   T_World,

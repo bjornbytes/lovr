@@ -5,6 +5,7 @@
 #pragma once
 
 typedef struct Curve Curve;
+typedef struct LightProbe LightProbe;
 typedef struct Mat4 Mat4;
 typedef struct RandomGenerator RandomGenerator;
 
@@ -32,6 +33,19 @@ void lovrCurveAddPoint(Curve* curve, float* point, size_t index);
 void lovrCurveRemovePoint(Curve* curve, size_t index);
 float lovrCurveGetLength(Curve* curve, float t, int iterations);
 float lovrCurveStep(Curve* curve, float distance, int iterations);
+
+// LightProbe
+
+LightProbe* lovrLightProbeCreate(void);
+void lovrLightProbeDestroy(void* ref);
+float* lovrLightProbeGetData(LightProbe* probe);
+void lovrLightProbeClear(LightProbe* probe);
+void lovrLightProbeEvaluate(LightProbe* probe, float* normal, float* color);
+void lovrLightProbeAddAmbientLight(LightProbe* probe, float* color);
+void lovrLightProbeAddDirectionalLight(LightProbe* probe, float* direction, float* color);
+void lovrLightProbeAddProbe(LightProbe* probe, LightProbe* other, float scale);
+void lovrLightProbeLerp(LightProbe* probe, LightProbe* other, float t);
+void lovrLightProbeScale(LightProbe* probe, float scale);
 
 // Mat4
 

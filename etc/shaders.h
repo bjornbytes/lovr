@@ -1,4 +1,5 @@
-#include "shaders/unlit.vert.h"
+#include "shaders/default.vert.h"
+#include "shaders/default.frag.h"
 #include "shaders/unlit.frag.h"
 #include "shaders/normal.frag.h"
 #include "shaders/font.frag.h"
@@ -11,6 +12,8 @@
 #include "shaders/animator.comp.h"
 #include "shaders/blender.comp.h"
 #include "shaders/tallymerge.comp.h"
+#include "shaders/harmonica_cubemap.comp.h"
+#include "shaders/harmonica_equirect.comp.h"
 
 #include "shaders/lovr.glsl.h"
 
@@ -21,4 +24,4 @@
 #define LOCATION_COLOR 14
 #define LOCATION_TANGENT 15
 
-#define LAST_BUILTIN_BINDING 3
+#define LAST_BUILTIN_BINDING 4

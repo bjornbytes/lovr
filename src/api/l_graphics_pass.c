@@ -636,6 +636,13 @@ static int l_lovrPassSetFont(lua_State* L) {
   return 0;
 }
 
+static int l_lovrPassSetLightProbe(lua_State* L) {
+  Pass* pass = luax_checktype(L, 1, Pass);
+  LightProbe* probe = lua_isnoneornil(L, 2) ? NULL : luax_checktype(L, 2, LightProbe);
+  lovrPassSetLightProbe(pass, probe);
+  return 0;
+}
+
 static int l_lovrPassSetMaterial(lua_State* L) {
   Pass* pass = luax_checktype(L, 1, Pass);
   Material* material = luax_optmaterial(L, 2);
@@ -1330,6 +1337,7 @@ const luaL_Reg lovrPass[] = {
   { "setDepthClamp", l_lovrPassSetDepthClamp },
   { "setFaceCull", l_lovrPassSetFaceCull },
   { "setFont", l_lovrPassSetFont },
+  { "setLightProbe", l_lovrPassSetLightProbe },
   { "setMaterial", l_lovrPassSetMaterial },
   { "setMeshMode", l_lovrPassSetMeshMode },
   { "setSampler", l_lovrPassSetSampler },

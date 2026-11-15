@@ -264,8 +264,10 @@ static void setPixelRGB10A2(float* src, ImagePointer dst) {
 bool lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
   lovrCheck(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
+  void* data = lovrImageGetLayerData(image, 0, 0);
+  lovrCheck(data, "getPixel layer index is out of range");
   size_t offset = measure(y * image->width + x, 1, image->format);
-  ImagePointer p = { .u8 = (uint8_t*) image->mipmaps[0].data + offset };
+  ImagePointer p = { .u8 = (uint8_t*) data + offset };
   switch (image->format) {
     case FORMAT_R8: getPixelR8(p, pixel); return true;
     case FORMAT_RG8: getPixelRG8(p, pixel); return true;
@@ -290,8 +292,10 @@ bool lovrImageGetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
 bool lovrImageSetPixel(Image* image, uint32_t x, uint32_t y, float pixel[4]) {
   lovrCheck(!lovrImageIsCompressed(image), "Unable to access individual pixels of a compressed image");
   lovrCheck(x < image->width && y < image->height, "Pixel coordinates must be within Image bounds");
+  void* data = lovrImageGetLayerData(image, 0, 0);
+  lovrCheck(data, "setPixel layer index is out of range");
   size_t offset = measure(y * image->width + x, 1, image->format);
-  ImagePointer p = { .u8 = (uint8_t*) image->mipmaps[0].data + offset };
+  ImagePointer p = { .u8 = (uint8_t*) data + offset };
   switch (image->format) {
     case FORMAT_R8: setPixelR8(pixel, p); return true;
     case FORMAT_RG8: setPixelRG8(pixel, p); return true;
