@@ -28,9 +28,9 @@ jobs:
         with:
           name: lovr.exe
           path: |
-            build/Release/lovr.exe
-            build/Release/lovrc.bat
-            build/Release/*.dll
+            build/${{ env.CMAKE_BUILD_TYPE }}/lovr.exe
+            build/${{ env.CMAKE_BUILD_TYPE }}/lovrc.bat
+            build/${{ env.CMAKE_BUILD_TYPE }}/*.dll
 
   linux:
     name: Linux
