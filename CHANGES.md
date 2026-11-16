@@ -1,6 +1,13 @@
 Changelog
 ===
 
+dev
+---
+
+### Fix
+
+- Fix issues with `lovr.graphics.compileShader`.
+
 v0.19.1 - 2026-11-10
 ---
 

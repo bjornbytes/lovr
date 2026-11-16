@@ -1185,16 +1185,32 @@ static int l_lovrGraphicsNewSampler(lua_State* L) {
   return 1;
 }
 
-static ShaderSource luax_checkshadersource(lua_State* L, int index, ShaderStage stage, bool* shouldFree) {
-  *shouldFree = false;
+typedef struct {
+  ShaderInfo info;
+  Blob* blobs[2];
+  ShaderSource inputs[2];
+  ShaderSource outputs[2];
+  arr_t(ShaderFlag) flags;
+  Shader* shader;
+  bool create;
+} ShaderContext;
 
+static void luax_freeshadercontext(ShaderContext* context) {
+  for (uint32_t i = 0; i < context->info.stageCount; i++) {
+    if (context->blobs[i]) lovrRelease(context->blobs[i], lovrBlobDestroy);
+  }
+  arr_free(&context->flags);
+  lovrFree(context->info.label);
+  lovrFree(context);
+}
+
+static ShaderSource luax_checkshadersource(lua_State* L, int index, ShaderStage stage, Blob** blob) {
   if (lua_isstring(L, index)) {
     size_t length;
     const char* string = lua_tolstring(L, index, &length);
 
     if (memchr(string, '\n', MIN(256, length))) {
-      *shouldFree = true;
-      return (ShaderSource) { stage, NULL, lovrStrdup(string), length };
+      return (ShaderSource) { stage, string, length };
     } else {
       for (int i = 0; lovrDefaultShader[i].length; i++) {
         if (lovrDefaultShader[i].length == length && !memcmp(lovrDefaultShader[i].string, string, length)) {
@@ -1204,34 +1220,19 @@ static ShaderSource luax_checkshadersource(lua_State* L, int index, ShaderStage 
 
       size_t size;
       void* code = luax_readfile(string, &size);
-
-      if (code) {
-        *shouldFree = true;
-        return (ShaderSource) { stage, NULL, code, size };
-      } else {
-        luaL_argerror(L, index, "single-line string was not filename or DefaultShader");
-      }
+      if (!code) luaL_argerror(L, index, "single-line string was not a filename or DefaultShader");
+      *blob = lovrBlobCreate(code, size, "Shader");
+      return (ShaderSource) { stage, code, size };
     }
   } else if (lua_isuserdata(L, index)) {
-    Blob* blob = luax_checktype(L, index, Blob);
-    lovrRetain(blob);
-    return (ShaderSource) { stage, blob, blob->data, blob->size };
+    *blob = luax_checktype(L, index, Blob);
+    lovrRetain(*blob);
+    return (ShaderSource) { stage, (*blob)->data, (*blob)->size };
   } else {
     luax_typeerror(L, index, "string, Blob, or DefaultShader");
+    return (ShaderSource) { 0 };
   }
-
-  return (ShaderSource) { 0 };
 }
-
-typedef struct {
-  ShaderInfo info;
-  ShaderSource inputs[2];
-  ShaderSource outputs[2];
-  bool freeInput[2];
-  arr_t(ShaderFlag) flags;
-  Shader* shader;
-  bool create;
-} ShaderContext;
 
 static bool luax_loadshader(void** userdata) {
   ShaderContext* context = *userdata;
@@ -1242,60 +1243,69 @@ static bool luax_loadshader(void** userdata) {
 
   if (context->create) {
     context->shader = lovrShaderCreate(&context->info);
-    return context->shader;
+    return !!context->shader;
   }
 
   return true;
 }
 
-static int luax_pushshader(lua_State* L, bool success, void* userdata) {
+static int luax_pushshadercode(lua_State* L, bool success, void* userdata) {
   ShaderContext* context = userdata;
-  ShaderSource* inputs = context->inputs;
-  ShaderSource* outputs = context->outputs;
-  uint32_t count = context->info.stageCount;
 
-  for (uint32_t i = 0; i < count; i++) {
-    lovrRelease(inputs[i].blob, lovrBlobDestroy);
-    if (context->freeInput[i]) lovrFree((void*) inputs[i].code);
-    if (context->create && inputs[i].code != outputs[i].code) lovrFree((void*) outputs[i].code);
-  }
-  arr_free(&context->flags);
-
-  if (!success) {
-    lovrFree(context->info.label);
-    lovrFree(context);
-    return 0;
-  } else if (context->create) {
-    luax_pushtype(L, Shader, context->shader);
-    lovrRelease(context->shader, lovrShaderDestroy);
-    lovrFree(context->info.label);
-    lovrFree(context);
-    return 1;
-  } else {
-    for (uint32_t i = 0; i < count; i++) {
-      Blob* blob = lovrBlobCreate((void*) outputs[i].code, outputs[i].size, "Shader code");
-      luax_pushtype(L, Blob, blob);
-      lovrRelease(blob, lovrBlobDestroy);
+  if (success) {
+    for (uint32_t i = 0; i < context->info.stageCount; i++) {
+      if (context->inputs[i].code == context->outputs[i].code) {
+        if (context->blobs[i]) {
+          luax_pushtype(L, Blob, context->blobs[i]);
+        } else {
+          size_t size = context->outputs[i].size;
+          void* data = memcpy(lovrMalloc(size), context->outputs[i].code, size);
+          Blob* blob = lovrBlobCreate(data, size, "Shader");
+          luax_pushtype(L, Blob, blob);
+          lovrRelease(blob, lovrBlobDestroy);
+        }
+      } else {
+        Blob* blob = lovrBlobCreate((void*) context->outputs[i].code, context->outputs[i].size, "Shader");
+        luax_pushtype(L, Blob, blob);
+        lovrRelease(blob, lovrBlobDestroy);
+      }
     }
-
-    lovrFree(context);
-    return count;
   }
+
+  int count = (int) context->info.stageCount;
+  luax_freeshadercontext(context);
+  return success ? count : 0;
 }
 
 static int l_lovrGraphicsCompileShader(lua_State* L) {
   ShaderContext* context = lovrCalloc(sizeof(ShaderContext));
 
   if (lua_gettop(L) == 1) {
-    context->inputs[0] = luax_checkshadersource(L, 1, STAGE_COMPUTE, &context->freeInput[0]);
+    context->inputs[0] = luax_checkshadersource(L, 1, STAGE_COMPUTE, &context->blobs[0]);
     context->info.stageCount = 1;
   } else {
-    context->inputs[0] = luax_checkshadersource(L, 1, STAGE_VERTEX, &context->freeInput[0]);
-    context->inputs[1] = luax_checkshadersource(L, 2, STAGE_FRAGMENT, &context->freeInput[1]);
+    context->inputs[0] = luax_checkshadersource(L, 1, STAGE_VERTEX, &context->blobs[0]);
+    context->inputs[1] = luax_checkshadersource(L, 2, STAGE_FRAGMENT, &context->blobs[1]);
     context->info.stageCount = 2;
   }
 
-  return luax_yieldjob(L, luax_loadshader, luax_pushshader, context, 1);
+  return luax_yieldjob(L, luax_loadshader, luax_pushshadercode, context, 1);
+}
+
+static int luax_pushshader(lua_State* L, bool success, void* userdata) {
+  ShaderContext* context = userdata;
+
+  if (success) {
+    luax_pushtype(L, Shader, context->shader);
+    lovrRelease(context->shader, lovrShaderDestroy);
+  }
+
+  for (uint32_t i = 0; i < context->info.stageCount; i++) {
+    if (context->inputs[i].code != context->outputs[i].code) lovrFree((void*) context->outputs[i].code);
+  }
+
+  luax_freeshadercontext(context);
+  return success ? 1 : 0;
 }
 
 static int l_lovrGraphicsNewShader(lua_State* L) {
@@ -1308,13 +1318,13 @@ static int l_lovrGraphicsNewShader(lua_State* L) {
 
   if (lua_gettop(L) == 1 || lua_istable(L, 2)) {
     info->type = SHADER_COMPUTE;
-    context->inputs[0] = luax_checkshadersource(L, 1, STAGE_COMPUTE, &context->freeInput[0]);
+    context->inputs[0] = luax_checkshadersource(L, 1, STAGE_COMPUTE, &context->blobs[0]);
     context->info.stageCount = 1;
     index = 2;
   } else {
     info->type = SHADER_GRAPHICS;
-    context->inputs[0] = luax_checkshadersource(L, 1, STAGE_VERTEX, &context->freeInput[0]);
-    context->inputs[1] = luax_checkshadersource(L, 2, STAGE_FRAGMENT, &context->freeInput[1]);
+    context->inputs[0] = luax_checkshadersource(L, 1, STAGE_VERTEX, &context->blobs[0]);
+    context->inputs[1] = luax_checkshadersource(L, 2, STAGE_FRAGMENT, &context->blobs[1]);
     context->info.stageCount = 2;
     index = 3;
   }
