@@ -58,6 +58,10 @@ dev
 - Change `lovr.filesystem` methods to work with absolute paths (instead of treating them as virtual paths).
 - Change `lovr.filesystem.getSource` to always return an absolute path.
 
+### Fix
+
+- Fix issues with `lovr.graphics.compileShader`.
+
 ### Deprecate
 
 - Deprecate `lovr.headset.getTime` (use `lovr.timer.getDisplayTime`).

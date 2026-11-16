@@ -694,6 +694,24 @@ group('graphics', function()
   end)
 
   group('Shader', function()
+    group('lovr.graphics.compileShader', function()
+      test('string: GLSL', function()
+        local blob = lovr.graphics.compileShader('void lovrmain() {}\n')
+        expect(blob).to.be.a('userdata')
+      end)
+
+      test('Blob: GLSL', function()
+        local blob = lovr.graphics.compileShader(lovr.data.newBlob('void lovrmain() {}\n'))
+        expect(blob).to.be.a('userdata')
+      end)
+
+      test('string: DefaultShader', function()
+        local vertex, fragment = lovr.graphics.compileShader('unlit', 'normal')
+        expect(vertex).to.be.a('userdata')
+        expect(fragment).to.be.a('userdata')
+      end)
+    end)
+
     test('lots of flags', function()
       computer = lovr.graphics.newShader([[
         layout(constant_id = 0) const int x = 0;

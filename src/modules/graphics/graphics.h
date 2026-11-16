@@ -342,7 +342,6 @@ typedef enum {
 
 typedef struct {
   ShaderStage stage;
-  struct Blob* blob;
   const void* code;
   size_t size;
 } ShaderSource;
