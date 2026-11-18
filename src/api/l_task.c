@@ -31,7 +31,7 @@ int luax_yieldpoll(lua_State* L, fn_poll* poll, fn_task* block, fn_continuation*
       return continuation ? continuation(L, true, context) : 0;
     } else {
       if (continuation) continuation(L, false, context);
-      return luaL_error(L, lovrGetError());
+      return luaL_error(L, "%s", lovrGetError());
     }
   }
 
@@ -65,7 +65,7 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
         return continuation ? continuation(L, true, context) : 0;
       } else {
         if (continuation) continuation(L, false, context);
-        return luaL_error(L, lovrGetError());
+        return luaL_error(L, "%s", lovrGetError());
       }
     } else {
       Task stack = { 0 };
@@ -116,7 +116,7 @@ int luax_yieldjob(lua_State* L, fn_task* fn, fn_continuation* continuation, void
 
     if (error) {
       if (continuation) continuation(L, false, task->context);
-      return luaL_error(L, error);
+      return luaL_error(L, "%s", error);
     } else {
       return continuation ? continuation(L, true, task->context) : 0;
     }

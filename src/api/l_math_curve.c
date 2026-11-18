@@ -63,7 +63,7 @@ static int l_lovrCurveGetPointCount(lua_State* L) {
 
 static int l_lovrCurveGetPoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
-  size_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   luax_check(L, index < lovrCurveGetPointCount(curve), "Invalid Curve point index: %d", index + 1);
   float point[4];
   lovrCurveGetPoint(curve, index, point);
@@ -75,7 +75,7 @@ static int l_lovrCurveGetPoint(lua_State* L) {
 
 static int l_lovrCurveSetPoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
-  size_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   luax_check(L, index < lovrCurveGetPointCount(curve), "Invalid Curve point index: %d", index + 1);
   float point[4];
   luax_readvec3(L, 3, point, NULL);
@@ -87,7 +87,7 @@ static int l_lovrCurveAddPoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   float point[4];
   int i = luax_readvec3(L, 2, point, NULL);
-  size_t index = lua_isnoneornil(L, i) ? lovrCurveGetPointCount(curve) : (size_t) luaL_checkinteger(L, i) - 1;
+  uint32_t index = lua_isnoneornil(L, i) ? lovrCurveGetPointCount(curve) : luax_checku32(L, i) - 1;
   luax_check(L, index <= lovrCurveGetPointCount(curve), "Invalid Curve point index: %d", index + 1);
   lovrCurveAddPoint(curve, point, index);
   return 0;
@@ -95,7 +95,7 @@ static int l_lovrCurveAddPoint(lua_State* L) {
 
 static int l_lovrCurveRemovePoint(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
-  size_t index = luaL_checkinteger(L, 2) - 1;
+  uint32_t index = luax_checku32(L, 2) - 1;
   luax_check(L, index < lovrCurveGetPointCount(curve), "Invalid Curve point index: %d", index + 1);
   lovrCurveRemovePoint(curve, index);
   return 0;
@@ -104,7 +104,7 @@ static int l_lovrCurveRemovePoint(lua_State* L) {
 static int l_lovrCurveGetLength(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   float t = luaL_optnumber(L, 2, 1.f);
-  int iterations = luaL_optinteger(L, 3, 16);
+  uint32_t iterations = luax_optu32(L, 3, 16);
   float length = lovrCurveGetLength(curve, t, iterations);
   lua_pushnumber(L, length);
   return 1;
@@ -113,7 +113,7 @@ static int l_lovrCurveGetLength(lua_State* L) {
 static int l_lovrCurveStep(lua_State* L) {
   Curve* curve = luax_checktype(L, 1, Curve);
   float distance = luax_checkfloat(L, 2);
-  int iterations = luaL_optinteger(L, 3, 16);
+  uint32_t iterations = luax_optu32(L, 3, 16);
   float t = lovrCurveStep(curve, distance, iterations);
   lua_pushnumber(L, t);
   return 1;

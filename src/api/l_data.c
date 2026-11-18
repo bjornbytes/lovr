@@ -206,7 +206,7 @@ static int l_lovrDataNewImage(lua_State* L) {
     void* data = lovrImageGetLayerData(image, 0, 0);
     if (lua_gettop(L) >= 4) {
       Blob* blob = luax_checktype(L, 4, Blob);
-      luax_check(L, blob->size == size, "Blob size (%d) does not match the Image size (%d)", blob->size, size);
+      luax_check(L, blob->size == size, "Blob size does not match the Image size");
       memcpy(data, blob->data, size);
     } else {
       memset(data, 0, size);

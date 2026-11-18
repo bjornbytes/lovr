@@ -25,13 +25,13 @@ void lovrCurveDestroy(void* ref);
 bool lovrCurveEvaluate(Curve* curve, float t, float* point);
 void lovrCurveGetTangent(Curve* curve, float t, float* point);
 Curve* lovrCurveSlice(Curve* curve, float t1, float t2);
-size_t lovrCurveGetPointCount(Curve* curve);
-void lovrCurveGetPoint(Curve* curve, size_t index, float* point);
-void lovrCurveSetPoint(Curve* curve, size_t index, float* point);
-void lovrCurveAddPoint(Curve* curve, float* point, size_t index);
-void lovrCurveRemovePoint(Curve* curve, size_t index);
-float lovrCurveGetLength(Curve* curve, float t, int iterations);
-float lovrCurveStep(Curve* curve, float distance, int iterations);
+uint32_t lovrCurveGetPointCount(Curve* curve);
+void lovrCurveGetPoint(Curve* curve, uint32_t index, float* point);
+void lovrCurveSetPoint(Curve* curve, uint32_t index, float* point);
+void lovrCurveAddPoint(Curve* curve, float* point, uint32_t index);
+void lovrCurveRemovePoint(Curve* curve, uint32_t index);
+float lovrCurveGetLength(Curve* curve, float t, uint32_t iterations);
+float lovrCurveStep(Curve* curve, float distance, uint32_t iterations);
 
 // Mat4
 

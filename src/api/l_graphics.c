@@ -1662,7 +1662,7 @@ static int l_lovrGraphicsNewMesh(lua_State* L) {
       if (lua_type(L, -2) == LUA_TSTRING || lua_type(L, -1) == LUA_TSTRING) {
         info.vertexFormat = format;
         format[0] = (DataField) { .fields = format + 1, .fieldCount = luax_len(L, 1) };
-        luax_check(L, format->fieldCount + 1 <= COUNTOF(stack), "Mesh has too many vertex attributes (max is %d)", COUNTOF(stack) - 1);
+        luax_check(L, format->fieldCount + 1 <= COUNTOF(stack), "Mesh has too many vertex attributes (max is %d)", (int) COUNTOF(stack) - 1);
         for (uint32_t i = 0; i < format->fieldCount; i++) {
           lua_rawgeti(L, 1, i + 1);
           luax_check(L, lua_istable(L, -1), "Expected table of tables");

@@ -188,19 +188,19 @@ Curve* lovrCurveSlice(Curve* curve, float t1, float t2) {
   return new;
 }
 
-size_t lovrCurveGetPointCount(Curve* curve) {
-  return curve->points.length / 4;
+uint32_t lovrCurveGetPointCount(Curve* curve) {
+  return (uint32_t) curve->points.length / 4;
 }
 
-void lovrCurveGetPoint(Curve* curve, size_t index, float* point) {
+void lovrCurveGetPoint(Curve* curve, uint32_t index, float* point) {
   memcpy(point, curve->points.data + 4 * index, 4 * sizeof(float));
 }
 
-void lovrCurveSetPoint(Curve* curve, size_t index, float* point) {
+void lovrCurveSetPoint(Curve* curve, uint32_t index, float* point) {
   memcpy(curve->points.data + 4 * index, point, 4 * sizeof(float));
 }
 
-void lovrCurveAddPoint(Curve* curve, float* point, size_t index) {
+void lovrCurveAddPoint(Curve* curve, float* point, uint32_t index) {
 
   // Reserve enough memory for 4 more floats, then record destination once memory is allocated
   arr_reserve(&curve->points, curve->points.length + 4);
@@ -216,7 +216,7 @@ void lovrCurveAddPoint(Curve* curve, float* point, size_t index) {
   memcpy(dest, point, 4 * sizeof(float));
 }
 
-void lovrCurveRemovePoint(Curve* curve, size_t index) {
+void lovrCurveRemovePoint(Curve* curve, uint32_t index) {
   arr_splice(&curve->points, index * 4, 4);
 }
 
@@ -237,7 +237,7 @@ static void evaluateDerivative(float* restrict P, size_t n, float t, float* dp) 
   lovrFree(points);
 }
 
-float lovrCurveGetLength(Curve* curve, float t, int iterations) {
+float lovrCurveGetLength(Curve* curve, float t, uint32_t iterations) {
   t = CLAMP(t, 0.f, 1.f);
   if (t == 0.f) return 0.f;
   size_t n = curve->points.length / 4;
@@ -245,9 +245,9 @@ float lovrCurveGetLength(Curve* curve, float t, int iterations) {
   // Numerical integration using adaptive Simpson's rule:
   //   length = (f(b) - f(a)) / 6 * (f(a) + 4 * f((a + b) / 2) + f(b))
   float dt = t / iterations;
-  for (int i = 0; i < iterations; i++) {
+  for (uint32_t i = 0; i < iterations; i++) {
     float t0 = i * dt;
-    float t1 = t0 + dt * 0.5f;
+    float t1 = t0 + dt * .5f;
     float t2 = t0 + dt;
     float dp0[4], dp1[4], dp2[4];
     evaluateDerivative(curve->points.data, n, t0, dp0);
@@ -261,14 +261,14 @@ float lovrCurveGetLength(Curve* curve, float t, int iterations) {
   return length;
 }
 
-float lovrCurveStep(Curve* curve, float distance, int iterations) {
+float lovrCurveStep(Curve* curve, float distance, uint32_t iterations) {
   if (distance <= 0.f) return 0.f;
   // Binary search for t
   float tMin = 0.f;
   float tMax = 1.f;
   const float epsilon = 1e-6f;
-  for (int i = 0; i < iterations; i++) {
-    float tMid = (tMin + tMax) * 0.5f;
+  for (uint32_t i = 0; i < iterations; i++) {
+    float tMid = (tMin + tMax) * .5f;
     float lengthAtT = lovrCurveGetLength(curve, tMid, iterations);
     if (fabsf(lengthAtT - distance) < epsilon) {
       return tMid;
@@ -279,10 +279,10 @@ float lovrCurveStep(Curve* curve, float distance, int iterations) {
       tMax = tMid;
     }
     if (tMax - tMin < epsilon) {
-      return (tMin + tMax) * 0.5f;
+      return (tMin + tMax) * .5f;
     }
   }
-  return (tMin + tMax) * 0.5f;
+  return (tMin + tMax) * .5f;
 }
 
 // Mat4
