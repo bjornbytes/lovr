@@ -1,6 +1,5 @@
 #include "api.h"
 #include "physics/physics.h"
-#include "core/maf.h"
 #include "util.h"
 #include <float.h>
 #include <stdbool.h>
