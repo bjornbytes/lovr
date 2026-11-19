@@ -204,6 +204,12 @@ uint64_t map_get(map_t* map, uint64_t hash) {
   return map->values[map_find(map, hash)];
 }
 
+// Result is only valid until next map_set call
+void* map_getp(map_t* map, uint64_t hash) {
+  uint64_t h = map_find(map, hash);
+  return map->hashes[h] == MAP_NIL ? NULL : &map->values[h];
+}
+
 void map_set(map_t* map, uint64_t hash, uint64_t value) {
   if (map->used >= (map->size >> 1) + (map->size >> 2)) {
     map_rehash(map);

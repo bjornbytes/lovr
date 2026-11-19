@@ -28,7 +28,6 @@
 #include "resource_limits_c.h"
 #endif
 
-#define MAX_PIPELINES 8192
 #define MAX_TALLIES 255
 #define MATERIAL_BLOCK_SIZE 256
 #define TRANSFORM_STACK_SIZE 16
@@ -154,6 +153,7 @@ struct Shader {
   gpu_shader* gpu;
   gpu_pipeline* computePipeline;
   ShaderInfo info;
+  map_t pipelines;
   Layout* layout;
   uint32_t workgroupSize[3];
   bool hasCustomAttributes;
@@ -549,6 +549,15 @@ typedef struct {
   Buffer* buffer;
 } Tally;
 
+typedef struct PipelineJob {
+  struct PipelineJob* next;
+  Shader* shader;
+  uint64_t hash;
+  gpu_pipeline_info* info;
+  uint64_t pipeline;
+  char* error;
+} PipelineJob;
+
 struct Pass {
   atomic_uint ref;
   uint32_t flags;
@@ -556,6 +565,7 @@ struct Pass {
   BufferAllocator buffers;
   CachedShape geocache[16];
   AccessBlock* access[2];
+  PipelineJob* pipelineJobs;
   gpu_canvas target;
   Canvas canvas;
   bool tempColor[4];
@@ -585,14 +595,6 @@ struct Pass {
   PassStats stats;
   char* label;
 };
-
-typedef struct PipelineJob {
-  struct PipelineJob* next;
-  uint64_t hash;
-  gpu_pipeline_info* info;
-  gpu_pipeline* pipeline;
-  char* error;
-} PipelineJob;
 
 static thread_local struct {
   Allocator stack;
@@ -636,10 +638,6 @@ static struct {
   Readback* timingReadback;
   MaterialBlock* materials;
   BufferAllocator bufferAllocators[4];
-  _Atomic(PipelineJob*) newPipelines;
-  map_t pipelineLookup;
-  gpu_pipeline* pipelines;
-  atomic_uint pipelineCount;
   atomic_uint glyphJobs;
   atomic_uint textureUploads;
   _Atomic(char*) textureUploadError;
@@ -655,7 +653,6 @@ static void initAllocator(Allocator* allocator);
 static void* allocate(Allocator* allocator, size_t size);
 static size_t stackPush(Allocator* allocator);
 static void stackPop(Allocator* allocator, size_t stack);
-static gpu_pipeline* getPipeline(uint32_t index);
 static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type type, uint32_t size, size_t align);
 static BufferView getBuffer(gpu_buffer_type type, uint32_t size, size_t align);
 static void recycleBlocks(BufferAllocator* allocator, BufferBlock* blocks);
@@ -730,13 +727,13 @@ bool lovrGraphicsInit(GraphicsConfig* config) {
     return false;
   }
 
+  // Pipelines have to fit in u64 since they are stored directly in map_t entries
+  if (gpu_sizeof_pipeline() != sizeof(uint64_t)) lovrUnreachable();
+
   state.config = *config;
   state.timingEnabled = config->debug;
 
   lovrAssertGoto(fail, !mtx_init(&state.lock, mtx_plain), "Failed to create mutex");
-
-  state.pipelines = lovrMalloc(MAX_PIPELINES * gpu_sizeof_pipeline());
-  map_init(&state.pipelineLookup, 64);
 
   gpu_slot builtinSlots[] = {
     { .number = 0, .type = GPU_SLOT_UNIFORM_BUFFER, .stages = GPU_STAGE_GRAPHICS }, // Globals
@@ -942,11 +939,6 @@ void lovrGraphicsDestroy(void) {
     lovrFree(block);
     block = next;
   }
-  for (uint32_t i = 0; i < state.pipelineCount; i++) {
-    gpu_pipeline_destroy(getPipeline(i));
-  }
-  lovrFree(state.pipelines);
-  map_free(&state.pipelineLookup);
   for (size_t i = 0; i < COUNTOF(state.bufferAllocators); i++) {
     destroyBuffers(&state.bufferAllocators[i]);
   }
@@ -1185,35 +1177,26 @@ static bool recordComputePass(Pass* pass, gpu_stream* stream, gpu_timestamp_writ
 
 static void compilePipeline(void* arg) {
   PipelineJob* job = arg;
-  if (!gpu_pipeline_init_graphics(job->pipeline, job->info, NULL)) {
+  if (!gpu_pipeline_init_graphics((gpu_pipeline*) &job->pipeline, job->info, NULL)) {
     const char* error = gpu_get_error();
     job->error = lovrStrdup(error);
   }
 }
 
-static bool waitForPipelines(PipelineJob* jobs, atomic_uint* counter) {
+static bool waitForPipelines(Pass* pass, atomic_uint* counter) {
   while (atomic_load(counter) > 0) {
     job_spin();
   }
 
   bool success = true;
 
-  while (jobs) {
-    PipelineJob* job = jobs;
-    jobs = job->next;
-
-    if (job->error) {
-      if (success) {
-        lovrSetError("Failed to compile GPU pipeline: %s", job->error);
-        success = false;
-      }
-      lovrFree(job->error);
+  for (PipelineJob* job = pass->pipelineJobs; job; job = job->next) {
+    if (!job->error) continue;
+    if (success) {
+      lovrSetError("Failed to compile GPU pipeline: %s", job->error);
+      success = false;
     }
-
-    job->next = state.newPipelines;
-    while (!atomic_compare_exchange_strong(&state.newPipelines, &job->next, job)) {
-      continue;
-    }
+    lovrFree(job->error);
   }
 
   return success;
@@ -1231,8 +1214,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   Draw* draw = pass->draws;
   Draw* previous = NULL;
 
-  // List of pipeline jobs offloaded to worker threads (must wait for them before doing draws)
-  PipelineJob* pipelineJobs = NULL;
+  // How many pipeline jobs we need to wait for before doing draws
   atomic_uint pipelineCounter = 0;
 
   for (uint32_t i = 0; i < pass->drawCount; i++, previous = draw, draw++) {
@@ -1242,71 +1224,49 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
       continue;
     }
 
-    // Otherwise, look up the pipeline in the global lookup table
+    // Otherwise, look up the pipeline in the shader's lookup table
     uint64_t hash = hash64(draw->pipelineInfo, sizeof(gpu_pipeline_info));
-    uint64_t value = map_get(&state.pipelineLookup, hash);
+    uint64_t* value = map_getp(&draw->shader->pipelines, hash);
 
-    if (value != MAP_NIL) {
-      draw->pipeline = (gpu_pipeline*) (uintptr_t) value;
+    if (value) {
+      draw->pipeline = (gpu_pipeline*) value;
       continue;
     }
 
-    // If it's not in the global lookup, search through the linked list of new pipelines
-    PipelineJob* node = state.newPipelines;
-    bool found = false;
+    // If it's not in the lookup, search through the linked list of new pipelines
+    PipelineJob* job = pass->pipelineJobs;
+    while (job && (job->shader != draw->shader || job->hash != hash)) {
+      job = job->next;
+    }
 
-    while (node) {
-      if (node->hash == hash) {
-        draw->pipeline = node->pipeline;
-        found = true;
-        break;
-      } else {
-        node = node->next;
+    if (!job) {
+      // If we couldn't find a pipeline to use, compile a new one
+      job = allocate(&pass->allocator, sizeof(PipelineJob));
+      job->shader = draw->shader;
+      job->hash = hash;
+      job->info = draw->pipelineInfo;
+      job->error = NULL;
+
+      bool slow;
+      if (!gpu_pipeline_init_graphics((gpu_pipeline*) &job->pipeline, job->info, &slow)) {
+        lovrSetError("Failed to create GPU pipeline: %s", gpu_get_error());
+        goto fail;
       }
-    }
-
-    if (found) {
-      continue;
-    }
-
-    // If we couldn't find a pipeline to use, compile a new one
-    uint32_t index = atomic_fetch_add(&state.pipelineCount, 1);
-    lovrAssertGoto(fail, index < MAX_PIPELINES, "Too many pipelines!");
-
-    PipelineJob* job = allocate(&thread.stack, sizeof(PipelineJob));
-    job->next = NULL;
-    job->hash = hash;
-    job->info = draw->pipelineInfo;
-    job->pipeline = getPipeline(index);
-    job->error = NULL;
-
-    bool slow;
-    lovrAssertGoto(fail, gpu_pipeline_init_graphics(job->pipeline, job->info, &slow), "Failed to create GPU pipeline: %s", gpu_get_error());
 
 #ifdef LOVR_DISABLE_THREAD
-    if (slow) {
-      compilePipeline(job);
-      slow = false;
-    }
-#endif
-
-    if (slow) {
+      if (slow) {
+#else
       // The pipeline is going to be slow to compile, try to offload it to a worker thread
-      if (job_start(compilePipeline, job, &pipelineCounter)) {
-        job->next = pipelineJobs;
-        pipelineJobs = job;
-      } else {
+      if (slow && !job_start(compilePipeline, job, &pipelineCounter)) {
+#endif
         compilePipeline(job);
       }
-    } else {
-      // Chain the new pipeline on to the list of new pipelines
-      job->next = state.newPipelines;
-      while (!atomic_compare_exchange_strong(&state.newPipelines, &job->next, job)) {
-        continue;
-      }
+
+      job->next = pass->pipelineJobs;
+      pass->pipelineJobs = job;
     }
 
-    draw->pipeline = job->pipeline;
+    draw->pipeline = (gpu_pipeline*) &job->pipeline;
   }
 
   // Render area
@@ -1431,7 +1391,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   if (activeDrawCount == 0) {
     gpu_render_begin(stream, &pass->target, timestamps);
     gpu_render_end(stream, &pass->target, timestamps, NULL, 0);
-    return waitForPipelines(pipelineJobs, &pipelineCounter);
+    return waitForPipelines(pass, &pipelineCounter);
   }
 
   // Builtins
@@ -1554,11 +1514,9 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
   gpu_render_begin(stream, &pass->target, timestamps);
   gpu_bind_vertex_buffers(stream, &state.defaultBuffer->gpu, NULL, 1, 1);
 
-  if (!waitForPipelines(pipelineJobs, &pipelineCounter)) {
+  if (!waitForPipelines(pass, &pipelineCounter)) {
     return false;
   }
-
-  pipelineJobs = NULL;
 
   for (uint32_t i = 0; i < activeDrawCount; i++) {
     Draw* draw = &pass->draws[activeDraws[i]];
@@ -1750,7 +1708,7 @@ static bool recordRenderPass(Pass* pass, gpu_stream* stream, gpu_timestamp_write
 
   return true;
 fail:
-  waitForPipelines(pipelineJobs, &pipelineCounter);
+  waitForPipelines(pass, &pipelineCounter);
   return false;
 }
 
@@ -1942,9 +1900,21 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
 
     gpu_sync(stream, &computeBarriers[i], 1);
 
-    if (!recordRenderPass(pass, stream, &renderTimestamps)) {
-      goto fail;
+    bool success = recordRenderPass(pass, stream, &renderTimestamps);
+
+    // Merge any new pipelines into the pipeline lookup
+    for (PipelineJob* job = pass->pipelineJobs; job; job = job->next) {
+      if (job->error) continue;
+      if (map_getp(&job->shader->pipelines, job->hash)) {
+        gpu_pipeline_destroy((gpu_pipeline*) &job->pipeline);
+      } else {
+        map_set(&job->shader->pipelines, job->hash, job->pipeline);
+      }
     }
+
+    pass->pipelineJobs = NULL;
+
+    if (!success) goto fail;
 
     gpu_sync(stream, &renderBarriers[i], 1);
 
@@ -2035,15 +2005,6 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         block->tick = state.tick;
       }
     }
-
-    // Merge any new pipelines into the global pipeline lookup
-    for (PipelineJob* job = state.newPipelines; job; job = job->next) {
-      if (map_get(&state.pipelineLookup, job->hash) == MAP_NIL) {
-        map_set(&state.pipelineLookup, job->hash, (uint64_t) (uintptr_t) job->pipeline);
-      }
-    }
-
-    state.newPipelines = NULL;
   }
 
   // All of the buffers after the front of the 'current' list are the buffers that filled up while
@@ -2093,7 +2054,6 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
   return true;
 fail:
   stackPop(&thread.stack, stack);
-  state.newPipelines = NULL;
   mtx_unlock(&state.lock);
   return false;
 }
@@ -3486,10 +3446,10 @@ static bool lovrShaderInit(Shader* shader) {
       .flagCount = shader->overrideCount
     };
 
-    uint32_t index = atomic_fetch_add(&state.pipelineCount, 1);
-    lovrAssert(index < MAX_PIPELINES, "Too many pipelines!");
-    shader->computePipeline = getPipeline(index);
+    shader->computePipeline = lovrMalloc(gpu_sizeof_pipeline());
     lovrAssert(gpu_pipeline_init_compute(shader->computePipeline, &pipelineInfo), "Failed to create compute shader pipeline: %s", gpu_get_error());
+  } else {
+    map_init(&shader->pipelines, 4);
   }
 
   return true;
@@ -4096,6 +4056,16 @@ void lovrShaderDestroy(void* ref) {
     lovrFree(shader->names);
     lovrFree((char*) shader->info.label);
   }
+  if (shader->computePipeline) {
+    gpu_pipeline_destroy(shader->computePipeline);
+    lovrFree(shader->computePipeline);
+  }
+  for (uint32_t i = 0; i < shader->pipelines.size; i++) {
+    if (shader->pipelines.hashes[i] != MAP_NIL) {
+      gpu_pipeline_destroy((gpu_pipeline*) &shader->pipelines.values[i]);
+    }
+  }
+  map_free(&shader->pipelines);
   lovrFree(shader->flags);
   lovrFree(shader->flagLookup);
   lovrFree(shader);
@@ -9657,10 +9627,6 @@ static size_t stackPush(Allocator* allocator) {
 
 static void stackPop(Allocator* allocator, size_t stack) {
   allocator->cursor = stack;
-}
-
-static gpu_pipeline* getPipeline(uint32_t index) {
-  return (gpu_pipeline*) ((char*) state.pipelines + index * gpu_sizeof_pipeline());
 }
 
 static BufferView allocateBuffer(BufferAllocator* allocator, gpu_buffer_type type, uint32_t size, size_t align) {

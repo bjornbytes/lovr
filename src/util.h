@@ -122,6 +122,7 @@ typedef struct {
 void map_init(map_t* map, uint32_t n);
 void map_free(map_t* map);
 uint64_t map_get(map_t* map, uint64_t hash);
+void* map_getp(map_t* map, uint64_t hash);
 void map_set(map_t* map, uint64_t hash, uint64_t value);
 
 // UTF-8
