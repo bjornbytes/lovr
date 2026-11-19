@@ -53,6 +53,10 @@ var headset = {
     // TODO
   },
 
+  lovrHeadsetIsScannerSupported(type) {
+    return 0;
+  },
+
   lovrHeadsetIsSeated() {
     return false;
   },
@@ -424,6 +428,102 @@ var headset = {
   lovrHeadsetSetButton(device, button, down) {
     state.poses[device].buttons &= ~(1 << button);
     state.poses[device].buttons |= (down << button);
+  },
+
+  lovrScannerCreate(info) {
+    return 0;
+  },
+
+  lovrScannerCreateComplete(future) {
+    return 0;
+  },
+
+  lovrScannerDestroy(ref) {
+    //
+  },
+
+  lovrScannerGetType(scanner) {
+    return 0;
+  },
+
+  lovrScannerScan(scanner, background) {
+    return 0;
+  },
+
+  lovrScannerGetAnchors(scanner, anchor) {
+    return 0;
+  },
+
+  lovrScannerUpdate(scanner) {
+    return false;
+  },
+
+  lovrPointAnchorCreate(scanner, position, orientation) {
+    return 0;
+  },
+
+  lovrAnchorDestroy(ref) {
+    //
+  },
+
+  lovrAnchorIsActive(anchor) {
+    return false;
+  },
+
+  lovrAnchorIsTracked(anchor) {
+    return false;
+  },
+
+  lovrAnchorGetType(anchor) {
+    return 0;
+  },
+
+  lovrAnchorGetParent(anchor) {
+    return 0;
+  },
+
+  lovrAnchorGetPosition(anchor, position) {
+    return 0;
+  },
+
+  lovrAnchorGetOrientation(anchor, orientation) {
+    return 0;
+  },
+
+  lovrAnchorGetDimensions(anchor, dimensions) {
+    return 0;
+  },
+
+  lovrAnchorGetLabel(anchor, length) {
+    return 0;
+  },
+
+  lovrAnchorDidMeshChange(anchor) {
+    return 0;
+  },
+
+  lovrAnchorGetMesh(anchor) {
+    return 0;
+  },
+
+  lovrAnchorGetMeshPose(anchor, position, orientation) {
+    return 0;
+  },
+
+  lovrAnchorGetVertices(anchor, count, normals) {
+    return 0;
+  },
+
+  lovrAnchorGetIndices(anchor, count) {
+    return 0;
+  },
+
+  lovrPointAnchorSave(anchor) {
+    return 0;
+  },
+
+  lovrPointAnchorDelete(anchor) {
+    return 0;
   },
 
   lovrLayerCreate(info) {
