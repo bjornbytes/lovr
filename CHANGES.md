@@ -7,6 +7,7 @@ dev
 ### Fix
 
 - Fix issues with `lovr.graphics.compileShader`.
+- Fix crash when drawing skinned models with no skinned vertices.
 
 v0.19.1 - 2026-11-10
 ---
