@@ -6089,7 +6089,7 @@ static bool lovrModelAnimateVertices(Model* model) {
   bool blend = !!model->blendShapeWeights;
   bool skin = meta->skinCount > 0;
 
-  if ((!blend && !skin) || (!model->transformsDirty && !model->blendShapesDirty) || model->lastVertexAnimation == state.tick || !model->vertexBuffer) {
+  if ((!blend && !skin) || (!model->transformsDirty && !model->blendShapesDirty) || model->lastVertexAnimation == state.tick || !model->vertexBuffer || !model->rawVertexBuffer) {
     return true;
   }
 
