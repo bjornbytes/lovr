@@ -186,7 +186,7 @@ static int l_lovrMaterialSetTexture(lua_State* L) {
   Material* material = luax_checktype(L, 1, Material);
   int index = 2;
   MaterialTexture type = lua_type(L, index) == LUA_TSTRING ? luax_checkenum(L, index++, MaterialTexture, NULL) : TEXTURE_COLOR;
-  Texture* texture = luax_checktype(L, index, Texture);
+  Texture* texture = lua_isnoneornil(L, index) ? NULL : luax_checktype(L, index, Texture);
   luax_assert(L, lovrMaterialSetTexture(material, type, texture));
   return 0;
 }
