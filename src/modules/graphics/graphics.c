@@ -613,8 +613,9 @@ static struct {
   gpu_device_info device;
   gpu_features features;
   gpu_limits limits;
-  atomic_uint bufferMemory;
-  atomic_uint textureMemory;
+  atomic_ullong bufferMemory;
+  atomic_ullong textureMemory;
+  atomic_uint pipelineCount;
   mtx_t lock;
   gpu_stream* stream;
   gpu_barrier barrier;
@@ -1050,8 +1051,9 @@ void lovrGraphicsGetStats(GraphicsStats* stats) {
     stats->memoryUsage = ~0ull;
   }
 
-  stats->bufferMemory = state.bufferMemory;
-  stats->textureMemory = state.textureMemory;
+  stats->bufferMemory = atomic_load(&state.bufferMemory);
+  stats->textureMemory = atomic_load(&state.textureMemory);
+  stats->pipelines = atomic_load(&state.pipelineCount);
 }
 
 uint32_t lovrGraphicsGetFormatSupport(uint32_t format, uint32_t features) {
@@ -1909,6 +1911,7 @@ bool lovrGraphicsSubmit(Pass** passes, uint32_t count) {
         gpu_pipeline_destroy((gpu_pipeline*) &job->pipeline);
       } else {
         map_set(&job->shader->pipelines, job->hash, job->pipeline);
+        atomic_fetch_add(&state.pipelineCount, 1);
       }
     }
 
@@ -3448,6 +3451,7 @@ static bool lovrShaderInit(Shader* shader) {
 
     shader->computePipeline = lovrMalloc(gpu_sizeof_pipeline());
     lovrAssert(gpu_pipeline_init_compute(shader->computePipeline, &pipelineInfo), "Failed to create compute shader pipeline: %s", gpu_get_error());
+    atomic_fetch_add(&state.pipelineCount, 1);
   } else {
     map_init(&shader->pipelines, 4);
   }
@@ -4059,10 +4063,12 @@ void lovrShaderDestroy(void* ref) {
   if (shader->computePipeline) {
     gpu_pipeline_destroy(shader->computePipeline);
     lovrFree(shader->computePipeline);
+    atomic_fetch_sub(&state.pipelineCount, 1);
   }
   for (uint32_t i = 0; i < shader->pipelines.size; i++) {
     if (shader->pipelines.hashes[i] != MAP_NIL) {
       gpu_pipeline_destroy((gpu_pipeline*) &shader->pipelines.values[i]);
+      atomic_fetch_sub(&state.pipelineCount, 1);
     }
   }
   map_free(&shader->pipelines);

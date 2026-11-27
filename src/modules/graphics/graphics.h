@@ -98,6 +98,7 @@ typedef struct {
   uint64_t textureMemory;
   uint64_t memoryBudget;
   uint64_t memoryUsage;
+  uint32_t pipelines;
 } GraphicsStats;
 
 enum {

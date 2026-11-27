@@ -672,6 +672,7 @@ static int l_lovrGraphicsGetStats(lua_State* L) {
   lua_newtable(L);
   lua_pushnumber(L, (lua_Number) stats.bufferMemory), lua_setfield(L, -2, "bufferMemory");
   lua_pushnumber(L, (lua_Number) stats.textureMemory), lua_setfield(L, -2, "textureMemory");
+  lua_pushinteger(L, stats.pipelines), lua_setfield(L, -2, "pipelines");
 
   if (stats.memoryBudget != ~0ull && stats.memoryUsage != ~0ull) {
     lua_pushnumber(L, (lua_Number) stats.memoryBudget), lua_setfield(L, -2, "memoryBudget");

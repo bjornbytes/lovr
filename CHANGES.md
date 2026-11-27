@@ -32,6 +32,7 @@ dev
 - Add `readonly` flag to `depth` table in `Pass:setCanvas`.
 - Add `lovr.filedropped` event.
 - Add `lovr.filesystem.exists`.
+- Add `pipelines` field to `lovr.graphics.getStats` table.
 
 ### Change
 
