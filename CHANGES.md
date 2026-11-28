@@ -33,6 +33,7 @@ dev
 - Add `lovr.filedropped` event.
 - Add `lovr.filesystem.exists`.
 - Add `pipelines` field to `lovr.graphics.getStats` table.
+- Add support for loading glTF models with ASTC textures.
 
 ### Change
 

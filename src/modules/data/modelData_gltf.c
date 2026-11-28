@@ -658,7 +658,7 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
           } else if (STR_EQ(key, "extensions")) {
             for (int k2 = (token++)->size; k2 > 0; k2--) {
               gltfString key = NOM_STR(json, token);
-              if (STR_EQ(key, "KHR_texture_basisu")) {
+              if (STR_EQ(key, "KHR_texture_basisu") || STR_EQ(key, "EXT_texture_astc")) {
                 for (int k3 = (token++)->size; k3 > 0; k3--) {
                   gltfString key = NOM_STR(json, token);
                   if (STR_EQ(key, "source")) {
