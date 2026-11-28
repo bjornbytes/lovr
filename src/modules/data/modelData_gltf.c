@@ -1051,6 +1051,22 @@ bool lovrModelDataInitGltf(ModelData** result, Blob* source, ModelDataIO* io) {
           memcpy(meta->chars, name.data, name.length);
           material->name = meta->chars;
           meta->chars += name.length + 1;
+        } else if (STR_EQ(key, "extensions")) {
+          for (int k2 = (token++)->size; k2 > 0; k2--) {
+            gltfString key = NOM_STR(json, token);
+            if (STR_EQ(key, "KHR_materials_emissive_strength")) {
+              for (int k3 = (token++)->size; k3 > 0; k3--) {
+                gltfString key = NOM_STR(json, token);
+                if (STR_EQ(key, "emissiveStrength")) {
+                  material->glow[3] = NOM_FLOAT(json, token);
+                } else {
+                  token = NOM(token);
+                }
+              }
+            } else {
+              token = NOM(token);
+            }
+          }
         } else {
           token = NOM(token);
         }
