@@ -163,7 +163,7 @@ layout(location = 15) in vec4 Tangent;
 
 #ifdef GL_VERTEX_SHADER
 #define Transform mat4(Draws[_drawID].transform)
-#define NormalMatrix (cofactor3(Draws[_drawID].transform))
+#define NormalMatrix (cofactor3(mat3(Draws[_drawID].transform)))
 #define PassColor Draws[_drawID].color
 #define ClipFromLocal (ViewProjection * Transform)
 #define ClipFromWorld (ViewProjection)
@@ -176,7 +176,7 @@ layout(location = 15) in vec4 Tangent;
 #define WorldFromClip (inverse(ViewProjection))
 #define DefaultPosition (ClipFromLocal * VertexPosition)
 
-mat3 cofactor3(mat4x3 m) {
+mat3 cofactor3(mat3 m) {
   return mat3(vec3(
      (m[1][1] * m[2][2] - m[2][1] * m[1][2]),
     -(m[1][0] * m[2][2] - m[2][0] * m[1][2]),
